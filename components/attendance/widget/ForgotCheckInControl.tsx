@@ -217,7 +217,18 @@ const ForgotCheckInControl: React.FC<ForgotCheckInControlProps> = ({
             const distanceKm = (distanceFromOffice / 1000).toFixed(2);
             finalReason = `[DISTANCE:${distanceKm}] ${finalReason}`;
         }
-        const success = await onSubmit(type, start, end, finalReason, file, selectedRemoteType);
+
+        const effectiveRemoteType = selectedRemoteType || (
+            todayActiveLeave && (todayActiveLeave.type === 'WFH' || todayActiveLeave.type === 'ONSITE')
+                ? todayActiveLeave.type
+                : undefined
+        );
+
+        if (effectiveRemoteType && !finalReason.includes('[REMOTE:')) {
+            finalReason = `[REMOTE:${effectiveRemoteType}] ${finalReason}`;
+        }
+
+        const success = await onSubmit(type, start, end, finalReason, file, effectiveRemoteType);
         if (success) {
             setIsModalOpen(false);
             setGpsCheckStatus('IDLE');

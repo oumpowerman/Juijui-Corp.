@@ -6,7 +6,6 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { LeaveRequest } from '../../../../types/attendance';
-import { useGlobalDialog } from '../../../../context/GlobalDialogContext';
 import { getWorkingDaysDifference } from '../../../../lib/attendanceUtils';
 import { parseReason, ParsedReason } from '../request-detail/utils';
 import { getRegistryItem } from '../../../../constants/attendanceRegistry';
@@ -115,6 +114,18 @@ export const ApprovalCardDetails: React.FC<ApprovalCardDetailsProps> = ({
                     </span>
                 )}
 
+                {parsed.isProvisionalLate && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold border bg-violet-50 text-violet-700 border-violet-200/60 flex items-center gap-1 animate-pulse shadow-sm">
+                        <AlertTriangle className="w-3 h-3 text-violet-500" /> เข้าสายแบบจำลอง (รออนุมัติสิทธิ์)
+                    </span>
+                )}
+
+                {parsed.isProvisionalCheckout && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold border bg-rose-50 text-rose-700 border-rose-200/60 flex items-center gap-1 animate-pulse shadow-sm">
+                        <AlertTriangle className="w-3 h-3 text-rose-500" /> ลืมลงเวลาออกงานจำลอง (รออนุมัติสิทธิ์)
+                    </span>
+                )}
+
                 {parsed.isProvisionalGps && (
                     <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold border bg-purple-50 text-purple-700 border-purple-200/60 flex items-center gap-1 animate-pulse shadow-sm">
                         <AlertTriangle className="w-3 h-3 text-purple-500" /> 📍 ลงเวลาแบบจำลอง (อุทธรณ์พิกัด GPS)
@@ -139,9 +150,21 @@ export const ApprovalCardDetails: React.FC<ApprovalCardDetailsProps> = ({
                     </span>
                 )}
 
+                {parsed.targetShift && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold border bg-purple-100 text-purple-700 border-purple-200/60 flex items-center gap-1 shadow-sm">
+                        <Clock className="w-3 h-3 text-purple-500" /> 🎯 กะงาน: {parsed.targetShift} น.
+                    </span>
+                )}
+
                 {parsed.time && (
                     <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold border bg-indigo-100 text-indigo-700 border-indigo-200/60 flex items-center gap-1">
                         <Clock className="w-3 h-3" /> เวลา: {parsed.time} น.
+                    </span>
+                )}
+
+                {parsed.actualCheckInTime && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold border bg-teal-50 text-teal-700 border-teal-200/60 flex items-center gap-1 shadow-sm">
+                        <Clock className="w-3 h-3 text-teal-500" /> เวลาสแกนจริง: {parsed.actualCheckInTime} น.
                     </span>
                 )}
 
@@ -154,6 +177,24 @@ export const ApprovalCardDetails: React.FC<ApprovalCardDetailsProps> = ({
                 {parsed.isFixedOt && (
                     <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold border bg-indigo-100 text-indigo-700 border-indigo-200/60 flex items-center gap-1 animate-pulse">
                         <Moon className="w-3 h-3 text-indigo-500" /> เหมาจ่าย (Lump-sum)
+                    </span>
+                )}
+
+                {parsed.remoteType && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold border bg-emerald-50 text-emerald-700 border-emerald-200/60 flex items-center gap-1 shadow-sm">
+                        🏠 ทำงานรีโมท: {parsed.remoteType}
+                    </span>
+                )}
+
+                {parsed.distance && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold border bg-rose-50 text-rose-700 border-rose-200/60 flex items-center gap-1 shadow-sm">
+                        <MapPin className="w-3 h-3 text-rose-500" /> ห่างพิกัดหลัก: {parsed.distance} กม.
+                    </span>
+                )}
+
+                {parsed.linkId && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold border bg-indigo-50 text-indigo-700 border-indigo-200/60 flex items-center gap-1 shadow-sm">
+                        🔗 ผูกคำขอร่วมกัน
                     </span>
                 )}
 
@@ -226,11 +267,15 @@ export const ApprovalCardActions: React.FC<ApprovalCardActionsProps> = ({
 }) => {
     if (request.status !== 'PENDING') return null;
 
-    if (request.type === 'FORGOT_CHECKIN') {
+    const registryItem = getRegistryItem(request.type);
+    const isTimeSpecific = registryItem?.rules?.isTimeSpecific ?? false;
+    const isTimeApplicable = isTimeSpecific || ['FORGOT_CHECKIN', 'FORGOT_BOTH', 'LATE_ENTRY'].includes(request.type);
+
+    if (isTimeApplicable) {
         const parsed = parseReason(request.reason);
-        const requestTime = parsed.time || '10:00';
+        const requestTime = parsed.time;
         return (
-            <div className="flex flex-col sm:flex-row lg:flex-col gap-2 shrink-0 lg:w-44 lg:justify-center border-t lg:border-t-0 lg:border-l border-black/5 pt-4 lg:pt-0 lg:pl-6 mt-2 lg:mt-0">
+            <div className="flex flex-col sm:flex-row lg:flex-col gap-2 shrink-0 lg:w-44 lg:justify-center border-t lg:border-t-0 lg:border-l border-black/5 pt-4 lg:pt-0 lg:pl-6 mt-2 lg:mt-0" onClick={(e) => e.stopPropagation()}>
                 <button 
                     onClick={(e) => { 
                         e.stopPropagation(); 
@@ -239,7 +284,7 @@ export const ApprovalCardActions: React.FC<ApprovalCardActionsProps> = ({
                     className="flex-1 px-3 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-2xl text-[10px] font-bold shadow-lg shadow-green-100 transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
                     id={`approve-direct-btn-${request.id}`}
                 >
-                    <CheckCircle2 className="w-3.5 h-3.5" /> อนุมัติตามขอ ({requestTime})
+                    <CheckCircle2 className="w-3.5 h-3.5" /> อนุมัติตามขอ{requestTime ? ` (${requestTime})` : ''}
                 </button>
                 <button 
                     onClick={(e) => { 
@@ -266,7 +311,7 @@ export const ApprovalCardActions: React.FC<ApprovalCardActionsProps> = ({
     }
 
     return (
-        <div className="flex flex-row lg:flex-col gap-2 shrink-0 lg:w-32 lg:justify-center border-t lg:border-t-0 lg:border-l border-black/5 pt-4 lg:pt-0 lg:pl-6 mt-2 lg:mt-0">
+        <div className="flex flex-row lg:flex-col gap-2 shrink-0 lg:w-32 lg:justify-center border-t lg:border-t-0 lg:border-l border-black/5 pt-4 lg:pt-0 lg:pl-6 mt-2 lg:mt-0" onClick={(e) => e.stopPropagation()}>
             <button 
                 onClick={(e) => { 
                     e.stopPropagation(); 
@@ -355,20 +400,23 @@ export const ApprovalItemCard = React.forwardRef<HTMLDivElement, ApprovalItemCar
             }`}></div>
 
             <div className="flex flex-col lg:flex-row gap-6 justify-between">
-                <div className="flex gap-5 flex-1">
-                    <ApprovalCardHeader request={request} cardStyle={cardStyle} />
-                    <ApprovalCardDetails 
-                        request={request} 
-                        parsed={parsed} 
-                        cardStyle={cardStyle} 
-                        annualHolidays={annualHolidays}
-                        calendarExceptions={calendarExceptions}
-                    />
+                <div className="flex flex-col gap-4 flex-1">
+                    <div className="flex gap-5">
+                        <ApprovalCardHeader request={request} cardStyle={cardStyle} />
+                        <ApprovalCardDetails 
+                            request={request} 
+                            parsed={parsed} 
+                            cardStyle={cardStyle} 
+                            annualHolidays={annualHolidays}
+                            calendarExceptions={calendarExceptions}
+                        />
+                    </div>
                 </div>
+
                 <ApprovalCardActions 
-                    request={request} 
-                    onApprove={onApprove} 
-                    onRejectClick={onRejectClick} 
+                    request={request}
+                    onApprove={onApprove}
+                    onRejectClick={onRejectClick}
                 />
             </div>
         </motion.div>

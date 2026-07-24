@@ -143,7 +143,7 @@ const WorkTimeCard: React.FC<WorkTimeCardProps> = ({
                         <input 
                             id="input-ot-jp-rate"
                             type="number" 
-                            className="w-full pl-4 pr-20 py-3 border border-gray-200 rounded-xl font-bold text-gray-800 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50/70 outline-none transition-all"
+                            className="w-full pl-4 pr-12 py-3 border border-gray-200 rounded-xl font-bold text-gray-800 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50/70 outline-none transition-all"
                             value={otJpRate}
                             onChange={e => setOtJpRate(e.target.value)}
                             placeholder="10"

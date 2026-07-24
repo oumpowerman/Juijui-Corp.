@@ -139,7 +139,6 @@ export const LocationForm: React.FC<LocationFormProps> = ({
               placeholder={isOffice ? 'เช่น สำนักงานใหญ่, ออฟฟิศอโศก' : 'เช่น สตูดิโอ A, สยามพารากอน'}
               value={name}
               onChange={e => setName(e.target.value)}
-              autoFocus={!isEditing}
             />
           </div>
         </div>

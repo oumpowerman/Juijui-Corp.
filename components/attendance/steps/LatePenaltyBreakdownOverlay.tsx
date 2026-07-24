@@ -5,6 +5,10 @@ import { useGameConfig } from '../../../context/GameConfigContext';
 import { useUserSession } from '../../../context/UserSessionContext';
 import { DEFAULT_GAME_CONFIG } from '../../../lib/gameLogic';
 
+// 1 = โหมดเดิม (แสดงหลอดเลือด HP / คำนวณพลังชีวิตจาก 100 เหลือ 0 / แสดงคำเตือนตัวละครตาย)
+// 2 = โหมดใหม่ (ซ่อนหลอดเลือด HP / เน้นแสดงจำนวนคะแนนโทษที่โดนหักสะสม เพื่อรองรับระบบเริ่มต้นที่ 0 และสะสมติดลบ)
+const HP_DISPLAY_MODE = 2 as number; // สลับเป็น 1 หรือ 2 ได้ตามต้องการ
+
 interface LatePenaltyBreakdownOverlayProps {
     startTime: string;
     lateMinutes: number;
@@ -149,52 +153,75 @@ const LatePenaltyBreakdownOverlay: React.FC<LatePenaltyBreakdownOverlayProps> = 
                     )}
                 </div>
 
-                {/* 4. HP Damage Preview (RPG Style) */}
+                {/* 4. HP Damage Preview (RPG Style / Penalty Accumulator) */}
                 <div className="bg-rose-50/40 border border-rose-100/60 rounded-2xl p-4 space-y-3">
-                    <div className="flex justify-between items-center">
-                        <span className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
-                            <Heart className="w-4 h-4 text-red-500 fill-red-500" /> ผลกระทบต่อพลังชีวิต (HP)
-                        </span>
-                        <div className="flex items-center gap-1.5 font-mono text-xs font-bold">
-                            <span className="text-gray-500">{currentHp}</span>
-                            <span className="text-rose-500">➔ -{penaltyValue}</span>
+                    {HP_DISPLAY_MODE === 1 ? (
+                        // === [โหมด 1: แบบแสดงหลอดเลือดเดิม] ===
+                        <>
+                            <div className="flex justify-between items-center">
+                                <span className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                                    <Heart className="w-4 h-4 text-red-500 fill-red-500" /> ผลกระทบต่อพลังชีวิต (HP)
+                                </span>
+                                <div className="flex items-center gap-1.5 font-mono text-xs font-bold">
+                                    <span className="text-gray-500">{currentHp}</span>
+                                    <span className="text-rose-500">➔ -{penaltyValue}</span>
+                                    {predictedHp <= 0 ? (
+                                        <span className="text-rose-600 bg-rose-100 px-1.5 py-0.5 rounded border border-rose-200 animate-bounce">
+                                            💀 {predictedHp} HP
+                                        </span>
+                                    ) : (
+                                        <span className="text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
+                                            {predictedHp} HP
+                                        </span>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* RPG HP bar visualization */}
+                            <div className="relative w-full h-4 bg-gray-200 rounded-full overflow-hidden border border-gray-300">
+                                {/* Shaded/Damage animation bar */}
+                                <div 
+                                    style={{ width: `${currentHpPercent}%` }} 
+                                    className="absolute top-0 left-0 h-full bg-rose-300 rounded-full transition-all duration-500" 
+                                />
+                                {/* Solid Remaining Health bar */}
+                                <div 
+                                    style={{ width: `${predictedHpPercent}%` }} 
+                                    className="absolute top-0 left-0 h-full bg-red-500 rounded-full transition-all duration-500" 
+                                />
+                                {/* Text inside the bar */}
+                                <span className="absolute inset-0 flex items-center justify-center text-[9px] font-black text-gray-800 drop-shadow-sm font-mono z-10">
+                                    HP: {predictedHp} / {maxHp}
+                                </span>
+                            </div>
                             {predictedHp <= 0 ? (
-                                <span className="text-rose-600 bg-rose-100 px-1.5 py-0.5 rounded border border-rose-200 animate-bounce">
-                                    💀 {predictedHp} HP
+                                <span className="block text-[10px] text-center text-rose-600 font-extrabold animate-pulse">
+                                    ⚠️ คำเตือน: พลังชีวิตของท่านหมดลงแล้ว! ตัวละครจะอยู่ในสถานะหมดสภาพ (Defeated)
                                 </span>
                             ) : (
-                                <span className="text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">
-                                    {predictedHp} HP
+                                <span className="block text-[10px] text-center text-red-500/80 font-medium">
+                                    *หาก HP ของท่านหมดเป็น 0 ตัวละครจะเสียชีวิตและสูญเสียคะแนนสะสมบางส่วน!
                                 </span>
                             )}
-                        </div>
-                    </div>
-
-                    {/* RPG HP bar visualization */}
-                    <div className="relative w-full h-4 bg-gray-200 rounded-full overflow-hidden border border-gray-300">
-                        {/* Shaded/Damage animation bar */}
-                        <div 
-                            style={{ width: `${currentHpPercent}%` }} 
-                            className="absolute top-0 left-0 h-full bg-rose-300 rounded-full transition-all duration-500" 
-                        />
-                        {/* Solid Remaining Health bar */}
-                        <div 
-                            style={{ width: `${predictedHpPercent}%` }} 
-                            className="absolute top-0 left-0 h-full bg-red-500 rounded-full transition-all duration-500" 
-                        />
-                        {/* Text inside the bar */}
-                        <span className="absolute inset-0 flex items-center justify-center text-[9px] font-black text-gray-800 drop-shadow-sm font-mono z-10">
-                            HP: {predictedHp} / {maxHp}
-                        </span>
-                    </div>
-                    {predictedHp <= 0 ? (
-                        <span className="block text-[10px] text-center text-rose-600 font-extrabold animate-pulse">
-                            ⚠️ คำเตือน: พลังชีวิตของท่านหมดลงแล้ว! ตัวละครจะอยู่ในสถานะหมดสภาพ (Defeated)
-                        </span>
+                        </>
                     ) : (
-                        <span className="block text-[10px] text-center text-red-500/80 font-medium">
-                            *หาก HP ของท่านหมดเป็น 0 ตัวละครจะเสียชีวิตและสูญเสียคะแนนสะสมบางส่วน!
-                        </span>
+                        // === [โหมด 2: แบบใหม่ซ่อนหลอดเลือด เน้นติดลบคะแนนสะสม] ===
+                        <>
+                            <div className="flex justify-between items-center">
+                                <span className="text-xs font-bold text-gray-700 flex items-center gap-1.5">
+                                    <Heart className="w-4 h-4 text-rose-500 fill-rose-500 animate-pulse" /> โทษหักคะแนนวินัยสะสม
+                                </span>
+                                <div className="flex items-center gap-1.5 font-mono text-sm font-black text-rose-600">
+                                    <span>หัก {penaltyValue} แต้ม</span>
+                                </div>
+                            </div>
+                            
+                            <div className="h-[1px] bg-rose-200/40 my-1" />
+                            
+                            <span className="block text-[10.5px] text-center text-rose-700 font-medium leading-relaxed bg-rose-50 p-2.5 rounded-xl border border-rose-100">
+                                📌 โทษหักคะแนนนี้จะถูกหักสะสมเข้าไปยังประวัติวินัยการเช็คอินโดยอัตโนมัติ เพื่อประเมินผลงานประจำสัปดาห์
+                            </span>
+                        </>
                     )}
                 </div>
             </div>

@@ -1,8 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { CheckCircle2, XCircle, Clock, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, XCircle, Clock, AlertTriangle, ChevronDown } from 'lucide-react';
 import TimePickerModal from '../../../ui/TimePickerModal';
+import { useMasterDataContext } from '../../../../context/MasterDataContext';
+import { useGlobalDialog } from '../../../../context/GlobalDialogContext';
+import { getMaxShiftWithBuffer } from '../../../../lib/attendanceUtils';
+import { ShiftCardSelector } from '../form-inputs/ShiftCardSelector';
+import { getRegistryItem } from '../../../../constants/attendanceRegistry';
 
 interface ActionFooterProps {
     isSubmitting: boolean;
@@ -23,16 +28,39 @@ export const ActionFooter: React.FC<ActionFooterProps> = ({
     isProvisional = false,
     initialRejectMode = false
 }) => {
+    const { masterOptions } = useMasterDataContext();
+    const { showAlert } = useGlobalDialog();
+    const shiftsEnabledOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'MULTIPLE_SHIFTS_ENABLED');
+    const shiftsListOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'MULTIPLE_SHIFTS_LIST');
+
+    const shiftsEnabled = shiftsEnabledOpt?.label === 'true';
+    const shiftsList = (shiftsListOpt?.label || '08:00, 08:30, 09:00')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+
+    const registryItem = requestType ? getRegistryItem(requestType) : undefined;
+    const isTimeSpecific = registryItem?.rules?.isTimeSpecific ?? false;
+    const isShiftApplicable = isTimeSpecific && (shiftsEnabled || (requestType && ['FORGOT_CHECKIN', 'FORGOT_BOTH', 'LATE_ENTRY'].includes(requestType)));
+
     const [isRejectMode, setIsRejectMode] = useState(initialRejectMode);
     const [rejectionReason, setRejectionReason] = useState('');
     const [adjustedTime, setAdjustedTime] = useState(defaultCheckInTime);
+    const [selectedShift, setSelectedShift] = useState<string>(() => {
+        if (defaultCheckInTime && shiftsList.includes(defaultCheckInTime)) return defaultCheckInTime;
+        return shiftsList[0] || '08:00';
+    });
     const [rejectionMode, setRejectionMode] = useState<'ABSENT' | 'ACTION_REQUIRED' | 'KEEP_WORKING'>('ABSENT');
     const [isTimePickerOpen, setIsTimePickerOpen] = useState(false);
     const [isAdjustPickerOpen, setIsAdjustPickerOpen] = useState(false);
+    const [isShiftExpanded, setIsShiftExpanded] = useState(false);
 
     useEffect(() => {
         if (defaultCheckInTime) {
             setAdjustedTime(defaultCheckInTime);
+            if (shiftsList.includes(defaultCheckInTime)) {
+                setSelectedShift(defaultCheckInTime);
+            }
         }
     }, [defaultCheckInTime]);
 
@@ -46,7 +74,7 @@ export const ActionFooter: React.FC<ActionFooterProps> = ({
         if (!rejectionReason.trim()) return;
         try {
             const hasAdjustedTime = requestType === 'FORGOT_CHECKIN' || rejectionMode === 'KEEP_WORKING';
-            await onReject(rejectionReason, hasAdjustedTime ? adjustedTime : undefined, rejectionMode);
+            await onReject(rejectionReason, hasAdjustedTime ? (selectedShift || adjustedTime) : undefined, rejectionMode);
             setIsRejectMode(false);
             setRejectionReason('');
         } catch (e) {
@@ -55,69 +83,136 @@ export const ActionFooter: React.FC<ActionFooterProps> = ({
     };
 
     return (
-        <div className="p-3 sm:p-6 bg-slate-50 border-t border-slate-100 shrink-0">
-            {requestType === 'FORGOT_CHECKIN' ? (
-                <div className="flex flex-col sm:flex-row gap-3 w-full">
+        <div className="p-3 sm:p-6 bg-slate-50 border-t border-slate-100 shrink-0 space-y-4">
+            {isShiftApplicable && (
+                <div className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+                    {/* Header Button สำหรับกด ยืด/หด */}
                     <button
                         type="button"
-                        onClick={() => setIsRejectMode(true)}
-                        disabled={isSubmitting}
-                        className="flex-1 py-3.5 bg-white border-2 border-red-100 text-red-500 hover:bg-red-50 rounded-2xl text-xs sm:text-sm font-semibold transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5 sm:gap-2 shadow-sm cursor-pointer"
-                        id="reject-trigger-btn-forgot"
+                        onClick={() => setIsShiftExpanded(!isShiftExpanded)}
+                        className="w-full flex items-center justify-between p-3.5 hover:bg-slate-50 transition-colors text-left cursor-pointer"
                     >
-                        <XCircle className="w-4 h-4" /> ปฏิเสธคำขอ
+                        <div className="flex items-center gap-2">
+                            <Clock className="w-4 h-4 text-indigo-500" />
+                            <span className="text-xs font-semibold text-slate-700">
+                                กะเวลาทำงาน: <span className="text-indigo-600 font-bold ml-1">{selectedShift} น.</span>
+                            </span>
+                        </div>
+                        <motion.div
+                            animate={{ rotate: isShiftExpanded ? 180 : 0 }}
+                            transition={{ duration: 0.2 }}
+                        >
+                            <ChevronDown className="w-4 h-4 text-slate-400" />
+                        </motion.div>
                     </button>
+
+                    {/* ส่วนเนื้อหาตัวเลือกที่หดไว้เริ่มต้น */}
+                    <motion.div
+                        initial={false}
+                        animate={{ 
+                            height: isShiftExpanded ? 'auto' : 0, 
+                            opacity: isShiftExpanded ? 1 : 0 
+                        }}
+                        transition={{ duration: 0.25, ease: 'easeInOut' }}
+                        className="overflow-hidden"
+                    >
+                        <div className="p-3.5 border-t border-slate-100 bg-slate-50/50">
+                            <ShiftCardSelector 
+                                shifts={shiftsList}
+                                selectedShift={selectedShift}
+                                isCustomMode={false}
+                                onSelectShift={(time) => {
+                                    setSelectedShift(time);
+                                    setIsShiftExpanded(false); // หดเก็บอัตโนมัติเมื่อเลือกเสร็จเพื่อประหยัดพื้นที่
+                                }}
+                                onSelectCustom={() => setIsAdjustPickerOpen(true)}
+                            />
+                        </div>
+                    </motion.div>
+                </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-3 w-full">
+                <button
+                    type="button"
+                    onClick={() => setIsRejectMode(true)}
+                    disabled={isSubmitting}
+                    className="flex-1 py-3.5 bg-white border-2 border-red-100 text-red-500 hover:bg-red-50 rounded-2xl text-xs sm:text-sm font-semibold transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5 sm:gap-2 shadow-sm cursor-pointer"
+                    id="reject-trigger-btn"
+                >
+                    <XCircle className="w-4 h-4" /> ปฏิเสธคำขอ
+                </button>
+
+                {isTimeSpecific && (
                     <button
                         type="button"
                         onClick={() => setIsAdjustPickerOpen(true)}
                         disabled={isSubmitting}
-                        className="flex-1 py-3.5 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-xs sm:text-sm font-semibold transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5 sm:gap-2 shadow-lg shadow-amber-100 cursor-pointer"
-                        id="adjust-approve-trigger-btn"
+                        className="px-4 py-3.5 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-xs sm:text-sm font-semibold transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5 sm:gap-2 shadow-lg shadow-amber-100 cursor-pointer"
+                        id="adjust-picker-trigger-btn"
                     >
-                        <Clock className="w-4 h-4" /> แก้ไขเวลา
+                        <Clock className="w-4 h-4" /> เลือกเวลาอื่น
                     </button>
-                    <button
-                        type="button"
-                        onClick={() => onApprove()}
-                        disabled={isSubmitting}
-                        className="flex-1 py-3.5 bg-green-500 hover:bg-green-600 text-white rounded-2xl text-xs sm:text-sm font-semibold transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5 sm:gap-2 shadow-lg shadow-green-100 cursor-pointer"
-                        id="approve-requested-trigger-btn"
-                    >
-                        <CheckCircle2 className="w-4 h-4" /> {isSubmitting ? 'กำลังอนุมัติ...' : `อนุมัติตามที่ขอ (${defaultCheckInTime})`}
-                    </button>
+                )}
 
+                <button
+                    type="button"
+                    onClick={() => {
+                        const targetTime = isShiftApplicable ? selectedShift : undefined;
+                        if (targetTime) {
+                            const { maxAllowedTimeStr, maxShiftTimeStr, bufferMinutes } = getMaxShiftWithBuffer(masterOptions);
+                            if (targetTime > maxAllowedTimeStr) {
+                                showAlert(
+                                    `ไม่สามารถอนุมัติได้: เวลาที่ระบุ (${targetTime} น.) เกินเวลาสายสุดของกะงานรวม Buffer (${maxAllowedTimeStr} น. - คำนวณจากกะสุดท้าย ${maxShiftTimeStr} น. + Buffer ${bufferMinutes} นาที)`,
+                                    'เวลาเกินกำหนดสายสุด'
+                                );
+                                return;
+                            }
+                        }
+                        onApprove(targetTime);
+                    }}
+                    disabled={isSubmitting}
+                    className="flex-1 py-3.5 bg-green-500 hover:bg-green-600 text-white rounded-2xl text-xs sm:text-sm font-semibold transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5 sm:gap-2 shadow-lg shadow-green-100 cursor-pointer"
+                    id="approve-requested-trigger-btn"
+                >
+                    <CheckCircle2 className="w-4 h-4" /> {
+                        isSubmitting 
+                            ? 'กำลังอนุมัติ...' 
+                            : !isTimeSpecific 
+                                ? 'อนุมัติคำขอ'
+                                : requestType === 'OVERTIME'
+                                    ? 'อนุมัติทำงานล่วงเวลา (OT)'
+                                    : requestType === 'FORGOT_CHECKOUT'
+                                        ? `อนุมัติเวลาออกงาน (${defaultCheckInTime})`
+                                        : requestType === 'OUT_OF_RANGE_CHECKOUT'
+                                            ? `อนุมัติลงเวลานอกพื้นที่ (${defaultCheckInTime})`
+                                            : requestType === 'FORGOT_BOTH'
+                                                ? 'อนุมัติเวลาเข้า-ออกงาน'
+                                                : `อนุมัติตามกะที่เลือก (${isShiftApplicable ? selectedShift : defaultCheckInTime})`
+                    }
+                </button>
+
+                {isTimeSpecific && (
                     <TimePickerModal
                         isOpen={isAdjustPickerOpen}
                         onClose={() => setIsAdjustPickerOpen(false)}
                         onSelect={(time) => {
                             setIsAdjustPickerOpen(false);
+                            setSelectedShift(time);
+                            const { maxAllowedTimeStr, maxShiftTimeStr, bufferMinutes } = getMaxShiftWithBuffer(masterOptions);
+                            if (time > maxAllowedTimeStr) {
+                                showAlert(
+                                    `ไม่สามารถอนุมัติได้: เวลาที่เลือก (${time} น.) เกินเวลาสายสุดของกะงานรวม Buffer (${maxAllowedTimeStr} น. - คำนวณจากกะสุดท้าย ${maxShiftTimeStr} น. + Buffer ${bufferMinutes} นาที)`,
+                                    'เวลาเกินกำหนดสายสุด'
+                                );
+                                return;
+                            }
                             onApprove(time);
                         }}
-                        initialTime={defaultCheckInTime}
+                        initialTime={selectedShift || defaultCheckInTime}
                     />
-                </div>
-            ) : (
-                <div className="flex gap-3">
-                    <button
-                        type="button"
-                        onClick={() => setIsRejectMode(true)}
-                        disabled={isSubmitting}
-                        className="flex-1 py-3.5 bg-white border-2 border-red-100 text-red-500 hover:bg-red-50 rounded-2xl text-sm font-semibold transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 shadow-sm cursor-pointer"
-                        id="reject-trigger-btn"
-                    >
-                        <XCircle className="w-4 h-4" /> ปฏิเสธคำขอ
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => onApprove()}
-                        disabled={isSubmitting}
-                        className="flex-1 py-3.5 bg-green-500 hover:bg-green-600 text-white rounded-2xl text-sm font-semibold transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-green-100 cursor-pointer"
-                        id="approve-trigger-btn"
-                    >
-                        <CheckCircle2 className="w-4 h-4" /> {isSubmitting ? 'กำลังอนุมัติ...' : 'อนุมัติคำขอ'}
-                    </button>
-                </div>
-            )}
+                )}
+            </div>
 
             {/* Rejection Modal Portal */}
             {typeof window !== 'undefined' && createPortal(

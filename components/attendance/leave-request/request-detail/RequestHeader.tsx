@@ -10,7 +10,7 @@ interface RequestHeaderProps {
 
 export const RequestHeader: React.FC<RequestHeaderProps> = ({ request, onClose }) => {
     return (
-        <div className="relative bg-gradient-to-r from-slate-50 to-slate-100/50 p-6 border-b border-slate-100 shrink-0">
+        <div className="relative bg-gradient-to-r from-slate-50 to-slate-100/50 p-5 md:p-6 border-b border-slate-100 shrink-0">
             <button 
                 onClick={onClose}
                 className="absolute top-4 right-4 p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-full transition-all"

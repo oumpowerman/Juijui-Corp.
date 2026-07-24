@@ -29,8 +29,9 @@ export const useAttendanceAlerts = (userId: string) => {
         // Ignore logs where both checkInTime and checkOutTime exist (handled in StatusCard)
         const userActionLogs = attendanceLogs.filter(log => {
             if (log.userId !== userId || log.status !== 'ACTION_REQUIRED') return false;
-            // If both checkIn and checkOut exist, it's not a missing time issue
-            if (log.checkInTime && log.checkOutTime) return false;
+            const isGpsRejectedLog = (log.note || '').includes('[REJECTED GPS_SPOOF_APPEAL]') || (log.note || '').includes('[REJECTED_GPS_SPOOF_APPEAL]');
+            // If both checkIn and checkOut exist, and it's not a GPS rejection, it's not a missing time issue
+            if (log.checkInTime && log.checkOutTime && !isGpsRejectedLog) return false;
             return true;
         });
 
@@ -54,7 +55,14 @@ export const useAttendanceAlerts = (userId: string) => {
 
                 let message = `คุณลืมลงเวลาออกของวันที่ ${formattedDate}`;
 
-                if (!log.checkInTime && log.checkOutTime) {
+                const isGpsRejectedLog = (log.note || '').includes('[REJECTED GPS_SPOOF_APPEAL]') || (log.note || '').includes('[REJECTED_GPS_SPOOF_APPEAL]');
+
+                if (isGpsRejectedLog) {
+                    issueType = 'MISSING_BOTH';
+                    requestType = 'GPS_SPOOF_APPEAL';
+                    title = 'การลงเวลาถูกปฏิเสธ (พิกัดผิดปกติ)';
+                    message = `การลงเวลาของวันที่ ${formattedDate} ถูกปฏิเสธเนื่องจากพิกัดไม่ถูกต้อง`;
+                } else if (!log.checkInTime && log.checkOutTime) {
                     issueType = 'MISSING_CHECKIN';
                     requestType = 'FORGOT_CHECKIN';
                     title = isLate ? 'ลืมลงเวลาเข้างาน (เกินกำหนด)' : 'ลืมลงเวลาเข้างาน';

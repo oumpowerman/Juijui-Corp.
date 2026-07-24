@@ -4,8 +4,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { History, ChevronUp, ChevronDown, XCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { LeaveRequest } from '../../../types/attendance';
-import { getWorkingDaysDifference } from '../../../lib/attendanceUtils';
+import { getWorkingDaysDifference, getMaxShiftWithBuffer } from '../../../lib/attendanceUtils';
 import { useMasterData } from '../../../hooks/useMasterData';
+import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 import { attendanceService } from '../../../services/attendanceService';
 
 // Import refactored sub-components
@@ -36,7 +37,8 @@ interface RequestDetailModalProps {
 export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
     request, isOpen, onClose, onApprove, onReject, initialRejectMode = false
 }) => {
-    const { annualHolidays, calendarExceptions } = useMasterData();
+    const { annualHolidays, calendarExceptions, masterOptions } = useMasterData();
+    const { showAlert } = useGlobalDialog();
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // Admin OT Customization States
@@ -178,7 +180,19 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
             const hasCustom = request.type === 'OVERTIME' && editOtHours !== '';
             const finalStartTime = request.type === 'FORGOT_CHECKIN'
                 ? (customStartTimeArg || editStartTime || undefined)
-                : (editStartTime || undefined);
+                : (customStartTimeArg || editStartTime || undefined);
+
+            if (finalStartTime && ['FORGOT_CHECKIN', 'FORGOT_BOTH', 'LATE_ENTRY', 'TIME_CORRECTION'].includes(request.type)) {
+                const { maxAllowedTimeStr, maxShiftTimeStr, bufferMinutes } = getMaxShiftWithBuffer(masterOptions);
+                if (finalStartTime > maxAllowedTimeStr) {
+                    showAlert(
+                        `ไม่สามารถอนุมัติได้: เวลาที่ระบุ (${finalStartTime} น.) เกินเวลาสายสุดของกะงานรวม Buffer (${maxAllowedTimeStr} น. - คำนวณจากกะสุดท้าย ${maxShiftTimeStr} น. + Buffer ${bufferMinutes} นาที)`,
+                        'เวลาเกินกำหนดสายสุด'
+                    );
+                    setIsSubmitting(false);
+                    return;
+                }
+            }
 
             await onApprove(
                 request,
@@ -189,8 +203,9 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
                 hpPenalty || undefined
             );
             onClose();
-        } catch (e) {
+        } catch (e: any) {
             console.error(e);
+            showAlert(e?.message || 'เกิดข้อผิดพลาดในการอนุมัติ', 'ไม่สามารถอนุมัติได้');
         } finally {
             setIsSubmitting(false);
         }
@@ -219,7 +234,7 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+            className="fixed inset-0 z-[110] flex items-center justify-center bg-black/60 backdrop-blur-sm p-0 md:p-4"
             id="request-detail-modal-portal"
         >
             <motion.div
@@ -232,7 +247,7 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
                     damping: 26, 
                     stiffness: 300 
                 }}
-                className="bg-white w-full max-w-lg lg:max-w-none lg:w-auto rounded-[2rem] shadow-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[90vh]"
+                className="bg-white w-full h-full md:h-auto max-h-screen md:max-h-[90vh] rounded-none md:rounded-[2rem] lg:max-w-none lg:w-auto shadow-2xl overflow-hidden border border-slate-100 flex flex-col"
                 id="request-detail-modal-card"
             >
                 {/* Header Profile Panel */}
@@ -374,7 +389,7 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
                                 animate={{ rotateY: isMobileFlipped ? 180 : 0 }}
                                 transition={{ type: 'spring', damping: 24, stiffness: 120 }}
                                 style={{ transformStyle: 'preserve-3d' }}
-                                className="w-full flex-1 relative min-h-[390px] sm:min-h-[460px] h-[65vh] max-h-[580px]"
+                                className="w-full flex-1 relative min-h-[390px] sm:min-h-[460px] md:h-[65vh] md:max-h-[580px]"
                             >
                                 {/* FRONT FACE (Main request details) */}
                                 <div 

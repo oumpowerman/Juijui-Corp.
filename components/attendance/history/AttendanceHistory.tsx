@@ -118,6 +118,7 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId, highlight
                     fixedType={(() => {
                         if (!resubmitLog) return undefined;
                         // Check rejection/provisional tags first
+                        if (resubmitLog.note?.includes('[REJECTED GPS_SPOOF_APPEAL]') || resubmitLog.note?.includes('[REJECTED_GPS_SPOOF_APPEAL]')) return 'GPS_SPOOF_APPEAL';
                         if (resubmitLog.note?.includes('[REJECTED OUT_OF_RANGE_CHECKOUT]')) return 'OUT_OF_RANGE_CHECKOUT';
                         if (resubmitLog.note?.includes('[PROVISIONAL_WFH]')) return 'WFH';
                         if (resubmitLog.note?.includes('[PROVISIONAL_ONSITE]')) return 'ONSITE';

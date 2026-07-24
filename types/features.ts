@@ -447,7 +447,7 @@ export interface MenuGroup {
     id: string;
     title: string;
     icon: any; 
-    items: { view: ViewMode; label: string; icon: any }[];
+    items: { view: ViewMode; label: string; icon: any; mobileLabel?: string }[];
     adminOnly?: boolean;
     totalBadge?: number; // Aggregated badge count
 }

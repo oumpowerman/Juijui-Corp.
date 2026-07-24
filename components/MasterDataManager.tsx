@@ -1,7 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useMasterDataView, MasterTab } from '../hooks/useMasterDataView';
-import { Info, Loader2, Smile, Gift, Trash2, Power, Plus, Edit2, LayoutTemplate, RefreshCcw } from 'lucide-react';
+import { Info, Loader2, Smile, Gift, Trash2, Power, Plus, Edit2, LayoutTemplate, RefreshCcw, Settings } from 'lucide-react';
 import MentorTip from './MentorTip';
 import DashboardConfigModal from './DashboardConfigModal';
 import MaintenancePanel from './admin/maintenance/MaintenancePanel';
@@ -9,6 +10,7 @@ import GeneralMasterList from './admin/GeneralMasterList';
 import AnnualHolidayManager from './admin/AnnualHolidayManager';
 import { useGreetings } from '../hooks/useGreetings';
 import { useMasterData } from '../hooks/useMasterData';
+import { useToast } from '../context/ToastContext';
 
 // Import New Refactored Components
 import MasterTabNavigation, { MASTER_META } from './admin/master/MasterTabNavigation';
@@ -24,6 +26,7 @@ import TribunalSettingsView from './admin/master/views/TribunalSettingsView';
 import WikiCategoryMasterView from './admin/master/views/WikiCategoryMasterView';
 import StorageHubMasterView from './admin/master/views/StorageHubMasterView';
 import SystemPolicyView from './admin/master/views/SystemPolicyView';
+import MasterDataTabConfigModal from './admin/master/MasterDataTabConfigModal';
 
 const MasterDataManager: React.FC = () => {
     const { 
@@ -52,6 +55,57 @@ const MasterDataManager: React.FC = () => {
     // Local state for parent selection in nested views
     const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
 
+    const [isTabConfigOpen, setIsTabConfigOpen] = useState(false);
+    const { showToast } = useToast();
+
+    const activeTabsConfig = useMemo(() => {
+        const config = masterOptions.find(o => o.type === 'MASTER_DATA_CONFIG' && o.key === 'ACTIVE_TABS');
+        if (!config) return null;
+        try {
+            return JSON.parse(config.label) as string[];
+        } catch (e) {
+            console.error("Failed to parse master data active tabs config", e);
+            return null;
+        }
+    }, [masterOptions]);
+
+    const handleSaveTabConfig = async (selectedTabs: string[]) => {
+        try {
+            const existingConfig = masterOptions.find(o => o.type === 'MASTER_DATA_CONFIG' && o.key === 'ACTIVE_TABS');
+            const payloadLabel = JSON.stringify(selectedTabs);
+            
+            let success = false;
+            if (existingConfig) {
+                success = await updateMasterOption({
+                    ...existingConfig,
+                    label: payloadLabel
+                });
+            } else {
+                success = await addMasterOption({
+                    type: 'MASTER_DATA_CONFIG',
+                    key: 'ACTIVE_TABS',
+                    label: payloadLabel,
+                    color: '',
+                    sortOrder: 1,
+                    isActive: true
+                });
+            }
+            if (success) {
+                showToast('บันทึกการตั้งค่าแท็บระบบเรียบร้อยแล้ว! ✨', 'success');
+                
+                // If the currently active tab is no longer visible, select the first available tab
+                if (selectedTabs.length > 0 && !selectedTabs.includes(activeTab)) {
+                    handleSwitchTab(selectedTabs[0] as MasterTab);
+                }
+            } else {
+                showToast('ไม่สามารถบันทึกข้อมูลได้', 'error');
+            }
+        } catch (error: any) {
+            console.error("Failed to save tab config", error);
+            showToast('เกิดข้อผิดพลาด: ' + error.message, 'error');
+        }
+    };
+
     const handleSwitchTab = (tab: MasterTab) => {
         setActiveTab(tab);
         setIsEditing(false);
@@ -79,20 +133,29 @@ const MasterDataManager: React.FC = () => {
             <MentorTip variant="orange" messages={["Maintenance Menu ใหม่! เช็คพื้นที่ Storage ได้แล้วนะ", "Game Balancing! ปรับค่า XP/HP ได้โดยไม่ต้องแก้โค้ดแล้ว", "Operational Calendar! กำหนดวันทำงาน/วันหยุดพิเศษได้ที่นี่"]} />
 
             {/* Header */}
-            <div className="flex justify-between items-start">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                 <div>
                     <h1 className="text-3xl font-bold text-gray-800 flex items-center">
                         จัดการข้อมูลระบบ ⚙️ (Master Data)
                     </h1>
                     <p className="text-gray-500 mt-1">กำหนดตัวเลือก, Dashboard และดูแลรักษาฐานข้อมูล</p>
                 </div>
-                <button 
-                    onClick={seedDefaults}
-                    className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 transition-colors text-xs font-bold"
-                    title="หากมีข้อมูลใหม่ๆ ที่ระบบเพิ่มมา (เช่น No Show) ให้กดปุ่มนี้เพื่อซิงค์"
-                >
-                    <RefreshCcw className="w-4 h-4" /> ซิงค์ค่าเริ่มต้น (Sync Defaults)
-                </button>
+                <div className="flex items-center gap-2">
+                    <button 
+                        onClick={() => setIsTabConfigOpen(true)}
+                        className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors text-xs font-bold"
+                        title="ตั้งค่าปุ่มแถบซ้ายที่จะแสดงผล"
+                    >
+                        <Settings className="w-4 h-4" /> ตั้งค่าแท็บระบบ (Manage Displayed Tabs)
+                    </button>
+                    <button 
+                        onClick={seedDefaults}
+                        className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl hover:bg-indigo-100 transition-colors text-xs font-bold"
+                        title="หากมีข้อมูลใหม่ๆ ที่ระบบเพิ่มมา (เช่น No Show) ให้กดปุ่มนี้เพื่อซิงค์"
+                    >
+                        <RefreshCcw className="w-4 h-4" /> ซิงค์ค่าเริ่มต้น (Sync Defaults)
+                    </button>
+                </div>
             </div>
 
             {/* Main Layout */}
@@ -102,6 +165,7 @@ const MasterDataManager: React.FC = () => {
                 <MasterTabNavigation 
                     activeTab={activeTab} 
                     onTabChange={handleSwitchTab} 
+                    masterOptions={masterOptions}
                 />
 
                 {/* 2. Main Content Area */}
@@ -123,154 +187,164 @@ const MasterDataManager: React.FC = () => {
                     </div>
 
                     {/* View Switcher */}
-                    <div className="min-h-[400px]">
-                        {activeTab === 'MAINTENANCE' ? (
-                            <MaintenancePanel />
-                        ) : activeTab === 'GAME_TUNING' ? (
-                            <GameConfigTuner />
-                        ) : activeTab === 'PAYROLL_RULES' ? (
-                            <PayrollRulesView 
-                                masterOptions={masterOptions}
-                                onUpdate={updateMasterOption}
-                                onAdd={addMasterOption}
-                            />
-                        ) : activeTab === 'YEARLY' ? (
-                            <AnnualHolidayManager masterOptions={masterOptions} />
-                        ) : activeTab === 'CALENDAR' ? (
-                            <CalendarExceptionManager masterOptions={masterOptions} />
-                        ) : activeTab === 'INVENTORY' ? (
-                            <InventoryMasterView 
-                                masterOptions={masterOptions} 
-                                onEdit={handleEdit} 
-                                onCreate={(type, parent) => { setSelectedParentId(parent || null); handleCreate(type, parent); }}
-                                onDelete={deleteMasterOption}
-                                setSelectedParentId={setSelectedParentId}
-                                selectedParentId={selectedParentId}
-                                setIsEditing={setIsEditing}
-                            />
-                        ) : activeTab === 'POSITION' ? (
-                            <PositionMasterView 
-                                masterOptions={masterOptions}
-                                onEdit={handleEdit}
-                                onCreate={(type, parent) => { setSelectedParentId(parent || null); handleCreate(type, parent); }}
-                                onDelete={deleteMasterOption}
-                                setSelectedParentId={setSelectedParentId}
-                            />
-                        ) : activeTab === 'LOCATIONS' ? (
-                            <LocationMasterView 
-                                masterOptions={masterOptions}
-                                onAdd={addMasterOption}
-                                onUpdate={updateMasterOption}
-                                onDelete={deleteMasterOption}
-                                type="WORK_LOCATION"
-                            />
-                        ) : activeTab === 'SHOOT_LOCATION' ? (
-                            <LocationMasterView 
-                                masterOptions={masterOptions}
-                                onAdd={addMasterOption}
-                                onUpdate={updateMasterOption}
-                                onDelete={deleteMasterOption}
-                                type="SHOOT_LOCATION"
-                            />
-                        ) : activeTab === 'ATTENDANCE_RULES' ? (
-                            <AttendanceRulesView 
-                                masterOptions={masterOptions}
-                                onUpdate={updateMasterOption}
-                                onAdd={addMasterOption}
-                                onCreate={handleCreate}
-                                onEdit={handleEdit}
-                                onDelete={deleteMasterOption}
-                                saveMasterOptionsBulk={saveMasterOptionsBulk}
-                            />
-                        ) : activeTab === 'TRIBUNAL_SETTINGS' ? (
-                            <TribunalSettingsView />
-                        ) : activeTab === 'WIKI_CATEGORY' ? (
-                            <WikiCategoryMasterView 
-                                masterOptions={masterOptions}
-                                onEdit={handleEdit}
-                                onCreate={(type, parent) => { setSelectedParentId(parent || null); handleCreate(type, parent); }}
-                                onDelete={deleteMasterOption}
-                                setSelectedParentId={setSelectedParentId}
-                                selectedParentId={selectedParentId}
-                                setIsEditing={setIsEditing}
-                            />
-                        ) : activeTab === 'STORAGE_HUB' ? (
-                            <StorageHubMasterView />
-                        ) : activeTab === 'SYSTEM_POLICY' ? (
-                            <SystemPolicyView 
-                                masterOptions={masterOptions}
-                                onUpdate={updateMasterOption}
-                                onAdd={addMasterOption}
-                            />
-                        ) : activeTab === 'GREETINGS' ? (
-                            <div className="animate-in slide-in-from-bottom-2 space-y-6">
-                                <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
-                                    <h3 className="font-bold text-gray-700 mb-4 flex items-center"><Smile className="w-5 h-5 mr-2 text-indigo-600"/> เพิ่มข้อความต้อนรับใหม่</h3>
-                                    <div className="flex gap-2">
-                                        <input 
-                                            type="text" 
-                                            className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
-                                            placeholder="ใส่คำอวยพรหรือกำลังใจที่นี่..."
-                                            value={newGreetingText}
-                                            onChange={e => setNewGreetingText(e.target.value)}
-                                            onKeyDown={e => e.key === 'Enter' && handleAddGreeting()}
-                                        />
-                                        <button onClick={handleAddGreeting} disabled={!newGreetingText.trim()} className="bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50">
-                                            เพิ่ม
-                                        </button>
-                                    </div>
-                                </div>
-                                <div className="space-y-3">
-                                    {greetingLoading ? <div className="text-center py-10"><Loader2 className="w-8 h-8 animate-spin mx-auto text-indigo-500"/></div> : (
-                                        greetings.map(g => (
-                                            <div key={g.id} className="bg-white p-4 rounded-2xl border border-gray-100 flex justify-between items-center shadow-sm">
-                                                <span className={`text-sm font-medium ${g.isActive ? 'text-gray-800' : 'text-gray-400 line-through'}`}>"{g.text}"</span>
-                                                <div className="flex items-center gap-2">
-                                                    <button onClick={() => toggleGreeting(g.id, g.isActive)} className={`p-2 rounded-lg transition-colors ${g.isActive ? 'text-green-600 bg-green-50 hover:bg-green-100' : 'text-gray-400 bg-gray-100 hover:bg-gray-200'}`}><Power className="w-4 h-4" /></button>
-                                                    <button onClick={() => deleteGreeting(g.id)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
-                                                </div>
+                    <div className="min-h-[400px] overflow-hidden">
+                        <AnimatePresence mode="wait">
+                            <motion.div
+                                key={activeTab}
+                                initial={{ opacity: 0, y: 15 }}
+                                animate={{ opacity: 1, y: 0 }}
+                                exit={{ opacity: 0, y: -15 }}
+                                transition={{ duration: 0.25, ease: "easeInOut" }}
+                            >
+                                {activeTab === 'MAINTENANCE' ? (
+                                    <MaintenancePanel />
+                                ) : activeTab === 'GAME_TUNING' ? (
+                                    <GameConfigTuner />
+                                ) : activeTab === 'PAYROLL_RULES' ? (
+                                    <PayrollRulesView 
+                                        masterOptions={masterOptions}
+                                        onUpdate={updateMasterOption}
+                                        onAdd={addMasterOption}
+                                    />
+                                ) : activeTab === 'YEARLY' ? (
+                                    <AnnualHolidayManager masterOptions={masterOptions} />
+                                ) : activeTab === 'CALENDAR' ? (
+                                    <CalendarExceptionManager masterOptions={masterOptions} />
+                                ) : activeTab === 'INVENTORY' ? (
+                                    <InventoryMasterView 
+                                        masterOptions={masterOptions} 
+                                        onEdit={handleEdit} 
+                                        onCreate={(type, parent) => { setSelectedParentId(parent || null); handleCreate(type, parent); }}
+                                        onDelete={deleteMasterOption}
+                                        setSelectedParentId={setSelectedParentId}
+                                        selectedParentId={selectedParentId}
+                                        setIsEditing={setIsEditing}
+                                    />
+                                ) : activeTab === 'POSITION' ? (
+                                    <PositionMasterView 
+                                        masterOptions={masterOptions}
+                                        onEdit={handleEdit}
+                                        onCreate={(type, parent) => { setSelectedParentId(parent || null); handleCreate(type, parent); }}
+                                        onDelete={deleteMasterOption}
+                                        setSelectedParentId={setSelectedParentId}
+                                    />
+                                ) : activeTab === 'LOCATIONS' ? (
+                                    <LocationMasterView 
+                                        masterOptions={masterOptions}
+                                        onAdd={addMasterOption}
+                                        onUpdate={updateMasterOption}
+                                        onDelete={deleteMasterOption}
+                                        type="WORK_LOCATION"
+                                    />
+                                ) : activeTab === 'SHOOT_LOCATION' ? (
+                                    <LocationMasterView 
+                                        masterOptions={masterOptions}
+                                        onAdd={addMasterOption}
+                                        onUpdate={updateMasterOption}
+                                        onDelete={deleteMasterOption}
+                                        type="SHOOT_LOCATION"
+                                    />
+                                ) : activeTab === 'ATTENDANCE_RULES' ? (
+                                    <AttendanceRulesView 
+                                        masterOptions={masterOptions}
+                                        onUpdate={updateMasterOption}
+                                        onAdd={addMasterOption}
+                                        onCreate={handleCreate}
+                                        onEdit={handleEdit}
+                                        onDelete={deleteMasterOption}
+                                        saveMasterOptionsBulk={saveMasterOptionsBulk}
+                                    />
+                                ) : activeTab === 'TRIBUNAL_SETTINGS' ? (
+                                    <TribunalSettingsView />
+                                ) : activeTab === 'WIKI_CATEGORY' ? (
+                                    <WikiCategoryMasterView 
+                                        masterOptions={masterOptions}
+                                        onEdit={handleEdit}
+                                        onCreate={(type, parent) => { setSelectedParentId(parent || null); handleCreate(type, parent); }}
+                                        onDelete={deleteMasterOption}
+                                        setSelectedParentId={setSelectedParentId}
+                                        selectedParentId={selectedParentId}
+                                        setIsEditing={setIsEditing}
+                                    />
+                                ) : activeTab === 'STORAGE_HUB' ? (
+                                    <StorageHubMasterView />
+                                ) : activeTab === 'SYSTEM_POLICY' ? (
+                                    <SystemPolicyView 
+                                        masterOptions={masterOptions}
+                                        onUpdate={updateMasterOption}
+                                        onAdd={addMasterOption}
+                                    />
+                                ) : activeTab === 'GREETINGS' ? (
+                                    <div className="space-y-6">
+                                        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
+                                            <h3 className="font-bold text-gray-700 mb-4 flex items-center"><Smile className="w-5 h-5 mr-2 text-indigo-600"/> เพิ่มข้อความต้อนรับใหม่</h3>
+                                            <div className="flex gap-2">
+                                                <input 
+                                                    type="text" 
+                                                    className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                                                    placeholder="ใส่คำอวยพรหรือกำลังใจที่นี่..."
+                                                    value={newGreetingText}
+                                                    onChange={e => setNewGreetingText(e.target.value)}
+                                                    onKeyDown={e => e.key === 'Enter' && handleAddGreeting()}
+                                                />
+                                                <button onClick={handleAddGreeting} disabled={!newGreetingText.trim()} className="bg-indigo-600 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-indigo-700 transition-colors disabled:opacity-50">
+                                                    เพิ่ม
+                                                </button>
                                             </div>
-                                        ))
-                                    )}
-                                    {!greetingLoading && greetings.length === 0 && <div className="text-center py-10 text-gray-400">ยังไม่มีคำอวยพร</div>}
-                                </div>
-                            </div>
-                        ) : activeTab === 'REWARDS' ? (
-                            <div className="w-full bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden animate-in slide-in-from-bottom-4">
-                                <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-purple-50">
-                                    <h3 className="font-bold text-purple-700 flex items-center"><Gift className="w-4 h-4 mr-2" /> ของรางวัล</h3>
-                                    <button onClick={handleCreateReward} className="text-xs bg-purple-600 text-white px-3 py-1.5 rounded-lg hover:bg-purple-700 font-bold flex items-center"><Plus className="w-3 h-3 mr-1" /> เพิ่มรางวัล</button>
-                                </div>
-                                {rewardsLoading ? <div className="p-8 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-purple-500" /></div> : (
-                                    <div className="divide-y divide-gray-100">
-                                        {rewards.map(r => (
-                                            <div key={r.id} className="p-4 flex items-center justify-between hover:bg-gray-50 group">
-                                                <div className="flex items-center gap-4"><div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-xl border">{r.icon || '🎁'}</div><div><div className="flex items-center gap-2"><span className="font-bold text-gray-800">{r.title}</span>{!r.isActive && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 rounded">Inactive</span>}</div><p className="text-xs text-gray-500">{r.description}</p></div></div>
-                                                <div className="flex items-center gap-4"><span className="font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg text-sm">{r.cost} Pts</span><div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => handleEditReward(r)} className="p-1.5 text-gray-400 hover:text-indigo-600 bg-gray-50 hover:bg-white rounded-lg"><Edit2 className="w-4 h-4" /></button><button onClick={() => deleteReward(r.id)} className="p-1.5 text-gray-400 hover:text-red-600 bg-gray-50 hover:bg-white rounded-lg"><Trash2 className="w-4 h-4" /></button></div></div>
+                                        </div>
+                                        <div className="space-y-3">
+                                            {greetingLoading ? <div className="text-center py-10"><Loader2 className="w-8 h-8 animate-spin mx-auto text-indigo-500"/></div> : (
+                                                greetings.map(g => (
+                                                    <div key={g.id} className="bg-white p-4 rounded-2xl border border-gray-100 flex justify-between items-center shadow-sm">
+                                                        <span className={`text-sm font-medium ${g.isActive ? 'text-gray-800' : 'text-gray-400 line-through'}`}>"{g.text}"</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <button onClick={() => toggleGreeting(g.id, g.isActive)} className={`p-2 rounded-lg transition-colors ${g.isActive ? 'text-green-600 bg-green-50 hover:bg-green-100' : 'text-gray-400 bg-gray-100 hover:bg-gray-200'}`}><Power className="w-4 h-4" /></button>
+                                                            <button onClick={() => deleteGreeting(g.id)} className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            )}
+                                            {!greetingLoading && greetings.length === 0 && <div className="text-center py-10 text-gray-400">ยังไม่มีคำอวยพร</div>}
+                                        </div>
+                                    </div>
+                                ) : activeTab === 'REWARDS' ? (
+                                    <div className="w-full bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                                        <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-purple-50">
+                                            <h3 className="font-bold text-purple-700 flex items-center"><Gift className="w-4 h-4 mr-2" /> ของรางวัล</h3>
+                                            <button onClick={handleCreateReward} className="text-xs bg-purple-600 text-white px-3 py-1.5 rounded-lg hover:bg-purple-700 font-bold flex items-center"><Plus className="w-3 h-3 mr-1" /> เพิ่มรางวัล</button>
+                                        </div>
+                                        {rewardsLoading ? <div className="p-8 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-purple-500" /></div> : (
+                                            <div className="divide-y divide-gray-100">
+                                                {rewards.map(r => (
+                                                    <div key={r.id} className="p-4 flex items-center justify-between hover:bg-gray-50 group">
+                                                        <div className="flex items-center gap-4"><div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-xl border">{r.icon || '🎁'}</div><div><div className="flex items-center gap-2"><span className="font-bold text-gray-800">{r.title}</span>{!r.isActive && <span className="text-[10px] bg-red-100 text-red-600 px-1.5 rounded">Inactive</span>}</div><p className="text-xs text-gray-500">{r.description}</p></div></div>
+                                                        <div className="flex items-center gap-4"><span className="font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded-lg text-sm">{r.cost} Pts</span><div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => handleEditReward(r)} className="p-1.5 text-gray-400 hover:text-indigo-600 bg-gray-50 hover:bg-white rounded-lg"><Edit2 className="w-4 h-4" /></button><button onClick={() => deleteReward(r.id)} className="p-1.5 text-gray-400 hover:text-red-600 bg-gray-50 hover:bg-white rounded-lg"><Trash2 className="w-4 h-4" /></button></div></div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                ) : activeTab === 'DASHBOARD' ? (
+                                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                        {dashboardLoading ? <div className="col-span-full flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-indigo-500" /></div> : dashboardConfigs.map(config => (
+                                            <div key={config.id} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 flex items-center justify-between hover:shadow-md transition-shadow">
+                                                <div className="flex items-center gap-4"><div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-gray-100 text-gray-500"><LayoutTemplate className="w-6 h-6" /></div><div><h4 className="font-bold text-gray-800 text-lg">{config.label}</h4><div className="flex items-center gap-2 mt-1"><span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded border border-indigo-100 font-bold">Filter: {config.filterType || 'STATUS'}</span><span className="text-xs text-gray-400">{config.statusKeys?.length || 0} เงื่อนไข</span></div></div></div>
+                                                <button onClick={() => handleEditDashboardConfig(config)} className="p-2 bg-gray-50 hover:bg-indigo-50 text-gray-500 hover:text-indigo-600 rounded-xl transition-colors"><Edit2 className="w-5 h-5" /></button>
                                             </div>
                                         ))}
                                     </div>
+                                ) : (
+                                    <GeneralMasterList 
+                                        typeLabel={activeTab}
+                                        options={filteredOptions}
+                                        loading={masterLoading}
+                                        onAdd={() => handleCreate()}
+                                        onEdit={handleEdit}
+                                        onDelete={(id) => deleteMasterOption(id)}
+                                    />
                                 )}
-                            </div>
-                        ) : activeTab === 'DASHBOARD' ? (
-                             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-in slide-in-from-bottom-4">
-                                {dashboardLoading ? <div className="col-span-full flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-indigo-500" /></div> : dashboardConfigs.map(config => (
-                                    <div key={config.id} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-5 flex items-center justify-between hover:shadow-md transition-shadow">
-                                        <div className="flex items-center gap-4"><div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-gray-100 text-gray-500"><LayoutTemplate className="w-6 h-6" /></div><div><h4 className="font-bold text-gray-800 text-lg">{config.label}</h4><div className="flex items-center gap-2 mt-1"><span className="text-xs bg-indigo-50 text-indigo-600 px-2 py-0.5 rounded border border-indigo-100 font-bold">Filter: {config.filterType || 'STATUS'}</span><span className="text-xs text-gray-400">{config.statusKeys?.length || 0} เงื่อนไข</span></div></div></div>
-                                        <button onClick={() => handleEditDashboardConfig(config)} className="p-2 bg-gray-50 hover:bg-indigo-50 text-gray-500 hover:text-indigo-600 rounded-xl transition-colors"><Edit2 className="w-5 h-5" /></button>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <GeneralMasterList 
-                                typeLabel={activeTab}
-                                options={filteredOptions}
-                                loading={masterLoading}
-                                onAdd={() => handleCreate()}
-                                onEdit={handleEdit}
-                                onDelete={(id) => deleteMasterOption(id)}
-                            />
-                        )}
+                            </motion.div>
+                        </AnimatePresence>
                     </div>
                 </div>
             </div>
@@ -300,6 +374,14 @@ const MasterDataManager: React.FC = () => {
                     onSave={handleSaveDashboardConfig} 
                 />
             )}
+
+            {/* Master Data Tab Configuration Modal */}
+            <MasterDataTabConfigModal 
+                isOpen={isTabConfigOpen}
+                onClose={() => setIsTabConfigOpen(false)}
+                activeTabsConfig={activeTabsConfig}
+                onSave={handleSaveTabConfig}
+            />
         </div>
     );
 };

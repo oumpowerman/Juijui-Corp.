@@ -29,7 +29,7 @@ export const WorkboxProvider: React.FC<{ children: React.ReactNode; currentUser:
     const [isDragging, setIsDragging] = useState(false);
     const [isDocked, setIsDockedState] = useState<boolean>(() => {
         const saved = localStorage.getItem('workbox_docked');
-        return saved ? saved === 'true' : false;
+        return saved ? saved === 'true' : true;
     });
     const [isOpen, setIsOpen] = useState<boolean>(false);
 

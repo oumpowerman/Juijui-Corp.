@@ -1,164 +1,357 @@
-
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { MasterOption } from '../../types';
 import { useAnnualHolidays } from '../../hooks/useAnnualHolidays';
-import { Calendar, Plus, Trash2, CalendarDays, Loader2 } from 'lucide-react';
-import { useToast } from '../../context/ToastContext';
-import { useGlobalDialog } from '../../context/GlobalDialogContext'; // Check path
+import { 
+    Search, SlidersHorizontal, LayoutGrid, List, Loader2
+} from 'lucide-react';
+import { useGlobalDialog } from '../../context/GlobalDialogContext';
+import FilterDropdown from '../common/FilterDropdown';
+
+// Import modular components & utilities
+import { MONTHS, HOLIDAY_TYPES, getHolidayTypeInfo, Holiday } from './holiday/holidayTypes';
+import HolidayStats from './holiday/HolidayStats';
+import HolidayForm from './holiday/HolidayForm';
+import HolidayGridView from './holiday/HolidayGridView';
+import HolidayListView from './holiday/HolidayListView';
 
 interface AnnualHolidayManagerProps {
     masterOptions: MasterOption[];
 }
 
-const MONTHS = [
-    { num: 1, name: 'มกราคม' }, { num: 2, name: 'กุมภาพันธ์' }, { num: 3, name: 'มีนาคม' },
-    { num: 4, name: 'เมษายน' }, { num: 5, name: 'พฤษภาคม' }, { num: 6, name: 'มิถุนายน' },
-    { num: 7, name: 'กรกฎาคม' }, { num: 8, name: 'สิงหาคม' }, { num: 9, name: 'กันยายน' },
-    { num: 10, name: 'ตุลาคม' }, { num: 11, name: 'พฤศจิกายน' }, { num: 12, name: 'ธันวาคม' }
-];
-
 const AnnualHolidayManager: React.FC<AnnualHolidayManagerProps> = ({ masterOptions }) => {
-    const { annualHolidays, isLoading, addHoliday, deleteHoliday } = useAnnualHolidays();
-    const { showAlert } = useGlobalDialog(); // Use showAlert
+    const { annualHolidays, isLoading, addHoliday, updateHoliday, deleteHoliday } = useAnnualHolidays();
+    const { showAlert } = useGlobalDialog();
     
     // Form State
     const [newName, setNewName] = useState('');
     const [newDay, setNewDay] = useState(1);
     const [newMonth, setNewMonth] = useState(1);
-    const [newTypeKey, setNewTypeKey] = useState('');
+    const [newTypeKey, setNewTypeKey] = useState('ANNUAL'); // Default to Annual Holiday
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    const eventTypeOptions = masterOptions.filter(o => o.type === 'EVENT_TYPE' && o.isActive);
+    // Edit State
+    const [editingId, setEditingId] = useState<string | null>(null);
 
-    const handleAdd = async (e: React.FormEvent) => {
+    // Filter and Search
+    const [searchTerm, setSearchTerm] = useState('');
+    const [selectedMonthFilter, setSelectedMonthFilter] = useState<string>('ALL');
+    const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>('ALL');
+
+    // Display View state (Monthly Grid vs. Compact List)
+    const [viewMode, setViewMode] = useState<'GRID' | 'LIST'>('GRID');
+
+    const eventTypeOptions = useMemo(() => {
+        return masterOptions.filter(o => o.type === 'EVENT_TYPE' && o.isActive);
+    }, [masterOptions]);
+
+    // Format months for the filter dropdown
+    const monthFilterOptions = useMemo(() => {
+        return [
+            { key: 'ALL', label: 'ทุกเดือน 📅' },
+            ...MONTHS.map(m => ({
+                key: String(m.num),
+                label: m.name
+            }))
+        ];
+    }, []);
+
+    const typeFilterOptions = useMemo(() => {
+        const base = [
+            { key: 'ALL', label: 'ทุกประเภท 🌟' },
+            ...HOLIDAY_TYPES.map(t => ({
+                key: t.key,
+                label: t.label
+            }))
+        ];
+
+        // Ensure other custom master EVENT_TYPEs are included
+        eventTypeOptions.forEach(opt => {
+            if (!base.some(b => b.key === opt.key)) {
+                base.push({
+                    key: opt.key,
+                    label: opt.label
+                });
+            }
+        });
+
+        return base;
+    }, [eventTypeOptions]);
+
+    const handleStartEdit = (holiday: Holiday) => {
+        setEditingId(holiday.id);
+        setNewName(holiday.name);
+        setNewDay(holiday.day);
+        setNewMonth(holiday.month);
+        setNewTypeKey(holiday.typeKey || holiday.type_key || 'ANNUAL');
+        
+        const formElement = document.getElementById('holiday-form');
+        if (formElement) {
+            formElement.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    };
+
+    const handleCancelEdit = () => {
+        setEditingId(null);
+        setNewName('');
+        setNewDay(1);
+        setNewMonth(1);
+        setNewTypeKey('ANNUAL');
+    };
+
+    const handleFormSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!newName || !newTypeKey) {
-            await showAlert('กรุณากรอกชื่อและเลือกประเภทวันหยุดครับ', 'ข้อมูลไม่ครบ');
+            await showAlert('กรุณากรอกชื่อและเลือกประเภทวันหยุดครับ', 'ข้อมูลไม่ครบถ้วน');
             return;
         }
         setIsSubmitting(true);
-        await addHoliday(newName, newDay, newMonth, newTypeKey);
-        setNewName('');
-        setIsSubmitting(false);
+        try {
+            if (editingId) {
+                await updateHoliday(editingId, newName, newDay, newMonth, newTypeKey);
+                handleCancelEdit();
+            } else {
+                await addHoliday(newName, newDay, newMonth, newTypeKey);
+                setNewName('');
+                setNewDay(1);
+                setNewMonth(1);
+                setNewTypeKey('ANNUAL');
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
+    // Filtered lists
+    const filteredHolidays = useMemo<Holiday[]>(() => {
+        return (annualHolidays as Holiday[]).filter(holiday => {
+            const matchesSearch = holiday.name.toLowerCase().includes(searchTerm.toLowerCase());
+            const matchesMonth = selectedMonthFilter === 'ALL' || String(holiday.month) === selectedMonthFilter;
+            const matchesType = selectedTypeFilter === 'ALL' || holiday.typeKey === selectedTypeFilter;
+            return matchesSearch && matchesMonth && matchesType;
+        }).sort((a, b) => {
+            if (a.month !== b.month) return a.month - b.month;
+            return a.day - b.day;
+        });
+    }, [annualHolidays, searchTerm, selectedMonthFilter, selectedTypeFilter]);
+
+    // Analytics: Month with the most holidays
+    const monthStats = useMemo(() => {
+        const counts: Record<number, number> = {};
+        annualHolidays.forEach(h => {
+            counts[h.month] = (counts[h.month] || 0) + 1;
+        });
+        let maxMonth = -1;
+        let maxCount = 0;
+        Object.entries(counts).forEach(([m, count]) => {
+            if (count > maxCount) {
+                maxCount = count;
+                maxMonth = parseInt(m);
+            }
+        });
+        const found = MONTHS.find(m => m.num === maxMonth);
+        return {
+            name: found ? found.name : '-',
+            count: maxCount
+        };
+    }, [annualHolidays]);
+
+    // Analytics: Holiday type distribution
+    const typeBreakdown = useMemo(() => {
+        const counts: Record<string, number> = {};
+        annualHolidays.forEach(h => {
+            counts[h.typeKey] = (counts[h.typeKey] || 0) + 1;
+        });
+        let maxType = '';
+        let maxCount = 0;
+        Object.entries(counts).forEach(([type, count]) => {
+            if (count > maxCount) {
+                maxCount = count;
+                maxType = type;
+            }
+        });
+        
+        const typeInfo = getHolidayTypeInfo(maxType, eventTypeOptions);
+        return {
+            label: typeInfo.label,
+            count: maxCount
+        };
+    }, [annualHolidays, eventTypeOptions]);
+
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-in slide-in-from-bottom-2">
+        <div className="space-y-6 animate-in fade-in duration-300">
             
-            {/* Add Form */}
-            <div className="lg:col-span-1 bg-white rounded-2xl shadow-sm border border-gray-200 p-6 h-fit">
-                <h3 className="font-bold text-gray-800 mb-4 flex items-center">
-                    <Plus className="w-5 h-5 mr-2 text-indigo-600" /> เพิ่มวันหยุดประจำปี
-                </h3>
-                <form onSubmit={handleAdd} className="space-y-4">
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1">ชื่อวันหยุด</label>
-                        <input 
-                            type="text" 
-                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
-                            placeholder="เช่น วันปีใหม่, วันแรงงาน"
-                            value={newName}
-                            onChange={e => setNewName(e.target.value)}
-                            required
-                        />
-                    </div>
-                    <div className="grid grid-cols-2 gap-3">
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1">วันที่</label>
-                            <select 
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
-                                value={newDay}
-                                onChange={e => setNewDay(parseInt(e.target.value))}
-                            >
-                                {Array.from({length: 31}, (_, i) => i + 1).map(d => (
-                                    <option key={d} value={d}>{d}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-xs font-bold text-gray-500 mb-1">เดือน</label>
-                            <select 
-                                className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none"
-                                value={newMonth}
-                                onChange={e => setNewMonth(parseInt(e.target.value))}
-                            >
-                                {MONTHS.map(m => (
-                                    <option key={m.num} value={m.num}>{m.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                    </div>
-                    <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1">ประเภท (Type)</label>
-                        <select 
-                            className="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm font-bold focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer"
-                            value={newTypeKey}
-                            onChange={e => setNewTypeKey(e.target.value)}
-                            required
-                        >
-                            <option value="">-- เลือก --</option>
-                            {eventTypeOptions.length > 0 ? (
-                                eventTypeOptions.map(o => (
-                                    <option key={o.key} value={o.key}>{o.label}</option>
-                                ))
-                            ) : (
-                                <option disabled>กรุณาเพิ่ม Master Option 'EVENT_TYPE' ก่อน</option>
-                            )}
-                        </select>
-                    </div>
-                    <button 
-                        type="submit" 
-                        disabled={isSubmitting || eventTypeOptions.length === 0}
-                        className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md transition-all active:scale-95 flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'บันทึก'}
-                    </button>
-                </form>
-            </div>
+            {/* Stats Overview */}
+            <HolidayStats 
+                totalCount={annualHolidays.length}
+                monthStats={monthStats}
+                typeBreakdown={typeBreakdown}
+            />
 
-            {/* List */}
-            <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-                <div className="px-6 py-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
-                    <h3 className="font-bold text-gray-700 flex items-center">
-                        <CalendarDays className="w-4 h-4 mr-2" /> รายการวันหยุด ({annualHolidays.length})
-                    </h3>
-                </div>
+            {/* Split layout workspace */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
                 
-                {isLoading ? (
-                    <div className="p-8 flex justify-center"><Loader2 className="w-6 h-6 animate-spin text-indigo-500" /></div>
-                ) : annualHolidays.length === 0 ? (
-                    <div className="p-8 text-center text-gray-400">ยังไม่มีข้อมูลวันหยุดประจำปี</div>
-                ) : (
-                    <div className="divide-y divide-gray-100">
-                        {annualHolidays.map(holiday => {
-                            const typeOption = eventTypeOptions.find(o => o.key === holiday.typeKey);
-                            const colorClass = typeOption?.color || 'bg-gray-100 text-gray-500';
+                {/* Left Side: Create / Edit Holiday Form Panel */}
+                <div className="lg:col-span-4">
+                    <HolidayForm 
+                        editingId={editingId}
+                        newName={newName}
+                        setNewName={setNewName}
+                        newDay={newDay}
+                        setNewDay={setNewDay}
+                        newMonth={newMonth}
+                        setNewMonth={setNewMonth}
+                        newTypeKey={newTypeKey}
+                        setNewTypeKey={setNewTypeKey}
+                        onCancelEdit={handleCancelEdit}
+                        onSubmit={handleFormSubmit}
+                        isSubmitting={isSubmitting}
+                        eventTypeOptions={eventTypeOptions}
+                    />
+                </div>
 
-                            return (
-                                <div key={holiday.id} className="p-4 flex items-center justify-between hover:bg-gray-50 group">
-                                    <div className="flex items-center gap-4">
-                                        <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center border border-gray-200 shrink-0">
-                                            <span className="text-[10px] font-bold text-red-500 uppercase">{MONTHS.find(m => m.num === holiday.month)?.name.substring(0,3)}</span>
-                                            <span className="text-lg font-black text-gray-800">{holiday.day}</span>
-                                        </div>
-                                        <div>
-                                            <h4 className="font-bold text-gray-800 text-sm">{holiday.name}</h4>
-                                            <span className={`text-[10px] px-2 py-0.5 rounded font-bold mt-1 inline-block ${colorClass}`}>
-                                                {typeOption?.label || holiday.typeKey}
-                                            </span>
-                                        </div>
-                                    </div>
-                                    <button 
-                                        onClick={() => deleteHoliday(holiday.id)} 
-                                        className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors opacity-0 group-hover:opacity-100"
-                                    >
-                                        <Trash2 className="w-4 h-4" />
-                                    </button>
-                                </div>
-                            );
-                        })}
+                {/* Right Side: Search, Filter dropdowns & Grid/List Visualizations */}
+                <div className="lg:col-span-8 space-y-4">
+                    
+                    {/* Header Controls, Search & Filter row */}
+                    <div className="bg-white rounded-[2.5rem] border border-slate-200/80 p-5 shadow-sm space-y-4">
+                        
+                        {/* Title & View Toggle */}
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                            <div>
+                                <h3 className="font-extrabold text-slate-800 text-base flex items-center gap-2">
+                                    <SlidersHorizontal className="w-4 h-4 text-slate-500" />
+                                    <span>วันหยุดประจำปี</span>
+                                    <span className="text-xs font-bold bg-indigo-50 border border-indigo-100 text-indigo-700 px-2.5 py-0.5 rounded-full">
+                                        ผลลัพธ์ {filteredHolidays.length} วัน
+                                    </span>
+                                </h3>
+                                <p className="text-xs text-slate-400 font-bold mt-0.5">ค้นหาและกรองข้อมูลเพื่อความสะดวกในการจัดการ</p>
+                            </div>
+
+                            {/* View Toggle Buttons */}
+                            <div className="flex bg-slate-100 p-1 rounded-2xl border border-slate-200/40 select-none">
+                                <button
+                                    onClick={() => setViewMode('GRID')}
+                                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                                        viewMode === 'GRID'
+                                            ? 'bg-white text-slate-800 shadow-sm'
+                                            : 'text-slate-500 hover:text-slate-800'
+                                    }`}
+                                >
+                                    <LayoutGrid className="w-3.5 h-3.5" />
+                                    ตารางรายเดือน
+                                </button>
+                                <button
+                                    onClick={() => setViewMode('LIST')}
+                                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                                        viewMode === 'LIST'
+                                            ? 'bg-white text-slate-800 shadow-sm'
+                                            : 'text-slate-500 hover:text-slate-800'
+                                    }`}
+                                >
+                                    <List className="w-3.5 h-3.5" />
+                                    รายการเรียงแถว
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Search Input and FilterDropdowns */}
+                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-2 border-t border-slate-100">
+                            {/* Search */}
+                            <div className="sm:col-span-4 relative">
+                                <span className="absolute inset-y-0 left-0 flex items-center pl-4 text-slate-400">
+                                    <Search className="w-4 h-4" />
+                                </span>
+                                <input 
+                                    type="text"
+                                    className="w-full pl-10 pr-4 py-3.5 text-xs font-bold border border-slate-200 rounded-2xl outline-none focus:ring-4 focus:ring-indigo-500/10 transition-all placeholder:text-slate-300 focus:border-indigo-500 bg-slate-50/50"
+                                    placeholder="ค้นชื่อวันหยุด..."
+                                    value={searchTerm}
+                                    onChange={e => setSearchTerm(e.target.value)}
+                                />
+                            </div>
+
+                            {/* Month Filter Dropdown */}
+                            <div className="sm:col-span-4">
+                                <FilterDropdown 
+                                    label="เลือกเดือน"
+                                    options={monthFilterOptions}
+                                    value={selectedMonthFilter}
+                                    onChange={setSelectedMonthFilter}
+                                    showAllOption={false}
+                                    clearable={false}
+                                    align="left"
+                                    placeholder="ทุกเดือน"
+                                />
+                            </div>
+
+                            {/* Type Filter Dropdown */}
+                            <div className="sm:col-span-4">
+                                <FilterDropdown 
+                                    label="เลือกประเภท"
+                                    options={typeFilterOptions}
+                                    value={selectedTypeFilter}
+                                    onChange={setSelectedTypeFilter}
+                                    showAllOption={false}
+                                    clearable={false}
+                                    align="left"
+                                    placeholder="ทุกประเภท"
+                                />
+                            </div>
+                        </div>
                     </div>
-                )}
+
+                    {/* Display of Holidays lists according to selected view mode */}
+                    <div className="relative">
+                        {isLoading ? (
+                            <div className="py-20 flex flex-col items-center justify-center gap-3 bg-white rounded-[2.5rem] border border-slate-200/60 shadow-sm">
+                                <Loader2 className="w-8 h-8 animate-spin text-indigo-500" />
+                                <span className="text-xs font-bold text-slate-400">กำลังโหลดรายการวันหยุด...</span>
+                            </div>
+                        ) : (
+                            <AnimatePresence mode="wait">
+                                {viewMode === 'GRID' ? (
+                                    <motion.div
+                                        key="grid"
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -10 }}
+                                        transition={{ duration: 0.2 }}
+                                    >
+                                        <HolidayGridView 
+                                            holidays={filteredHolidays}
+                                            onEdit={handleStartEdit}
+                                            onDelete={deleteHoliday}
+                                            editingId={editingId}
+                                            eventTypeOptions={eventTypeOptions}
+                                        />
+                                    </motion.div>
+                                ) : (
+                                    <motion.div
+                                        key="list"
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        exit={{ opacity: 0, y: -10 }}
+                                        transition={{ duration: 0.2 }}
+                                    >
+                                        <HolidayListView 
+                                            holidays={filteredHolidays}
+                                            onEdit={handleStartEdit}
+                                            onDelete={deleteHoliday}
+                                            editingId={editingId}
+                                            eventTypeOptions={eventTypeOptions}
+                                        />
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        )}
+                    </div>
+
+                </div>
+
             </div>
         </div>
     );

@@ -44,7 +44,7 @@ const LeaveFormContainer: React.FC<Props> = ({
     const { currentUserProfile } = useUserSession();
     const { isAuthenticated: isDriveConnected, login: connectDrive } = useGoogleDrive();
 
-    const selectedOption = useMemo(() => masterOptions.find(o => o.key === selectedType), [masterOptions, selectedType]);
+    const selectedOption = useMemo(() => masterOptions.find(o => o.type === 'LEAVE_TYPE' && o.key === selectedType), [masterOptions, selectedType]);
     const metadata = useMemo(() => {
         try {
             return selectedOption?.description ? JSON.parse(selectedOption.description) : {};
@@ -52,6 +52,24 @@ const LeaveFormContainer: React.FC<Props> = ({
             return {};
         }
     }, [selectedOption]);
+
+    const parsedAdvanceDays = useMemo(() => {
+        if (metadata.advanceDays === undefined || metadata.advanceDays === null) return 0;
+        const parsed = Number(metadata.advanceDays);
+        return isNaN(parsed) ? 0 : parsed;
+    }, [metadata.advanceDays]);
+
+    const parsedMaxPastDays = useMemo(() => {
+        if (metadata.maxPastDays === undefined || metadata.maxPastDays === null) return 0;
+        const parsed = Number(metadata.maxPastDays);
+        return isNaN(parsed) ? 0 : parsed;
+    }, [metadata.maxPastDays]);
+
+    const parsedMaxFutureDays = useMemo(() => {
+        if (metadata.maxFutureDays === undefined || metadata.maxFutureDays === null) return 0;
+        const parsed = Number(metadata.maxFutureDays);
+        return isNaN(parsed) ? 0 : parsed;
+    }, [metadata.maxFutureDays]);
 
     const minDate = useMemo(() => {
         const today = new Date();
@@ -66,21 +84,21 @@ const LeaveFormContainer: React.FC<Props> = ({
 
         const candidateDates: Date[] = [];
 
-        if (metadata.advanceDays && metadata.advanceDays > 0) {
+        if (parsedAdvanceDays > 0) {
             const allowedAdvance = new Date(today);
-            allowedAdvance.setDate(today.getDate() + metadata.advanceDays);
+            allowedAdvance.setDate(today.getDate() + parsedAdvanceDays);
             candidateDates.push(allowedAdvance);
         }
 
-        if (metadata.maxPastDays && metadata.maxPastDays > 0) {
+        if (parsedMaxPastDays > 0) {
             const allowedPast = new Date(today);
-            allowedPast.setDate(today.getDate() - metadata.maxPastDays);
+            allowedPast.setDate(today.getDate() - parsedMaxPastDays);
             candidateDates.push(allowedPast);
         }
 
         if (candidateDates.length === 0) return undefined;
         return candidateDates.reduce((max, current) => current > max ? current : max, candidateDates[0]);
-    }, [metadata.advanceDays, metadata.maxPastDays, selectedType]);
+    }, [parsedAdvanceDays, parsedMaxPastDays, selectedType]);
 
     const maxDate = useMemo(() => {
         const today = new Date();
@@ -91,13 +109,13 @@ const LeaveFormContainer: React.FC<Props> = ({
             return today;
         }
 
-        if (metadata.maxFutureDays && metadata.maxFutureDays > 0) {
+        if (parsedMaxFutureDays > 0) {
             const allowed = new Date(today);
-            allowed.setDate(today.getDate() + metadata.maxFutureDays);
+            allowed.setDate(today.getDate() + parsedMaxFutureDays);
             return allowed;
         }
         return undefined;
-    }, [metadata.maxFutureDays, selectedType]);
+    }, [parsedMaxFutureDays, selectedType]);
     
     const { 
         startDate, setStartDate, endDate, setEndDate, 
@@ -111,9 +129,9 @@ const LeaveFormContainer: React.FC<Props> = ({
         initialDate, 
         initialReason, 
         selectedType, 
-        advanceDays: metadata.advanceDays,
-        maxFutureDays: metadata.maxFutureDays,
-        maxPastDays: (getRegistryItem(selectedType)?.category === 'CORRECTION' && selectedType !== 'LATE_ENTRY' && selectedType !== 'OUT_OF_RANGE_CHECKOUT') ? 7 : metadata.maxPastDays,
+        advanceDays: parsedAdvanceDays,
+        maxFutureDays: parsedMaxFutureDays,
+        maxPastDays: (getRegistryItem(selectedType)?.category === 'CORRECTION' && selectedType !== 'LATE_ENTRY' && selectedType !== 'OUT_OF_RANGE_CHECKOUT') ? 7 : parsedMaxPastDays,
         linkedRemoteType
     });
 
@@ -483,6 +501,8 @@ const LeaveFormContainer: React.FC<Props> = ({
                                         hours={otHours} setHours={setOtHours} 
                                         otType={otType}
                                         setOtType={setOtType}
+                                        minDate={minDate}
+                                        maxDate={maxDate}
                                     />
                                 ) : isTimeSpecific ? (
                                     <TimeCorrectionInputs 

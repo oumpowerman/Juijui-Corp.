@@ -16,6 +16,8 @@ interface Props {
     setHours: (val: number) => void;
     otType?: 'HOURLY' | 'FIXED';
     setOtType?: (val: 'HOURLY' | 'FIXED') => void;
+    minDate?: Date;
+    maxDate?: Date;
 }
 
 const thaiMonths = [
@@ -35,7 +37,7 @@ const formatThaiDate = (dateStr: string) => {
 
 const OvertimeInputs: React.FC<Props> = ({ 
     date, setDate, startTime, setStartTime, endTime, setEndTime, hours, setHours,
-    otType = 'HOURLY', setOtType
+    otType = 'HOURLY', setOtType, minDate, maxDate
 }) => {
     const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
@@ -98,6 +100,8 @@ const OvertimeInputs: React.FC<Props> = ({
                         onClose={() => setIsDatePickerOpen(false)}
                         selectedDate={date ? new Date(date) : undefined}
                         onSelect={(val) => setDate(val ? val.toISOString().split('T')[0] : '')}
+                        minDate={minDate}
+                        maxDate={maxDate}
                     />
                 </div>
             </div>

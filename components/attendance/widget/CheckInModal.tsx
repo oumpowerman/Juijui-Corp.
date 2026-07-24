@@ -301,7 +301,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
                                             <GpsVerificationShield
                                                 isGpsSecure={isGpsSecure}
                                                 isUserLate={isUserLate}
-                                                startTime={startTime}
+                                                startTime={effectiveDisplayStartTime}
                                                 gpsThreatReason={gpsThreatReason}
                                                 onAppealClick={() => {
                                                     setIsGpsAppealActive(true);
@@ -333,7 +333,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
                                                         <GpsVerificationShield
                                                             isGpsSecure={isGpsSecure}
                                                             isUserLate={isUserLate}
-                                                            startTime={startTime}
+                                                            startTime={effectiveDisplayStartTime}
                                                             gpsThreatReason={gpsThreatReason}
                                                             onAppealClick={() => {
                                                                 setIsGpsAppealActive(true);

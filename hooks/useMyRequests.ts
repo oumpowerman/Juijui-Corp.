@@ -207,7 +207,11 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
             const startDateStr = format(startDate, 'yyyy-MM-dd');
             const timestamp = Date.now();
             const linkId = linkedRemoteType ? `LINK_FORGOT_${currentUser.id}_${startDateStr}_${timestamp}` : null;
-            const finalReasonWithLink = linkId ? `[LINKID:${linkId}] ${reason}` : reason;
+            let finalReasonWithLink = linkId ? `[LINKID:${linkId}] ${reason}` : reason;
+
+            if (linkedRemoteType && !finalReasonWithLink.includes('[REMOTE:')) {
+                finalReasonWithLink = `[REMOTE:${linkedRemoteType}] ${finalReasonWithLink}`;
+            }
 
             // --- OT Request Handling ---
             if (type === 'OVERTIME') {

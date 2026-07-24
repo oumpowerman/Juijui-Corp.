@@ -1,10 +1,12 @@
 
 import React, { useState } from 'react';
+import ReactDOM from 'react-dom'; // 1. Import ReactDOM สำหรับ Portal
 import { useCalendarExceptions } from '../../hooks/useCalendarExceptions';
 import { useAnnualHolidays } from '../../hooks/useAnnualHolidays';
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, addMonths, isSameDay, getDay, isWeekend } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { ChevronLeft, ChevronRight, Calendar as CalendarIcon, Briefcase, Coffee, Trash2, Save, X } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion'; // 2. Import Framer Motion
 import { MasterOption } from '../../types';
 
 interface CalendarExceptionManagerProps {
@@ -89,7 +91,7 @@ const CalendarExceptionManager: React.FC<CalendarExceptionManagerProps> = ({ mas
                         <CalendarIcon className="w-6 h-6" />
                     </div>
                     <div>
-                        <h3 className="text-lg font-black text-gray-800">Operational Calendar</h3>
+                        <h3 className="text-lg font-bold text-gray-800">Operational Calendar</h3>
                         <p className="text-xs text-gray-500">กำหนดวันทำงาน/วันหยุดพิเศษ (มีผลต่อการเช็คชื่อ)</p>
                     </div>
                 </div>
@@ -176,61 +178,118 @@ const CalendarExceptionManager: React.FC<CalendarExceptionManagerProps> = ({ mas
                     })}
                 </div>
             </div>
+            
+            {/* 3. Render Modal via React Portal to document.body */}
+            {typeof window !== 'undefined' && document.body && ReactDOM.createPortal(
+                <AnimatePresence>
+                    {selectedDate && (
+                        <motion.div 
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.2 }}
+                            className="fixed inset-0 z-[99999] flex items-center justify-center bg-slate-900/50 backdrop-blur-md p-4"
+                        >
+                            {/* Backdrop click area */}
+                            <div 
+                                onClick={() => setSelectedDate(null)}
+                                className="absolute inset-0 cursor-pointer"
+                            />
 
-            {/* Edit Modal (Simple Inline) */}
-            {selectedDate && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-                    <div className="bg-white w-full max-w-sm rounded-2xl shadow-2xl p-6 relative animate-in zoom-in-95">
-                        <button onClick={() => setSelectedDate(null)} className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"><X className="w-5 h-5"/></button>
-                        
-                        <div className="text-center mb-6">
-                            <h3 className="text-xl font-black text-gray-800">จัดการวันที่</h3>
-                            <p className="text-indigo-600 font-bold text-lg">{format(selectedDate, 'd MMMM yyyy', { locale: th })}</p>
-                            <p className="text-xs text-gray-500 mt-1">สถานะปัจจุบัน: {getEffectiveStatus(selectedDate).desc}</p>
-                        </div>
-
-                        <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-3">
+                            {/* Modal Content with Framer Motion */}
+                            <motion.div 
+                                initial={{ scale: 0.95, y: 15 }}
+                                animate={{ scale: 1, y: 0 }}
+                                exit={{ scale: 0.95, y: 15 }}
+                                transition={{ duration: 0.25, ease: "easeOut" }}
+                                className="bg-white w-full max-w-lg rounded-3xl shadow-2xl p-6 sm:p-8 relative z-10 border border-gray-100"
+                            >
                                 <button 
-                                    onClick={() => setOverrideType('WORK_DAY')}
-                                    className={`p-3 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${overrideType === 'WORK_DAY' ? 'bg-green-50 border-green-500 text-green-700' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`}
+                                    onClick={() => setSelectedDate(null)} 
+                                    className="absolute top-5 right-5 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors"
                                 >
-                                    <Briefcase className="w-6 h-6" />
-                                    <span className="text-xs font-bold">วันทำงาน (Work)</span>
+                                    <X className="w-5 h-5"/>
                                 </button>
-                                <button 
-                                    onClick={() => setOverrideType('HOLIDAY')}
-                                    className={`p-3 rounded-xl border-2 flex flex-col items-center gap-2 transition-all ${overrideType === 'HOLIDAY' ? 'bg-red-50 border-red-500 text-red-700' : 'bg-white border-gray-200 text-gray-500 hover:bg-gray-50'}`}
-                                >
-                                    <Coffee className="w-6 h-6" />
-                                    <span className="text-xs font-bold">วันหยุด (Off)</span>
-                                </button>
-                            </div>
+                                
+                                <div className="text-center mb-6">
+                                    <div className="inline-flex p-3 bg-indigo-50 text-indigo-600 rounded-2xl mb-3">
+                                        <CalendarIcon className="w-6 h-6" />
+                                    </div>
+                                    <h3 className="text-xl font-bold text-gray-800">จัดการข้อยกเว้นวันทำงาน</h3>
+                                    <p className="text-indigo-600 font-bold text-lg mt-0.5">
+                                        {format(selectedDate, 'd MMMM yyyy', { locale: th })}
+                                    </p>
+                                    <p className="text-xs text-gray-500 mt-1 bg-gray-50 inline-block px-3 py-1 rounded-full border border-gray-100">
+                                        สถานะปัจจุบัน: <span className="font-semibold text-gray-700">{getEffectiveStatus(selectedDate).desc}</span>
+                                    </p>
+                                </div>
 
-                            <div>
-                                <label className="text-xs font-bold text-gray-500 ml-1 mb-1 block">เหตุผล / รายละเอียด</label>
-                                <input 
-                                    type="text" 
-                                    className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-500 font-medium"
-                                    placeholder="เช่น ออกกองพิเศษ, ชดเชยสงกรานต์"
-                                    value={description}
-                                    onChange={e => setDescription(e.target.value)}
-                                />
-                            </div>
-                            
-                            <div className="flex gap-3 pt-2">
-                                {getEffectiveStatus(selectedDate).source === 'EXCEPTION' && (
-                                    <button onClick={handleClear} className="p-3 text-red-500 bg-red-50 hover:bg-red-100 rounded-xl transition-colors" title="ลบการตั้งค่า (Reset)">
-                                        <Trash2 className="w-5 h-5" />
-                                    </button>
-                                )}
-                                <button onClick={handleSave} className="flex-1 bg-indigo-600 text-white rounded-xl font-bold text-sm hover:bg-indigo-700 transition-all shadow-lg flex items-center justify-center gap-2">
-                                    <Save className="w-4 h-4" /> บันทึกการเปลี่ยนแปลง
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                                <div className="space-y-5">
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button 
+                                            type="button"
+                                            onClick={() => setOverrideType('WORK_DAY')}
+                                            className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${
+                                                overrideType === 'WORK_DAY' 
+                                                    ? 'bg-green-50/80 border-green-500 text-green-700 shadow-sm' 
+                                                    : 'bg-white border-gray-100 text-gray-400 hover:bg-gray-50 hover:border-gray-200'
+                                            }`}
+                                        >
+                                            <Briefcase className="w-6 h-6" />
+                                            <span className="text-xs font-bold">วันทำงาน (Work Day)</span>
+                                        </button>
+                                        <button 
+                                            type="button"
+                                            onClick={() => setOverrideType('HOLIDAY')}
+                                            className={`p-4 rounded-2xl border-2 flex flex-col items-center gap-2 transition-all ${
+                                                overrideType === 'HOLIDAY' 
+                                                    ? 'bg-red-50/80 border-red-500 text-red-700 shadow-sm' 
+                                                    : 'bg-white border-gray-100 text-gray-400 hover:bg-gray-50 hover:border-gray-200'
+                                            }`}
+                                        >
+                                            <Coffee className="w-6 h-6" />
+                                            <span className="text-xs font-bold">วันหยุด (Holiday)</span>
+                                        </button>
+                                    </div>
+
+                                    <div>
+                                        <label className="text-xs font-bold text-gray-600 ml-1 mb-1.5 block">
+                                            เหตุผล / รายละเอียดเพิ่มเติม
+                                        </label>
+                                        <input 
+                                            type="text" 
+                                            className="w-full border border-gray-200 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-500 font-medium transition-all"
+                                            placeholder="เช่น ออกกองพิเศษ, ชดเชยวันหยุดสงกรานต์"
+                                            value={description}
+                                            onChange={e => setDescription(e.target.value)}
+                                        />
+                                    </div>
+                                    
+                                    <div className="flex gap-3 pt-2">
+                                        {getEffectiveStatus(selectedDate).source === 'EXCEPTION' && (
+                                            <button 
+                                                type="button"
+                                                onClick={handleClear} 
+                                                className="p-3 text-red-500 bg-red-50 hover:bg-red-100 rounded-xl transition-colors border border-red-100" 
+                                                title="ลบการตั้งค่าข้อยกเว้น"
+                                            >
+                                                <Trash2 className="w-5 h-5" />
+                                            </button>
+                                        )}
+                                        <button 
+                                            type="button"
+                                            onClick={handleSave} 
+                                            className="flex-1 bg-indigo-600 text-white rounded-xl font-bold text-sm py-3 hover:bg-indigo-500 transition-all shadow-md flex items-center justify-center gap-2"
+                                        >
+                                            <Save className="w-4 h-4" /> บันทึกการเปลี่ยนแปลง
+                                        </button>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>,
+                document.body
             )}
         </div>
     );

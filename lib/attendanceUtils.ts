@@ -159,22 +159,54 @@ export const parseAttendanceMetadata = (note: string | undefined) => {
     };
 };
 
+export interface ICTTimeResult {
+    hour: string;
+    minute: string;
+    second: string;
+    totalMinutes: number;
+}
+
+/**
+ * Converts any Date or string representing a date-time into ICT (Asia/Bangkok) hour, minute, second and total minutes since midnight.
+ */
+export const getICTTime = (date: Date | string): ICTTimeResult => {
+    const d = typeof date === 'string' ? new Date(date) : date;
+    const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Asia/Bangkok',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    });
+    const parts = formatter.formatToParts(d);
+    const hour = parts.find(p => p.type === 'hour')?.value || '00';
+    const minute = parts.find(p => p.type === 'minute')?.value || '00';
+    const second = parts.find(p => p.type === 'second')?.value || '00';
+    
+    let hNum = parseInt(hour, 10);
+    if (hNum === 24) hNum = 0;
+    const hStr = String(hNum).padStart(2, '0');
+    
+    return {
+        hour: hStr,
+        minute,
+        second,
+        totalMinutes: hNum * 60 + parseInt(minute, 10)
+    };
+};
+
 /**
  * Check if a specific time is considered "Late" based on dynamic config string (e.g. "10:00")
  */
 export const checkIsLate = (checkInTime: Date | string | null, startTimeStr: string, bufferMinutes: number = 0): boolean => {
     if (!checkInTime) return false;
     try {
-        const checkIn = typeof checkInTime === 'string' ? new Date(checkInTime) : checkInTime;
-        const [targetHour, targetMinute] = startTimeStr.split(':').map(Number);
-        
-        // Create target time object for the same day as checkInTime
-        const targetTime = setMinutes(setHours(checkIn, targetHour), targetMinute + bufferMinutes);
-        
-        // If checkInTime is AFTER targetTime, it is late
-        return isBefore(targetTime, checkIn);
+        const { totalMinutes } = getICTTime(checkInTime);
+        const [sh, sm] = startTimeStr.split(':').map(Number);
+        const shiftMinutes = sh * 60 + sm;
+        return totalMinutes > (shiftMinutes + bufferMinutes);
     } catch (e) {
-        console.error("Error parsing start time", e);
+        console.error("Error checking is late", e);
         return false; // Default to not late if config error
     }
 };
@@ -191,17 +223,15 @@ export const getLateMinutes = (
 ): number => {
     if (!checkInTime) return 0;
     try {
-        const checkIn = typeof checkInTime === 'string' ? new Date(checkInTime) : checkInTime;
-        const [targetHour, targetMinute] = startTimeStr.split(':').map(Number);
+        const { totalMinutes } = getICTTime(checkInTime);
+        const [sh, sm] = startTimeStr.split(':').map(Number);
+        const shiftMinutes = sh * 60 + sm;
         
-        const officialStartTime = setMinutes(setHours(checkIn, targetHour), targetMinute);
-        const lateLimitTime = setMinutes(setHours(checkIn, targetHour), targetMinute + bufferMinutes);
-        
-        // If check-in time is AFTER late limit, compute exact late minutes from official starting time
-        if (isBefore(lateLimitTime, checkIn)) {
-            return Math.max(0, differenceInMinutes(checkIn, officialStartTime));
+        if (totalMinutes > (shiftMinutes + bufferMinutes)) {
+            // Calculated from the official start time
+            return totalMinutes - shiftMinutes;
         }
-        return 0; // Not late
+        return 0; // Not late or within buffer
     } catch (e) {
         return 0;
     }
@@ -288,9 +318,7 @@ export const getMatchedShiftSlot = (
         return (ah * 60 + am) - (bh * 60 + bm);
     });
 
-    const currentHour = now.getHours();
-    const currentMinute = now.getMinutes();
-    const currentTotalMinutes = currentHour * 60 + currentMinute;
+    const { totalMinutes: currentTotalMinutes } = getICTTime(now);
 
     // Find the first shift slot we are early or exactly on-time for
     for (const shift of sortedShifts) {
@@ -382,4 +410,36 @@ export const resolveAttendanceLogStatus = (
 
     return (currentStatus as any) || 'ACTION_REQUIRED';
 };
+
+/**
+ * Calculates the maximum allowed check-in time based on the latest shift and buffer.
+ * e.g., if shifts are ['08:00', '08:30', '09:00'] and buffer is 15 mins, max allowed time is '09:15'.
+ */
+export function getMaxShiftWithBuffer(masterOptions: any[] = []): { maxShiftTimeStr: string; maxAllowedTimeStr: string; bufferMinutes: number } {
+    const shiftsEnabledOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'MULTIPLE_SHIFTS_ENABLED');
+    const shiftsListOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'MULTIPLE_SHIFTS_LIST');
+    const startTimeOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'START_TIME');
+    const lateBufferOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'LATE_BUFFER');
+
+    const bufferMinutes = parseInt(lateBufferOpt?.label || '15', 10);
+    const shiftsEnabled = shiftsEnabledOpt?.label === 'true';
+
+    let maxShiftTimeStr = startTimeOpt?.label || '09:00';
+
+    if (shiftsEnabled && shiftsListOpt?.label) {
+        const shifts = shiftsListOpt.label.split(',').map((s: string) => s.trim()).filter(Boolean);
+        if (shifts.length > 0) {
+            shifts.sort();
+            maxShiftTimeStr = shifts[shifts.length - 1];
+        }
+    }
+
+    const [h, m] = maxShiftTimeStr.split(':').map(Number);
+    const totalMinutes = (isNaN(h) ? 9 : h) * 60 + (isNaN(m) ? 0 : m) + bufferMinutes;
+    const maxH = Math.floor(totalMinutes / 60) % 24;
+    const maxM = totalMinutes % 60;
+    const maxAllowedTimeStr = `${String(maxH).padStart(2, '0')}:${String(maxM).padStart(2, '0')}`;
+
+    return { maxShiftTimeStr, maxAllowedTimeStr, bufferMinutes };
+}
 

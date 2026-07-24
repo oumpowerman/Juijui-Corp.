@@ -2,6 +2,8 @@ import { eachDayOfInterval, isValid } from 'date-fns';
 import { isWorkingDay } from './judgeUtils';
 import { LeaveRequest } from '../types/attendance';
 import { mergeAttendanceNotes, resolveAttendanceLogStatus } from '../lib/attendanceUtils';
+import { supabase } from '../lib/supabase';
+import { getRegistryItem } from '../constants/attendanceRegistry';
 
 export interface QuotaCheckResult {
     limit: number;
@@ -112,6 +114,7 @@ export interface AttendanceCorrectionPayloadOptions {
     leaveType?: string;
     isLate?: boolean;
     existingWorkType?: string;
+    targetWorkType?: 'OFFICE' | 'WFH' | 'SITE' | string;
 }
 
 /**
@@ -128,16 +131,22 @@ export function buildAttendanceCorrectionPayload({
     existingNote = '',
     leaveType = '',
     isLate = false,
-    existingWorkType
+    existingWorkType,
+    targetWorkType
 }: AttendanceCorrectionPayloadOptions) {
-    let resolvedWorkType = 'OFFICE';
-    const noteStr = existingNote || '';
-    if (existingWorkType === 'WFH' || existingWorkType === 'ONSITE') {
-        resolvedWorkType = existingWorkType;
-    } else if (noteStr.includes('[PROVISIONAL_WFH]')) {
-        resolvedWorkType = 'WFH';
-    } else if (noteStr.includes('[PROVISIONAL_ONSITE]')) {
-        resolvedWorkType = 'ONSITE';
+    let resolvedWorkType = targetWorkType || 'OFFICE';
+    if (!targetWorkType) {
+        const noteStr = existingNote || '';
+        const reasonStr = reason || '';
+        const combined = `${noteStr} ${reasonStr}`;
+
+        if (existingWorkType === 'WFH' || existingWorkType === 'ONSITE' || existingWorkType === 'SITE') {
+            resolvedWorkType = existingWorkType === 'ONSITE' ? 'SITE' : existingWorkType;
+        } else if (combined.includes('[PROVISIONAL_WFH]') || combined.includes('[REMOTE:WFH]')) {
+            resolvedWorkType = 'WFH';
+        } else if (combined.includes('[PROVISIONAL_ONSITE]') || combined.includes('[REMOTE:ONSITE]') || combined.includes('[REMOTE:SITE]')) {
+            resolvedWorkType = 'SITE';
+        }
     }
 
     if (type === 'FORGOT_BOTH') {
@@ -179,5 +188,169 @@ export function buildAttendanceCorrectionPayload({
             status: 'LEAVE',
             note: mergeAttendanceNotes(existingNote, `[APPROVED LEAVE: ${leaveType}] ${reason}`)
         };
+    }
+}
+
+/**
+ * Parses Work Configuration values from masterOptions.
+ */
+export function parseWorkConfig(masterOptions: any[]) {
+    const configData = (masterOptions || []).filter(o => o.type === 'WORK_CONFIG');
+    const startTime = configData.find(c => c.key === 'START_TIME')?.label || '10:00';
+    const lateBuffer = parseInt(configData.find(c => c.key === 'LATE_BUFFER')?.label || '15', 10);
+    return { startTime, lateBuffer };
+}
+
+/**
+ * Removes temporary tags, pending flags, mismatch text, and normalizes whitespaces in attendance notes.
+ */
+export function cleanAttendanceNoteTags(
+    existingNote: string,
+    requestType: string,
+    extraTagsToClean: string[] = []
+): string {
+    let cleaned = existingNote || '';
+    const registryItem = getRegistryItem(requestType);
+    
+    if (registryItem) {
+        const tagsToClean = [
+            registryItem.tags.pending,
+            registryItem.tags.provisional,
+            '[APPEAL_PENDING]'
+        ].filter(Boolean) as string[];
+        
+        tagsToClean.forEach(tag => {
+            const escaped = tag.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+            cleaned = cleaned.replace(new RegExp(escaped, 'g'), '');
+        });
+    }
+
+    // Dynamic clean for provisional tags with values (e.g. [PROVISIONAL_WFH:some_reason])
+    if (registryItem?.tags?.provisional) {
+        const innerText = registryItem.tags.provisional.replace(/^\[|\]$/g, '');
+        const escapedInner = innerText.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        cleaned = cleaned.replace(new RegExp(`\\[${escapedInner}(:.*?)?\\]`, 'g'), '');
+    }
+
+    // Dynamic clean for extra tags
+    extraTagsToClean.forEach(tag => {
+        const escaped = tag.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        cleaned = cleaned.replace(new RegExp(escaped, 'g'), '');
+    });
+
+    return cleaned
+        .replace(/\(Location Mismatch\)/g, '')
+        .replace(/\[Location Mismatch\]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+/**
+ * Decides the target work type (OFFICE, WFH, SITE) based on approved requests, tags, and previous history.
+ */
+export async function deduceTargetWorkType({
+    userId,
+    dateStr,
+    requestReason,
+    existingNote,
+    existingWorkType
+}: {
+    userId: string;
+    dateStr: string;
+    requestReason?: string;
+    existingNote?: string | null;
+    existingWorkType?: string | null;
+}): Promise<'OFFICE' | 'WFH' | 'SITE'> {
+    // 1. Check for approved WFH / ONSITE leave requests on that day
+    const { data: approvedRemoteReq } = await supabase
+        .from('leave_requests')
+        .select('type')
+        .eq('user_id', userId)
+        .eq('start_date', dateStr)
+        .in('type', ['WFH', 'ONSITE'])
+        .eq('status', 'APPROVED')
+        .maybeSingle();
+
+    if (approvedRemoteReq) {
+        return approvedRemoteReq.type === 'WFH' ? 'WFH' : 'SITE';
+    }
+
+    // 2. Detect from text-based tags in reason or existing notes
+    const combinedText = `${requestReason || ''} ${existingNote || ''}`;
+    if (combinedText.includes('[REMOTE:WFH]') || combinedText.includes('[PROVISIONAL_WFH]')) {
+        return 'WFH';
+    }
+    if (combinedText.includes('[REMOTE:ONSITE]') || combinedText.includes('[REMOTE:SITE]') || combinedText.includes('[PROVISIONAL_ONSITE]')) {
+        return 'SITE';
+    }
+
+    // 3. Fallback to existing work type
+    if (existingWorkType === 'WFH' || existingWorkType === 'SITE' || existingWorkType === 'ONSITE') {
+        return existingWorkType === 'ONSITE' ? 'SITE' : (existingWorkType as any);
+    }
+
+    return 'OFFICE';
+}
+
+/**
+ * Extracts start time, end time, hours, and cleans OT metadata from Overtime reason strings.
+ */
+export function parseOtDetailsFromReason(reason: string) {
+    const cleanReasonText = reason || '';
+    const otRangeMatch = cleanReasonText.match(/\[OT:(\d{2}:\d{2}-\d{2}:\d{2})\]/);
+    const originalTimeRange = otRangeMatch ? otRangeMatch[1] : '18:30-20:30';
+    const [origStart, origEnd] = originalTimeRange.split('-');
+    
+    const otHoursMatch = cleanReasonText.match(/\(([\d\.]+)hr\)/) || cleanReasonText.match(/\[OT:([\d\.]+)hr\]/);
+    const origHours = otHoursMatch ? parseFloat(otHoursMatch[1]) : 2.0;
+
+    const cleanReason = cleanReasonText
+        .replace(/\[OT:\d{2}:\d{2}-\d{2}:\d{2}\]\s*\([\d\.]+hr\)\s*/g, '')
+        .replace(/\[OT:[\d\.]+hr\]\s*/g, '')
+        .replace(/\[OT_MINUTES:\d+\]/g, '')
+        .trim();
+
+    return { origStart, origEnd, origHours, cleanReason };
+}
+
+/**
+ * Evaluates conditions and returns/refunds HP to employee if eligible.
+ */
+export async function processHpRefundIfEligible({
+    userId,
+    dateStr,
+    statusBefore,
+    noteBefore,
+    behavior,
+    reason,
+    processAction
+}: {
+    userId: string;
+    dateStr: string;
+    statusBefore?: string;
+    noteBefore?: string | null;
+    behavior: any;
+    reason: string;
+    processAction: (userId: string, actionType: any, payload?: any) => Promise<any>;
+}) {
+    const isLateSubmission = reason.includes('[LATE_SUBMISSION]');
+    if (isLateSubmission) return;
+
+    const absentDesc = behavior?.refundDescriptionAbsent 
+        ? `คืนค่า HP ${behavior.refundDescriptionAbsent} ${dateStr}` 
+        : `คืนค่า HP จากการแก้สถานะขาดงานวันที่ ${dateStr}`;
+        
+    const penalizedDesc = behavior?.refundDescriptionPenalized 
+        ? `คืนค่า HP ${behavior.refundDescriptionPenalized} ${dateStr}` 
+        : `คืนค่า HP จากการแก้เวลาออกงานวันที่ ${dateStr}`;
+
+    if (statusBefore === 'ABSENT') {
+        await processAction(userId, 'ATTENDANCE_ABSENT_REFUND', {
+            originalDescription: absentDesc
+        });
+    } else if (noteBefore?.includes('[SYSTEM] Penalized')) {
+        await processAction(userId, 'ATTENDANCE_CORRECTION_REFUND', {
+            originalDescription: penalizedDesc
+        });
     }
 }

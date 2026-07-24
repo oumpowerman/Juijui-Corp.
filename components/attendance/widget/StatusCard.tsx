@@ -172,17 +172,19 @@ const StatusCard: React.FC<StatusCardProps> = ({
     const isLeaveLog = todayLog?.status === 'LEAVE' || todayLog?.workType === 'LEAVE';
     const isApprovedLeaveToday = todayActiveLeave?.status === 'APPROVED';
 
+    const isGpsAppealRejectedToday = !!todayLog?.note?.includes('[REJECTED GPS_SPOOF_APPEAL]') || !!todayLog?.note?.includes('[REJECTED_GPS_SPOOF_APPEAL]');
+
     const isCheckedOut = !!todayLog?.checkOutTime;
-    const isCheckedIn = !!todayLog && !!todayLog.checkInTime && !isLeaveLog; 
+    const isCheckedIn = !!todayLog && !!todayLog.checkInTime && !isLeaveLog && !isGpsAppealRejectedToday; 
 
     const isProvisionalForgotCheckin = useMemo(() => !!todayLog?.note?.includes('[PROVISIONAL_FORGOT_CHECKIN]'), [todayLog?.note]);
     const isProvisionalLate = useMemo(() => !!todayLog?.note?.includes('[PROVISIONAL_LATE_ENTRY]'), [todayLog?.note]);
     const isProvisionalCheckout = useMemo(() => !!todayLog?.note?.includes('[PROVISIONAL_CHECKOUT]'), [todayLog?.note]);
     const isProvisionalWfh = useMemo(() => !!todayLog?.note?.includes('[PROVISIONAL_WFH]'), [todayLog?.note]);
     const isProvisionalOnsite = useMemo(() => !!todayLog?.note?.includes('[PROVISIONAL_ONSITE]'), [todayLog?.note]);
-    const isProvisionalGps = useMemo(() => !!todayLog?.note?.includes('[PROVISIONAL_GPS_SPOOF_APPEAL]') || !!todayLog?.note?.includes('[GPS_SPOOF_APPEAL_PENDING]'), [todayLog?.note]);
-    const isAppealPending = useMemo(() => todayLog?.status === 'APPEAL' || !!todayLog?.note?.includes('[APPEAL_PENDING]'), [todayLog?.status, todayLog?.note]);
-    const isPendingVerify = todayLog?.status === 'PENDING_VERIFY';
+    const isProvisionalGps = useMemo(() => (!!todayLog?.note?.includes('[PROVISIONAL_GPS_SPOOF_APPEAL]') || !!todayLog?.note?.includes('[GPS_SPOOF_APPEAL_PENDING]')) && !isGpsAppealRejectedToday, [todayLog?.note, isGpsAppealRejectedToday]);
+    const isAppealPending = useMemo(() => (todayLog?.status === 'APPEAL' || !!todayLog?.note?.includes('[APPEAL_PENDING]')) && !isGpsAppealRejectedToday, [todayLog?.status, todayLog?.note, isGpsAppealRejectedToday]);
+    const isPendingVerify = todayLog?.status === 'PENDING_VERIFY' && !isGpsAppealRejectedToday;
 
     const hasAnyProvisional = isProvisionalForgotCheckin || isProvisionalLate || isProvisionalCheckout || isProvisionalWfh || isProvisionalOnsite || isProvisionalGps || isAppealPending || isPendingVerify;
     

@@ -23,6 +23,18 @@ export const useAnnualHolidays = () => {
         }
     };
 
+    const updateHoliday = async (id: string, name: string, day: number, month: number, typeKey: string) => {
+        try {
+            const { error } = await supabase.from('annual_holidays').update({
+                name, day, month, type_key: typeKey
+            }).eq('id', id);
+            if (error) throw error;
+            showToast('อัปเดตวันหยุดเรียบร้อย ✨', 'success');
+        } catch (err: any) {
+            showToast('อัปเดตไม่สำเร็จ: ' + err.message, 'error');
+        }
+    };
+
     const deleteHoliday = async (id: string) => {
         // Fix: Replaced native confirm with showConfirm
         const confirmed = await showConfirm('ยืนยันการลบวันหยุดนี้ใช่หรือไม่?', 'ลบวันหยุด');
@@ -40,6 +52,7 @@ export const useAnnualHolidays = () => {
         annualHolidays,
         isLoading,
         addHoliday,
+        updateHoliday,
         deleteHoliday
     };
 };

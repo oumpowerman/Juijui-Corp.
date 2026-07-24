@@ -1,5 +1,5 @@
 import { supabase } from '../../lib/supabase';
-import { checkIsLate, getLateMinutes, mergeAttendanceNotes, calculateCheckOutStatus } from '../../lib/attendanceUtils';
+import { checkIsLate, getLateMinutes, mergeAttendanceNotes, calculateCheckOutStatus, getMatchedShiftSlot, getICTTime } from '../../lib/attendanceUtils';
 
 /**
  * Handles rejection logic for WFH and Onsite requests.
@@ -236,9 +236,8 @@ export async function rejectLateEntryRequest({
         if (freshLog.check_in_time) {
             try {
                 actualCheckInDateTime = new Date(freshLog.check_in_time);
-                const hours = String(actualCheckInDateTime.getHours()).padStart(2, '0');
-                const minutes = String(actualCheckInDateTime.getMinutes()).padStart(2, '0');
-                actualTimeStr = `${hours}:${minutes}`;
+                const { hour, minute } = getICTTime(actualCheckInDateTime);
+                actualTimeStr = `${hour}:${minute}`;
             } catch (e) {
                 actualCheckInDateTime = null;
             }
@@ -247,16 +246,28 @@ export async function rejectLateEntryRequest({
         const configData = masterOptions.filter(o => o.type === 'WORK_CONFIG');
         const startTimeStr = configData?.find(c => c.key === 'START_TIME')?.label || '10:00';
         const buffer = parseInt(configData?.find(c => c.key === 'LATE_BUFFER')?.label || '15');
+        const shiftsEnabledOpt = configData?.find(c => c.key === 'MULTIPLE_SHIFTS_ENABLED');
+        const shiftsListOpt = configData?.find(c => c.key === 'MULTIPLE_SHIFTS_LIST');
+        const isShiftsEnabled = shiftsEnabledOpt?.label === 'true';
+        const shiftsList = shiftsListOpt?.label ? shiftsListOpt.label.split(',').map((s: string) => s.trim()) : ['08:00', '08:30', '09:00'];
 
         let isLate = false;
         let lateMinutes = 0;
         let calculatedStatus: 'LATE' | 'ON_TIME' = 'ON_TIME';
 
         if (actualCheckInDateTime) {
-            isLate = checkIsLate(actualCheckInDateTime, startTimeStr, buffer);
-            if (isLate) {
-                calculatedStatus = 'LATE';
-                lateMinutes = getLateMinutes(actualCheckInDateTime, startTimeStr, buffer);
+            if (isShiftsEnabled) {
+                const shiftResult = getMatchedShiftSlot(actualCheckInDateTime, shiftsList, buffer);
+                if (shiftResult.isLate || shiftResult.isBlocked) {
+                    calculatedStatus = 'LATE';
+                    lateMinutes = shiftResult.lateMinutes;
+                }
+            } else {
+                isLate = checkIsLate(actualCheckInDateTime, startTimeStr, buffer);
+                if (isLate) {
+                    calculatedStatus = 'LATE';
+                    lateMinutes = getLateMinutes(actualCheckInDateTime, startTimeStr, buffer);
+                }
             }
         }
 
@@ -279,9 +290,7 @@ export async function rejectLateEntryRequest({
 
         const updatedNote = mergeAttendanceNotes(cleanedNote, `[REJECTED LATE_ENTRY] ปฏิเสธคำร้องเข้าสาย (สายจริงจากเกณฑ์ปกติ: ${lateMinutes} นาที) เหตุ flow-ปกติ: ${reason}`);
         
-        const targetLogStatus = freshLog.check_out_time 
-            ? (calculatedStatus === 'LATE' ? 'LATE' : 'COMPLETED') 
-            : 'WORKING';
+        const targetLogStatus = calculatedStatus === 'LATE' ? 'LATE' : (freshLog.check_out_time ? 'COMPLETED' : 'WORKING');
 
         await supabase.from('attendance_logs').update({
             status: targetLogStatus,

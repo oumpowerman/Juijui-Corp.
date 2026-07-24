@@ -7,7 +7,7 @@ import {
     LogOut, BarChart3, Megaphone, FileText, Presentation, Settings2, 
     Database, Users, Terminal, User as UserIcon, Shield, Trophy, Heart, Crown, Clock,
     Maximize2, Minimize2, Monitor, DollarSign, Briefcase, Clapperboard, Building2, ShieldCheck, Share2,
-    Plus, Hash, ArrowRight, ArrowLeft, Search, ChevronRight, Inbox, Sparkles, Bot, ChevronUp
+    Plus, Hash, ArrowRight, ArrowLeft, Search, ChevronRight, Inbox, Sparkles, Bot, ChevronUp, Map
 } from 'lucide-react';
 import { User, ViewMode, TaskType, MenuGroup, Task } from '../types';
 import { useMobileBackHandler } from '../hooks/useMobileBackHandler';
@@ -20,6 +20,7 @@ import SkinManager from './dashboard/member/welcome-header/SkinManager';
 import { MOBILE_SKIN_THEMES } from './navigation/MobileSkinThemes';
 import MobileUserHeader from './navigation/MobileUserHeader';
 import MobileNavItem from './navigation/MobileNavItem';
+import { MENU_GROUPS as MOBILE_MENU_GROUPS } from './Sidebar';
 
 
 interface MobileNavigationProps {
@@ -35,62 +36,6 @@ interface MobileNavigationProps {
     users: User[];
     onOpenChatAssistant?: () => void;
 }
-
-// --- Menu Configuration (Synced with Sidebar) ---
-const MOBILE_MENU_GROUPS: MenuGroup[] = [
-  {
-    id: 'WORKSPACE',
-    title: 'Workspace',
-    icon: Briefcase,
-    items: [
-      { view: 'DASHBOARD', label: 'ภาพรวม', icon: LayoutGrid },
-      { view: 'CALENDAR', label: 'ปฏิทิน', icon: CalendarIcon },
-      { view: 'CHAT', label: 'แชททีม', icon: MessageCircle },
-      { view: 'TEAM', label: 'ทีมงาน', icon: Users },
-      { view: 'NEXUS', label: 'Nexus Hub', icon: Share2 },
-      { view: 'WEEKLY', label: 'ภารกิจ', icon: Target },
-      { view: 'GOALS', label: 'เป้าหมาย', icon: TrendingUp },
-    ]
-  },
-  {
-    id: 'PRODUCTION',
-    title: 'Production',
-    icon: Clapperboard,
-    items: [
-      { view: 'SCRIPT_HUB', label: 'เขียนบท', icon: FileText },
-      { view: 'MEETINGS', label: 'ประชุม', icon: Presentation },
-      { view: 'ContentStock', label: 'คลังคลิป', icon: Film },
-      { view: 'CHECKLIST', label: 'จัดเป๋า', icon: ClipboardList },
-    ]
-  },
-  {
-    id: 'OFFICE',
-    title: 'Office',
-    icon: Building2,
-    items: [
-      { view: 'ATTENDANCE', label: 'ลงเวลา', icon: Clock },
-      { view: 'LEADERBOARD', label: 'Hall of Fame', icon: Crown },
-      { view: 'DUTY', label: 'เวรวันนี้', icon: Coffee },
-      { view: 'KPI', label: 'ประเมินผล', icon: BarChart3 },
-      { view: 'FEEDBACK', label: 'Voice', icon: Megaphone },
-      { view: 'WIKI', label: 'คู่มือ', icon: BookOpen },
-      { view: 'ASSETS', label: 'ทรัพย์สิน', icon: Monitor }, // Added
-      { view: 'FINANCE', label: 'บัญชี', icon: DollarSign }, // Added
-    ]
-  },
-  {
-    id: 'ADMIN',
-    title: 'Admin Zone',
-    icon: ShieldCheck,
-    adminOnly: true,
-    items: [
-      { view: 'QUALITY_GATE', label: 'ห้องตรวจ', icon: ScanEye },
-      { view: 'CHANNELS', label: 'ช่องทาง', icon: Settings2 },
-      { view: 'MASTER_DATA', label: 'ตั้งค่าระบบ', icon: Database },
-      { view: 'SYSTEM_GUIDE', label: 'Logic', icon: Terminal },
-    ]
-  }
-];
 
 interface MobileMenuButtonProps {
     view: ViewMode;
@@ -278,6 +223,30 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({
         }
     };
 
+    const dockItems = useMemo(() => {
+        const candidates = [
+            { view: 'DASHBOARD', icon: LayoutGrid, label: 'Home' },
+            { view: 'CALENDAR', icon: CalendarIcon, label: 'Plan' },
+            { view: 'CHAT', icon: MessageCircle, label: 'Chat' },
+            { view: 'TEAM', icon: Users, label: 'Team' },
+            { view: 'ROADMAP', icon: Map, label: 'Roadmap' },
+            { view: 'WEEKLY', icon: Target, label: 'Mission' },
+            { view: 'GOALS', icon: TrendingUp, label: 'Goals' },
+            { view: 'NEXUS', icon: Share2, label: 'Nexus' },
+            { view: 'ATTENDANCE', icon: Clock, label: 'Clock' },
+            { view: 'DUTY', icon: Coffee, label: 'Duty' },
+        ];
+
+        // Filter based on activeViews (if activeViews exists)
+        const filteredCandidates = candidates.filter(item => {
+            if (!activeViews || activeViews.length === 0) return true;
+            return activeViews.includes(item.view);
+        });
+
+        // Take at most 4 active items
+        return filteredCandidates.slice(0, 4);
+    }, [activeViews]);
+
     return (
         <>
             {/* --- BOTTOM DOCK (Floating with Collapsible Sliding Animation) --- */}
@@ -287,12 +256,7 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({
                 className="fixed bottom-0 left-0 right-0 z-30 p-3 pb-safe-area lg:hidden pointer-events-none mobile-nav-dock"
             >
                 <div className={`backdrop-blur-xl border shadow-[0_8px_30px_rgb(0,0,0,0.15)] rounded-[2rem] p-1.5 flex items-center justify-between pointer-events-auto gap-1 max-w-sm mx-auto ring-1 ${themeClasses.dock}`}>
-                    {[
-                        { view: 'DASHBOARD', icon: LayoutGrid, label: 'Home' },
-                        { view: 'CALENDAR', icon: CalendarIcon, label: 'Plan' },
-                        { view: 'CHAT', icon: MessageCircle, label: 'Chat' },
-                        { view: 'TEAM', icon: Users, label: 'Team' },
-                    ].map((item) => {
+                    {dockItems.map((item) => {
                         const Icon = item.icon;
                         const isActive = currentView === item.view;
 

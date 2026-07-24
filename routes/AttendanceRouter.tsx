@@ -34,7 +34,7 @@ const parseTabParam = (param: string | null, highlightReqId?: string | null, use
         resolvedTab = highlightReqId ? 'HISTORY' : 'CHECK_IN';
     } else if (['CHECK_IN', 'HISTORY', 'TIMESHEET', 'REPORT', 'APPROVALS'].includes(param)) {
         resolvedTab = param as AttendanceTab;
-    } else if (param === 'leave-requests' || param === 'ot-requests' || param === 'approvals') {
+    } else if (param === 'leave-requests' || param === 'ot-requests' || param === 'approvals' || param === 'approval') {
         resolvedTab = 'APPROVALS';
     } else if (param === 'my-requests' || param === 'my-history' || param === 'history') {
         resolvedTab = 'HISTORY';
@@ -53,7 +53,7 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
     
     // Derived State from URL searchParams (Single Source of Truth)
     const currentTab = useMemo(() => {
-        return parseTabParam(searchParams.get('tab'), searchParams.get('highlightReqId'), currentUser?.role);
+        return parseTabParam(searchParams.get('tab'), searchParams.get('highlightReqId') || searchParams.get('id'), currentUser?.role);
     }, [searchParams, currentUser?.role]);
 
     const selectTab = (tab: AttendanceTab) => {

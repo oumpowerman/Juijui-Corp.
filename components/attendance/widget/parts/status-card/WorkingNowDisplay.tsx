@@ -58,7 +58,7 @@ export const WorkingNowDisplay: React.FC<WorkingNowDisplayProps> = ({
             </div>
 
             {/* APPROVED WFH BANNER */}
-            {isApprovedLeaveToday && todayActiveLeave?.type === 'WFH' && todayLog?.workType === 'WFH' && (
+            {(isApprovedLeaveToday && todayActiveLeave?.type === 'WFH') && (
                 <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center justify-between animate-in slide-in-from-top-2">
                     <div className="flex items-center gap-2.5">
                         <div className="bg-emerald-100 p-1.5 rounded-full text-emerald-600">
@@ -73,7 +73,7 @@ export const WorkingNowDisplay: React.FC<WorkingNowDisplayProps> = ({
             )}
 
             {/* APPROVED ONSITE BANNER */}
-            {isApprovedLeaveToday && todayActiveLeave?.type === 'ONSITE' && todayLog?.workType === 'SITE' && (
+            {(isApprovedLeaveToday && todayActiveLeave?.type === 'ONSITE') && (
                 <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-3 flex items-center justify-between animate-in slide-in-from-top-2">
                     <div className="flex items-center gap-2.5">
                         <div className="bg-emerald-100 p-1.5 rounded-full text-emerald-600">

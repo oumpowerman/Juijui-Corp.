@@ -144,12 +144,54 @@ export const HistoryItemCard: React.FC<HistoryItemCardProps> = ({ req, isHighlig
                     </p>
 
                     {/* Custom Detail Badges */}
-                    {(parsed.time || parsed.isLateSubmission || parsed.isLocationMismatch || parsed.otHours || parsed.isFixedOt) && (
+                    {(parsed.time || parsed.isLateSubmission || parsed.isLocationMismatch || parsed.otHours || parsed.isFixedOt || parsed.actualCheckInTime || parsed.distance || parsed.remoteType || parsed.isProvisionalWfh || parsed.isProvisionalOnsite || parsed.isProvisionalForgotCheckin || parsed.isProvisionalLate || parsed.isProvisionalCheckout || parsed.isProvisionalGps) && (
                         <div className="flex flex-wrap gap-1.5 mt-2">
+                            {parsed.isProvisionalWfh && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-sky-700 bg-sky-50 border border-sky-100 px-2 py-0.5 rounded">
+                                    <AlertTriangle className="w-3 h-3 text-sky-500" />
+                                    <span>WFH แบบจำลอง (รออนุมัติสิทธิ์)</span>
+                                </span>
+                            )}
+                            {parsed.isProvisionalOnsite && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-orange-700 bg-orange-50 border border-orange-100 px-2 py-0.5 rounded">
+                                    <AlertTriangle className="w-3 h-3 text-orange-500" />
+                                    <span>On-site แบบจำลอง (รออนุมัติสิทธิ์)</span>
+                                </span>
+                            )}
+                            {parsed.isProvisionalForgotCheckin && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-100 px-2 py-0.5 rounded">
+                                    <AlertTriangle className="w-3 h-3 text-amber-500" />
+                                    <span>ลืมลงเวลาแบบจำลอง (รออนุมัติสิทธิ์)</span>
+                                </span>
+                            )}
+                            {parsed.isProvisionalLate && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-violet-700 bg-violet-50 border border-violet-100 px-2 py-0.5 rounded">
+                                    <AlertTriangle className="w-3 h-3 text-violet-500" />
+                                    <span>เข้าสายแบบจำลอง (รออนุมัติสิทธิ์)</span>
+                                </span>
+                            )}
+                            {parsed.isProvisionalCheckout && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-rose-700 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded">
+                                    <AlertTriangle className="w-3 h-3 text-rose-500" />
+                                    <span>ลืมลงเวลาออกงานจำลอง (รออนุมัติสิทธิ์)</span>
+                                </span>
+                            )}
+                            {parsed.isProvisionalGps && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-purple-700 bg-purple-50 border border-purple-100 px-2 py-0.5 rounded">
+                                    <AlertTriangle className="w-3 h-3 text-purple-500" />
+                                    <span>ลงเวลาแบบจำลอง (อุทธรณ์ GPS)</span>
+                                </span>
+                            )}
                             {parsed.time && (
                                 <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-purple-700 bg-purple-50 border border-purple-100 px-2 py-0.5 rounded">
                                     <Clock className="w-3 h-3" />
                                     <span>เวลา: {parsed.time} น.</span>
+                                </span>
+                            )}
+                            {parsed.actualCheckInTime && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-teal-700 bg-teal-50 border border-teal-100 px-2 py-0.5 rounded">
+                                    <Clock className="w-3 h-3" />
+                                    <span>เวลาสแกนจริง: {parsed.actualCheckInTime} น.</span>
                                 </span>
                             )}
                             {parsed.isLateSubmission && (
@@ -162,6 +204,18 @@ export const HistoryItemCard: React.FC<HistoryItemCardProps> = ({ req, isHighlig
                                 <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-rose-700 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded">
                                     <MapPin className="w-3 h-3" />
                                     <span>พิกัดภายนอกพื้นที่ทำงาน</span>
+                                </span>
+                            )}
+                            {parsed.distance && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-rose-700 bg-rose-50 border border-rose-100 px-2 py-0.5 rounded">
+                                    <MapPin className="w-3 h-3 text-rose-500" />
+                                    <span>ห่างพิกัดหลัก: {parsed.distance} กม.</span>
+                                </span>
+                            )}
+                            {parsed.remoteType && (
+                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-700 bg-emerald-50 border border-emerald-100 px-2 py-0.5 rounded">
+                                    🏠
+                                    <span>ทำงานรีโมท: {parsed.remoteType}</span>
                                 </span>
                             )}
                             {parsed.otHours && (

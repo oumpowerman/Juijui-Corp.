@@ -1,6 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { useToast } from './ToastContext';
+import { useGlobalDialog } from './GlobalDialogContext';
 
 declare global {
     interface Window {
@@ -34,10 +35,18 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const [tokenClient, setTokenClient] = useState<any>(null);
     const [accessToken, setAccessToken] = useState<string | null>(null);
     const { showToast } = useToast();
+    const { showSuccess } = useGlobalDialog();
+    const activeTokenRef = useRef<string | null>(null);
 
-    const handleAuthSuccessToken = (token: string) => {
+    const handleAuthSuccessToken = (token: string, forceShowAlert: boolean = false) => {
+        const isNewToken = activeTokenRef.current !== token;
+        activeTokenRef.current = token;
         setAccessToken(token);
-        showToast('เชื่อมต่อ Google Drive สำเร็จ 🔓', 'success');
+
+        if (isNewToken || forceShowAlert) {
+            showToast('เชื่อมต่อ Google Drive สำเร็จ 🔓', 'success');
+            showSuccess('เชื่อมต่อ Google Drive สำเร็จเรียบร้อยแล้ว! ระบบ Juijui Planner พร้อมสำหรับอัปโหลดข้อมูลและดึงไฟล์งานจากไดรฟ์ของคุณทันที 📂✨', 'เชื่อมต่อสำเร็จ', true);
+        }
 
         if (pendingAction.current === 'PICK') {
             createPicker(token, pendingCallback.current);
@@ -49,7 +58,7 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
         }
     };
 
-    const fetchServerToken = async (): Promise<string | null> => {
+    const fetchServerToken = async (skipStateUpdate: boolean = false): Promise<string | null> => {
         try {
             const response = await fetch(`/api/auth/google/token?t=${Date.now()}`, {
                 credentials: 'same-origin',
@@ -62,7 +71,10 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 if (contentType && contentType.includes('application/json')) {
                     const data = await response.json();
                     if (data && data.accessToken) {
-                        setAccessToken(data.accessToken);
+                        if (!skipStateUpdate) {
+                            setAccessToken(data.accessToken);
+                            activeTokenRef.current = data.accessToken;
+                        }
                         return data.accessToken;
                     }
                 }
@@ -79,10 +91,10 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const pendingReject = useRef<((error: any) => void) | null>(null);
     const pendingFolderPath = useRef<string[]>([]);
 
-    const checkAndSyncAuth = async () => {
-        const token = await fetchServerToken();
+    const checkAndSyncAuth = async (forceShowAlert: boolean = false) => {
+        const token = await fetchServerToken(true);
         if (token) {
-            handleAuthSuccessToken(token);
+            handleAuthSuccessToken(token, forceShowAlert);
             return true;
         }
         return false;
@@ -154,13 +166,13 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
         const handleMessage = async (event: MessageEvent) => {
             if (event.data?.type === 'GOOGLE_AUTH_SUCCESS') {
-                await checkAndSyncAuth();
+                await checkAndSyncAuth(true);
             }
         };
 
         const handleStorage = async (event: StorageEvent) => {
             if (event.key === 'GOOGLE_AUTH_TIMESTAMP' || event.key === 'GOOGLE_AUTH_SUCCESS_DATA') {
-                await checkAndSyncAuth();
+                await checkAndSyncAuth(true);
                 try { 
                     localStorage.removeItem('GOOGLE_AUTH_TIMESTAMP');
                     localStorage.removeItem('GOOGLE_AUTH_SUCCESS_DATA');
@@ -185,6 +197,7 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     const logout = async () => {
         setAccessToken(null);
+        activeTokenRef.current = null;
         try {
             await fetch('/api/auth/google/logout', { method: 'POST' });
         } catch (e) {
@@ -368,6 +381,7 @@ export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ c
                 // --- SESSION INTEGRITY: If unauthorized, clear token ---
                 if (response.status === 401 || errorReason === 'authError' || errorReason === 'invalid_grant') {
                     setAccessToken(null);
+                    activeTokenRef.current = null;
                     showToast('การเชื่อมต่อ Google Drive หมดอายุ กรุณาเข้าสู่ระบบใหม่', 'warning');
                 }
 

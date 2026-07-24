@@ -7,6 +7,7 @@ import { ATTENDANCE_REGISTRY } from '../../../constants/attendanceRegistry';
 import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMasterData } from '../../../hooks/useMasterData';
+import { getMaxShiftWithBuffer } from '../../../lib/attendanceUtils';
 import { RequestDetailModal } from './RequestDetailModal';
 import MultiDatePickerModal from '../../ui/MultiDatePickerModal';
 import TimePickerModal from '../../ui/TimePickerModal';
@@ -45,37 +46,12 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
     onReject 
 }) => {
     const { showAlert, showConfirm } = useGlobalDialog();
-    const { annualHolidays, calendarExceptions } = useMasterData();
+    const { annualHolidays, calendarExceptions, masterOptions } = useMasterData();
     const [searchParams, setSearchParams] = useSearchParams();
-    const highlightReqId = searchParams.get('highlightReqId');
+    const highlightReqId = searchParams.get('highlightReqId') || searchParams.get('id');
 
     const [filterStatus, setFilterStatus] = useState<'PENDING' | 'HISTORY'>('PENDING');
     const [historySubFilter, setHistorySubFilter] = useState<HistoryFilter>('ALL');
-    
-    // Auto-adjust category and filter status based on tab or highlighted request status
-    useEffect(() => {
-        const tabParam = searchParams.get('tab');
-        if (highlightReqId) {
-            setActiveCategory('ALL');
-            const matchingReq = requests.find(r => r.id === highlightReqId);
-            if (matchingReq) {
-                if (matchingReq.status === 'PENDING') {
-                    setFilterStatus('PENDING');
-                } else {
-                    setFilterStatus('HISTORY');
-                    if (matchingReq.status === 'APPROVED') {
-                        setHistorySubFilter('APPROVED');
-                    } else if (matchingReq.status === 'REJECTED') {
-                        setHistorySubFilter('REJECTED');
-                    }
-                }
-            }
-        } else if (tabParam === 'ot-requests') {
-            setActiveCategory('OT');
-        } else if (tabParam === 'leave-requests') {
-            setActiveCategory('LEAVE');
-        }
-    }, [highlightReqId, requests, searchParams]);
     
     // State for Request Detail Modal
     const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
@@ -213,6 +189,36 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
             return dateB - dateA;
         });
     }, [requests, historicalCache, selectedMonth, selectedYear, isMonthFilterEnabled, isCustomRangeEnabled, customRangeRequests, allRequestsLoaded, sixtyDaysAgo]);
+
+    // Auto-adjust category, filter status, and open modal based on tab or highlighted request ID
+    useEffect(() => {
+        const tabParam = searchParams.get('tab');
+        if (highlightReqId) {
+            setActiveCategory('ALL');
+            const matchingReq = combinedRequests.find(r => r.id === highlightReqId);
+            if (matchingReq) {
+                if (matchingReq.status === 'PENDING') {
+                    setFilterStatus('PENDING');
+                } else {
+                    setFilterStatus('HISTORY');
+                    if (matchingReq.status === 'APPROVED') {
+                        setHistorySubFilter('APPROVED');
+                    } else if (matchingReq.status === 'REJECTED') {
+                        setHistorySubFilter('REJECTED');
+                    }
+                }
+                
+                // Auto-open modal if not already open for this request
+                if (!selectedRequest || selectedRequest.id !== highlightReqId) {
+                    setSelectedRequest(matchingReq);
+                }
+            }
+        } else if (tabParam === 'ot-requests') {
+            setActiveCategory('OT');
+        } else if (tabParam === 'leave-requests') {
+            setActiveCategory('LEAVE');
+        }
+    }, [highlightReqId, combinedRequests, searchParams, selectedRequest]);
 
     const isCategoryDimmed = (cat: 'LEAVE' | 'LATE_FORGOT' | 'OT') => {
         return activeCategory !== 'ALL' && activeCategory !== cat;
@@ -353,18 +359,34 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
     };
 
     const handleApproveClick = async (req: LeaveRequest, customStartTime?: string) => {
-        if (customStartTime === 'DIRECT_APPROVE') {
-            if (await showConfirm('คุณต้องการอนุมัติคำขอลงเวลานี้ตามที่ขอมาใช่หรือไม่?')) {
-                await onApprove(req);
+        if (customStartTime && customStartTime !== 'DIRECT_APPROVE' && customStartTime !== 'ADJUST_TIME') {
+            const { maxAllowedTimeStr, maxShiftTimeStr, bufferMinutes } = getMaxShiftWithBuffer(masterOptions);
+            if (customStartTime > maxAllowedTimeStr) {
+                await showAlert(
+                    `ไม่สามารถอนุมัติได้: เวลาที่ระบุ (${customStartTime} น.) เกินเวลาสายสุดของกะงานรวม Buffer (${maxAllowedTimeStr} น. - คำนวณจากกะสุดท้าย ${maxShiftTimeStr} น. + Buffer ${bufferMinutes} นาที)`,
+                    'เวลาเกินกำหนดสายสุด'
+                );
+                return;
             }
-        } else if (customStartTime === 'ADJUST_TIME') {
-            setSelectedRequest(req);
-        } else if (req.type === 'OVERTIME' || req.type === 'FORGOT_CHECKIN') {
-            setSelectedRequest(req);
-        } else {
-            if (await showConfirm('คุณต้องการอนุมัติคำขอนี้ใช่หรือไม่?')) {
-                await onApprove(req);
+        }
+
+        try {
+            if (customStartTime === 'DIRECT_APPROVE') {
+                if (await showConfirm('คุณต้องการอนุมัติคำขอลงเวลานี้ตามที่ขอมาใช่หรือไม่?')) {
+                    await onApprove(req);
+                }
+            } else if (customStartTime === 'ADJUST_TIME') {
+                setSelectedRequest(req);
+            } else if (req.type === 'OVERTIME' || req.type === 'FORGOT_CHECKIN') {
+                setSelectedRequest(req);
+            } else {
+                if (await showConfirm(`คุณต้องการอนุมัติคำขอนี้${customStartTime ? ` (เวลากะ ${customStartTime} น.)` : ''} ใช่หรือไม่?`)) {
+                    await onApprove(req, undefined, customStartTime);
+                }
             }
+        } catch (e: any) {
+            console.error(e);
+            await showAlert(e?.message || 'เกิดข้อผิดพลาดในการอนุมัติ', 'ไม่สามารถอนุมัติได้');
         }
     };
 
@@ -459,6 +481,13 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
                         onClose={() => {
                             setSelectedRequest(null);
                             setIsRejectModeRequested(false);
+                            // Clear highlight parameters from URL so the modal doesn't re-open
+                            setSearchParams(prev => {
+                                const next = new URLSearchParams(prev);
+                                next.delete('highlightReqId');
+                                next.delete('id');
+                                return next;
+                            }, { replace: true });
                         }}
                         onApprove={onApprove}
                         onReject={onReject}

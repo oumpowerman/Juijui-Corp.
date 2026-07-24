@@ -9,12 +9,7 @@ interface ShiftCardSelectorProps {
     onSelectCustom: () => void;
 }
 
-const getShiftBadgeLabel = (timeStr: string, index: number): string => {
-    const [h] = timeStr.split(':').map(Number);
-    if (h < 8) return 'กะเช้าตรู่';
-    if (h === 8 && timeStr === '08:00') return 'กะหลัก (08:00)';
-    if (h === 8 && timeStr === '08:30') return 'กะยืดหยุ่น (08:30)';
-    if (h >= 9) return 'กะสาย (09:00)';
+const getShiftBadgeLabel = (_timeStr: string, index: number): string => {
     return `กะที่ ${index + 1}`;
 };
 

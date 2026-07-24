@@ -6,6 +6,7 @@ import { supabase } from './lib/supabase';
 import LandingPage from './components/landing/LandingPage';
 import AuthPage from './components/AuthPage';
 import AppRouter from './routes/AppRouter';
+import { BRAND_CONFIG } from './config/brand';
 import PublicScriptViewer from './components/public/PublicScriptViewer';
 import { TaskProvider } from './context/TaskContext';
 import { GameConfigProvider } from './context/GameConfigContext';
@@ -41,19 +42,20 @@ const queryClient = new QueryClient({
 });
 
 function App() {
-  // --- ROUTING CHECK: LINE Webhook pending user ID ---
-  const queryParams = new URLSearchParams(window.location.search);
-  const lineUserIdParam = queryParams.get('line_user_id');
-  if (lineUserIdParam) {
-    sessionStorage.setItem('pending_line_user_id', lineUserIdParam.trim());
-  }
+  // --- ROUTING CHECK: LINE Webhook & Pending Deep Link Capture on Mount ---
+  useEffect(() => {
+    const queryParams = new URLSearchParams(window.location.search);
+    const lineUserIdParam = queryParams.get('line_user_id');
+    if (lineUserIdParam) {
+      sessionStorage.setItem('pending_line_user_id', lineUserIdParam.trim());
+    }
 
-  // --- ROUTING CHECK: Pending Deep Link Capture ---
-  const viewParam = queryParams.get('view');
-  const highlightReqIdParam = queryParams.get('highlightReqId');
-  if (viewParam || highlightReqIdParam) {
-    sessionStorage.setItem('juijui_pending_deep_link', window.location.search);
-  }
+    const viewParam = queryParams.get('view');
+    const highlightReqIdParam = queryParams.get('highlightReqId');
+    if (viewParam || highlightReqIdParam) {
+      sessionStorage.setItem('juijui_pending_deep_link', window.location.search);
+    }
+  }, []);
 
   // --- ROUTING CHECK: Magic Link (Script Share) ---
   const path = window.location.pathname;
@@ -85,7 +87,7 @@ function App() {
 
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [showLogin, setShowLogin] = useState(false);
+  const [showLogin, setShowLogin] = useState(BRAND_CONFIG.initialRouteMode === 2);
   const [isRecoveryMode, setIsRecoveryMode] = useState(false);
 
   // --- INITIAL AUTH CHECK ---

@@ -19,30 +19,37 @@ const AttendanceAlerts: React.FC<AttendanceAlertsProps> = ({ userId, onAction })
 
     return (
         <div className="space-y-3">
-            {displayLogs.map((log, index) => (
-                <div 
-                    key={log.id}
-                    onClick={() => onAction?.(log.date, log.requestType)}
-                    className={`bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center justify-between animate-in slide-in-from-top duration-500 cursor-pointer hover:bg-amber-100 transition-colors ${
-                        index > 0 ? 'opacity-80 scale-95' : ''
-                    }`}
-                >
-                    <div className="flex items-center gap-3">
-                        <div className="bg-amber-100 p-2 rounded-full">
-                            <AlertTriangle className="w-5 h-5 text-amber-600" />
+            {displayLogs.map((log, index) => {
+                const isGpsRejected = log.requestType === 'GPS_SPOOF_APPEAL';
+                return (
+                    <div 
+                        key={log.id}
+                        onClick={() => onAction?.(log.date, log.requestType)}
+                        className={`border rounded-2xl p-4 flex items-center justify-between animate-in slide-in-from-top duration-500 cursor-pointer transition-colors ${
+                            isGpsRejected 
+                                ? 'bg-red-50 border-red-200 hover:bg-red-100' 
+                                : 'bg-amber-50 border-amber-200 hover:bg-amber-100'
+                        } ${
+                            index > 0 ? 'opacity-80 scale-95' : ''
+                        }`}
+                    >
+                        <div className="flex items-center gap-3">
+                            <div className={`p-2 rounded-full ${isGpsRejected ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-600'}`}>
+                                <AlertTriangle className="w-5 h-5" />
+                            </div>
+                            <div>
+                                <h4 className={`text-sm font-bold ${isGpsRejected ? 'text-red-900' : 'text-amber-900'}`}>
+                                    {log.title}
+                                </h4>
+                                <p className={`text-xs ${isGpsRejected ? 'text-red-700' : 'text-amber-700'}`}>{log.message}</p>
+                            </div>
                         </div>
-                        <div>
-                            <h4 className="text-sm font-bold text-amber-900">
-                                {log.title}
-                            </h4>
-                            <p className="text-xs text-amber-700">{log.message}</p>
-                        </div>
+                        <button className={`flex items-center gap-1 text-xs font-bold transition-colors ${isGpsRejected ? 'text-red-600 hover:text-red-700' : 'text-amber-600 hover:text-amber-700'}`}>
+                            แก้ไขตอนนี้ <ArrowRight className="w-3 h-3" />
+                        </button>
                     </div>
-                    <button className="flex items-center gap-1 text-xs font-bold text-amber-600 hover:text-amber-700 transition-colors">
-                        แก้ไขตอนนี้ <ArrowRight className="w-3 h-3" />
-                    </button>
-                </div>
-            ))}
+                );
+            })}
             
             {remainingCount > 0 && (
                 <button 

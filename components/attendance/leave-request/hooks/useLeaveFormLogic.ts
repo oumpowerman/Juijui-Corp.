@@ -62,7 +62,11 @@ export const useLeaveFormLogic = ({
 
         if (!d) {
             // No initial date, default to today + advanceDays (or today)
-            if (item?.rules.forceTodayDate) {
+            if (selectedType === 'FORGOT_BOTH') {
+                const yesterday = new Date();
+                yesterday.setDate(yesterday.getDate() - 1);
+                d = format(yesterday, 'yyyy-MM-dd');
+            } else if (item?.rules.forceTodayDate) {
                 d = format(new Date(), 'yyyy-MM-dd');
             } else {
                 d = format(minAllowed, 'yyyy-MM-dd');
@@ -87,7 +91,14 @@ export const useLeaveFormLogic = ({
         setOtType('HOURLY');
         
         // Set sensible defaults based on the central registry configuration
-        setTargetTime(item?.rules.defaultTargetTime || '09:00');
+        if (selectedType === 'LATE_ENTRY') {
+            const now = new Date();
+            const currentHours = String(now.getHours()).padStart(2, '0');
+            const currentMinutes = String(now.getMinutes()).padStart(2, '0');
+            setTargetTime(`${currentHours}:${currentMinutes}`);
+        } else {
+            setTargetTime(item?.rules.defaultTargetTime || '09:00');
+        }
         setEndTime(item?.rules.defaultEndTime || '18:00');
         
         setOtHours(2);
@@ -192,8 +203,13 @@ export const useLeaveFormLogic = ({
                 const mappedShift = shiftCalc.targetShift;
                 const actualCheckIn = shiftCalc.actualTime;
 
-                const [shiftH, shiftM] = mappedShift.split(':').map(Number);
-                finalStartDate = new Date(year, month - 1, day, shiftH, shiftM, 0, 0);
+                if (selectedType === 'LATE_ENTRY') {
+                    const [targetH, targetM] = targetTime.split(':').map(Number);
+                    finalStartDate = new Date(year, month - 1, day, targetH, targetM, 0, 0);
+                } else {
+                    const [shiftH, shiftM] = mappedShift.split(':').map(Number);
+                    finalStartDate = new Date(year, month - 1, day, shiftH, shiftM, 0, 0);
+                }
 
                 if (selectedType === 'FORGOT_BOTH') {
                     finalReason = formatCorrectionNote(mappedShift, actualCheckIn, reason, endTime);

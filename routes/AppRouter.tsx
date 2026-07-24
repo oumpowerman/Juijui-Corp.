@@ -305,6 +305,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                   if (view !== 'ATTENDANCE') {
                       next.delete('tab');
                       next.delete('highlightReqId');
+                      next.delete('id');
                       next.delete('reqId');
                       next.delete('leaveId');
                   }
@@ -345,6 +346,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
               if (view !== 'ATTENDANCE') {
                   next.delete('tab');
                   next.delete('highlightReqId');
+                  next.delete('id');
                   next.delete('reqId');
                   next.delete('leaveId');
               }
@@ -372,16 +374,45 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
       const params = new URLSearchParams(pendingDeepLink);
       const targetView = params.get('view') as ViewMode;
       if (targetView) {
-        const queryObj: Record<string, string> = {};
+        // Check if the current search parameters are already identical to the deep link parameters
+        let isIdentical = true;
+        const targetMap = new Map<string, string>();
         params.forEach((val, key) => {
-          if (key !== 'view' && key !== 'openExternalBrowser') {
-            queryObj[key] = val;
+          if (key !== 'openExternalBrowser') {
+            targetMap.set(key, val);
           }
         });
-        handleNavigate(targetView, queryObj);
+
+        const currentMap = new Map<string, string>();
+        searchParams.forEach((val, key) => {
+          currentMap.set(key, val);
+        });
+
+        if (targetMap.size !== currentMap.size) {
+          isIdentical = false;
+        } else {
+          for (const [key, val] of targetMap.entries()) {
+            if (currentMap.get(key) !== val) {
+              isIdentical = false;
+              break;
+            }
+          }
+        }
+
+        if (isIdentical) {
+          console.log("Deep link restoration skipped: already identical to current URL.");
+        } else {
+          const queryObj: Record<string, string> = {};
+          params.forEach((val, key) => {
+            if (key !== 'view' && key !== 'openExternalBrowser') {
+              queryObj[key] = val;
+            }
+          });
+          handleNavigate(targetView, queryObj);
+        }
       }
     }
-  }, [isManagerLoading, handleNavigate]);
+  }, [isManagerLoading, handleNavigate, searchParams]);
 
   // Sync URL with default view - Enhanced stability with custom member redirect
   useEffect(() => {

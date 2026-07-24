@@ -33,55 +33,24 @@ export function buildFooterButtons(
     ? `${baseAppUrl}/?openExternalBrowser=1&view=ATTENDANCE&tab=${tab}&highlightReqId=${record.related_id}`
     : `${baseAppUrl}/?openExternalBrowser=1&view=ATTENDANCE&tab=${tab}`;
 
-  // If interactive mode is enabled and this is a single approval request notification
-  if (isInteractive && record.type === 'APPROVAL_REQ' && record.related_id) {
+  // If this is a single approval request notification, provide the direct "View and Approve" button
+  if (record.type === 'APPROVAL_REQ' && record.related_id) {
     return [
-      {
-        type: "box",
-        layout: "horizontal",
-        spacing: "md",
-        margin: "none",
-        contents: [
-          {
-            type: "button",
-            action: {
-              type: "postback",
-              label: "อนุมัติ ✅",
-              data: `action=approve&req_id=${record.related_id}&req_type=${reqType}&notif_id=${record.id}`
-            },
-            style: "primary",
-            height: "sm",
-            color: "#10b981"
-          },
-          {
-            type: "button",
-            action: {
-              type: "postback",
-              label: "ปฏิเสธ ❌",
-              data: `action=reject&req_id=${record.related_id}&req_type=${reqType}&notif_id=${record.id}`
-            },
-            style: "primary",
-            height: "sm",
-            color: "#ef4444"
-          }
-        ]
-      },
       {
         type: "button",
         action: {
           type: "uri",
-          label: "เปิดเข้าแอป",
+          label: "ดูรายละเอียดและอนุมัติ 📝",
           uri: targetDeepLink
         },
-        style: "secondary",
-        height: "sm",
-        color: "#f1f5f9",
-        margin: "sm"
+        style: "primary",
+        height: "md",
+        color: "#6366f1"
       }
     ];
   }
 
-  // Default non-interactive button
+  // Default non-interactive button for general notifications
   return [
     {
       type: "button",

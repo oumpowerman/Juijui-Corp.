@@ -442,6 +442,22 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                         </div>
                     )}
 
+                    {/* Target Shift Display Card */}
+                    {(logParsed.targetShift || requestParsed.targetShift) && (
+                        <div className="bg-purple-50/80 p-4 md:p-5 rounded-[2rem] border border-purple-100/80 flex items-center justify-between shrink-0 shadow-sm">
+                            <div className="flex items-center gap-2.5">
+                                <span className="text-xl">🎯</span>
+                                <div>
+                                    <h5 className="text-xs font-bold text-purple-950">กะปฏิบัติงานเป้าหมาย (Target Shift)</h5>
+                                    <p className="text-[10px] text-purple-700/80 font-medium">กะงานที่ระบบใช้อ้างอิงตรวจสอบการเข้าสาย/เวลาทำงาน</p>
+                                </div>
+                            </div>
+                            <span className="text-xs font-bold text-purple-700 bg-purple-100/90 px-3.5 py-1.5 rounded-xl border border-purple-200/80 font-mono shadow-sm">
+                                {logParsed.targetShift || requestParsed.targetShift} น.
+                            </span>
+                        </div>
+                    )}
+
                     {/* Employee Leave/Edit Time Reason */}
                     {userReason && (
                         <div className="bg-indigo-900 rounded-[2rem] p-6 text-indigo-100 shadow-2xl relative overflow-hidden shrink-0">

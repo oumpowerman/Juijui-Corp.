@@ -9,6 +9,7 @@ import { format } from 'date-fns';
 import { compressImage } from '../../../../lib/imageUtils';
 import { googleDriveService } from '../../../../services/googleDriveService';
 import { supabase } from '../../../../lib/supabase';
+import { useUserSession } from '../../../../context/UserSessionContext';
 
 interface UseCheckOutStateProps {
     isOpen: boolean;
@@ -34,6 +35,7 @@ export const useCheckOutState = ({
     const { showAlert } = useGlobalDialog();
     const { masterOptions } = useMasterData();
     const { config } = useGameConfig();
+    const { otRequests, currentUserProfile } = useUserSession();
 
     // Dynamically retrieve early leave interval and rate from Game Config, Master Options, or safe fallbacks
     const earlyLeaveInterval = parseFloat(
@@ -222,15 +224,24 @@ export const useCheckOutState = ({
 
         // Overtime check logic
         if (checkOutStatus === 'COMPLETED' && otFlowStep === 'NONE') {
-            const otThresholdOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'OT_THRESHOLD_HOURS');
-            const otThreshold = parseFloat(otThresholdOpt?.label || '2');
-            
-            // thresholdEndTime = requiredEndTime + otThreshold (hours)
-            if (statusDetails && statusDetails.requiredEndTime) {
-                const thresholdEndTime = new Date(statusDetails.requiredEndTime.getTime() + otThreshold * 60 * 60 * 1000);
-                if (new Date() > thresholdEndTime) {
-                    setOtFlowStep('PROMPT');
-                    return;
+            const checkoutDateStr = format(checkInTime, 'yyyy-MM-dd');
+            const hasExistingOt = otRequests.some(req => 
+                req.userId === currentUserProfile?.id && 
+                req.date === checkoutDateStr && 
+                req.status !== 'REJECTED'
+            );
+
+            if (!hasExistingOt) {
+                const otThresholdOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'OT_THRESHOLD_HOURS');
+                const otThreshold = parseFloat(otThresholdOpt?.label || '2');
+                
+                // thresholdEndTime = requiredEndTime + otThreshold (hours)
+                if (statusDetails && statusDetails.requiredEndTime) {
+                    const thresholdEndTime = new Date(statusDetails.requiredEndTime.getTime() + otThreshold * 60 * 60 * 1000);
+                    if (new Date() > thresholdEndTime) {
+                        setOtFlowStep('PROMPT');
+                        return;
+                    }
                 }
             }
         }

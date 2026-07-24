@@ -200,8 +200,8 @@ const handleLineAction = async (req: express.Request, res: express.Response) => 
         if (currentStatus !== 'PENDING') {
             const actionVerb = currentStatus === 'APPROVED' ? 'อนุมัติ' : 'ปฏิเสธ';
             const approverId = isDedicatedOt 
-                ? (otReqData.approver_id || otReqData.reviewed_by)
-                : (reqData.approver_id || reqData.approved_by || reqData.reviewed_by);
+                ? (otReqData.approved_by || otReqData.approver_id || otReqData.reviewed_by)
+                : (reqData.approved_by || reqData.approver_id || reqData.reviewed_by);
 
             let approverName = 'ผู้ดูแลระบบ';
             if (approverId) {
@@ -237,11 +237,38 @@ const handleLineAction = async (req: express.Request, res: express.Response) => 
             ? (otReqData.profiles?.full_name || 'พนักงาน')
             : (reqData.profiles?.full_name || 'พนักงาน');
 
+        // Transform dedicated OT request DB model to camelCase format expected by adminApprovalService
+        let mappedOtRequest = null;
+        if (isDedicatedOt && otReqData) {
+            mappedOtRequest = {
+                id: otReqData.id,
+                userId: otReqData.user_id,
+                date: otReqData.date,
+                startTime: otReqData.start_time,
+                endTime: otReqData.end_time,
+                durationHours: otReqData.duration_hours,
+                computedPayout: otReqData.computed_payout,
+                isFixed: otReqData.is_fixed,
+                reason: otReqData.reason,
+                status: otReqData.status,
+                createdAt: otReqData.created_at ? new Date(otReqData.created_at) : undefined,
+                rejectionReason: otReqData.rejection_reason,
+                baseSalaryAtTime: otReqData.base_salary_at_time,
+                type: otReqData.type,
+                user: otReqData.profiles ? {
+                    id: otReqData.profiles.id,
+                    name: otReqData.profiles.full_name,
+                    avatarUrl: otReqData.profiles.avatar_url,
+                    position: otReqData.profiles.position
+                } : undefined
+            };
+        }
+
         // 5. Execute Transaction
         if (isDedicatedOt) {
             if (action === 'approve') {
                 await adminApprovalService.approveOtRequestTransaction({
-                    otReq: otReqData,
+                    otReq: mappedOtRequest,
                     currentUser,
                     adminNote: 'อนุมัติคำขอ OT ผ่าน LINE Interactive',
                     processAction: processActionServer
@@ -252,7 +279,7 @@ const handleLineAction = async (req: express.Request, res: express.Response) => 
                     reason: 'ปฏิเสธคำขอ OT ผ่าน LINE Interactive',
                     currentUser,
                     isDedicatedOtRequest: true,
-                    otReq: otReqData,
+                    otReq: mappedOtRequest,
                     masterOptions: masterOptions || [],
                     processAction: processActionServer
                 });

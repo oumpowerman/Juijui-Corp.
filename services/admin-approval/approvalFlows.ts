@@ -2,8 +2,16 @@ import { supabase } from '../../lib/supabase';
 import { LeaveRequest } from '../../types/attendance';
 import { format, eachDayOfInterval } from 'date-fns';
 import { getRegistryItem } from '../../constants/attendanceRegistry';
-import { buildOtAuditLog, buildAttendanceCorrectionPayload } from '../../utils/adminApprovalHelpers';
-import { checkIsLate, getLateMinutes, mergeAttendanceNotes, resolveAttendanceLogStatus } from '../../lib/attendanceUtils';
+import {
+    buildOtAuditLog,
+    buildAttendanceCorrectionPayload,
+    parseWorkConfig,
+    cleanAttendanceNoteTags,
+    deduceTargetWorkType,
+    parseOtDetailsFromReason,
+    processHpRefundIfEligible
+} from '../../utils/adminApprovalHelpers';
+import { checkIsLate, getLateMinutes, mergeAttendanceNotes, resolveAttendanceLogStatus, getMaxShiftWithBuffer, getICTTime } from '../../lib/attendanceUtils';
 import { publishToTeamChannel } from './communicationHelpers';
 
 /**
@@ -33,25 +41,13 @@ export async function approveSpecialWorkRequest({
     if (request.type === 'OVERTIME') {
         isTimeModified = (customStartTime !== undefined) || (customEndTime !== undefined) || (customOtHours !== undefined);
         if (isTimeModified) {
-            let cleanReasonText = request.reason || '';
-            const otRangeMatch = cleanReasonText.match(/\[OT:(\d{2}:\d{2}-\d{2}:\d{2})\]/);
-            const originalTimeRange = otRangeMatch ? otRangeMatch[1] : '18:30-20:30';
-            const [origStart, origEnd] = originalTimeRange.split('-');
-            
-            const otHoursMatch = cleanReasonText.match(/\(([\d\.]+)hr\)/) || cleanReasonText.match(/\[OT:([\d\.]+)hr\]/);
-            const origHours = otHoursMatch ? parseFloat(otHoursMatch[1]) : 2.0;
-
-            cleanReasonText = cleanReasonText
-                .replace(/\[OT:\d{2}:\d{2}-\d{2}:\d{2}\]\s*\([\d\.]+hr\)\s*/g, '')
-                .replace(/\[OT:[\d\.]+hr\]\s*/g, '')
-                .replace(/\[OT_MINUTES:\d+\]/g, '')
-                .trim();
+            const { origStart, origEnd, origHours, cleanReason } = parseOtDetailsFromReason(request.reason || '');
 
             const newStart = customStartTime || origStart;
             const newEnd = customEndTime || origEnd;
             const newHours = customOtHours !== undefined ? customOtHours : origHours;
 
-            updatedReason = `[OT:${newStart}-${newEnd}] (${newHours}hr) ${cleanReasonText}`;
+            updatedReason = `[OT:${newStart}-${newEnd}] (${newHours}hr) ${cleanReason}`;
             
             const { finalDbNote: computedDbNote } = buildOtAuditLog(
                 origStart,
@@ -182,15 +178,23 @@ export async function approveAttendanceCorrection({
     const endTimeStr = timeMatch && timeMatch[2] ? timeMatch[2].substring(1) : null;
     const shiftDateStr = format(request.startDate, 'yyyy-MM-dd');
 
+    const registryItem = getRegistryItem(request.type);
+    const behavior = registryItem?.approvalBehavior;
+
+    // Hard lock: check if timeStr exceeds max shift + buffer
+    if (behavior?.correctionTarget !== 'CHECKOUT_ONLY' && timeStr && timeStr !== '00:00') {
+        const { maxAllowedTimeStr, maxShiftTimeStr, bufferMinutes } = getMaxShiftWithBuffer(masterOptions);
+        if (timeStr > maxAllowedTimeStr) {
+            throw new Error(`ไม่อนุญาตให้อนุมัติ: เวลาที่ระบุ (${timeStr} น.) เกินกำหนดเวลาสายสุดของกะงาน (${maxAllowedTimeStr} น. - คำนวณจากกะสุดท้าย ${maxShiftTimeStr} น. + Buffer ${bufferMinutes} นาที)`);
+        }
+    }
+
     const { data: freshLog } = await supabase
         .from('attendance_logs')
         .select('*')
         .eq('user_id', request.userId)
         .eq('date', shiftDateStr)
         .maybeSingle();
-
-    const registryItem = getRegistryItem(request.type);
-    const behavior = registryItem?.approvalBehavior;
 
     let finalReason = request.reason;
     if (behavior?.correctionTarget === 'CHECKIN_ONLY' && customStartTime) {
@@ -202,34 +206,79 @@ export async function approveAttendanceCorrection({
 
     if (request.type === 'LATE_ENTRY' && freshLog) {
         const actualCheckInDateTime = freshLog.check_in_time ? new Date(freshLog.check_in_time) : null;
-        const approvedLateDateTime = new Date(`${shiftDateStr}T${timeStr}:00`);
+        
+        // Parse ACTUAL_CHECK_IN from request.reason (supporting optional seconds)
+        const actualCheckInMatch = request.reason.match(/\[ACTUAL_CHECK_IN:(\d{2}:\d{2})(:\d{2})?\]/);
+        const actualRequestedTimeStr = actualCheckInMatch ? actualCheckInMatch[1] : timeStr;
+        
+        const [approvedHour, approvedMinute] = actualRequestedTimeStr.split(':').map(Number);
+        const approvedMinutesSinceMidnight = approvedHour * 60 + approvedMinute;
         
         let isActuallyLate = false;
-        if (actualCheckInDateTime && actualCheckInDateTime > approvedLateDateTime) {
-            isActuallyLate = true;
+        let diffLateMinutes = 0;
+        let actualTimeStr = '00:00';
+        
+        if (actualCheckInDateTime) {
+            const { hour, minute, totalMinutes: actualMinutesSinceMidnight } = getICTTime(actualCheckInDateTime);
+            actualTimeStr = `${hour}:${minute}`;
+            
+            // If actual check-in time is AFTER the approved late time, they are still late!
+            if (actualMinutesSinceMidnight > approvedMinutesSinceMidnight) {
+                isActuallyLate = true;
+                diffLateMinutes = actualMinutesSinceMidnight - approvedMinutesSinceMidnight;
+            }
         }
 
-        let newNote = `${freshLog.note || ''} [APPROVED LATE_ENTRY] ${request.reason}`;
-        newNote = newNote.replace('[APPEAL_PENDING]', '');
-        if (registryItem?.tags?.provisional) {
-            const innerText = registryItem.tags.provisional.replace(/^\[|\]$/g, '');
-            const escapedInner = innerText.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-            const regex = new RegExp(`\\[${escapedInner}(:.*?)?\\]`, 'g');
-            newNote = newNote.replace(regex, '');
+        let newNote = cleanAttendanceNoteTags(freshLog.note || '', request.type);
+        newNote = `${newNote} [APPROVED LATE_ENTRY] ${request.reason}`;
+        
+        if (isActuallyLate) {
+            newNote = `${newNote} [LATE]`;
         }
+        
         newNote = newNote.replace(/\s+/g, ' ').trim();
+
+        // Determine targetWorkType from approved WFH/ONSITE leave request or tags
+        const targetWorkType = await deduceTargetWorkType({
+            userId: request.userId,
+            dateStr: shiftDateStr,
+            requestReason: request.reason,
+            existingNote: freshLog.note,
+            existingWorkType: freshLog.work_type
+        });
 
         const targetStatus = freshLog.check_out_time 
             ? (isActuallyLate ? 'LATE' : 'COMPLETED') 
             : 'WORKING';
 
         await supabase.from('attendance_logs')
-            .update({ status: targetStatus, note: newNote })
+            .update({ status: targetStatus, note: newNote, work_type: targetWorkType })
             .eq('id', freshLog.id);
+
+        // Recalculate and trigger ATTENDANCE_CHECK_IN action for gamification
+        try {
+            await processAction(request.userId, 'ATTENDANCE_CHECK_IN', {
+                status: isActuallyLate ? 'LATE' : 'ON_TIME',
+                time: actualTimeStr,
+                lateMinutes: diffLateMinutes,
+                date: actualCheckInDateTime || request.startDate
+            });
+        } catch (gameErr) {
+            console.error('Failed to process ATTENDANCE_CHECK_IN gamification action on LATE_ENTRY approval:', gameErr);
+        }
     } else if (behavior?.correctionTarget === 'BOTH') {
         const checkInDateTime = new Date(`${shiftDateStr}T${timeStr}:00`);
         const checkOutDateTime = new Date(`${shiftDateStr}T${endTimeStr || '18:00'}:00`);
         const originalStatusNote = freshLog?.status === 'ABSENT' ? '[ORIGINALLY: ABSENT] ' : '';
+
+        // Determine targetWorkType
+        const targetWorkType = await deduceTargetWorkType({
+            userId: request.userId,
+            dateStr: shiftDateStr,
+            requestReason: request.reason,
+            existingNote: freshLog?.note,
+            existingWorkType: freshLog?.work_type
+        });
 
         const payload = buildAttendanceCorrectionPayload({
             userId: request.userId,
@@ -240,26 +289,27 @@ export async function approveAttendanceCorrection({
             reason: request.reason,
             originalStatusNote,
             existingNote: freshLog?.note,
-            existingWorkType: freshLog?.work_type
+            existingWorkType: freshLog?.work_type,
+            targetWorkType
         });
         await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
     } else if (behavior?.correctionTarget === 'CHECKIN_ONLY') {
         const checkInDateTime = new Date(`${shiftDateStr}T${timeStr}:00`);
         const originalStatusNote = freshLog?.status === 'ABSENT' ? '[ORIGINALLY: ABSENT] ' : '';
         
-        let cleanedNote = freshLog?.note || '';
-        if (registryItem?.tags?.provisional) {
-            const innerText = registryItem.tags.provisional.replace(/^\[|\]$/g, '');
-            const escapedInner = innerText.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-            const regex = new RegExp(`\\[${escapedInner}(:.*?)?\\]`, 'g');
-            cleanedNote = cleanedNote.replace(regex, '');
-        }
-        cleanedNote = cleanedNote.replace(/\s+/g, ' ').trim();
+        const cleanedNote = cleanAttendanceNoteTags(freshLog?.note || '', request.type);
  
-        const configData = masterOptions.filter(o => o.type === 'WORK_CONFIG');
-        const startTimeStr = configData?.find(c => c.key === 'START_TIME')?.label || '10:00';
-        const buffer = parseInt(configData?.find(c => c.key === 'LATE_BUFFER')?.label || '15');
+        const { startTime: startTimeStr, lateBuffer: buffer } = parseWorkConfig(masterOptions);
         const isLate = checkIsLate(checkInDateTime, startTimeStr, buffer);
+
+        // Determine targetWorkType
+        const targetWorkType = await deduceTargetWorkType({
+            userId: request.userId,
+            dateStr: shiftDateStr,
+            requestReason: `${finalReason || ''} ${request.reason || ''}`,
+            existingNote: freshLog?.note,
+            existingWorkType: freshLog?.work_type
+        });
  
         const payload = buildAttendanceCorrectionPayload({
             userId: request.userId,
@@ -271,7 +321,8 @@ export async function approveAttendanceCorrection({
             reason: finalReason,
             originalStatusNote,
             existingNote: cleanedNote,
-            existingWorkType: freshLog?.work_type
+            existingWorkType: freshLog?.work_type,
+            targetWorkType
         });
         await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
     } else if (behavior?.correctionTarget === 'CHECKOUT_ONLY') {
@@ -288,18 +339,7 @@ export async function approveAttendanceCorrection({
             .maybeSingle();
 
         if (freshLogCheckout) {
-            let cleanedNoteStr = freshLogCheckout.note || '';
-            if (registryItem?.tags?.provisional) {
-                const innerText = registryItem.tags.provisional.replace(/^\[|\]$/g, '');
-                const escapedInner = innerText.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-                const regex = new RegExp(`\\[${escapedInner}(:.*?)?\\]`, 'g');
-                cleanedNoteStr = cleanedNoteStr.replace(regex, '');
-            }
-            cleanedNoteStr = cleanedNoteStr
-                .replace(/\(Location Mismatch\)/g, '')
-                .replace(/\[Location Mismatch\]/g, '')
-                .replace(/\s+/g, ' ')
-                .trim();
+            const cleanedNoteStr = cleanAttendanceNoteTags(freshLogCheckout.note || '', request.type);
 
             const approvedTag = registryItem?.tags.approved || '[APPROVED CORRECTION]';
             const finalNote = mergeAttendanceNotes(cleanedNoteStr, `${approvedTag} ${request.reason}`);
@@ -319,25 +359,15 @@ export async function approveAttendanceCorrection({
                 date: shiftDateStr
             });
 
-            const isCheckoutLateSub = request.reason.includes('[LATE_SUBMISSION]');
-            if (!isCheckoutLateSub) {
-                const absentDesc = behavior?.refundDescriptionAbsent 
-                    ? `คืนค่า HP ${behavior.refundDescriptionAbsent} ${shiftDateStr}` 
-                    : `คืนค่า HP จากการแก้เวลาออกงานวันที่ ${shiftDateStr}`;
-                const penalizedDesc = behavior?.refundDescriptionPenalized 
-                    ? `คืนค่า HP ${behavior.refundDescriptionPenalized} ${shiftDateStr}` 
-                    : `คืนค่า HP จากการแก้เวลาออกงานวันที่ ${shiftDateStr}`;
-
-                if (freshLogCheckout.status === 'ABSENT') {
-                    await processAction(request.userId, 'ATTENDANCE_ABSENT_REFUND', {
-                        originalDescription: absentDesc
-                    });
-                } else if (freshLogCheckout.note?.includes('[SYSTEM] Penalized')) {
-                    await processAction(request.userId, 'ATTENDANCE_CORRECTION_REFUND', {
-                        originalDescription: penalizedDesc
-                    });
-                }
-            }
+            await processHpRefundIfEligible({
+                userId: request.userId,
+                dateStr: shiftDateStr,
+                statusBefore: freshLogCheckout.status,
+                noteBefore: freshLogCheckout.note,
+                behavior,
+                reason: request.reason,
+                processAction
+            });
         } else {
             const defaultStart = new Date(request.startDate);
             defaultStart.setHours(10, 0, 0, 0);
@@ -358,35 +388,23 @@ export async function approveAttendanceCorrection({
     }
 
     if (behavior?.correctionTarget !== 'CHECKOUT_ONLY') {
-        // Refund HP
-        const isLateSubmission = request.reason.includes('[LATE_SUBMISSION]');
-        if (!isLateSubmission) {
-            const absentDesc = behavior?.refundDescriptionAbsent 
-                ? `คืนค่า HP ${behavior.refundDescriptionAbsent} ${shiftDateStr}` 
-                : `คืนค่า HP จากการแก้สถานะขาดงานวันที่ ${shiftDateStr}`;
-            const penalizedDesc = behavior?.refundDescriptionPenalized 
-                ? `คืนค่า HP ${behavior.refundDescriptionPenalized} ${shiftDateStr}` 
-                : `คืนค่า HP จากการแก้เวลาออกงานวันที่ ${shiftDateStr}`;
-
-            if (freshLog?.status === 'ABSENT') {
-                await processAction(request.userId, 'ATTENDANCE_ABSENT_REFUND', {
-                    originalDescription: absentDesc
-                });
-            } else if (freshLog?.note?.includes('[SYSTEM] Penalized')) {
-                await processAction(request.userId, 'ATTENDANCE_CORRECTION_REFUND', {
-                    originalDescription: penalizedDesc
-                });
-            }
-        }
+        await processHpRefundIfEligible({
+            userId: request.userId,
+            dateStr: shiftDateStr,
+            statusBefore: freshLog?.status,
+            noteBefore: freshLog?.note,
+            behavior,
+            reason: request.reason,
+            processAction
+        });
     }
 
     if (behavior?.correctionTarget !== 'CHECKOUT_ONLY') {
-        const configData = masterOptions.filter(o => o.type === 'WORK_CONFIG');
-        const startTimeStr = configData?.find(c => c.key === 'START_TIME')?.label || '10:00';
-        const buffer = parseInt(configData?.find(c => c.key === 'LATE_BUFFER')?.label || '15');
+        const { startTime: defaultStartTime, lateBuffer: buffer } = parseWorkConfig(masterOptions);
         
+        const referenceStartTime = customStartTime || defaultStartTime;
         const checkInDateTime = new Date(`${shiftDateStr}T${timeStr}:00`);
-        const isLate = checkIsLate(checkInDateTime, startTimeStr, buffer);
+        const isLate = checkIsLate(checkInDateTime, referenceStartTime, buffer);
         
         let lateMinutes = 0;
         let calculatedStatus: 'LATE' | 'ON_TIME' = 'ON_TIME';
@@ -394,7 +412,11 @@ export async function approveAttendanceCorrection({
 
         if (request.type === 'LATE_ENTRY') {
             const actualCheckInDateTime = freshLog?.check_in_time ? new Date(freshLog.check_in_time) : null;
-            const approvedLateDateTime = new Date(`${shiftDateStr}T${timeStr}:00`);
+            
+            // Parse ACTUAL_CHECK_IN from request.reason (supporting optional seconds)
+            const actualCheckInMatch = request.reason.match(/\[ACTUAL_CHECK_IN:(\d{2}:\d{2})(:\d{2})?\]/);
+            const actualRequestedTimeStr = actualCheckInMatch ? actualCheckInMatch[1] : timeStr;
+            const approvedLateDateTime = new Date(`${shiftDateStr}T${actualRequestedTimeStr}:00`);
 
             if (actualCheckInDateTime) {
                 try {
@@ -405,9 +427,14 @@ export async function approveAttendanceCorrection({
                     checkInTimeForAction = timeStr;
                 }
 
-                if (actualCheckInDateTime > approvedLateDateTime) {
+                const checkInCompare = new Date(actualCheckInDateTime);
+                checkInCompare.setSeconds(0, 0);
+                const approvedCompare = new Date(approvedLateDateTime);
+                approvedCompare.setSeconds(0, 0);
+
+                if (checkInCompare > approvedCompare) {
                     calculatedStatus = 'LATE';
-                    lateMinutes = Math.max(0, Math.ceil((actualCheckInDateTime.getTime() - approvedLateDateTime.getTime()) / (1000 * 60)));
+                    lateMinutes = Math.max(0, Math.ceil((checkInCompare.getTime() - approvedCompare.getTime()) / (1000 * 60)));
                 } else {
                     calculatedStatus = 'ON_TIME';
                     lateMinutes = 0;
@@ -416,16 +443,26 @@ export async function approveAttendanceCorrection({
                 calculatedStatus = 'ON_TIME';
                 lateMinutes = 0;
             }
-        } else if (behavior?.verifyLateness && isLate) {
+        } else if (isLate || (behavior?.verifyLateness && isLate)) {
             calculatedStatus = 'LATE';
-            lateMinutes = getLateMinutes(checkInDateTime, startTimeStr, buffer);
+            lateMinutes = getLateMinutes(checkInDateTime, referenceStartTime, buffer);
         }
 
-        await processAction(request.userId, 'ATTENDANCE_CHECK_IN', { 
-            status: calculatedStatus, 
-            time: checkInTimeForAction,
-            lateMinutes: lateMinutes
-        });
+        if (calculatedStatus === 'LATE') {
+            await processAction(request.userId, 'ATTENDANCE_LATE', { 
+                status: 'LATE', 
+                time: checkInTimeForAction,
+                lateMinutes: lateMinutes,
+                date: shiftDateStr
+            });
+        } else {
+            await processAction(request.userId, 'ATTENDANCE_CHECK_IN', { 
+                status: 'ON_TIME', 
+                time: checkInTimeForAction,
+                lateMinutes: 0,
+                date: shiftDateStr
+            });
+        }
 
         if (behavior?.correctionTarget === 'BOTH') {
             await processAction(request.userId, 'ATTENDANCE_CHECK_OUT', { 
@@ -511,37 +548,35 @@ export async function approveGpsSpoofAppealRequest({
         .maybeSingle();
 
     if (freshLog) {
-        let cleanedNoteStr = freshLog.note || '';
-        const registryItem = getRegistryItem(request.type);
-        if (registryItem) {
-            const tagsToClean = [registryItem.tags.pending, registryItem.tags.provisional, '[PROVISIONAL_GPS_SPOOF_APPEAL]', '[GPS_SPOOF_APPEAL_PENDING]'].filter(Boolean) as string[];
-            tagsToClean.forEach(tag => {
-                const escaped = tag.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-                const regex = new RegExp(escaped, 'g');
-                cleanedNoteStr = cleanedNoteStr.replace(regex, '');
-            });
-        }
-        cleanedNoteStr = cleanedNoteStr
-            .replace(/\(Location Mismatch\)/g, '')
-            .replace(/\[Location Mismatch\]/g, '')
+        const cleanedNoteStr = cleanAttendanceNoteTags(freshLog.note || '', request.type, [
+            '[PROVISIONAL_GPS_SPOOF_APPEAL]',
+            '[GPS_SPOOF_APPEAL_PENDING]'
+        ]);
+
+        const cleanedReason = (request.reason || '')
             .replace(/\[PROVISIONAL_GPS_SPOOF_APPEAL\]/g, '')
             .replace(/\[GPS_SPOOF_APPEAL_PENDING\]/g, '')
             .replace(/\s+/g, ' ')
             .trim();
 
-        const finalStatus = freshLog.check_out_time ? 'COMPLETED' : 'WORKING';
+        const newNote = mergeAttendanceNotes(cleanedNoteStr, `[APPROVED GPS_SPOOF_APPEAL] อนุมัติการยื่นอุทธรณ์พิกัด GPS: ${cleanedReason}`);
+
+        const finalStatus = resolveAttendanceLogStatus(
+            freshLog.check_in_time ? new Date(freshLog.check_in_time).toISOString() : null,
+            freshLog.check_out_time ? new Date(freshLog.check_out_time).toISOString() : null,
+            newNote,
+            freshLog.status
+        );
 
         await supabase.from('attendance_logs').update({
             status: finalStatus,
-            note: mergeAttendanceNotes(cleanedNoteStr, `[APPROVED GPS_SPOOF_APPEAL] อนุมัติการยื่นอุทธรณ์พิกัด GPS: ${request.reason}`)
+            note: newNote
         }).eq('id', freshLog.id);
 
         // Award check-in points on GPS spoof appeal approval!
         if (freshLog.check_in_time) {
             const checkInDate = new Date(freshLog.check_in_time);
-            const configData = masterOptions.filter(o => o.type === 'WORK_CONFIG');
-            const startTimeStr = configData?.find(c => c.key === 'START_TIME')?.label || '10:00';
-            const buffer = parseInt(configData?.find(c => c.key === 'LATE_BUFFER')?.label || '15');
+            const { startTime: startTimeStr, lateBuffer: buffer } = parseWorkConfig(masterOptions);
             const isLate = checkIsLate(checkInDate, startTimeStr, buffer);
             const lateMinutes = isLate ? getLateMinutes(checkInDate, startTimeStr, buffer) : 0;
 

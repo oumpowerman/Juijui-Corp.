@@ -33,7 +33,9 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user, onNavigateToH
 
     // 1. "Today's Active Leave" (Affects Current Status)
     const todayActiveLeave = useMemo(() => {
-        return requests.find(req => {
+        const CORRECTION_TYPES = ['FORGOT_CHECKIN', 'LATE_ENTRY', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT'];
+
+        const activeRequests = requests.filter(req => {
             if (req.status === 'REJECTED') return false;
             
             const startDate = new Date(req.startDate);
@@ -49,7 +51,25 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user, onNavigateToH
             if (start > end) return false;
             
             return isWithinInterval(today, { start, end });
-        }) || null;
+        });
+
+        if (activeRequests.length === 0) return null;
+
+        activeRequests.sort((a, b) => {
+            const isCorrA = CORRECTION_TYPES.includes(a.type);
+            const isCorrB = CORRECTION_TYPES.includes(b.type);
+
+            const getScore = (req: typeof a, isCorr: boolean) => {
+                if (!isCorr && req.status === 'APPROVED') return 1;
+                if (!isCorr && req.status === 'PENDING') return 2;
+                if (isCorr) return 3;
+                return 4;
+            };
+
+            return getScore(a, isCorrA) - getScore(b, isCorrB);
+        });
+
+        return activeRequests[0];
     }, [requests, today]);
 
     // 2. "Future Requests" (For Upcoming UI - Non-blocking)

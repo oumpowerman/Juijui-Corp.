@@ -22,40 +22,25 @@ class EnterpriseTagIndex {
     private cache: TagIndexEntry[] = [];
     private lastRefreshed = 0;
     private refreshIntervalMs = 60 * 1000; // Refresh every 1 minute
-    private defaultTags: TagIndexEntry[] = [
-        { name: 'Vlog', count: 4200 },
-        { name: 'Review', count: 3500 },
-        { name: 'Tiktok', count: 2800 },
-        { name: 'Shorts', count: 2300 },
-        { name: 'BehindTheScenes', count: 1850 },
-        { name: 'Prank', count: 1540 },
-        { name: 'Challenge', count: 1200 },
-        { name: 'Finance', count: 980 },
-        { name: 'Travel', count: 850 },
-        { name: 'Gaming', count: 720 },
-        { name: 'Cooking', count: 540 },
-        { name: 'Music', count: 430 }
-    ];
+    private defaultTags: TagIndexEntry[] = [];
 
     /**
-     * Rebuild index by querying Supabase tasks or falling back to in-memory datasets
+     * Rebuild index by querying Supabase contents or falling back to in-memory datasets
      */
     public async rebuildIndex(): Promise<void> {
         try {
             if (isMock || !supabaseClient) {
-                // If offline or mock data, index our mocked high-volume datasets
-                this.cache = [...this.defaultTags];
+                this.cache = [];
                 this.lastRefreshed = Date.now();
                 return;
             }
 
             console.log('[TagIndex] Querying Supabase for tag indexing...');
-            // Fetch tasks tags from Supabase for index processing
-            // In a real enterprise DB, this would query a dedicated index view, table, or redis cache.
+            // Fetch contents tags from Supabase for index processing (since tags are stored in contents)
             const { data, error } = await supabaseClient
-                .from('tasks')
+                .from('contents')
                 .select('tags')
-                .limit(2000); // Index top latest tasks for preview scalability
+                .limit(2000); // Index top latest contents for preview scalability
 
             if (error) throw error;
 
@@ -76,25 +61,14 @@ class EnterpriseTagIndex {
                 this.cache = Object.entries(counts)
                     .map(([name, count]) => ({ name, count }))
                     .sort((a, b) => b.count - a.count);
-                
-                // Merge with default tags to guarantee diverse results in sparse mock DBs
-                const existingNames = new Set(this.cache.map(t => t.name.toLowerCase()));
-                this.defaultTags.forEach(defTag => {
-                    if (!existingNames.has(defTag.name.toLowerCase())) {
-                        this.cache.push(defTag);
-                    }
-                });
-                
-                // Keep sorted
-                this.cache.sort((a, b) => b.count - a.count);
             } else {
-                this.cache = [...this.defaultTags];
+                this.cache = [];
             }
 
             this.lastRefreshed = Date.now();
         } catch (err) {
-            console.error('[TagIndex] Failed to rebuild tag index, using fallback tags:', err);
-            this.cache = [...this.defaultTags];
+            console.error('[TagIndex] Failed to rebuild tag index:', err);
+            this.cache = [];
             this.lastRefreshed = Date.now();
         }
     }

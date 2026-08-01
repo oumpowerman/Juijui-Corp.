@@ -110,7 +110,7 @@ const BackgroundVisuals = React.memo(() => {
 
 const VibrantChecklistBackground: React.FC<VibrantChecklistBackgroundProps> = ({ children, className = "" }) => {
     return (
-        <div className={`relative min-h-screen w-full flex flex-col overflow-hidden ${className}`}>
+        <div className={`relative min-h-screen w-full flex flex-col overflow-x-hidden ${className}`}>
             <BackgroundVisuals />
 
             {/* 4. Content Layer */}

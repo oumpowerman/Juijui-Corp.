@@ -27,6 +27,7 @@ import { useScriptTiming } from './toolbar/hooks/useScriptTiming';
 
 const EditorToolbar: React.FC = () => {
     const { 
+        scriptId,
         title, setTitle, content, status, changeStatus,
         scriptType, setScriptType,
         isSaving, lastSaved, handleSave,
@@ -386,6 +387,7 @@ const EditorToolbar: React.FC = () => {
                 isConnectedToDoc={isConnectedToDoc}
                 setShowExportConfirm={setShowExportConfirm}
                 handleConnectGoogle={handleConnectGoogle}
+                scriptId={scriptId}
             />
 
             {/* Google Docs Modals Flow */}

@@ -12,6 +12,7 @@ interface ShareModalProps {
     isConnectedToDoc: boolean;
     setShowExportConfirm: (show: boolean) => void;
     handleConnectGoogle: () => void;
+    scriptId: string;
 }
 
 export const ShareModal: React.FC<ShareModalProps> = ({
@@ -24,8 +25,11 @@ export const ShareModal: React.FC<ShareModalProps> = ({
     isConnectedToDoc,
     setShowExportConfirm,
     handleConnectGoogle,
+    scriptId,
 }) => {
     if (!isOpen) return null;
+
+    const directAppLink = `${window.location.origin}/?view=SCRIPT_HUB&scriptId=${scriptId}`;
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
@@ -76,6 +80,31 @@ export const ShareModal: React.FC<ShareModalProps> = ({
                             <p className="text-[10px] text-gray-400">* นักแสดงสามารถเปิดลิงก์นี้ในมือถือเพื่อซ้อมบทได้ทันที (ไม่ต้องล็อกอิน)</p>
                         </div>
                     )}
+
+                    {/* Direct Team Link */}
+                    <div className="space-y-2 pt-4 border-t border-gray-100 animate-in fade-in slide-in-from-top-2">
+                        <div>
+                            <p className="font-bold text-gray-700 text-sm">ลิงก์ตรงสำหรับทีมงาน (Direct App Link)</p>
+                            <p className="text-xs text-gray-500">สำหรับส่งต่อให้เพื่อนร่วมงานที่ล็อกอินในระบบเพื่อเปิดดูบทนี้</p>
+                        </div>
+                        <div className="flex gap-2">
+                            <input 
+                                type="text" 
+                                readOnly 
+                                value={directAppLink} 
+                                className="flex-1 bg-white border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-600 focus:outline-none"
+                            />
+                            <button 
+                                onClick={() => { 
+                                    navigator.clipboard.writeText(directAppLink); 
+                                    showToast('คัดลอกลิงก์สำหรับทีมงานแล้ว!', 'success');
+                                }}
+                                className="bg-indigo-50 text-indigo-600 px-3 py-2 rounded-xl text-xs font-bold hover:bg-indigo-100 flex items-center shrink-0"
+                            >
+                                <Copy className="w-3 h-3 mr-1" /> Copy
+                            </button>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Google Docs Export Section */}

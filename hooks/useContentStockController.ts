@@ -75,7 +75,26 @@ export const useContentStockController = ({ globalTasks, channels, users, master
     }, [setSearchParams]);
 
     const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection } | null>({ key: 'createdAt', direction: 'desc' });
-    const [currentPage, setCurrentPage] = useState(1);
+    const currentPage = parseInt(searchParams.get('stockPage') || '1', 10) || 1;
+
+    const setCurrentPage = useCallback((page: number | ((prev: number) => number)) => {
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.set('view', 'ContentStock');
+            
+            // คำนวณหน้าถัดไป (รองรับแบบ Functional Update)
+            const currentPageVal = parseInt(next.get('stockPage') || '1', 10) || 1;
+            const nextPageVal = typeof page === 'function' ? page(currentPageVal) : page;
+            
+            if (nextPageVal > 1) {
+                next.set('stockPage', nextPageVal.toString());
+            } else {
+                next.delete('stockPage'); // ถ้าเป็นหน้า 1 ให้ลบออกจาก URL เพื่อความสะอาดของลิงก์
+            }
+            return next;
+        }, { replace: true });
+    }, [setSearchParams]);
+
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isImporting, setIsImporting] = useState(false);
 

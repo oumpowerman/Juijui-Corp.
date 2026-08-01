@@ -30,6 +30,7 @@ interface StockTableRowProps {
     getFormatLabel: (key?: string) => string;
     getPillarLabel: (key?: string) => string;
     getCategoryLabel: (key?: string) => string;
+    onTagClick?: (tag: string) => void;
 }
 
 const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTableRowProps>(({
@@ -52,7 +53,8 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
     setIsDragging,
     getFormatLabel,
     getPillarLabel,
-    getCategoryLabel
+    getCategoryLabel,
+    onTagClick
 }, ref) => {
     const { showConfirm } = useGlobalDialog();
     const channelStyle = channel ? channel.color : 'bg-gray-100 text-gray-500 border-gray-200';
@@ -214,7 +216,8 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
                                 <motion.span 
                                     key={tag} 
                                     whileHover={{ scale: 1.05, y: -0.5 }}
-                                    className="text-[9px] font-bold inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-indigo-500/5 to-purple-500/5 hover:from-indigo-500/10 hover:to-purple-500/10 text-indigo-650 hover:text-indigo-700 border border-indigo-500/20 shadow-[0_2px_4px_rgba(99,102,241,0.03)] hover:shadow-[0_6px_12px_rgba(99,102,241,0.12)] hover:border-indigo-400/50 transition-all duration-300"
+                                    onClick={() => onTagClick?.(tag)}
+                                    className="text-[9px] font-bold inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-indigo-500/5 to-purple-500/5 hover:from-indigo-500/10 hover:to-purple-500/10 text-indigo-650 hover:text-indigo-700 border border-indigo-500/20 shadow-[0_2px_4px_rgba(99,102,241,0.03)] hover:shadow-[0_6px_12px_rgba(99,102,241,0.12)] hover:border-indigo-400/50 transition-all duration-300 cursor-pointer"
                                 >
                                     <span className="text-[10px] text-indigo-400 font-extrabold leading-none animate-pulse">#</span>
                                     {tag}
@@ -234,7 +237,11 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
                                         <div className="bg-white/95 backdrop-blur-xl text-indigo-900 text-[10px] font-bold px-3 py-2 rounded-2xl shadow-xl border border-indigo-100 flex flex-col gap-1.5 min-w-max">
                                             <div className="text-[8px] text-indigo-400 uppercase tracking-widest mb-0.5 opacity-80">แท็กทั้งหมด</div>
                                             {task.tags.slice(2).map(t => (
-                                                <div key={t} className="flex items-center gap-1.5 text-indigo-700 font-extrabold">
+                                                <div 
+                                                    key={t} 
+                                                    onClick={() => onTagClick?.(t)}
+                                                    className="flex items-center gap-1.5 text-indigo-700 font-extrabold cursor-pointer hover:underline"
+                                                >
                                                     <span className="text-indigo-400">#</span>
                                                     {t}
                                                 </div>

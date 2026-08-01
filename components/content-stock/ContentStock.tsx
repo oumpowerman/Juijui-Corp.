@@ -221,6 +221,7 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
                         onAddToWorkbox={onAddToWorkbox}
                         onEditScript={onEditScript}
                         onOpenAnalytics={(content) => setSelectedContentForAnalytics(content)}
+                        onTagClick={(tag) => setSearchQuery(`#${tag} `)}
                     />
 
                     {/* Scanning Ray effect during transitions */}

@@ -12,6 +12,7 @@ import { useAnnualHolidays } from '../../../hooks/useAnnualHolidays';
 import { useMasterData } from '../../../hooks/useMasterData';
 import { checkNeedsSelfieVerification } from '../../../lib/selfieUtils';
 import { useUserSession } from '../../../context/UserSessionContext';
+import { isWorkingDay } from '../../../utils/judgeUtils';
 
 // Modular Sub-components
 import { DriveStatusBanner } from './parts/status-card/DriveStatusBanner';
@@ -103,7 +104,6 @@ const StatusCard: React.FC<StatusCardProps> = ({
     const dayStatus = useMemo(() => {
         const currentCheckDate = time; 
         const todayStr = format(currentCheckDate, 'yyyy-MM-dd');
-        const dayOfWeek = currentCheckDate.getDay(); 
         
         const exception = exceptions.find(e => e.date === todayStr);
         if (exception) {
@@ -120,12 +120,15 @@ const StatusCard: React.FC<StatusCardProps> = ({
             return { mode: 'HOLIDAY', name: annual.name };
         }
 
-        if (dayOfWeek === 0 || dayOfWeek === 6) {
-            return { mode: 'HOLIDAY', name: dayOfWeek === 0 ? 'วันอาทิตย์' : 'วันเสาร์' };
+        const isWorkDay = isWorkingDay(currentCheckDate, annualHolidays, exceptions, user);
+        if (!isWorkDay) {
+            const dayOfWeek = currentCheckDate.getDay();
+            const dayNames = ['วันอาทิตย์', 'วันจันทร์', 'วันอังคาร', 'วันพุธ', 'วันพฤหัสบดี', 'วันศุกร์', 'วันเสาร์'];
+            return { mode: 'HOLIDAY', name: dayNames[dayOfWeek] || 'วันหยุดประจำสัปดาห์' };
         }
 
         return { mode: 'NORMAL', name: '' };
-    }, [exceptions, annualHolidays, time]);
+    }, [exceptions, annualHolidays, time, user]);
 
     const { otRequests } = useUserSession();
 

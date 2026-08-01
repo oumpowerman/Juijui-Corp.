@@ -4,6 +4,7 @@ import { Script, ScriptStatus, ScriptType, User, Channel, MasterOption, ScriptCo
 import * as Y from 'yjs';
 
 export interface ScriptContextType {
+    scriptId: string;
     // Data State
     content: string;
     setContent: (val: string) => void;

@@ -323,6 +323,7 @@ export const ScriptProvider: React.FC<ScriptProviderProps> = ({
 
     return (
         <ScriptContext.Provider value={{
+            scriptId: script.id,
             content, setContent,
             title, setTitle,
             status, setStatus,

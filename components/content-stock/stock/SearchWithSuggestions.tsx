@@ -42,8 +42,11 @@ export const SearchWithSuggestions: React.FC<SearchWithSuggestionsProps> = React
     const [isSearchingTags, setIsSearchingTags] = useState(false);
     const [searchSpeedMs, setSearchSpeedMs] = useState('0ms');
 
-    // Compute Top 10 Tags from tasks for quick search pills
-    const top10Tags = useMemo(() => {
+    // State for top 10 tags fetched directly from server to match database counts perfectly
+    const [serverTopTags, setServerTopTags] = useState<{ name: string; count: number }[] | null>(null);
+
+    // Compute local fallback top 10 tags
+    const localTopTags = useMemo(() => {
         const counts: Record<string, number> = {};
         tasks.forEach((task) => {
             if (Array.isArray(task.tags)) {
@@ -59,6 +62,30 @@ export const SearchWithSuggestions: React.FC<SearchWithSuggestionsProps> = React
             .map(([name, count]) => ({ name, count }))
             .sort((a, b) => b.count - a.count)
             .slice(0, 10);
+    }, [tasks]);
+
+    // Use server-side top tags when available to ensure exact database-wide counts, otherwise use local fallback
+    const top10Tags = serverTopTags !== null ? serverTopTags : localTopTags;
+
+    // Fetch top 10 tags with exact database counts
+    useEffect(() => {
+        let isCurrent = true;
+        async function fetchTop10Tags() {
+            try {
+                const response = await fetch('/api/tags?q=&limit=10');
+                if (!response.ok) throw new Error('API query failed');
+                const data = await response.json();
+                if (isCurrent && data.success && Array.isArray(data.tags)) {
+                    setServerTopTags(data.tags);
+                }
+            } catch (err) {
+                console.warn('Failed to fetch server-side top tags, falling back to local counts:', err);
+            }
+        }
+        fetchTop10Tags();
+        return () => {
+            isCurrent = false;
+        };
     }, [tasks]);
 
     // Helper to extract tag typing context
@@ -135,10 +162,10 @@ export const SearchWithSuggestions: React.FC<SearchWithSuggestionsProps> = React
         };
     }, [filterKeyword, showSuggestions, currentTagTypeMatch, tasks]);
 
-    // Automatically sync when client alters/creates task tags
+    // Automatically sync when client alters/creates/edits task tags
     useEffect(() => {
         fetch('/api/tags/sync', { method: 'POST' }).catch(() => {});
-    }, [tasks.length]);
+    }, [tasks]);
 
     const handleTagSuggestionClick = (tagName: string) => {
         const tagTypeMatch = localSearch.match(/#(\S*)$/);
@@ -167,18 +194,21 @@ export const SearchWithSuggestions: React.FC<SearchWithSuggestionsProps> = React
 
     return (
         <div className="flex-1 flex flex-col" ref={searchContainerRef}>
-            <motion.div layout className="relative w-full group">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
+            <motion.div layout className={`relative w-full group ${showSuggestions ? 'z-[101]' : 'z-10'}`}>
+                <Search className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 group-focus-within:text-indigo-500 transition-colors ${showSuggestions ? 'z-[102]' : ''}`} />
                 <input 
                     type="text" 
                     placeholder="ชื่อ, หมายเหตุ หรือพิมพ์ # ตามด้วยแท็ก..." 
                     value={localSearch}
                     onChange={(e) => setLocalSearch(e.target.value)}
                     onFocus={() => setShowSuggestions(true)}
-                    className="w-full h-full pl-11 pr-10 py-3 bg-gray-50/50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-300 focus:bg-white outline-none text-sm font-bold text-gray-700 transition-all placeholder:font-normal placeholder:text-gray-400 min-h-[50px]"
+                    className={`w-full h-full pl-11 pr-10 py-3 bg-gray-50/50 border border-gray-200 rounded-2xl focus:ring-4 focus:ring-indigo-100 focus:border-indigo-300 focus:bg-white outline-none text-sm font-bold text-gray-700 transition-all placeholder:font-normal placeholder:text-gray-400 min-h-[50px] ${showSuggestions ? 'relative z-[102] bg-white border-indigo-300 shadow-sm' : ''}`}
                 />
                 {localSearch && (
-                    <button onClick={() => setLocalSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 p-1 rounded-full hover:bg-gray-100 transition-colors">
+                    <button 
+                        onClick={() => setLocalSearch('')} 
+                        className={`absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500 p-1 rounded-full hover:bg-gray-100 transition-colors ${showSuggestions ? 'z-[102]' : ''}`}
+                    >
                         <X className="w-4 h-4" />
                     </button>
                 )}
@@ -190,17 +220,17 @@ export const SearchWithSuggestions: React.FC<SearchWithSuggestionsProps> = React
                             {/* Mobile Background Backdrop Overlay */}
                             <motion.div
                                 initial={{ opacity: 0 }}
-                                animate={{ opacity: 0.4 }}
+                                animate={{ opacity: 1 }}
                                 exit={{ opacity: 0 }}
                                 onClick={() => setShowSuggestions(false)}
-                                className="fixed inset-0 bg-slate-900/40 backdrop-blur-[2px] z-40 md:hidden"
+                                className="fixed inset-0 bg-transparent z-[90] md:hidden"
                             />
                             <motion.div
-                                initial={{ opacity: 0, y: 30, scale: 0.98 }}
+                                initial={{ opacity: 0, y: 15, scale: 0.98 }}
                                 animate={{ opacity: 1, y: 0, scale: 1 }}
-                                exit={{ opacity: 0, y: 30, scale: 0.98 }}
+                                exit={{ opacity: 0, y: 15, scale: 0.98 }}
                                 transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                                className="fixed md:absolute bottom-4 left-4 right-4 md:bottom-auto md:top-full md:left-0 md:right-auto md:inset-x-auto mt-2 md:w-full md:max-w-[420px] bg-white rounded-3xl shadow-2xl border border-gray-100 p-5 z-[100] overflow-hidden text-left origin-bottom md:origin-top-left"
+                                className="absolute top-full left-0 right-0 mt-2 w-full md:max-w-[420px] bg-white rounded-2xl md:rounded-3xl shadow-2xl border border-gray-100 p-4 md:p-5 z-[100] overflow-hidden text-left origin-top"
                             >
                                 <div className="flex items-center justify-between mb-3 pb-2 border-b border-gray-100">
                                     <div className="flex items-center gap-1.5 text-xs font-black text-indigo-500 uppercase tracking-widest">

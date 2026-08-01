@@ -75,13 +75,20 @@ export const matchOtWithScannedLogs = (
 
     const reqStartStr = req.startTime || '18:30';
     const reqEndStr = req.endTime || '20:30';
-    const reqHours = getIntervalDuration(reqStartStr, reqEndStr);
+    let reqHours = getIntervalDuration(reqStartStr, reqEndStr);
 
     let actualScannedHours = 0;
-    let scanStatus: 'NOT_FOUND' | 'EARLY' | 'OK' = 'NOT_FOUND';
+    let scanStatus: 'NOT_FOUND' | 'EARLY' | 'OK' | 'FIXED' = 'NOT_FOUND';
     let checkoutDisplay = 'ไม่พบบันทึกการสแกนออก';
 
-    if (log && log.checkOutTime) {
+    const isFixed = !!(req.reason && req.reason.includes('[OT:FIXED]')) || (req.startTime === '00:00' && req.endTime === '00:00');
+
+    if (isFixed) {
+        scanStatus = 'FIXED';
+        checkoutDisplay = 'รายการทำงานล่วงเวลาแบบเหมาจ่าย (Lump-sum OT)';
+        actualScannedHours = req.durationHours;
+        reqHours = req.durationHours;
+    } else if (log && log.checkOutTime) {
         const checkOutDate = new Date(log.checkOutTime);
         checkoutDisplay = `สแกนเช็คเอาท์ออกเวลา ${format(checkOutDate, 'HH:mm')} น.`;
         actualScannedHours = getScannedDuration(dateStr, reqStartStr, checkOutDate);

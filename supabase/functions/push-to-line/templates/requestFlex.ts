@@ -20,11 +20,21 @@ export function buildFooterButtons(
   }
   const reqType = metadataObj.request_type || 'WFH';
 
-  // For ADMIN notifications (APPROVAL_REQ) -> send to leave-requests or ot-requests
+  const isAttendanceAlert = record.type === 'OVERDUE' && (
+    record.title?.includes('ลงเวลา') || 
+    record.title?.includes('ผ่อนปรน') || 
+    record.title?.includes('เช็คอิน') || 
+    record.link_path === 'ATTENDANCE'
+  );
+
+  // For ADMIN notifications (APPROVAL_REQ, APPROVAL_SUMMARY) -> send to leave-requests or ot-requests
   // For Employee notifications (e.g. approval results, rejections) -> send to history
+  // For Check-In reminders -> send to CHECK_IN
   let tab = 'history';
-  if (record.type === 'APPROVAL_REQ') {
-    tab = (reqType === 'OT') ? 'ot-requests' : 'leave-requests';
+  if (record.type === 'APPROVAL_REQ' || record.type === 'APPROVAL_SUMMARY') {
+    tab = (reqType === 'OT' || reqType === 'OVERTIME') ? 'ot-requests' : 'leave-requests';
+  } else if (isAttendanceAlert) {
+    tab = 'CHECK_IN';
   } else {
     tab = 'history';
   }
@@ -32,6 +42,23 @@ export function buildFooterButtons(
   const targetDeepLink = record.related_id
     ? `${baseAppUrl}/?openExternalBrowser=1&view=ATTENDANCE&tab=${tab}&highlightReqId=${record.related_id}`
     : `${baseAppUrl}/?openExternalBrowser=1&view=ATTENDANCE&tab=${tab}`;
+
+  // If this is an attendance alert reminder, provide direct deep link button
+  if (isAttendanceAlert) {
+    return [
+      {
+        type: "button",
+        action: {
+          type: "uri",
+          label: "ลงเวลาเข้างานทันที ⏱️",
+          uri: targetDeepLink
+        },
+        style: "primary",
+        height: "md",
+        color: "#4f46e5"
+      }
+    ];
+  }
 
   // If this is a single approval request notification, provide the direct "View and Approve" button
   if (record.type === 'APPROVAL_REQ' && record.related_id) {

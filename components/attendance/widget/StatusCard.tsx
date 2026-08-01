@@ -39,11 +39,13 @@ interface StatusCardProps {
     onNavigateToHistory?: () => void;
     startTime: string;
     lateBuffer: number;
+    todayRequests?: any[];
+    isDesktop?: boolean;
 }
 
 const StatusCard: React.FC<StatusCardProps> = ({ 
     user, todayLog, outdatedLogs, stats, todayActiveLeave, onCheckOut, onCheckOutRequest, onOpenCheckIn, onOpenLeave, isDriveReady, isAuthenticated, onConnectDrive, onRetryDrive, onRefresh, availableLocations, onNavigateToHistory,
-    startTime, lateBuffer
+    startTime, lateBuffer, todayRequests, isDesktop = false
 }) => {
     const { showAlert } = useGlobalDialog(); 
     const { showToast } = useToast();
@@ -241,10 +243,22 @@ const StatusCard: React.FC<StatusCardProps> = ({
         }
     };
 
-    const handleCheckOutRequest = async (timeStr: string, reason: string) => {
+    const handleCheckOutRequest = async (timeStr: string, reason: string, requestType?: LeaveType) => {
         const now = new Date();
-        const formattedReason = `[TIME:${timeStr}] ${reason} (Location Mismatch)`;
-        return await onCheckOutRequest('OUT_OF_RANGE_CHECKOUT', now, now, formattedReason);
+        const typeToSubmit = requestType || 'OUT_OF_RANGE_CHECKOUT';
+        
+        let cleanedReason = reason;
+        const needsMismatchTag = typeToSubmit === 'OUT_OF_RANGE_CHECKOUT' || reason.includes('(Location Mismatch)');
+        
+        if (cleanedReason.includes('(Location Mismatch)')) {
+            cleanedReason = cleanedReason.replace(/\s*\(Location Mismatch\)/g, '').trim();
+        }
+        
+        const formattedReason = typeToSubmit === 'EARLY_LEAVE'
+            ? `[EARLY:${timeStr}] ${cleanedReason}${needsMismatchTag ? ' (Location Mismatch)' : ''}`
+            : `[TIME:${timeStr}] ${cleanedReason}${needsMismatchTag ? ' (Location Mismatch)' : ''}`;
+            
+        return await onCheckOutRequest(typeToSubmit, now, now, formattedReason);
     };
 
     const handleOvertimeSubmit = async (otMinutes: number, reason: string) => {
@@ -315,6 +329,8 @@ const StatusCard: React.FC<StatusCardProps> = ({
                     onOpenLeave={onOpenLeave}
                     todayActiveLeave={todayActiveLeave}
                     isApprovedLeaveToday={isApprovedLeaveToday}
+                    todayRequests={todayRequests}
+                    isDesktop={isDesktop}
                 />
             ) : (
                 <NotCheckedInDisplay
@@ -334,6 +350,7 @@ const StatusCard: React.FC<StatusCardProps> = ({
                     todayLog={todayLog}
                     onOpenLeave={onOpenLeave}
                     approvedFixedOtToday={approvedFixedOtToday}
+                    isDesktop={isDesktop}
                 />
             )}
         </div>

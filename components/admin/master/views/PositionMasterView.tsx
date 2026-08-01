@@ -1,9 +1,10 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { MasterOption } from '../../../../types';
-import { Briefcase, Plus, User, Edit2, Trash2, Award, X, ChevronRight, Layers } from 'lucide-react';
+import { Briefcase, Plus, User, Edit2, Trash2, Award, X, ChevronRight, Layers, Users, Sliders } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useGlobalDialog } from '../../../../context/GlobalDialogContext';
+import { PositionFamilyTreeTab } from './position/PositionFamilyTreeTab';
 
 interface PositionMasterViewProps {
     masterOptions: MasterOption[];
@@ -17,6 +18,8 @@ const PositionMasterView: React.FC<PositionMasterViewProps> = ({
     masterOptions, onEdit, onCreate, onDelete, setSelectedParentId 
 }) => {
     const { showConfirm } = useGlobalDialog();
+    const [activeSubTab, setActiveSubTab] = useState<'CONFIG' | 'MAPPING'>('CONFIG');
+
     const positions = masterOptions.filter(o => o.type === 'POSITION').sort((a,b) => a.sortOrder - b.sortOrder);
     const responsibilities = masterOptions.filter(o => o.type === 'RESPONSIBILITY').sort((a,b) => a.sortOrder - b.sortOrder);
 
@@ -36,23 +39,56 @@ const PositionMasterView: React.FC<PositionMasterViewProps> = ({
                     </div>
                     <div>
                         <h3 className="text-2xl font-bold text-teal-900 tracking-tight">Position & Roles</h3>
-                        <p className="text-sm text-teal-700/80 font-medium">Manage organizational structure and responsibilities</p>
+                        <p className="text-sm text-teal-700/80 font-medium">จัดการโครงสร้างตำแหน่ง หน้าที่รับผิดชอบ และผังบุคลากรในทีม</p>
                     </div>
                 </div>
                 
-                <motion.button 
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    onClick={() => { setSelectedParentId(null); onCreate('POSITION'); }} 
-                    className="relative z-10 px-6 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-bold shadow-lg shadow-teal-500/30 flex items-center gap-2 transition-all"
-                >
-                    <Plus className="w-5 h-5" />
-                    <span>New Position</span>
-                </motion.button>
+                {activeSubTab === 'CONFIG' && (
+                    <motion.button 
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        onClick={() => { setSelectedParentId(null); onCreate('POSITION'); }} 
+                        className="relative z-10 px-6 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-bold shadow-lg shadow-teal-500/30 flex items-center gap-2 transition-all"
+                    >
+                        <Plus className="w-5 h-5" />
+                        <span>เพิ่มตำแหน่งใหม่</span>
+                    </motion.button>
+                )}
             </motion.div>
 
-            {/* Grid Layout */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {/* Sub-Tab Navigation */}
+            <div className="flex items-center gap-2 bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/80 w-fit">
+                <button
+                    onClick={() => setActiveSubTab('CONFIG')}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                        activeSubTab === 'CONFIG'
+                            ? 'bg-white text-teal-800 shadow-md border border-teal-100'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                    }`}
+                >
+                    <Sliders className="w-4 h-4 text-teal-600" />
+                    <span>กำหนดตำแหน่ง & หน้าที่ (Master Config)</span>
+                </button>
+
+                <button
+                    onClick={() => setActiveSubTab('MAPPING')}
+                    className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                        activeSubTab === 'MAPPING'
+                            ? 'bg-white text-teal-800 shadow-md border border-teal-100'
+                            : 'text-slate-600 hover:text-slate-900 hover:bg-white/50'
+                    }`}
+                >
+                    <Users className="w-4 h-4 text-teal-600" />
+                    <span>ผังพนักงานตามตำแหน่ง & สถานะงาน (Position & Team Tree)</span>
+                </button>
+            </div>
+
+            {/* Sub-Tab Content */}
+            {activeSubTab === 'MAPPING' ? (
+                <PositionFamilyTreeTab masterOptions={masterOptions} />
+            ) : (
+                /* Grid Layout */
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                 {positions.map((pos, index) => {
                     const tasks = responsibilities.filter(r => r.parentKey === pos.key);
                     return (
@@ -166,6 +202,7 @@ const PositionMasterView: React.FC<PositionMasterViewProps> = ({
                     </div>
                 </motion.button>
             </div>
+            )}
         </div>
     );
 };

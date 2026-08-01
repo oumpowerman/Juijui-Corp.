@@ -17,6 +17,7 @@ interface ForgotCheckInControlProps {
     leaveUsage?: LeaveUsage;
     todayActiveLeave?: LeaveRequest | null;
     availableLocations?: LocationDef[];
+    isDesktop?: boolean;
 }
 
 const ForgotCheckInControl: React.FC<ForgotCheckInControlProps> = ({
@@ -26,7 +27,8 @@ const ForgotCheckInControl: React.FC<ForgotCheckInControlProps> = ({
     onSubmit,
     leaveUsage,
     todayActiveLeave,
-    availableLocations = []
+    availableLocations = [],
+    isDesktop = false
 }) => {
     const [isVisible, setIsVisible] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -114,11 +116,13 @@ const ForgotCheckInControl: React.FC<ForgotCheckInControlProps> = ({
                 return;
             }
 
-            const shiftsEnabledOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'MULTIPLE_SHIFTS_ENABLED');
+            const shiftsEnabledOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && (o.key === 'MULTIPLE_SHIFTS_ENABLED' || o.key === 'MULTIPLE_SHIFTS_ENABLE'));
             const shiftsListOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'MULTIPLE_SHIFTS_LIST');
             const isShiftsEnabled = shiftsEnabledOpt?.label === 'true';
 
-            let effectiveStartTimeStr = startTime;
+            let earliestStartTimeStr = startTime;
+            let latestStartTimeStr = startTime;
+
             if (isShiftsEnabled && shiftsListOpt?.label) {
                 const shiftsList = shiftsListOpt.label.split(',').map(s => s.trim()).filter(Boolean);
                 if (shiftsList.length > 0) {
@@ -127,26 +131,30 @@ const ForgotCheckInControl: React.FC<ForgotCheckInControlProps> = ({
                         const [bh, bm] = b.split(':').map(Number);
                         return (ah * 60 + am) - (bh * 60 + bm);
                     });
-                    effectiveStartTimeStr = sortedShifts[sortedShifts.length - 1];
+                    earliestStartTimeStr = sortedShifts[0];
+                    latestStartTimeStr = sortedShifts[sortedShifts.length - 1];
                 }
             }
 
-            if (!effectiveStartTimeStr) return;
+            if (!earliestStartTimeStr || !latestStartTimeStr) return;
 
             const now = new Date();
-            const [startHour, startMinute] = effectiveStartTimeStr.split(':').map(Number);
-            
-            // Base Start Time (Today - latest shift if multi-shifts enabled)
-            const workStartTime = setMinutes(setHours(now, startHour), startMinute);
-            
-            // Start Window: Latest Shift Start Time + Buffer (Before this, user should use normal Check-in)
-            const showAfterTime = addMinutes(workStartTime, lateBuffer);
-            
-            // End Window: Latest Shift Start Time + 12 Hours (Prevent overnight/late night confusion)
-            const hideAfterTime = addHours(workStartTime, 12);
+            const [earliestHour, earliestMinute] = earliestStartTimeStr.split(':').map(Number);
+            const earliestWorkStartTime = setMinutes(setHours(now, earliestHour), earliestMinute);
+            const showAfterTime = addMinutes(earliestWorkStartTime, lateBuffer);
+
+            const [latestHour, latestMinute] = latestStartTimeStr.split(':').map(Number);
+            const latestWorkStartTime = setMinutes(setHours(now, latestHour), latestMinute);
+
+            const limitHoursOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'FORGOT_CHECKIN_LIMIT_HOURS');
+            const limitHours = limitHoursOpt && limitHoursOpt.label && !isNaN(parseInt(limitHoursOpt.label, 10))
+                ? parseInt(limitHoursOpt.label, 10)
+                : 12;
+
+            const hideAfterTime = addHours(latestWorkStartTime, limitHours);
 
             try {
-                // Check if NOW is within the window
+                // Check if NOW is within the window (Starts after first shift buffer, ends dynamic limit hours after last shift)
                 const shouldShow = isWithinInterval(now, { start: showAfterTime, end: hideAfterTime });
                 setIsVisible(shouldShow);
             } catch (e) {
@@ -241,10 +249,16 @@ const ForgotCheckInControl: React.FC<ForgotCheckInControlProps> = ({
     return (
         <>
             <motion.button 
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleStartForgotCheckIn}
-                className="py-2 px-4 bg-white border border-gray-200 text-gray-400 hover:text-indigo-500 hover:border-indigo-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer"
+                disabled={isDesktop}
+                whileHover={isDesktop ? undefined : { scale: 1.02 }}
+                whileTap={isDesktop ? undefined : { scale: 0.98 }}
+                onClick={isDesktop ? undefined : handleStartForgotCheckIn}
+                className={`py-2 px-4 border rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2
+                    ${isDesktop
+                        ? 'bg-slate-50 border-slate-200 text-slate-300 cursor-not-allowed shadow-none'
+                        : 'bg-white border-gray-200 text-gray-400 hover:text-indigo-500 hover:border-indigo-200 cursor-pointer'
+                    }
+                `}
             >
                 <History className="w-4 h-4" /> ลืมลงเวลาเข้า?
             </motion.button>

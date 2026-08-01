@@ -1,8 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { Monitor, ShieldAlert, LogOut, Zap, RefreshCw } from 'lucide-react';
+import { BRAND_CONFIG } from '../config/brand';
 
 export const ScreenSessionLimiter: React.FC<{ user: any }> = ({ user }) => {
+  if (BRAND_CONFIG.gamificationMode === 2) {
+    return null;
+  }
+
   const [isKicked, setIsKicked] = useState(false);
   const [isBlocked, setIsBlocked] = useState(false);
   const [isRegistered, setIsRegistered] = useState(false);

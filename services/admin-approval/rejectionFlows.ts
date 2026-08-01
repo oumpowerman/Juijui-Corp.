@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase';
-import { checkIsLate, getLateMinutes, mergeAttendanceNotes, calculateCheckOutStatus, getMatchedShiftSlot, getICTTime } from '../../lib/attendanceUtils';
+import { checkIsLate, getLateMinutes, mergeAttendanceNotes, calculateCheckOutStatus, getMatchedShiftSlot, getICTTime, resolveAttendanceLogStatus } from '../../lib/attendanceUtils';
+import { parseWorkConfig } from '../../utils/adminApprovalHelpers';
 
 /**
  * Handles rejection logic for WFH and Onsite requests.
@@ -67,9 +68,7 @@ export async function rejectWfhOnsiteRequest({
                 note: cleanedNote
             }).eq('id', freshLog.id);
         } else if (mode === 'KEEP_WORKING') {
-            const configData = masterOptions.filter(o => o.type === 'WORK_CONFIG');
-            const startTimeStr = configData?.find(c => c.key === 'START_TIME')?.label || '10:00';
-            const buffer = parseInt(configData?.find(c => c.key === 'LATE_BUFFER')?.label || '15');
+            const { startTime: startTimeStr, lateBuffer: buffer, multipleShifts } = parseWorkConfig(masterOptions);
 
             let timeStr = '10:00';
             if (customCheckInTime) {
@@ -86,14 +85,14 @@ export async function rejectWfhOnsiteRequest({
             }
 
             const checkInDateTime = new Date(`${req.start_date}T${timeStr}:00`);
-            const isLate = checkIsLate(checkInDateTime, startTimeStr, buffer);
+            const isLate = checkIsLate(checkInDateTime, startTimeStr, buffer, freshLog.note, multipleShifts);
 
             let lateMinutes = 0;
             let calculatedStatus: 'LATE' | 'ON_TIME' = 'ON_TIME';
 
             if (isLate) {
                 calculatedStatus = 'LATE';
-                lateMinutes = getLateMinutes(checkInDateTime, startTimeStr, buffer);
+                lateMinutes = getLateMinutes(checkInDateTime, startTimeStr, buffer, freshLog.note, multipleShifts);
             }
 
             try {
@@ -288,7 +287,7 @@ export async function rejectLateEntryRequest({
             .replace(/\s+/g, ' ')
             .trim();
 
-        const updatedNote = mergeAttendanceNotes(cleanedNote, `[REJECTED LATE_ENTRY] ปฏิเสธคำร้องเข้าสาย (สายจริงจากเกณฑ์ปกติ: ${lateMinutes} นาที) เหตุ flow-ปกติ: ${reason}`);
+        const updatedNote = mergeAttendanceNotes(cleanedNote, `[REJECTED LATE_ENTRY] ปฏิเสธคำร้องเข้าสาย (สายจริงจากเกณฑ์ปกติ: ${lateMinutes} นาที) เหตุผล: ${reason}`);
         
         const targetLogStatus = calculatedStatus === 'LATE' ? 'LATE' : (freshLog.check_out_time ? 'COMPLETED' : 'WORKING');
 
@@ -322,8 +321,8 @@ export async function rejectForgotCheckOutRequest({
     if (freshLog) {
         const noteText = freshLog.note || '';
         const isProvisionalCheckout = noteText.includes('[PROVISIONAL_CHECKOUT]');
-        const isEarlyLeaveAppeal = isProvisionalCheckout && 
-            !req.reason?.includes('(Location Mismatch)');
+        const isEarlyLeaveAppeal = req.type === 'EARLY_LEAVE' || (isProvisionalCheckout && 
+            !req.reason?.includes('(Location Mismatch)') && req.type !== 'FORGOT_CHECKOUT');
 
         if (isEarlyLeaveAppeal) {
             // 1. Calculate missing minutes and apply early leave penalty
@@ -353,9 +352,16 @@ export async function rejectForgotCheckOutRequest({
                 `[REJECTED EARLY_LEAVE_APPEAL] ปฏิเสธการยกเว้นโทษกลับก่อนเวลา (ขาด ${missingMinutes} นาที) ปรับหักคะแนน: ${reason}`
             );
 
-            // 2. Set attendance log status to COMPLETED (since checkout time is kept, but they are subject to penalty)
+            // 2. Set attendance log status dynamically using resolveAttendanceLogStatus
+            const targetStatus = resolveAttendanceLogStatus(
+                freshLog.check_in_time,
+                freshLog.check_out_time,
+                updatedNote,
+                freshLog.status
+            );
+
             await supabase.from('attendance_logs').update({
-                status: 'COMPLETED',
+                status: targetStatus,
                 note: updatedNote
             }).eq('id', freshLog.id);
 
@@ -384,6 +390,7 @@ export async function rejectForgotCheckOutRequest({
             );
 
             await supabase.from('attendance_logs').update({
+                check_out_time: null,
                 status: 'ACTION_REQUIRED',
                 note: updatedNote
             }).eq('id', freshLog.id);
@@ -471,6 +478,60 @@ export async function rejectGpsSpoofAppealRequest({
             status: 'ACTION_REQUIRED',
             note: updatedNote
         }).eq('id', freshLog.id);
+    }
+}
+
+/**
+ * Handles rejection logic for Forgot Both (check-in and check-out) requests.
+ */
+export async function rejectForgotBothRequest({
+    req,
+    reason,
+    masterOptions,
+    processAction
+}: {
+    req: any;
+    reason: string;
+    masterOptions: any[];
+    processAction: (userId: string, actionType: any, payload?: any) => Promise<any>;
+}) {
+    const { data: freshLog } = await supabase.from('attendance_logs')
+        .select('*')
+        .eq('user_id', req.user_id)
+        .eq('date', req.start_date)
+        .maybeSingle();
+
+    if (freshLog) {
+        // 1. Try to delete the record entirely
+        const { error: deleteError } = await supabase.from('attendance_logs')
+            .delete()
+            .eq('id', freshLog.id);
+
+        // 2. Fallback: If delete fails, update to clear check-in/out and set to ACTION_REQUIRED
+        if (deleteError) {
+            console.warn("Delete failed for FORGOT_BOTH log, falling back to update:", deleteError);
+            let cleanedNote = freshLog.note || '';
+            cleanedNote = cleanedNote
+                .replace(/\[FORGOT_BOTH_PENDING\]/g, '')
+                .replace(/\[PROVISIONAL_WFH\]/g, '')
+                .replace(/\[PROVISIONAL_ONSITE\]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+
+            const updatedNote = mergeAttendanceNotes(
+                cleanedNote,
+                `[REJECTED FORGOT_BOTH] ปฏิเสธคำร้องขอลงเวลาเข้า/ออกงาน: ${reason}`
+            );
+
+            await supabase.from('attendance_logs')
+                .update({
+                    check_in_time: null,
+                    check_out_time: null,
+                    status: 'ACTION_REQUIRED',
+                    note: updatedNote
+                })
+                .eq('id', freshLog.id);
+        }
     }
 }
 

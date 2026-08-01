@@ -105,6 +105,21 @@ const AnnualHolidayManager: React.FC<AnnualHolidayManagerProps> = ({ masterOptio
             await showAlert('กรุณากรอกชื่อและเลือกประเภทวันหยุดครับ', 'ข้อมูลไม่ครบถ้วน');
             return;
         }
+
+        // Check for duplicates (except the currently edited holiday)
+        const duplicate = (annualHolidays as Holiday[]).find(
+            h => h.day === newDay && h.month === newMonth && h.id !== editingId
+        );
+
+        if (duplicate) {
+            const typeInfo = getHolidayTypeInfo(duplicate.typeKey || duplicate.type_key || 'ANNUAL', eventTypeOptions);
+            await showAlert(
+                `มีวันหยุดชื่อ "${duplicate.name}" (${typeInfo.label}) ลงทะเบียนไว้ในวันนี้แล้ว หากต้องการเปลี่ยนแปลงข้อมูล กรุณาค้นหาเพื่อแก้ไขหรือลบวันหยุดนี้จากตาราง (Grid) หรือรายการ (List) ด้านขวาได้เลยครับ ✨`,
+                '⚠️ วันที่นี้ถูกระบุเป็นวันหยุดไว้แล้วครับ'
+            );
+            return;
+        }
+
         setIsSubmitting(true);
         try {
             if (editingId) {
@@ -137,26 +152,36 @@ const AnnualHolidayManager: React.FC<AnnualHolidayManagerProps> = ({ masterOptio
         });
     }, [annualHolidays, searchTerm, selectedMonthFilter, selectedTypeFilter]);
 
-    // Analytics: Month with the most holidays
+    // Analytics: Dynamic stats for chosen or current month
     const monthStats = useMemo(() => {
-        const counts: Record<number, number> = {};
-        annualHolidays.forEach(h => {
-            counts[h.month] = (counts[h.month] || 0) + 1;
-        });
-        let maxMonth = -1;
-        let maxCount = 0;
-        Object.entries(counts).forEach(([m, count]) => {
-            if (count > maxCount) {
-                maxCount = count;
-                maxMonth = parseInt(m);
-            }
-        });
-        const found = MONTHS.find(m => m.num === maxMonth);
+        let targetMonthNum: number;
+        let label = "วันหยุดประจำเดือน";
+
+        if (selectedMonthFilter === 'ALL') {
+            targetMonthNum = new Date().getMonth() + 1; // 1-indexed (1-12)
+            label = "วันหยุดเดือนปัจจุบัน";
+        } else {
+            targetMonthNum = parseInt(selectedMonthFilter, 10);
+            label = "วันหยุดประจำเดือน";
+        }
+
+        const found = MONTHS.find(m => m.num === targetMonthNum);
+        const count = annualHolidays.filter(h => h.month === targetMonthNum).length;
+
         return {
             name: found ? found.name : '-',
-            count: maxCount
+            count: count,
+            label: label
         };
-    }, [annualHolidays]);
+    }, [annualHolidays, selectedMonthFilter]);
+
+    // Active month based on selectedMonthFilter
+    const activeMonthNum = useMemo(() => {
+        if (selectedMonthFilter === 'ALL') {
+            return new Date().getMonth() + 1; // 1-indexed (1-12)
+        }
+        return parseInt(selectedMonthFilter, 10);
+    }, [selectedMonthFilter]);
 
     // Analytics: Holiday type distribution
     const typeBreakdown = useMemo(() => {
@@ -209,6 +234,7 @@ const AnnualHolidayManager: React.FC<AnnualHolidayManagerProps> = ({ masterOptio
                         onSubmit={handleFormSubmit}
                         isSubmitting={isSubmitting}
                         eventTypeOptions={eventTypeOptions}
+                        annualHolidays={annualHolidays}
                     />
                 </div>
 
@@ -297,7 +323,7 @@ const AnnualHolidayManager: React.FC<AnnualHolidayManagerProps> = ({ masterOptio
                                     onChange={setSelectedTypeFilter}
                                     showAllOption={false}
                                     clearable={false}
-                                    align="left"
+                                    align="right"
                                     placeholder="ทุกประเภท"
                                 />
                             </div>
@@ -327,6 +353,7 @@ const AnnualHolidayManager: React.FC<AnnualHolidayManagerProps> = ({ masterOptio
                                             onDelete={deleteHoliday}
                                             editingId={editingId}
                                             eventTypeOptions={eventTypeOptions}
+                                            activeMonthNum={activeMonthNum}
                                         />
                                     </motion.div>
                                 ) : (

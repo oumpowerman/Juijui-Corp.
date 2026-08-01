@@ -22,7 +22,14 @@ export const getCellTextForUserDay = (
     logs: AttendanceLog[],
     leaveRequests: any[],
     getEffectiveDayStatus: (date: Date) => { status: 'WORK_DAY' | 'WEEKEND' | 'HOLIDAY'; source: string; desc: string },
-    workConfig: { startTime: string; buffer: number },
+    workConfig: { 
+        startTime: string; 
+        buffer: number;
+        multipleShifts?: {
+            enabled?: boolean;
+            shiftsList?: string[] | string;
+        };
+    },
     cellFormat: 'detailed' | 'summary',
     holidayFormat: 'text' | 'blank'
 ): string => {
@@ -87,7 +94,7 @@ export const getCellTextForUserDay = (
         } else {
             if (cellFormat === 'summary') {
                 if (log.checkInTime) {
-                    const isLate = checkIsLate(log.checkInTime, workConfig.startTime, workConfig.buffer);
+                    const isLate = checkIsLate(log.checkInTime, workConfig.startTime, workConfig.buffer, log.note, workConfig.multipleShifts);
                     if (isLate) return 'L'; // Late
                 }
                 if (log.workType === 'WFH') return 'W'; // WFH
@@ -102,7 +109,7 @@ export const getCellTextForUserDay = (
             if (isPendingVerify) {
                 suffix = ' (รอตรวจ)';
             } else if (log.checkInTime) {
-                const isLate = checkIsLate(log.checkInTime, workConfig.startTime, workConfig.buffer);
+                const isLate = checkIsLate(log.checkInTime, workConfig.startTime, workConfig.buffer, log.note, workConfig.multipleShifts);
                 if (isLate) {
                     suffix = ' (สาย)';
                 }
@@ -179,7 +186,14 @@ export const generateAndDownloadCSV = (
     logs: AttendanceLog[],
     leaveRequests: any[],
     getEffectiveDayStatus: (date: Date) => { status: 'WORK_DAY' | 'WEEKEND' | 'HOLIDAY'; source: string; desc: string },
-    workConfig: { startTime: string; buffer: number },
+    workConfig: { 
+        startTime: string; 
+        buffer: number;
+        multipleShifts?: {
+            enabled?: boolean;
+            shiftsList?: string[] | string;
+        };
+    },
     options: ExportConfigOptions,
     viewMode: 'WEEK' | 'MONTH'
 ) => {
@@ -242,7 +256,7 @@ export const generateAndDownloadCSV = (
                 } else if (!isHardAbsent) {
                     workedCount++;
                     if (log.checkInTime) {
-                        const isLate = checkIsLate(log.checkInTime, workConfig.startTime, workConfig.buffer);
+                        const isLate = checkIsLate(log.checkInTime, workConfig.startTime, workConfig.buffer, log.note, workConfig.multipleShifts);
                         if (isLate) lateCount++;
                     }
                 }

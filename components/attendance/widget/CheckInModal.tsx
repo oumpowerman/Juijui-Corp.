@@ -88,6 +88,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
         isGpsAppealActive,
         setIsGpsAppealActive,
         isUserLate,
+        isExceededLastShift,
         lateMinutes,
         isShiftsEnabled,
         shiftsList,
@@ -198,12 +199,13 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
                                 {showLateIntervention && (
                                     <LateInterventionOverlay
                                         startTime={effectiveDisplayStartTime}
+                                        isExceededLastShift={isExceededLastShift}
                                         onSwitchToLeave={() => {
                                             onClose();
                                             if (onSwitchToLeave) {
                                                 onSwitchToLeave(
                                                     'LATE_ENTRY', 
-                                                    approvedWFH ? 'WFH' : (approvedOnsite ? 'ONSITE' : undefined)
+                                                    approvedWFH ? undefined : (approvedOnsite ? undefined : (pendingWFHRequest ? 'WFH' : (pendingOnsiteRequest ? 'ONSITE' : undefined)))
                                                 );
                                             }
                                         }}
@@ -280,7 +282,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
                                                         if (onSwitchToLeave) {
                                                             onSwitchToLeave(
                                                                 'LATE_ENTRY',
-                                                                approvedWFH ? 'WFH' : (approvedOnsite ? 'ONSITE' : undefined)
+                                                                approvedWFH ? undefined : (approvedOnsite ? undefined : (pendingWFHRequest ? 'WFH' : (pendingOnsiteRequest ? 'ONSITE' : undefined)))
                                                             );
                                                         }
                                                     }}

@@ -33,6 +33,7 @@ const AuthPage: React.FC<AuthPageProps> = ({
   
   // Shared Form State
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
@@ -233,14 +234,48 @@ const AuthPage: React.FC<AuthPageProps> = ({
     setIsLoading(true);
     setErrorMsg(null);
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
+      const cleanUsername = username.toLowerCase().trim();
+      if (!cleanUsername) {
+        throw new Error('กรุณากรอกชื่อผู้ใช้ด้วยนะครับ');
+      }
+
+      // ค้นหาโปรไฟล์ในตาราง profiles ด้วยเงื่อนไข username
+      const { data: profile, error: profileErr } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('username', cleanUsername)
+        .maybeSingle();
+
+      if (profileErr) throw profileErr;
+      if (!profile) {
+        throw new Error('ไม่พบชื่อผู้ใช้นี้ในระบบนะครับ');
+      }
+
+      const loginEmail = profile.email 
+        ? profile.email 
+        : `${cleanUsername}@juijui-app.com`;
+
+      let { error } = await supabase.auth.signInWithPassword({
+        email: loginEmail,
         password,
       });
+
+      // If it fails and the email was our default mock domain, let's fallback to the old mock domain for backward compatibility
+      if (error && !profile.email) {
+        const fallbackEmail = `${cleanUsername}@juijui.local`;
+        const { error: fallbackError } = await supabase.auth.signInWithPassword({
+          email: fallbackEmail,
+          password,
+        });
+        if (!fallbackError) {
+          error = null;
+        }
+      }
+
       if (error) throw error;
       onLoginSuccess();
     } catch (err: any) {
-      setErrorMsg(err.message || 'อีเมลหรือรหัสผ่านไม่ถูกต้อง');
+      setErrorMsg(err.message || 'ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
     } finally {
       setIsLoading(false);
     }
@@ -297,6 +332,14 @@ const AuthPage: React.FC<AuthPageProps> = ({
     setIsLoading(true);
     setErrorMsg(null);
     try {
+      const cleanUsername = username.toLowerCase().trim();
+      if (!cleanUsername) {
+        throw new Error('กรุณากรอกชื่อผู้ใช้นะครับ');
+      }
+      if (!/^[a-z0-9_.]{3,20}$/.test(cleanUsername)) {
+        throw new Error('ชื่อผู้ใช้ต้องประกอบด้วยภาษาอังกฤษ ตัวเลข ขีดล่าง (_) และจุด (.) ความยาว 3-20 ตัวอักษรเท่านั้นนะครับ');
+      }
+
       if (!firstName.trim() || !lastName.trim() || !name.trim() || !position.trim() || !phone.trim() || !employmentType) {
         throw new Error('กรุณากรอกข้อมูลให้ครบทุกช่องที่มีเครื่องหมาย * นะครับ');
       }
@@ -307,11 +350,26 @@ const AuthPage: React.FC<AuthPageProps> = ({
         throw new Error('อิโมจินี้ถูกเพื่อนในทีมเลือกไปแล้วครับ โปรดเลือกอิโมจิอื่นนะ ✨');
       }
 
+      // Check if username is taken in profiles
+      const { data: existingUser, error: checkError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('username', cleanUsername)
+        .maybeSingle();
+
+      if (checkError) throw checkError;
+      if (existingUser) {
+        throw new Error('ชื่อผู้ใช้นี้ถูกใช้งานไปแล้ว กรุณาเลือกชื่อผู้ใช้อื่นนะครับ');
+      }
+
+      const cleanEmail = email.trim() ? email.toLowerCase().trim() : '';
+      const finalAuthEmail = cleanEmail ? cleanEmail : `${cleanUsername}@juijui-app.com`;
+
       const fullNameCombined = `${firstName.trim()} ${lastName.trim()}`.trim();
 
       // Create new user credentials
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
+        email: finalAuthEmail,
         password,
         options: {
           data: {
@@ -351,7 +409,8 @@ const AuthPage: React.FC<AuthPageProps> = ({
         .from('profiles')
         .upsert({ 
           id: userId,
-          email: email,
+          email: cleanEmail || null,
+          username: cleanUsername,
           full_name: fullNameCombined || name,
           first_name: firstName.trim(),
           last_name: lastName.trim(),
@@ -521,8 +580,8 @@ const AuthPage: React.FC<AuthPageProps> = ({
                         {/* Rendering corresponding active sub-forms */}
                         {isLogin ? (
                           <LoginForm 
-                            email={email}
-                            setEmail={setEmail}
+                            username={username}
+                            setUsername={setUsername}
                             password={password}
                             setPassword={setPassword}
                             showPassword={showPassword}
@@ -536,6 +595,8 @@ const AuthPage: React.FC<AuthPageProps> = ({
                           <RegisterForm 
                             email={email}
                             setEmail={setEmail}
+                            username={username}
+                            setUsername={setUsername}
                             password={password}
                             setPassword={setPassword}
                             showPassword={showPassword}

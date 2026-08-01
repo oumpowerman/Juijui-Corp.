@@ -428,13 +428,13 @@ export const useAttendanceActions = (userId: string) => {
 
             let noteAppend = '';
             if (isAdjustedCheckout) {
-                 noteAppend += `[FORGETFUL_ADJUST_CHECKOUT] [OK: ${calcResult.hoursWorked.toFixed(1)} hrs]`;
+                 noteAppend += `[FORGETFUL_ADJUST_CHECKOUT] [OK: ${calcResult.hoursWorked.toFixed(2)} hrs]`;
                  if (finalReason) noteAppend += ` [REASON: ${finalReason}]`;
             } else if (calcResult.status === 'EARLY_LEAVE') {
                  noteAppend += `[EARLY: Missing ${calcResult.missingMinutes.toFixed(0)}m]`;
                  if (finalReason) noteAppend += ` [REASON: ${finalReason}]`;
             } else {
-                 noteAppend += `[OK: ${calcResult.hoursWorked.toFixed(1)} hrs]`;
+                 noteAppend += `[OK: ${calcResult.hoursWorked.toFixed(2)} hrs]`;
                  if (finalReason) noteAppend += ` [REASON: ${finalReason}]`;
             }
 

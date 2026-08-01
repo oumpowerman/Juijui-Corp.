@@ -3,6 +3,7 @@ import { MessageSquare, Send, X, Bot, Trash2, Plus, Terminal, Sparkles, HelpCirc
 import { Task, Channel, Platform, Status, Priority } from '../types';
 import { useToast } from '../context/ToastContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import { BRAND_CONFIG } from '../config/brand';
 
 interface ChatAssistantProps {
   tasks: Task[];
@@ -282,21 +283,23 @@ const ChatAssistant: React.FC<ChatAssistantProps> = ({
   return (
     <>
       {/* Floating Button with explicit High Z-Index - Hidden on Mobile, Shown on Tablet/Desktop */}
-      <div className="hidden md:flex fixed bottom-24 lg:bottom-6 right-4 lg:right-6 z-[100] items-center gap-3">
-          <div className={`hidden md:block bg-white px-3 py-1.5 rounded-xl shadow-lg text-xs font-bold text-gray-600 transition-opacity duration-300 ${isOpen ? 'opacity-0' : 'opacity-100'}`}>
-              AI Assistant
-          </div>
-          <button
-            onClick={() => setIsOpen(!isOpen)}
-            className={`p-4 rounded-full shadow-2xl transition-all hover:scale-110 active:scale-95 ${isOpen ? 'bg-red-500 rotate-90' : 'bg-gradient-to-r from-indigo-600 to-purple-600'}`}
-          >
-            {isOpen ? <X className="w-6 h-6 text-white" /> : <MessageSquare className="w-6 h-6 text-white" />}
-          </button>
-      </div>
+      {BRAND_CONFIG.showJuiJuiAiMode === 1 && (
+        <div className="hidden md:flex fixed bottom-24 lg:bottom-6 right-4 lg:right-6 z-[100] items-center gap-3">
+            <div className={`hidden md:block bg-white px-3 py-1.5 rounded-xl shadow-lg text-xs font-bold text-gray-600 transition-opacity duration-300 ${isOpen ? 'opacity-0' : 'opacity-100'}`}>
+                AI Assistant
+            </div>
+            <button
+              onClick={() => setIsOpen(!isOpen)}
+              className={`p-4 rounded-full shadow-2xl transition-all hover:scale-110 active:scale-95 ${isOpen ? 'bg-red-500 rotate-90' : 'bg-gradient-to-r from-indigo-600 to-purple-600'}`}
+            >
+              {isOpen ? <X className="w-6 h-6 text-white" /> : <MessageSquare className="w-6 h-6 text-white" />}
+            </button>
+        </div>
+      )}
 
       {/* Chat Window */}
       <AnimatePresence>
-        {isOpen && (
+        {isOpen && BRAND_CONFIG.showJuiJuiAiMode === 1 && (
           <motion.div 
             initial={{ opacity: 0, y: 50, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}

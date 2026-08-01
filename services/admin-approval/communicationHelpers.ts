@@ -33,6 +33,36 @@ export async function sendRejectionNotification(userId: string, title: string, m
 }
 
 /**
+ * Sends an approval/rejection summary notification to the LINE group.
+ */
+export async function sendGroupSummaryNotification(
+    employeeId: string, 
+    employeeName: string, 
+    requestType: string, 
+    adminName: string, 
+    statusText: string, 
+    reason: string = '',
+    relatedId?: string,
+    metadata?: any
+) {
+    let message = `พนักงาน: ${employeeName}\nประเภทคำขอ: ${requestType}\nสถานะ: ${statusText}\nผู้พิจารณา: ${adminName}`;
+    if (reason) {
+        message += `\nหมายเหตุ: ${reason}`;
+    }
+    
+    return supabase.from('notifications').insert({
+        user_id: employeeId,
+        type: 'APPROVAL_SUMMARY',
+        title: `อัปเดตคำขอ: ${employeeName}`,
+        message,
+        is_read: false,
+        link_path: 'ATTENDANCE',
+        related_id: relatedId || null,
+        metadata: metadata || null
+    });
+}
+
+/**
  * Publishes a dynamic status message or bot announcement to the team channel.
  */
 export async function publishToTeamChannel(content: string) {

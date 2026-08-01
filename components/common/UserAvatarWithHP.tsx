@@ -3,6 +3,7 @@ import React from 'react';
 import { User } from '../../types';
 import { Crown, AlertTriangle, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { BRAND_CONFIG } from '../../config/brand';
 
 interface UserAvatarWithHPProps {
     user: User;
@@ -23,6 +24,9 @@ const UserAvatarWithHP: React.FC<UserAvatarWithHPProps> = ({
     showAdminBadge = true,
     isFocused = false
 }) => {
+    const hpMode = BRAND_CONFIG.hpDisplayMode ?? 1;
+    const isFriendlyMode = hpMode === 2;
+
     const hpPercent = Math.max(0, Math.min(100, (user.hp / (user.maxHp || 100)) * 100));
     const circumference = 2 * Math.PI * 46;
     const offset = circumference - (hpPercent / 100) * circumference;
@@ -32,8 +36,12 @@ const UserAvatarWithHP: React.FC<UserAvatarWithHPProps> = ({
     const isLowHP = !isDead && hpPercent < 25;
     const isCriticalHP = !isDead && hpPercent < 10;
 
-    const hpColor = isDead ? 'text-gray-400' : hpPercent > 70 ? 'text-emerald-500' : hpPercent > 30 ? 'text-amber-500' : 'text-red-500';
-    const glowColor = isDead ? 'rgba(156, 163, 175, 0.5)' : hpPercent > 70 ? 'rgba(16, 185, 129, 0.5)' : hpPercent > 30 ? 'rgba(245, 158, 11, 0.5)' : 'rgba(239, 68, 68, 0.5)';
+    const hpColor = isDead 
+        ? (isFriendlyMode ? 'text-rose-400' : 'text-gray-400') 
+        : hpPercent > 70 ? 'text-emerald-500' : hpPercent > 30 ? 'text-amber-500' : 'text-red-500';
+    const glowColor = isDead 
+        ? (isFriendlyMode ? 'rgba(244, 63, 94, 0.5)' : 'rgba(156, 163, 175, 0.5)') 
+        : hpPercent > 70 ? 'rgba(16, 185, 129, 0.5)' : hpPercent > 30 ? 'rgba(245, 158, 11, 0.5)' : 'rgba(239, 68, 68, 0.5)';
 
     const sizeClasses = {
         sm: 'w-8 h-8',
@@ -137,13 +145,13 @@ const UserAvatarWithHP: React.FC<UserAvatarWithHPProps> = ({
                 <div className="relative rounded-full overflow-hidden">
                     <img 
                         src={user.avatarUrl} 
-                        className={`${sizeClasses[size]} rounded-full object-cover shadow-inner transition-all duration-500 ${isDead ? 'grayscale brightness-125' : isCriticalHP ? 'grayscale contrast-125' : ''}`} 
+                        className={`${sizeClasses[size]} rounded-full object-cover shadow-inner transition-all duration-500 ${isDead && !isFriendlyMode ? 'grayscale brightness-125' : isCriticalHP && !isFriendlyMode ? 'grayscale contrast-125' : ''}`} 
                         alt={user.name} 
                     />
                     
                     {/* Low HP Red Overlay Pulse */}
                     <AnimatePresence>
-                        {(isLowHP || isDead) && (
+                        {((isLowHP || isDead) && !isFriendlyMode) && (
                             <motion.div 
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: isDead ? [0.1, 0.2, 0.1] : [0, 0.3, 0] }}
@@ -190,7 +198,11 @@ const UserAvatarWithHP: React.FC<UserAvatarWithHPProps> = ({
             {/* Negative HP Label */}
             {isDead && (
                 <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap">
-                    <span className="text-[9px] font-black text-red-600 bg-white px-1 rounded border border-red-100 shadow-sm">
+                    <span className={`text-[9px] font-black px-1 rounded border shadow-sm ${
+                        isFriendlyMode 
+                            ? 'text-rose-600 bg-rose-50 border-rose-100' 
+                            : 'text-red-600 bg-white border-red-100'
+                    }`}>
                         {user.hp} HP
                     </span>
                 </div>
@@ -220,7 +232,7 @@ const UserAvatarWithHP: React.FC<UserAvatarWithHPProps> = ({
 
             {/* Critical HP Warning */}
             <AnimatePresence>
-                {isCriticalHP && (
+                {isCriticalHP && !isFriendlyMode && (
                     <motion.div 
                         initial={{ scale: 0, rotate: -45 }}
                         animate={{ scale: 1, rotate: 0 }}

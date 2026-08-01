@@ -7,6 +7,7 @@ import { EmployeeNameCell } from "./cells/EmployeeNameCell";
 import { StatBadgeCell } from "./cells/StatBadgeCell";
 import { GradeBadgeCell } from "./cells/GradeBadgeCell";
 import { EmployeeHpCell } from "./cells/EmployeeHpCell";
+import { BRAND_CONFIG } from "../../../../../config/brand";
 
 interface EmployeeRowProps {
   stat: UserStat;
@@ -312,7 +313,9 @@ const EmployeeRowComponent: React.FC<EmployeeRowProps> = ({
       />
 
       <StatBadgeCell value={stat.totalHours} variant="hours" />
-      <GradeBadgeCell grade={getGrade(stat)} />
+      {BRAND_CONFIG.showGradeMode !== 2 && (
+        <GradeBadgeCell grade={getGrade(stat)} />
+      )}
 
       {/* Sparkle micro-animation inside the row for top tiers */}
       {isPerfect && perfectTier && (

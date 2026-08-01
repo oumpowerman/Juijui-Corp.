@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Inbox } from 'lucide-react';
 import { motion, useMotionValue, useTransform } from 'framer-motion';
 import { useWorkboxContext } from '../../context/WorkboxContext';
+import { BRAND_CONFIG } from '../../config/brand';
 
 interface WorkboxTriggerProps {
     onClick: () => void;
@@ -48,7 +49,7 @@ const WorkboxTrigger: React.FC<WorkboxTriggerProps> = ({ onClick, itemCount, onD
         }
     };
 
-    if (isDocked) return null;
+    if (BRAND_CONFIG.showWorkboxMode !== 1 || isDocked) return null;
 
     return (
         <div ref={constraintsRef} className="fixed inset-0 pointer-events-none z-50 overflow-hidden">

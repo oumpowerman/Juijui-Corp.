@@ -7,20 +7,24 @@ interface ProfileBasicInfoProps {
   name: string;
   position: string;
   phone: string;
+  email: string;
   positions: { key: string, label: string }[];
   user: UserType;
   onNameChange: (val: string) => void;
   onPositionChange: (val: string) => void;
   onPhoneChange: (val: string) => void;
+  onEmailChange: (val: string) => void;
 }
 
 const ProfileBasicInfo: React.FC<ProfileBasicInfoProps> = ({
   name,
   position,
   phone,
+  email,
   user,
   onNameChange,
-  onPhoneChange
+  onPhoneChange,
+  onEmailChange
 }) => {
   const { showAlert } = useGlobalDialog();
 
@@ -86,6 +90,32 @@ const ProfileBasicInfo: React.FC<ProfileBasicInfoProps> = ({
                     <Phone className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-emerald-400 group-focus-within:text-emerald-600 transition-colors pointer-events-none" />
                 </div>
             </div>
+        </div>
+
+        {/* Email Input */}
+        <div className="space-y-2">
+            <label className="block text-xs font-bold text-violet-400 uppercase tracking-wider ml-1">อีเมลสำหรับกู้คืนบัญชี 📧</label>
+            <div className="relative group">
+                <input 
+                    type="email" 
+                    value={email}
+                    onChange={e => onEmailChange(e.target.value)}
+                    className="w-full pl-12 pr-4 py-4 bg-violet-50/50 border-2 border-violet-100 focus:bg-white focus:border-violet-300 rounded-2xl outline-none text-sm font-bold text-violet-900 transition-all shadow-sm group-hover:bg-white placeholder:text-violet-300"
+                    placeholder="email@example.com (ไม่บังคับ)"
+                />
+                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg pointer-events-none group-focus-within:scale-110 transition-transform">📧</span>
+            </div>
+            
+            {/* Instruction / Warn Message */}
+            {!email ? (
+              <p className="text-xs font-bold text-amber-600 bg-amber-50/50 border border-amber-200/40 rounded-2xl px-4 py-3 mt-2 animate-in fade-in duration-300 flex items-center gap-1.5 shadow-sm leading-relaxed">
+                <span>⚠️ คุณยังไม่ได้ผูกอีเมลสำหรับกู้คืนรหัสผ่าน แนะนำให้กรอกไว้เพื่อป้องกันบัญชีสูญหายในอนาคตครับ</span>
+              </p>
+            ) : (
+              <p className="text-xs font-bold text-emerald-600 bg-emerald-50/50 border border-emerald-200/40 rounded-2xl px-4 py-3 mt-2 animate-in fade-in duration-300 flex items-center gap-1.5 shadow-sm leading-relaxed">
+                <span>✓ อีเมลของคุณพร้อมใช้งานสำหรับกู้คืนรหัสผ่านแล้วครับ</span>
+              </p>
+            )}
         </div>
     </div>
   );

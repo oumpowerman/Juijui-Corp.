@@ -107,8 +107,39 @@ export function formatCorrectionNote(
     
     const targetTag = `[TARGET_SHIFT:${targetShift}]`;
     const actualTag = hasCustomActual ? `[ACTUAL_CHECK_IN:${actualTime}]` : '';
-    const timeTag = endTime ? `[TIME:${targetShift}-${endTime}]` : `[TIME:${targetShift}]`;
+    const timeTag = endTime ? `[TIME:${actualTime}-${endTime}]` : `[TIME:${actualTime}]`;
 
     const tags = [targetTag, actualTag, timeTag].filter(Boolean).join(' ');
     return cleanReason ? `${tags} ${cleanReason}` : tags;
 }
+
+/**
+ * Calculates the earliest possible check-out time based on actual check-in time and minimum required work hours.
+ * E.g., "08:12" + 9 hours -> "17:12"
+ */
+export function calculateRequiredCheckOutTime(checkInTimeStr: string, minHours: number): string {
+    if (!checkInTimeStr) return '17:00';
+    const mins = timeToMinutes(checkInTimeStr);
+    const addedMins = mins + Math.round(minHours * 60);
+    const resultMins = addedMins % 1440; // 1440 minutes in a day
+    const hours = Math.floor(resultMins / 60);
+    const minutes = resultMins % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Checks if checkoutTime is at least minHours after checkInTime, accounting for next-day wrap around if necessary.
+ */
+export function isValidCheckOutTime(checkInTime: string, checkOutTime: string, minHours: number): boolean {
+    if (!checkInTime || !checkOutTime) return true;
+    const startMins = timeToMinutes(checkInTime);
+    let endMins = timeToMinutes(checkOutTime);
+    
+    // If checkOutTime is less than checkInTime, it has wrapped around to the next day
+    if (endMins < startMins) {
+        endMins += 1440;
+    }
+    const diffMins = endMins - startMins;
+    return diffMins >= Math.round(minHours * 60);
+}
+

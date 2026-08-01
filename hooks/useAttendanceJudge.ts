@@ -5,6 +5,7 @@ import { User, AnnualHoliday, AttendanceLog, LeaveRequest } from '../types';
 import { isWorkingDay, isUserOnLeave } from '../utils/judgeUtils';
 import { toValidUuid } from '../utils/gamificationUtils';
 import { mergeAttendanceNotes } from '../lib/attendanceUtils';
+import { useMasterData } from './useMasterData';
 
 export const useAttendanceJudge = (
     currentUser: User | null,
@@ -15,6 +16,7 @@ export const useAttendanceJudge = (
     notifications: any[],
     isLoading: boolean
 ) => {
+    const { masterOptions } = useMasterData();
     // Helper to check if a penalty already exists (Check local memory first, then DB for robustness)
     const hasPenaltyInLogs = async (actionType: string, relatedId?: string, descriptionMatch?: string) => {
         if (isLoading || !currentUser) return true; // Assume exists while loading or if no user
@@ -94,8 +96,12 @@ export const useAttendanceJudge = (
             if (leaveCheck.onLeave) {
                 if (leaveCheck.status === 'PENDING') {
                     // ถ้ายังรออนุมัติ ให้แจ้งเตือนว่าระบบรอก่อน (กันหักซ้ำซ้อน)
+                    const isAdmin = currentUser.role === 'ADMIN';
+                    const adminPenaltyOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'ADMIN_ABSENT_PENALTY_ENABLED');
+                    const isAdminPenaltyEnabled = adminPenaltyOpt ? adminPenaltyOpt.label === 'true' : false;
+                    
                     const alreadyNotified = hasNotification('INFO', checkDateStr);
-                    if (!alreadyNotified) {
+                    if (!alreadyNotified && !(isAdmin && !isAdminPenaltyEnabled)) {
                         const lockKey = `PENDING-LEAVE-${checkDateStr}`;
                         if (!isProcessingRef.current.has(lockKey)) {
                             isProcessingRef.current.add(lockKey);
@@ -183,13 +189,21 @@ export const useAttendanceJudge = (
                          }, { onConflict: 'user_id, date' }).select('id').maybeSingle();
                          
                          if (!insertError && newLog) {
-                             // หักคะแนนขาดงาน
-                             await processAction(currentUser.id, 'ATTENDANCE_ABSENT', { 
-                                 date: checkDateStr,
-                                 id: `ABSENT:${checkDateStr}`, // Use as idempotency key
-                                 reason: `ABSENT_DATE:${checkDateStr}`,
-                                 description: `ขาดงานในวันที่ ${format(checkDate, 'd MMM', { locale: th })} (ไม่พบข้อมูลการลงเวลาทำงาน)`
-                             });
+                             const isAdmin = currentUser.role === 'ADMIN';
+                             const adminPenaltyOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'ADMIN_ABSENT_PENALTY_ENABLED');
+                             const isAdminPenaltyEnabled = adminPenaltyOpt ? adminPenaltyOpt.label === 'true' : false;
+
+                             if (isAdmin && !isAdminPenaltyEnabled) {
+                                 console.log(`[AutoJudge] Skipping absent penalty and notifications for Admin ${currentUser.name} on ${checkDateStr} (ADMIN_ABSENT_PENALTY_ENABLED is false)`);
+                             } else {
+                                 // หักคะแนนขาดงาน
+                                 await processAction(currentUser.id, 'ATTENDANCE_ABSENT', { 
+                                     date: checkDateStr,
+                                     id: `ABSENT:${checkDateStr}`, // Use as idempotency key
+                                     reason: `ABSENT_DATE:${checkDateStr}`,
+                                     description: `ขาดงานในวันที่ ${format(checkDate, 'd MMM', { locale: th })} (ไม่พบข้อมูลการลงเวลาทำงาน)`
+                                 });
+                             }
                              
                              console.log(`[AutoJudge] ${currentUser.name} marked ABSENT for ${checkDateStr} (Lookback)`);
                          } else {

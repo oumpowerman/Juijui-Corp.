@@ -1,7 +1,7 @@
 import { eachDayOfInterval, isValid } from 'date-fns';
 import { isWorkingDay } from './judgeUtils';
 import { LeaveRequest } from '../types/attendance';
-import { mergeAttendanceNotes, resolveAttendanceLogStatus } from '../lib/attendanceUtils';
+import { mergeAttendanceNotes, resolveAttendanceLogStatus, getMaxShiftWithBuffer } from '../lib/attendanceUtils';
 import { supabase } from '../lib/supabase';
 import { getRegistryItem } from '../constants/attendanceRegistry';
 
@@ -77,10 +77,13 @@ export function buildOtAuditLog(
     newEnd: string,
     finalHours: number,
     adminNote?: string,
-    isTimeModified?: boolean
+    isTimeModified?: boolean,
+    isFixed?: boolean
 ): { auditLogText: string; finalDbNote: string } {
     let auditLogText = '';
-    if (isTimeModified) {
+    if (isFixed) {
+        auditLogText = `⚙️ [อนุมัติ OT แบบเหมาจ่าย (Lump-sum)]`;
+    } else if (isTimeModified) {
         const origStartStr = origStart.substring(0, 5);
         const origEndStr = origEnd.substring(0, 5);
         const newStartStr = newStart.substring(0, 5);
@@ -152,13 +155,14 @@ export function buildAttendanceCorrectionPayload({
     if (type === 'FORGOT_BOTH') {
         const finalNote = mergeAttendanceNotes(existingNote, `${originalStatusNote}[APPROVED FORGOT_BOTH] ${reason}`);
         const resolvedStatus = resolveAttendanceLogStatus(checkInTime, checkOutTime, finalNote);
+        const finalStatus = resolvedStatus === 'COMPLETED' && isLate ? 'LATE' : resolvedStatus;
         return {
             user_id: userId,
             date: date,
             check_in_time: checkInTime,
             check_out_time: checkOutTime,
             work_type: resolvedWorkType,
-            status: resolvedStatus,
+            status: finalStatus,
             note: finalNote
         };
     } else if (type === 'FORGOT_CHECKIN' || type === 'LATE_ENTRY') {
@@ -198,7 +202,16 @@ export function parseWorkConfig(masterOptions: any[]) {
     const configData = (masterOptions || []).filter(o => o.type === 'WORK_CONFIG');
     const startTime = configData.find(c => c.key === 'START_TIME')?.label || '10:00';
     const lateBuffer = parseInt(configData.find(c => c.key === 'LATE_BUFFER')?.label || '15', 10);
-    return { startTime, lateBuffer };
+    const shiftsEnabled = configData.find(c => c.key === 'MULTIPLE_SHIFTS_ENABLED')?.label === 'true';
+    const shiftsList = configData.find(c => c.key === 'MULTIPLE_SHIFTS_LIST')?.label || '';
+    return {
+        startTime,
+        lateBuffer,
+        multipleShifts: {
+            enabled: shiftsEnabled,
+            shiftsList
+        }
+    };
 }
 
 /**
@@ -344,7 +357,7 @@ export async function processHpRefundIfEligible({
         ? `คืนค่า HP ${behavior.refundDescriptionPenalized} ${dateStr}` 
         : `คืนค่า HP จากการแก้เวลาออกงานวันที่ ${dateStr}`;
 
-    if (statusBefore === 'ABSENT') {
+    if (statusBefore === 'ABSENT' || noteBefore?.includes('[ORIGINALLY: ABSENT]')) {
         await processAction(userId, 'ATTENDANCE_ABSENT_REFUND', {
             originalDescription: absentDesc
         });
@@ -354,3 +367,32 @@ export async function processHpRefundIfEligible({
         });
     }
 }
+
+/**
+ * Validates check-in time against the max shift + buffer configuration.
+ */
+export function validateCheckInTime(
+    time: string, 
+    masterOptions: any[]
+): { isValid: boolean; maxAllowedTimeStr: string; maxShiftTimeStr: string; bufferMinutes: number } {
+    const { maxAllowedTimeStr, maxShiftTimeStr, bufferMinutes } = getMaxShiftWithBuffer(masterOptions);
+    
+    const padTime = (timeStr: string) => {
+        const clean = timeStr.replace(/[^\d:]/g, '').trim();
+        const parts = clean.split(':');
+        if (parts.length < 2) return clean;
+        return `${parts[0].padStart(2, '0')}:${parts[1].padStart(2, '0')}`;
+    };
+
+    const normalizedTime = padTime(time);
+    const normalizedMaxAllowed = padTime(maxAllowedTimeStr);
+
+    const isValid = normalizedTime <= normalizedMaxAllowed;
+    return {
+        isValid,
+        maxAllowedTimeStr,
+        maxShiftTimeStr,
+        bufferMinutes
+    };
+}
+

@@ -16,7 +16,7 @@ interface CheckOutModalProps {
     isOpen: boolean;
     onClose: () => void;
     onConfirm: (location?: { lat: number, lng: number }, locationName?: string, reason?: string) => Promise<void>;
-    onRequest: (time: string, reason: string) => Promise<boolean>;
+    onRequest: (time: string, reason: string, requestType?: any) => Promise<boolean>;
     availableLocations: LocationDef[];
     checkInTime: Date;
     onOvertimeSubmit?: (otMinutes: number, reason: string) => Promise<boolean>;

@@ -32,6 +32,12 @@ export const getCardStyle = (type: string) => {
     return { bg: 'bg-white', border: 'border-gray-100', accent: 'bg-orange-400' };
 };
 
+const isTimeDifferent = (time1: string | null, time2: string | null): boolean => {
+    if (!time1 || !time2) return false;
+    const clean = (t: string) => t.replace(/[^a-zA-Z0-9:]/g, '').trim();
+    return clean(time1) !== clean(time2);
+};
+
 // 1. ApprovalCardHeader
 export const ApprovalCardHeader: React.FC<{ request: LeaveRequest; cardStyle: any }> = ({ request, cardStyle }) => {
     return (
@@ -156,10 +162,21 @@ export const ApprovalCardDetails: React.FC<ApprovalCardDetailsProps> = ({
                     </span>
                 )}
 
-                {parsed.time && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold border bg-indigo-100 text-indigo-700 border-indigo-200/60 flex items-center gap-1">
-                        <Clock className="w-3 h-3" /> เวลา: {parsed.time} น.
-                    </span>
+                {parsed.approvedTime && isTimeDifferent(parsed.time, parsed.approvedTime) ? (
+                    <>
+                        <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold border bg-gray-100 text-gray-500 border-gray-200 flex items-center gap-1">
+                            <Clock className="w-3 h-3 text-gray-400" /> เวลาที่ขอ: {parsed.time?.includes('-') ? parsed.time.replace('-', ' - ') : parsed.time} น.
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold border bg-emerald-50 text-emerald-700 border-emerald-200/60 flex items-center gap-1 animate-pulse">
+                            <CheckCircle2 className="w-3 h-3 text-emerald-500" /> อนุมัติแก้เป็น: {parsed.approvedTime.includes('-') ? parsed.approvedTime.replace('-', ' - ') : parsed.approvedTime} น.
+                        </span>
+                    </>
+                ) : (
+                    parsed.time && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold border bg-indigo-100 text-indigo-700 border-indigo-200/60 flex items-center gap-1">
+                            <Clock className="w-3 h-3" /> เวลา: {parsed.time?.includes('-') ? parsed.time.replace('-', ' - ') : parsed.time} น.
+                        </span>
+                    )
                 )}
 
                 {parsed.actualCheckInTime && (
@@ -254,7 +271,7 @@ export const ApprovalCardDetails: React.FC<ApprovalCardDetailsProps> = ({
         </div>
     );
 };
-
+{/* 
 // 3. ApprovalCardActions
 interface ApprovalCardActionsProps {
     request: LeaveRequest;
@@ -274,6 +291,7 @@ export const ApprovalCardActions: React.FC<ApprovalCardActionsProps> = ({
     if (isTimeApplicable) {
         const parsed = parseReason(request.reason);
         const requestTime = parsed.time;
+        const formattedRequestTime = requestTime ? (requestTime.includes('-') ? requestTime.replace('-', ' - ') : requestTime) : '';
         return (
             <div className="flex flex-col sm:flex-row lg:flex-col gap-2 shrink-0 lg:w-44 lg:justify-center border-t lg:border-t-0 lg:border-l border-black/5 pt-4 lg:pt-0 lg:pl-6 mt-2 lg:mt-0" onClick={(e) => e.stopPropagation()}>
                 <button 
@@ -284,7 +302,7 @@ export const ApprovalCardActions: React.FC<ApprovalCardActionsProps> = ({
                     className="flex-1 px-3 py-2.5 bg-green-500 hover:bg-green-600 text-white rounded-2xl text-[10px] font-bold shadow-lg shadow-green-100 transition-all active:scale-95 flex items-center justify-center gap-1.5 cursor-pointer"
                     id={`approve-direct-btn-${request.id}`}
                 >
-                    <CheckCircle2 className="w-3.5 h-3.5" /> อนุมัติตามขอ{requestTime ? ` (${requestTime})` : ''}
+                    <CheckCircle2 className="w-3.5 h-3.5" /> อนุมัติตามขอ{formattedRequestTime ? ` (${formattedRequestTime})` : ''}
                 </button>
                 <button 
                     onClick={(e) => { 
@@ -335,7 +353,7 @@ export const ApprovalCardActions: React.FC<ApprovalCardActionsProps> = ({
         </div>
     );
 };
-
+*/}
 // Main Composite component ApprovalItemCard
 export const ApprovalItemCard = React.forwardRef<HTMLDivElement, ApprovalItemCardProps>(({
     request,
@@ -412,12 +430,13 @@ export const ApprovalItemCard = React.forwardRef<HTMLDivElement, ApprovalItemCar
                         />
                     </div>
                 </div>
-
+{/* 
                 <ApprovalCardActions 
                     request={request}
                     onApprove={onApprove}
                     onRejectClick={onRejectClick}
                 />
+*/}
             </div>
         </motion.div>
     );

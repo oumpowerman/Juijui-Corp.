@@ -106,10 +106,10 @@ const LeaveTypeSelector: React.FC<Props> = ({ masterOptions, onSelect }) => {
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                         {(() => {
-                            // Reorder options to place FORGOT_CHECKIN and FORGOT_CHECKOUT at the absolute end
+                            // Reorder options to place FORGOT_CHECKIN, FORGOT_CHECKOUT, and FORGOT_BOTH at the absolute end
                             const reorderedOptions = [...correctionOptions].sort((a, b) => {
-                                const aIsDisabled = a.key === 'FORGOT_CHECKIN' || a.key === 'FORGOT_CHECKOUT';
-                                const bIsDisabled = b.key === 'FORGOT_CHECKIN' || b.key === 'FORGOT_CHECKOUT';
+                                const aIsDisabled = a.key === 'FORGOT_CHECKIN' || a.key === 'FORGOT_CHECKOUT' || a.key === 'FORGOT_BOTH';
+                                const bIsDisabled = b.key === 'FORGOT_CHECKIN' || b.key === 'FORGOT_CHECKOUT' || b.key === 'FORGOT_BOTH';
                                 if (aIsDisabled && !bIsDisabled) return 1;
                                 if (!aIsDisabled && bIsDisabled) return -1;
                                 return 0;
@@ -121,13 +121,20 @@ const LeaveTypeSelector: React.FC<Props> = ({ masterOptions, onSelect }) => {
                                 
                                 const isForgotCheckIn = opt.key === 'FORGOT_CHECKIN';
                                 const isForgotCheckOut = opt.key === 'FORGOT_CHECKOUT';
-                                const isDisabled = isForgotCheckIn || isForgotCheckOut;
+                                const isForgotBoth = opt.key === 'FORGOT_BOTH';
+                                const isDisabled = isForgotCheckIn || isForgotCheckOut || isForgotBoth;
 
                                 if (isDisabled) {
-                                    const tooltipTitle = isForgotCheckIn ? "ลืมลงเวลาเข้างาน" : "ลืมลงเวลาออกงาน";
+                                    const tooltipTitle = isForgotCheckIn 
+                                        ? "ลืมลงเวลาเข้างาน" 
+                                        : isForgotCheckOut 
+                                            ? "ลืมลงเวลาออกงาน" 
+                                            : "ลืมทั้งเข้าและออก";
                                     const tooltipText = isForgotCheckIn 
                                         ? "ระบบปิดส่วนนี้เพื่อป้องกันการระบุวันผิดพลาด กรุณาทำรายการผ่าน 'ปุ่มสีส้มที่หน้าแรก' เฉพาะวันปัจจุบัน เพื่อความถูกต้องของแต้มกิลด์และผลงาน"
-                                        : "กรุณาแจ้งเวลาออกย้อนหลังผ่านกล่องแจ้งเตือน 'เวลาค้างคา (Outdated Logs)' ที่จะแสดงในวันถัดไป เพื่อเก็บบันทึกสถิติอย่างถูกต้อง";
+                                        : isForgotCheckOut 
+                                            ? "กรุณาแจ้งเวลาออกย้อนหลังผ่านกล่องแจ้งเตือน 'เวลาค้างคา (Outdated Logs)' ที่จะแสดงในวันถัดไป เพื่อเก็บบันทึกสถิติอย่างถูกต้อง"
+                                            : "ไม่อนุญาตให้ยื่นคำขอรวบยอดตามนโยบาย กรุณายื่นคำขอเวลา 'เข้า' และ 'ออก' แยกกันเท่านั้น";
 
                                     const isLeftColumn = idx % 2 === 0;
                                     const tooltipAlignClass = isLeftColumn

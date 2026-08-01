@@ -58,9 +58,11 @@ interface UserStat {
 }
 
 import { useMasterData } from '../../../hooks/useMasterData';
+import { BRAND_CONFIG } from '../../../config/brand';
 
 const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ users }) => {
     const { masterOptions } = useMasterData();
+    const shouldHideAdmins = BRAND_CONFIG.hideAdminFromAttendanceDashboardMode === 2;
     const { otRequests } = useUserSession();
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [dateFilterMode, setDateFilterMode] = useState<'MONTH' | 'CUSTOM'>('MONTH');
@@ -165,6 +167,13 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
         setLateBuffer(buffer);
     }, [masterOptions]);
 
+    const multipleShifts = useMemo(() => {
+        const workConfig = masterOptions.filter(opt => opt.type === 'WORK_CONFIG');
+        const enabled = workConfig.find(c => c.key === 'MULTIPLE_SHIFTS_ENABLED')?.label === 'true';
+        const shiftsList = workConfig.find(c => c.key === 'MULTIPLE_SHIFTS_LIST')?.label || '';
+        return { enabled, shiftsList };
+    }, [masterOptions]);
+
     // Fetch Logs for the selected month or range
     useEffect(() => {
         const start = format(dateFilterMode === 'MONTH' ? startOfMonth(currentMonth) : customStartDate, 'yyyy-MM-dd');
@@ -223,7 +232,7 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
         const today = new Date();
 
         // Initialize for all active users
-        users.filter(u => u.isActive).forEach(u => {
+        users.filter(u => u.isActive && !(shouldHideAdmins && u.role === 'ADMIN')).forEach(u => {
             statsMap[u.id] = {
                 userId: u.id,
                 present: 0,
@@ -252,6 +261,7 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                                       !!log.note?.includes('[PROVISIONAL_CHECKOUT]') ||
                                       !!log.note?.includes('[PROVISIONAL_GPS_SPOOF_APPEAL]') ||
                                       !!log.note?.includes('[GPS_SPOOF_APPEAL_PENDING]') ||
+                                      !!log.note?.includes('[FORGOT_BOTH_PENDING]') ||
                                       !!log.note?.includes('[APPEAL_PENDING]');
                 if (isProvisional) {
                     stat.provisionalForgotCount = (stat.provisionalForgotCount || 0) + 1;
@@ -263,6 +273,8 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
 
                 if (log.status === 'LEAVE' || log.workType === 'LEAVE') {
                     stat.leaves++;
+                } else if (log.status === 'ABSENT' || log.workType === 'ABSENT') {
+                    stat.absent++;
                 } else {
                     if (!isProvisional && !isGpsRejected) {
                         stat.present++;
@@ -271,13 +283,13 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                     const summary = getAttendanceSummary(
                         log.checkInTime,
                         log.checkOutTime,
-                        { startTime, buffer: lateBuffer, minHours: 9 }
+                        { startTime, buffer: lateBuffer, minHours: 9, note: log.note, multipleShifts }
                     );
 
                     if (summary.isLate) {
                         stat.late++;
                     }
-                    const lateMins = getLateMinutes(log.checkInTime, startTime, lateBuffer);
+                    const lateMins = getLateMinutes(log.checkInTime, startTime, lateBuffer, log.note, multipleShifts);
                     stat.totalLateMinutes = (stat.totalLateMinutes || 0) + lateMins;
                     stat.totalHours += summary.workHours;
                 }
@@ -317,9 +329,26 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                                 day.getFullYear() === today.getFullYear();
 
                 if (isToday) {
+                    // 1. กำหนดเวลาเริ่มงานหลักเป็นตัวแปรตั้งต้นก่อน (เช่น 10:00)
+                    let targetStartTime = startTime; 
+
+                    // 2. ถ้าเปิดใช้งาน MULTIPLE_SHIFTS ให้ดึงกะที่สายที่สุดมาใช้งานแทน
+                    if (multipleShifts.enabled && multipleShifts.shiftsList) {
+                        const shifts = multipleShifts.shiftsList
+                            .split(',')
+                            .map(s => s.trim())
+                            .filter(Boolean);
+                        
+                        if (shifts.length > 0) {
+                            shifts.sort(); // เรียงลำดับเวลาจากเช้าสุดไปสายสุด (เช่น "08:00" -> "08:30" -> "09:00")
+                            targetStartTime = shifts[shifts.length - 1]; // เลือกเวลาที่สายที่สุด (เช่น "09:00")
+                        }
+                    }
+
+                    // 3. นำเวลาที่เลือกได้ (targetStartTime) มาแปลงเป็นชั่วโมงและนาทีเพื่อเปรียบเทียบตามเดิม
                     let [startHour, startMin] = [10, 0];
-                    if (startTime && startTime.includes(':')) {
-                        const parts = startTime.split(':');
+                    if (targetStartTime && targetStartTime.includes(':')) {
+                        const parts = targetStartTime.split(':');
                         startHour = parseInt(parts[0], 10) || 10;
                         startMin = parseInt(parts[1], 10) || 0;
                     }
@@ -363,7 +392,7 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
         });
 
         return Object.values(statsMap);
-    }, [users, logs, startTime, lateBuffer, workingDaysInMonth, otRequests, currentMonth, dateFilterMode, customStartDate, customEndDate]);
+    }, [users, logs, startTime, lateBuffer, workingDaysInMonth, otRequests, currentMonth, dateFilterMode, customStartDate, customEndDate, multipleShifts, shouldHideAdmins]);
 
     // Index users by ID for O(1) lookups
     const userMap = useMemo(() => {
@@ -372,15 +401,21 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
 
     // Compute unique positions from active users
     const positions = useMemo(() => {
-        const unique = new Set(users.filter(u => u.isActive && u.position).map(u => u.position));
+        const unique = new Set(
+            users
+                .filter(u => u.isActive && u.position && !(shouldHideAdmins && u.role === 'ADMIN'))
+                .map(u => u.position)
+        );
         return Array.from(unique).sort();
-    }, [users]);
+    }, [users, shouldHideAdmins]);
 
     // Filtering (Two-Phase Filtering)
     const filteredStats = useMemo(() => {
         const baseFiltered = userStats.filter(stat => {
             const user = userMap.get(stat.userId);
             if (!user) return false;
+
+            if (shouldHideAdmins && user.role === 'ADMIN') return false;
 
             const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase());
             const matchesEmploymentType = selectedEmploymentType === 'ALL' || user.employmentType === selectedEmploymentType;

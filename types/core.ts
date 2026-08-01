@@ -3,7 +3,7 @@ export type Role = 'ADMIN' | 'MEMBER';
 export type WorkStatus = 'ONLINE' | 'BUSY' | 'SICK' | 'VACATION' | 'MEETING' | 'OFFLINE';
 export type ViewMode = 'DASHBOARD' | 'CALENDAR' | 'TEAM' | 'CHAT' | 'ContentStock' | 'CHECKLIST' | 'CHANNELS' | 'SCRIPT_HUB' | 'MEETINGS' | 'DUTY' | 'QUALITY_GATE' | 'KPI' | 'FEEDBACK' | 'MASTER_DATA' | 'WEEKLY' | 'GOALS' | 'WIKI' | 'SYSTEM_GUIDE' | 'ATTENDANCE' | 'FINANCE' | 'LEADERBOARD' | 'ASSETS' | 'NEXUS' | 'ROADMAP' | 'ANALYTICS' | 'ULTIMATE_WORKROOM';
 
-export type EmploymentType = 'INTERN' | 'PROBATION' | 'FULL_TIME';
+export type EmploymentType = 'FULL_TIME' | 'PROBATION' | 'INTERN' | 'FREELANCE' | 'PART_TIME' | 'CONTRACT';
 
 export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'DEATH';
 
@@ -65,6 +65,7 @@ export interface User {
     firstName?: string;
     lastName?: string;
     nickname?: string;
+    username?: string;
 
     // Policy terms tracking
     acceptedTermsVersion?: number;

@@ -45,12 +45,13 @@ export async function claimPendingNotifications(
  */
 export async function getTargetDestination(
   supabaseAdmin: SupabaseClient,
-  record: ClaimedNotificationRecord
+  record: ClaimedNotificationRecord,
+  submissionAlertMode?: string
 ): Promise<{ targetDestination: string | null; targetName: string }> {
   let targetDestination: string | null = null;
   let targetName = '';
 
-  if (record.type === 'DAILY_SUMMARY') {
+  if (record.type === 'DAILY_SUMMARY' || record.type === 'APPROVAL_SUMMARY') {
     const { data: destOpt } = await supabaseAdmin
       .from('master_options')
       .select('label')
@@ -62,7 +63,21 @@ export async function getTargetDestination(
       targetDestination = destOpt.label;
       targetName = 'LINE Summary Group';
     } else {
-      console.log(`DAILY_SUMMARY requested but LINE_SUMMARY_DESTINATION is empty or not found.`);
+      console.log(`${record.type} requested but LINE_SUMMARY_DESTINATION is empty or not found.`);
+    }
+  } else if (record.type === 'APPROVAL_REQ' && submissionAlertMode === 'GROUP_ONLY') {
+    const { data: destOpt } = await supabaseAdmin
+      .from('master_options')
+      .select('label')
+      .eq('type', 'WORK_CONFIG')
+      .eq('key', 'LINE_SUMMARY_DESTINATION')
+      .maybeSingle();
+
+    if (destOpt && destOpt.label) {
+      targetDestination = destOpt.label;
+      targetName = 'LINE Summary Group';
+    } else {
+      console.log(`APPROVAL_REQ requested in GROUP_ONLY mode but LINE_SUMMARY_DESTINATION is empty or not found.`);
     }
   } else {
     const { data: userProfile } = await supabaseAdmin
@@ -85,6 +100,20 @@ export async function getTargetDestination(
   }
 
   return { targetDestination, targetName };
+}
+
+/**
+ * Fetches LINE submission alert mode option
+ */
+export async function getSubmissionAlertMode(supabaseAdmin: SupabaseClient): Promise<string> {
+  const { data: opt } = await supabaseAdmin
+    .from('master_options')
+    .select('label')
+    .eq('type', 'WORK_CONFIG')
+    .eq('key', 'LINE_SUBMISSION_ALERT_MODE')
+    .maybeSingle();
+
+  return opt?.label || 'ADMIN_PRIVATE';
 }
 
 /**
@@ -127,7 +156,7 @@ export async function markAsAbandoned(
 ): Promise<void> {
   await supabaseAdmin.from('notifications').update({
     line_status: 'ABANDONED',
-    last_error: recordType === 'DAILY_SUMMARY'
+    last_error: (recordType === 'DAILY_SUMMARY' || recordType === 'APPROVAL_SUMMARY')
       ? 'LINE_SUMMARY_DESTINATION is empty or not found in master_options'
       : 'No LINE ID linked in profile'
   }).in('id', claimedIds);

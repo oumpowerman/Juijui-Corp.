@@ -8,6 +8,7 @@ import { useGlobalDialog } from '../../../../context/GlobalDialogContext';
 import { getMaxShiftWithBuffer } from '../../../../lib/attendanceUtils';
 import { ShiftCardSelector } from '../form-inputs/ShiftCardSelector';
 import { getRegistryItem } from '../../../../constants/attendanceRegistry';
+import { calculateRequiredCheckOutTime } from '../../../../utils/shiftCalculator';
 
 interface ActionFooterProps {
     isSubmitting: boolean;
@@ -17,6 +18,7 @@ interface ActionFooterProps {
     defaultCheckInTime?: string;
     isProvisional?: boolean;
     initialRejectMode?: boolean;
+    isFixed?: boolean;
 }
 
 export const ActionFooter: React.FC<ActionFooterProps> = ({
@@ -26,7 +28,8 @@ export const ActionFooter: React.FC<ActionFooterProps> = ({
     requestType,
     defaultCheckInTime = '10:00',
     isProvisional = false,
-    initialRejectMode = false
+    initialRejectMode = false,
+    isFixed = false
 }) => {
     const { masterOptions } = useMasterDataContext();
     const { showAlert } = useGlobalDialog();
@@ -41,13 +44,13 @@ export const ActionFooter: React.FC<ActionFooterProps> = ({
 
     const registryItem = requestType ? getRegistryItem(requestType) : undefined;
     const isTimeSpecific = registryItem?.rules?.isTimeSpecific ?? false;
-    const isShiftApplicable = isTimeSpecific && (shiftsEnabled || (requestType && ['FORGOT_CHECKIN', 'FORGOT_BOTH', 'LATE_ENTRY'].includes(requestType)));
+    const isShiftApplicable = isTimeSpecific && ['FORGOT_CHECKIN', 'FORGOT_BOTH', 'LATE_ENTRY'].includes(requestType || '');
 
     const [isRejectMode, setIsRejectMode] = useState(initialRejectMode);
     const [rejectionReason, setRejectionReason] = useState('');
     const [adjustedTime, setAdjustedTime] = useState(defaultCheckInTime);
     const [selectedShift, setSelectedShift] = useState<string>(() => {
-        if (defaultCheckInTime && shiftsList.includes(defaultCheckInTime)) return defaultCheckInTime;
+        if (defaultCheckInTime) return defaultCheckInTime;
         return shiftsList[0] || '08:00';
     });
     const [rejectionMode, setRejectionMode] = useState<'ABSENT' | 'ACTION_REQUIRED' | 'KEEP_WORKING'>('ABSENT');
@@ -58,9 +61,7 @@ export const ActionFooter: React.FC<ActionFooterProps> = ({
     useEffect(() => {
         if (defaultCheckInTime) {
             setAdjustedTime(defaultCheckInTime);
-            if (shiftsList.includes(defaultCheckInTime)) {
-                setSelectedShift(defaultCheckInTime);
-            }
+            setSelectedShift(defaultCheckInTime);
         }
     }, [defaultCheckInTime]);
 
@@ -122,10 +123,18 @@ export const ActionFooter: React.FC<ActionFooterProps> = ({
                                 selectedShift={selectedShift}
                                 isCustomMode={false}
                                 onSelectShift={(time) => {
-                                    setSelectedShift(time);
+                                    if (requestType === 'FORGOT_BOTH') {
+                                        const minHours = parseFloat(masterOptions?.find(o => o.key === 'MIN_HOURS')?.label || '9');
+                                        const newEndTime = calculateRequiredCheckOutTime(time, minHours);
+                                        setSelectedShift(`${time}-${newEndTime}`);
+                                    } else {
+                                        setSelectedShift(time);
+                                    }
                                     setIsShiftExpanded(false); // หดเก็บอัตโนมัติเมื่อเลือกเสร็จเพื่อประหยัดพื้นที่
                                 }}
                                 onSelectCustom={() => setIsAdjustPickerOpen(true)}
+                                disableCustomMode={requestType === 'FORGOT_BOTH'}
+                                disableCustomModeReason={requestType === 'FORGOT_BOTH' ? 'ไม่สามารถระบุเวลาเองแบบเจาะจงจุดเดียวสำหรับคำขอที่ลืมทั้งเข้าและออกได้ กรุณาเลือกกะเวลาทำงาน' : undefined}
                             />
                         </div>
                     </motion.div>
@@ -143,7 +152,7 @@ export const ActionFooter: React.FC<ActionFooterProps> = ({
                     <XCircle className="w-4 h-4" /> ปฏิเสธคำขอ
                 </button>
 
-                {isTimeSpecific && (
+                {isTimeSpecific && !isFixed && requestType !== 'OVERTIME' && requestType !== 'FORGOT_BOTH' && requestType !== 'FORGOT_CHECKIN' && (
                     <button
                         type="button"
                         onClick={() => setIsAdjustPickerOpen(true)}
@@ -158,25 +167,20 @@ export const ActionFooter: React.FC<ActionFooterProps> = ({
                 <button
                     type="button"
                     onClick={() => {
-                        const targetTime = isShiftApplicable ? selectedShift : undefined;
-                        if (targetTime) {
-                            const { maxAllowedTimeStr, maxShiftTimeStr, bufferMinutes } = getMaxShiftWithBuffer(masterOptions);
-                            if (targetTime > maxAllowedTimeStr) {
-                                showAlert(
-                                    `ไม่สามารถอนุมัติได้: เวลาที่ระบุ (${targetTime} น.) เกินเวลาสายสุดของกะงานรวม Buffer (${maxAllowedTimeStr} น. - คำนวณจากกะสุดท้าย ${maxShiftTimeStr} น. + Buffer ${bufferMinutes} นาที)`,
-                                    'เวลาเกินกำหนดสายสุด'
-                                );
-                                return;
-                            }
-                        }
+                        const targetTime = requestType === 'OVERTIME'
+                            ? undefined
+                            : (isShiftApplicable 
+                                ? selectedShift 
+                                : (isTimeSpecific ? defaultCheckInTime : undefined));
                         onApprove(targetTime);
                     }}
                     disabled={isSubmitting}
-                    className="flex-1 py-3.5 bg-green-500 hover:bg-green-600 text-white rounded-2xl text-xs sm:text-sm font-semibold transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5 sm:gap-2 shadow-lg shadow-green-100 cursor-pointer"
+                    className="px-4 py-3.5 bg-green-500 hover:bg-green-600 text-white rounded-2xl text-xs sm:text-sm font-semibold transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5 sm:gap-2 shadow-lg shadow-green-100 cursor-pointer"
                     id="approve-requested-trigger-btn"
                 >
-                    <CheckCircle2 className="w-4 h-4" /> {
-                        isSubmitting 
+                    <CheckCircle2 className="w-4 h-4 shrink-0" />
+                    <span>
+                        {isSubmitting 
                             ? 'กำลังอนุมัติ...' 
                             : !isTimeSpecific 
                                 ? 'อนุมัติคำขอ'
@@ -186,10 +190,12 @@ export const ActionFooter: React.FC<ActionFooterProps> = ({
                                         ? `อนุมัติเวลาออกงาน (${defaultCheckInTime})`
                                         : requestType === 'OUT_OF_RANGE_CHECKOUT'
                                             ? `อนุมัติลงเวลานอกพื้นที่ (${defaultCheckInTime})`
-                                            : requestType === 'FORGOT_BOTH'
-                                                ? 'อนุมัติเวลาเข้า-ออกงาน'
-                                                : `อนุมัติตามกะที่เลือก (${isShiftApplicable ? selectedShift : defaultCheckInTime})`
-                    }
+                                            : requestType === 'EARLY_LEAVE'
+                                                ? `อนุมัติเวลากลับก่อนเวลา (${defaultCheckInTime})`
+                                                : requestType === 'FORGOT_BOTH'
+                                                    ? `อนุมัติเวลาเข้า-ออกงาน (${selectedShift.includes('-') ? selectedShift.replace('-', ' - ') : selectedShift})`
+                                                    : `อนุมัติตามเวลาที่ขอ (${isShiftApplicable ? selectedShift : defaultCheckInTime})`}
+                    </span>
                 </button>
 
                 {isTimeSpecific && (
@@ -199,14 +205,6 @@ export const ActionFooter: React.FC<ActionFooterProps> = ({
                         onSelect={(time) => {
                             setIsAdjustPickerOpen(false);
                             setSelectedShift(time);
-                            const { maxAllowedTimeStr, maxShiftTimeStr, bufferMinutes } = getMaxShiftWithBuffer(masterOptions);
-                            if (time > maxAllowedTimeStr) {
-                                showAlert(
-                                    `ไม่สามารถอนุมัติได้: เวลาที่เลือก (${time} น.) เกินเวลาสายสุดของกะงานรวม Buffer (${maxAllowedTimeStr} น. - คำนวณจากกะสุดท้าย ${maxShiftTimeStr} น. + Buffer ${bufferMinutes} นาที)`,
-                                    'เวลาเกินกำหนดสายสุด'
-                                );
-                                return;
-                            }
                             onApprove(time);
                         }}
                         initialTime={selectedShift || defaultCheckInTime}
@@ -309,13 +307,6 @@ export const ActionFooter: React.FC<ActionFooterProps> = ({
                                                     desc: 'เปลี่ยนสถานะเป็น ต้องการดำเนินการ เพื่อแจ้งเตือนใบแดงให้พนักงานยื่นประวัติใหม่',
                                                     color: 'border-slate-200 hover:border-amber-300 hover:bg-amber-50/20 bg-white text-slate-700',
                                                     activeColor: 'ring-2 ring-amber-500 border-amber-500 bg-amber-50/40 text-amber-950',
-                                                },
-                                                {
-                                                    id: 'KEEP_WORKING',
-                                                    title: 'ปรับเวลาและปฏิบัติงานต่อ (Adjust Time & Keep Working)',
-                                                    desc: 'รักษาสถานะเข้าทำงานตามเดิม แต่แอดมินขอปรับเปลี่ยนเวลาเช็คอินจริงตามเอกสารประกอบ',
-                                                    color: 'border-slate-200 hover:border-sky-300 hover:bg-sky-50/20 bg-white text-slate-700',
-                                                    activeColor: 'ring-2 ring-sky-500 border-sky-500 bg-sky-50/40 text-sky-950',
                                                 }
                                             ].map(option => (
                                                 <button

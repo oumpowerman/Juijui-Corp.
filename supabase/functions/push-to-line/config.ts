@@ -15,9 +15,11 @@ export const TYPE_CONFIG: Record<string, TypeConfig> = {
   'GAME_PENALTY': { color: '#ef4444', emoji: '📉', label: 'โดนหักคะแนน' },
   'GAME_REWARD': { color: '#eab308', emoji: '🎁', label: 'ได้รับรางวัล' },
   'APPROVAL_REQ': { color: '#3b82f6', emoji: '📋', label: 'คำขออนุมัติ' },
+  'APPROVAL_SUMMARY': { color: '#0ea5e9', emoji: '✅', label: 'สรุปการพิจารณา' },
   'NEW_ASSIGNMENT': { color: '#8b5cf6', emoji: '⚡', label: 'งานใหม่เข้า' },
   'REVIEW': { color: '#a855f7', emoji: '🔍', label: 'ส่งตรวจงาน' },
   'INFO': { color: '#10b981', emoji: 'ℹ️', label: 'แจ้งเตือนทั่วไป' },
+  'ATTENDANCE_ALERT': { color: '#4f46e5', emoji: '⏰', label: 'ระบบลงเวลาทำงาน' },
 };
 
 export function getSupabaseAdminClient() {

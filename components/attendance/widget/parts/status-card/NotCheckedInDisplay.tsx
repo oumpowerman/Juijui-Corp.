@@ -22,6 +22,7 @@ interface NotCheckedInDisplayProps {
     todayLog: AttendanceLog | null;
     onOpenLeave?: (type?: any) => void;
     approvedFixedOtToday?: { id: string; reason: string; otHours?: number; fixedAmount?: number } | null;
+    isDesktop?: boolean;
 }
 
 export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
@@ -40,8 +41,21 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
     onNavigateToHistory,
     todayLog,
     onOpenLeave,
-    approvedFixedOtToday
+    approvedFixedOtToday,
+    isDesktop = false
 }) => {
+    const isActualLeaveToday = isLeaveLog || (isApprovedLeaveToday && todayActiveLeave && !['WFH', 'ONSITE', 'LATE_ENTRY', 'OVERTIME', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT', 'GPS_SPOOF_APPEAL'].includes(todayActiveLeave.type));
+
+    const formatDateString = (d: any) => {
+        if (!d) return '';
+        try {
+            const dateObj = new Date(d);
+            return dateObj.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' });
+        } catch (e) {
+            return String(d);
+        }
+    };
+
     return (
         <>
             {todayLog?.status === 'ACTION_REQUIRED' && (todayLog?.note?.includes('[REJECTED GPS_SPOOF_APPEAL]') || todayLog?.note?.includes('[REJECTED_GPS_SPOOF_APPEAL]')) ? (
@@ -118,16 +132,64 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
                 </div>
             )}
 
-            {/* ON LEAVE BANNER (Non-Blocking) */}
-            {(isLeaveLog || (isApprovedLeaveToday && todayActiveLeave?.type !== 'WFH' && todayActiveLeave?.type !== 'ONSITE' && todayActiveLeave?.type !== 'LATE_ENTRY' && todayActiveLeave?.type !== 'OVERTIME')) && (
-                <div className="bg-blue-100 border border-blue-200 rounded-xl p-3 flex items-center justify-between animate-in slide-in-from-top-2 mb-2">
-                    <div className="flex items-center gap-2">
-                        <Palmtree className="w-4 h-4 text-blue-600" />
+            {/* COMPREHENSIVE APPROVED LEAVE CARD */}
+            {isActualLeaveToday && (
+                <div className="bg-gradient-to-br from-emerald-50 via-teal-50/70 to-emerald-100/60 border-2 border-emerald-300/80 rounded-2xl p-4 sm:p-5 shadow-sm text-left space-y-3 mb-3 animate-in fade-in duration-300">
+                    <div className="flex items-center gap-3 pb-2.5 border-b border-emerald-200/80">
+                        <div className="bg-gradient-to-r from-emerald-500 to-teal-500 p-2 rounded-xl text-white shadow-sm shrink-0">
+                            <Palmtree className="w-5 h-5" />
+                        </div>
                         <div className="text-left">
-                            <p className="text-xs font-bold text-blue-800">วันนี้คุณลางาน: {todayActiveLeave?.type || 'Leave'}</p>
-                            <p className="text-[10px] text-blue-600">หากต้องการทำงาน สามารถ Check-in ได้ปกติ</p>
+                            <h3 className="text-sm sm:text-base font-extrabold text-emerald-950 leading-snug">
+                                วันนี้การลางานได้รับการอนุมัติแล้ว ✅
+                            </h3>
+                            <p className="text-[11px] text-emerald-800 font-medium mt-0.5">
+                                คุณได้รับการอนุมัติให้ลางานเรียบร้อย ระบบจะบันทึกสถานะการลางานให้โดยอัตโนมัติ
+                            </p>
                         </div>
                     </div>
+
+                    <div className="bg-white/90 backdrop-blur-sm rounded-xl p-3.5 border border-emerald-200/80 space-y-2 text-xs">
+                        <div className="flex items-center gap-2">
+                            <span className="font-bold text-emerald-900 shrink-0">ประเภทการลา:</span>
+                            <span className="font-semibold text-slate-800">
+                                {todayActiveLeave ? (
+                                    todayActiveLeave.type === 'SICK' ? 'ลาป่วย (Sick Leave) 🤒' :
+                                    todayActiveLeave.type === 'VACATION' ? 'ลาพักร้อน (Vacation Leave) 🏖️' :
+                                    todayActiveLeave.type === 'PERSONAL' ? 'ลากิจ (Personal Leave) 💼' :
+                                    todayActiveLeave.type === 'EMERGENCY' ? 'ลาฉุกเฉิน (Emergency Leave) 🚨' :
+                                    todayActiveLeave.type === 'UNPAID' ? 'ลาไม่รับค่าจ้าง (Unpaid Leave) 🪵' :
+                                    `ลาประเภท ${todayActiveLeave.type}`
+                                ) : 'ลางาน (Leave)'}
+                            </span>
+                        </div>
+                        {todayActiveLeave && (
+                            <>
+                                <div className="flex items-start gap-2">
+                                    <span className="font-bold text-emerald-900 shrink-0">📝 เหตุผลการลา:</span>
+                                    <span className="font-semibold text-slate-700 break-words leading-relaxed">
+                                        {parseReason(todayActiveLeave.reason).cleanReason || 'ไม่ได้ระบุเหตุผล'}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="font-bold text-emerald-900 shrink-0">⏱️ ช่วงวันที่ลา:</span>
+                                    <span className="font-semibold text-slate-700">
+                                        {formatDateString(todayActiveLeave.startDate)} - {formatDateString(todayActiveLeave.endDate)}
+                                    </span>
+                                </div>
+                            </>
+                        )}
+                        <div className="flex items-center gap-2">
+                            <span className="font-bold text-emerald-900 shrink-0">สถานะบันทึก:</span>
+                            <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                <ShieldCheck className="w-3.5 h-3.5" /> อนุมัติแล้ว (Approved)
+                            </span>
+                        </div>
+                    </div>
+
+                    <p className="text-[10px] text-slate-500 font-medium italic text-center">
+                        * หมายเหตุ: หากคุณต้องการเข้ามาปฏิบัติงานจริงเพิ่มเติมในวันนี้ สามารถกดลงเวลาเริ่มงาน (Check-in) ด้านล่างได้ปกติครับ
+                    </p>
                 </div>
             )}
 
@@ -297,19 +359,40 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
                     </div>
                 </div>
             ) : (
-                <div className={`rounded-xl p-4 text-center border-2 border-dashed ${dayStatus.mode === 'HOLIDAY' ? 'bg-pink-50 border-pink-200' : 'bg-gray-50 border-gray-200'}`}>
-                    <p className={`text-sm font-medium mb-3 ${dayStatus.mode === 'HOLIDAY' ? 'text-gray-600' : 'text-gray-500'}`}>
-                        {dayStatus.mode === 'HOLIDAY' ? 'ถ้าจะทำงาน กดยื่นคำขออนุมัติก่อนนะ!' : 'พร้อมเริ่มงานรึยัง?'}
+                <div className={`rounded-xl p-4 text-center border-2 border-dashed 
+                    ${isActualLeaveToday 
+                        ? 'bg-slate-50 border-slate-200' 
+                        : dayStatus.mode === 'HOLIDAY' 
+                            ? 'bg-pink-50 border-pink-200' 
+                            : 'bg-gray-50 border-gray-200'
+                    }
+                `}>
+                    <p className={`text-sm font-medium mb-3 
+                        ${isActualLeaveToday 
+                            ? 'text-slate-500 font-semibold' 
+                            : dayStatus.mode === 'HOLIDAY' 
+                                ? 'text-gray-600' 
+                                : 'text-gray-500'
+                        }
+                    `}>
+                        {isActualLeaveToday 
+                            ? '🔔 วันนี้มีประวัติการลาที่อนุมัติแล้ว หากต้องการมาเข้างานเพิ่มเติม:' 
+                            : dayStatus.mode === 'HOLIDAY' 
+                                ? 'ถ้าจะทำงาน กดยื่นคำขออนุมัติก่อนนะ!' 
+                                : 'พร้อมเริ่มงานรึยัง?'
+                        }
                     </p>
                     <div className="flex flex-col gap-3">
                         <div className="relative group w-full">
                             <button 
-                                disabled={isBlockedByHoliday}
+                                disabled={isBlockedByHoliday || isDesktop}
                                 onClick={() => onOpenCheckIn(dayStatus.mode === 'HOLIDAY')}
-                                className={`w-full py-3.5 rounded-xl font-bold transition-all flex items-center justify-center gap-2
-                                    ${isBlockedByHoliday 
+                                className={`w-full py-3.5 rounded-xl font-semibold transition-all flex items-center justify-center gap-2
+                                    ${isBlockedByHoliday || isDesktop
                                         ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300 shadow-none' 
-                                        : 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-indigo-200 shadow-lg active:scale-95'
+                                        : isActualLeaveToday
+                                            ? 'bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 hover:text-slate-800 active:scale-95 shadow-none'
+                                            : 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-indigo-200 shadow-lg active:scale-95'
                                     }
                                 `}
                             >
@@ -317,6 +400,11 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
                                     <>🏠 กดลงเวลาทำงานจากบ้าน (WFH)</>
                                 ) : isApprovedLeaveToday && todayActiveLeave?.type === 'ONSITE' ? (
                                     <>🚗 กดลงเวลาทำงานนอกสถานที่ (On-site)</>
+                                ) : isActualLeaveToday ? (
+                                    <>
+                                        <LogIn className="w-4 h-4 text-slate-500" />
+                                        <span>กดลงเวลากรณีปฏิบัติงานเพิ่ม (Check-in)</span>
+                                    </>
                                 ) : (
                                     <>
                                         <LogIn className="w-5 h-5" /> 
@@ -349,6 +437,7 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
                                 leaveUsage={leaveUsage}
                                 todayActiveLeave={todayActiveLeave}
                                 availableLocations={availableLocations}
+                                isDesktop={isDesktop}
                             />
                         )}
                     </div>

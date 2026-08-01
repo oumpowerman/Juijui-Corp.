@@ -2,6 +2,8 @@
 import { differenceInMinutes, addMinutes, isBefore, setHours, setMinutes, parse } from 'date-fns';
 import { isWorkingDay } from '../utils/judgeUtils';
 import { AnnualHoliday, User, ShiftSlotResult } from '../types';
+import { calculateShiftAndActualTime } from '../utils/shiftCalculator';
+import { BRAND_CONFIG } from '../config/brand';
 
 /**
  * Calculates the number of working days between two dates.
@@ -195,16 +197,78 @@ export const getICTTime = (date: Date | string): ICTTimeResult => {
     };
 };
 
+export interface MultipleShiftsConfig {
+    enabled?: boolean;
+    shiftsList?: string[] | string;
+}
+
+/**
+ * Determines the target shift start time (e.g. "08:00", "08:30", "09:00")
+ * Priority:
+ * 1. [TARGET_SHIFT:HH:mm] tag in note
+ * 2. If multiple shifts enabled and shiftsList available:
+ *    Matches checkInTime against shift slots using calculateShiftAndActualTime logic.
+ * 3. Fallback to default startTimeStr
+ */
+export const getEffectiveStartTime = (
+    checkInTime: Date | string | null,
+    defaultStartTimeStr: string,
+    note?: string | null,
+    multipleShifts?: MultipleShiftsConfig
+): string => {
+    // 1. Check for [TARGET_SHIFT:HH:mm] tag in note
+    if (note) {
+        const targetShiftMatch = note.match(/\[TARGET_SHIFT:(\d{1,2}:\d{2})\]/);
+        if (targetShiftMatch && targetShiftMatch[1]) {
+            return targetShiftMatch[1];
+        }
+        const timeMatch = note.match(/\[TIME:(\d{1,2}:\d{2})(?:-\d{1,2}:\d{2})?\]/);
+        if (timeMatch && timeMatch[1]) {
+            return timeMatch[1];
+        }
+    }
+
+    // 2. Check for Multiple Shifts if enabled
+    if (multipleShifts && multipleShifts.enabled && checkInTime) {
+        let shiftsArray: string[] = [];
+        if (Array.isArray(multipleShifts.shiftsList)) {
+            shiftsArray = multipleShifts.shiftsList;
+        } else if (typeof multipleShifts.shiftsList === 'string') {
+            shiftsArray = multipleShifts.shiftsList.split(',').map(s => s.trim()).filter(Boolean);
+        }
+
+        if (shiftsArray.length > 0) {
+            const checkInDate = typeof checkInTime === 'string' ? new Date(checkInTime) : checkInTime;
+            const { hour, minute } = getICTTime(checkInDate);
+            const timeStr = `${hour}:${minute}`;
+            const result = calculateShiftAndActualTime(timeStr, shiftsArray);
+            if (result && result.targetShift) {
+                return result.targetShift;
+            }
+        }
+    }
+
+    return defaultStartTimeStr || '08:00';
+};
+
 /**
  * Check if a specific time is considered "Late" based on dynamic config string (e.g. "10:00")
  */
-export const checkIsLate = (checkInTime: Date | string | null, startTimeStr: string, bufferMinutes: number = 0): boolean => {
+export const checkIsLate = (
+    checkInTime: Date | string | null, 
+    startTimeStr: string, 
+    bufferMinutes: number = 0,
+    note?: string | null,
+    multipleShifts?: MultipleShiftsConfig
+): boolean => {
     if (!checkInTime) return false;
     try {
+        const actualBuffer = BRAND_CONFIG.lateCalculationMode === 2 ? 0 : bufferMinutes;
+        const effectiveStartTime = getEffectiveStartTime(checkInTime, startTimeStr, note, multipleShifts);
         const { totalMinutes } = getICTTime(checkInTime);
-        const [sh, sm] = startTimeStr.split(':').map(Number);
+        const [sh, sm] = effectiveStartTime.split(':').map(Number);
         const shiftMinutes = sh * 60 + sm;
-        return totalMinutes > (shiftMinutes + bufferMinutes);
+        return totalMinutes > (shiftMinutes + actualBuffer);
     } catch (e) {
         console.error("Error checking is late", e);
         return false; // Default to not late if config error
@@ -219,15 +283,19 @@ export const checkIsLate = (checkInTime: Date | string | null, startTimeStr: str
 export const getLateMinutes = (
     checkInTime: Date | string | null, 
     startTimeStr: string, 
-    bufferMinutes: number = 0
+    bufferMinutes: number = 0,
+    note?: string | null,
+    multipleShifts?: MultipleShiftsConfig
 ): number => {
     if (!checkInTime) return 0;
     try {
+        const actualBuffer = BRAND_CONFIG.lateCalculationMode === 2 ? 0 : bufferMinutes;
+        const effectiveStartTime = getEffectiveStartTime(checkInTime, startTimeStr, note, multipleShifts);
         const { totalMinutes } = getICTTime(checkInTime);
-        const [sh, sm] = startTimeStr.split(':').map(Number);
+        const [sh, sm] = effectiveStartTime.split(':').map(Number);
         const shiftMinutes = sh * 60 + sm;
         
-        if (totalMinutes > (shiftMinutes + bufferMinutes)) {
+        if (totalMinutes > (shiftMinutes + actualBuffer)) {
             // Calculated from the official start time
             return totalMinutes - shiftMinutes;
         }
@@ -259,18 +327,26 @@ export interface AttendanceSummary {
     requiredEndTime: Date | null;
 }
 
+export interface AttendanceSummaryConfig {
+    startTime: string;
+    buffer: number;
+    minHours: number;
+    note?: string | null;
+    multipleShifts?: MultipleShiftsConfig;
+}
+
 /**
  * Comprehensive attendance summary calculation.
  */
 export const getAttendanceSummary = (
     checkInTime: Date | string | null,
     checkOutTime: Date | string | null,
-    config: { startTime: string; buffer: number; minHours: number }
+    config: AttendanceSummaryConfig
 ): AttendanceSummary => {
     const checkIn = checkInTime ? (typeof checkInTime === 'string' ? new Date(checkInTime) : checkInTime) : null;
     const checkOut = checkOutTime ? (typeof checkOutTime === 'string' ? new Date(checkOutTime) : checkOutTime) : null;
 
-    const isLate = checkIn ? checkIsLate(checkIn, config.startTime, config.buffer) : false;
+    const isLate = checkIn ? checkIsLate(checkIn, config.startTime, config.buffer, config.note, config.multipleShifts) : false;
     const workHours = calculateWorkHours(checkIn, checkOut);
     
     let requiredEndTime = null;
@@ -300,13 +376,16 @@ export const getAttendanceSummary = (
 export const getMatchedShiftSlot = (
     now: Date,
     shiftsList: string[],
-    bufferMinutes: number = 15
+    bufferMinutes: number = 15,
+    ignoreBrandMode: boolean = false
 ): ShiftSlotResult => {
+    const actualBuffer = (ignoreBrandMode || BRAND_CONFIG.lateCalculationMode !== 2) ? bufferMinutes : 0;
     if (!shiftsList || shiftsList.length === 0) {
         return {
             targetStartTime: '08:00',
             isLate: false,
             isBlocked: false,
+            isExceededLastShift: false,
             lateMinutes: 0
         };
     }
@@ -330,6 +409,7 @@ export const getMatchedShiftSlot = (
                 targetStartTime: shift,
                 isLate: false,
                 isBlocked: false,
+                isExceededLastShift: false,
                 lateMinutes: 0
             };
         }
@@ -341,14 +421,18 @@ export const getMatchedShiftSlot = (
     const lastShiftTotalMinutes = lastH * 60 + lastM;
 
     const diff = currentTotalMinutes - lastShiftTotalMinutes;
-    const isLate = diff > 0;
-    const isBlocked = diff > bufferMinutes;
+    const isExceededLastShift = diff > actualBuffer;
+    const isLate = isExceededLastShift;
+    const isRawLate = diff > 0;
+    const isBlocked = isExceededLastShift;
 
     return {
         targetStartTime: lastShift,
         isLate,
+        isRawLate,
         isBlocked,
-        lateMinutes: isLate ? diff : 0
+        isExceededLastShift,
+        lateMinutes: diff > 0 ? diff : 0
     };
 };
 
@@ -389,8 +473,26 @@ export const resolveAttendanceLogStatus = (
         (noteText.includes('[PROVISIONAL_ONSITE]') && !noteText.includes('[APPROVED ONSITE]') && !noteText.includes('[REJECTED_ONSITE]')) ||
         (noteText.includes('[PROVISIONAL_GPS_SPOOF_APPEAL]') && !noteText.includes('[APPROVED GPS_SPOOF_APPEAL]') && !noteText.includes('[REJECTED GPS_SPOOF_APPEAL]') && !noteText.includes('[REJECTED_GPS_SPOOF_APPEAL]')) ||
         (noteText.includes('[GPS_SPOOF_APPEAL_PENDING]') && !noteText.includes('[APPROVED GPS_SPOOF_APPEAL]') && !noteText.includes('[REJECTED GPS_SPOOF_APPEAL]') && !noteText.includes('[REJECTED_GPS_SPOOF_APPEAL]'));
-    const hasProvisionalCheckOut = noteText.includes('[PROVISIONAL_CHECKOUT]') && !noteText.includes('[APPROVED FORGOT_CHECKOUT]') && !noteText.includes('[APPROVED OUT_OF_RANGE_CHECKOUT]') && !noteText.includes('[REJECTED FORGOT_CHECKOUT]') && !noteText.includes('[REJECTED OUT_OF_RANGE_CHECKOUT]');
-    const isPendingVerify = currentStatus === 'PENDING_VERIFY' || hasProvisionalCheckIn || hasProvisionalCheckOut;
+    const hasProvisionalCheckOut = noteText.includes('[PROVISIONAL_CHECKOUT]') && 
+        !noteText.includes('[APPROVED FORGOT_CHECKOUT]') && 
+        !noteText.includes('[APPROVED OUT_OF_RANGE_CHECKOUT]') && 
+        !noteText.includes('[APPROVED EARLY_LEAVE_APPEAL]') &&
+        !noteText.includes('[REJECTED FORGOT_CHECKOUT]') && 
+        !noteText.includes('[REJECTED OUT_OF_RANGE_CHECKOUT]') &&
+        !noteText.includes('[REJECTED EARLY_LEAVE_APPEAL]');
+    const hasEarlyLeaveResolvedTag = noteText.includes('[REJECTED EARLY_LEAVE_APPEAL]') || noteText.includes('[APPROVED EARLY_LEAVE_APPEAL]');
+    const hasProvisionalTags = hasProvisionalCheckIn || hasProvisionalCheckOut;
+
+    let isPendingVerify = false;
+    if (hasProvisionalTags) {
+        isPendingVerify = true;
+    } else if (currentStatus === 'PENDING_VERIFY') {
+        if (!hasProvisionalTags || hasEarlyLeaveResolvedTag) {
+            isPendingVerify = false;
+        } else {
+            isPendingVerify = true;
+        }
+    }
 
     if (isPendingVerify) {
         return 'PENDING_VERIFY';
@@ -421,7 +523,7 @@ export function getMaxShiftWithBuffer(masterOptions: any[] = []): { maxShiftTime
     const startTimeOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'START_TIME');
     const lateBufferOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'LATE_BUFFER');
 
-    const bufferMinutes = parseInt(lateBufferOpt?.label || '15', 10);
+    const bufferMinutes = BRAND_CONFIG.lateCalculationMode === 2 ? 0 : parseInt(lateBufferOpt?.label || '15', 10);
     const shiftsEnabled = shiftsEnabledOpt?.label === 'true';
 
     let maxShiftTimeStr = startTimeOpt?.label || '09:00';

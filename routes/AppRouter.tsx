@@ -22,6 +22,7 @@ import { useToast } from '../context/ToastContext';
 import ShortcutManager from '../components/common/ShortcutManager';
 import { Loader2 } from 'lucide-react';
 import { useWorkboxContext } from '../context/WorkboxContext';
+import { BRAND_CONFIG } from '../config/brand';
 import WorkboxPanel from '../components/workbox/WorkboxPanel';
 import WorkboxTrigger from '../components/workbox/WorkboxTrigger';
 
@@ -498,9 +499,9 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
   // --- GLOBAL KEYBOARD SHORTCUTS REMOVED (Moved to ShortcutManager) ---
 
   // --- DETECT LOCK NOTIFICATION ---
-  const negligenceNotification = notifications.find(n => n.type === 'NEGLIGENCE' && !n.isRead);
-  const deathWarningNotification = notifications.find(n => n.type === 'DEATH_WARNING' && !n.isRead);
-  const resurrectionNotification = notifications.find(n => n.type === 'RESURRECTION' && !n.isRead);
+  const negligenceNotification = BRAND_CONFIG.gamificationMode === 2 ? undefined : notifications.find(n => n.type === 'NEGLIGENCE' && !n.isRead);
+  const deathWarningNotification = BRAND_CONFIG.gamificationMode === 2 ? undefined : notifications.find(n => n.type === 'DEATH_WARNING' && !n.isRead);
+  const resurrectionNotification = BRAND_CONFIG.gamificationMode === 2 ? undefined : notifications.find(n => n.type === 'RESURRECTION' && !n.isRead);
 
   const handleToggleNotification = () => {
       // Changed: Do NOT mark as viewed immediately upon opening
@@ -548,11 +549,11 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
     return <PendingApprovalScreen user={currentUserProfile} onLogout={handleForceLogout} />;
   }
 
-  if (currentUserProfile.status === 'DEATH') {
+  if (currentUserProfile.status === 'DEATH' && BRAND_CONFIG.gamificationMode !== 2) {
     return <DeathScreen user={currentUserProfile} onLogout={handleForceLogout} />;
   }
 
-  if (!currentUserProfile.isActive) {
+  if (!currentUserProfile.isActive && BRAND_CONFIG.gamificationMode !== 2) {
     return <InactiveScreen user={currentUserProfile} onLogout={handleForceLogout} />;
   }
 

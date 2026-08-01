@@ -48,11 +48,13 @@ interface MasterTabNavigationProps {
     activeTab: MasterTab;
     onTabChange: (tab: MasterTab) => void;
     masterOptions: MasterOption[];
+    activeTabsConfig?: string[] | null;
 }
 
-const MasterTabNavigation: React.FC<MasterTabNavigationProps> = ({ activeTab, onTabChange, masterOptions }) => {
+const MasterTabNavigation: React.FC<MasterTabNavigationProps> = ({ activeTab, onTabChange, masterOptions, activeTabsConfig }) => {
     
     const activeTabs = useMemo(() => {
+        if (activeTabsConfig !== undefined) return activeTabsConfig;
         const config = masterOptions.find(o => o.type === 'MASTER_DATA_CONFIG' && o.key === 'ACTIVE_TABS');
         if (!config) return null;
         try {
@@ -61,7 +63,7 @@ const MasterTabNavigation: React.FC<MasterTabNavigationProps> = ({ activeTab, on
             console.error("Failed to parse master data active tabs config", e);
             return null;
         }
-    }, [masterOptions]);
+    }, [masterOptions, activeTabsConfig]);
 
     const renderTabButton = (key: string) => {
         const meta = MASTER_META[key];
@@ -91,7 +93,7 @@ const MasterTabNavigation: React.FC<MasterTabNavigationProps> = ({ activeTab, on
     }, [activeTabs]);
 
     const resourceKeys = useMemo(() => {
-        const keys = ['INVENTORY', 'ITEM_CONDITION', 'POSITION', 'ATTENDANCE_RULES', 'REJECTION_REASON'];
+        const keys = ['INVENTORY', 'ITEM_CONDITION', 'POSITION', 'ATTENDANCE_RULES', 'LOCATIONS', 'REJECTION_REASON'];
         return activeTabs ? keys.filter(k => activeTabs.includes(k)) : keys;
     }, [activeTabs]);
 

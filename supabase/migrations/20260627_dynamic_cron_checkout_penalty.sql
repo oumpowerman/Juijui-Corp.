@@ -19,6 +19,7 @@ DECLARE
     new_hp INT;
     is_death BOOLEAN;
     death_cnt INT;
+    checkout_penalty_target_roles_val TEXT := 'BOTH';
 BEGIN
     -- Determine yesterday's date in Thailand timezone to remain server-independent
     yesterday_date := (timezone('Asia/Bangkok'::text, now()) - '1 day'::interval)::DATE;
@@ -33,13 +34,26 @@ BEGIN
         hp_penalty := -10;
     END;
 
+    -- Fetch target roles from master_options
+    SELECT label INTO checkout_penalty_target_roles_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'CHECKOUT_PENALTY_TARGET_ROLES' LIMIT 1;
+    IF checkout_penalty_target_roles_val IS NULL THEN
+        checkout_penalty_target_roles_val := 'BOTH';
+    END IF;
+
     -- Loop through attendance logs from yesterday that are still WORKING and don't have check-out time
     FOR log_rec IN
-        SELECT id, user_id, note
-        FROM public.attendance_logs
-        WHERE date = yesterday_date
-          AND status = 'WORKING'
-          AND check_out_time IS NULL
+        SELECT al.id, al.user_id, al.note
+        FROM public.attendance_logs al
+        JOIN public.profiles p ON p.id = al.user_id
+        WHERE al.date = yesterday_date
+          AND al.status = 'WORKING'
+          AND al.check_out_time IS NULL
+          AND p.is_active = TRUE
+          AND (
+            checkout_penalty_target_roles_val = 'BOTH' OR
+            (checkout_penalty_target_roles_val = 'ADMIN' AND p.role = 'ADMIN') OR
+            (checkout_penalty_target_roles_val = 'MEMBER' AND p.role != 'ADMIN')
+          )
     LOOP
         -- 1. Check if there is a pending or approved leave/correction request for yesterday_date
         SELECT EXISTS (

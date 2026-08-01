@@ -5,7 +5,8 @@ import { LeaveType } from '../../../../types/attendance';
 import { useGlobalDialog } from '../../../../context/GlobalDialogContext';
 import { getRegistryItem } from '../../../../constants/attendanceRegistry';
 import { useMasterData } from '../../../../hooks/useMasterData';
-import { calculateShiftAndActualTime, formatCorrectionNote } from '../../../../utils/shiftCalculator';
+import { useUserSession } from '../../../../context/UserSessionContext';
+import { calculateShiftAndActualTime, formatCorrectionNote, calculateRequiredCheckOutTime, isValidCheckOutTime } from '../../../../utils/shiftCalculator';
 import { compressImage } from '../../../../lib/imageUtils';
 
 interface UseLeaveFormLogicProps {
@@ -26,6 +27,7 @@ export const useLeaveFormLogic = ({
 }: UseLeaveFormLogicProps) => {
     const { showAlert } = useGlobalDialog();
     const { masterOptions } = useMasterData();
+    const { attendanceLogs } = useUserSession();
 
     const shiftsEnabledOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'MULTIPLE_SHIFTS_ENABLED');
     const shiftsListOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'MULTIPLE_SHIFTS_LIST');
@@ -112,6 +114,29 @@ export const useLeaveFormLogic = ({
         }
     }, [startDate, selectedType]);
 
+    // Sync earliest required checkout time when selectedType is FORGOT_CHECKOUT
+    useEffect(() => {
+        if (isShiftsEnabled && selectedType === 'FORGOT_CHECKOUT' && startDate) {
+            const log = attendanceLogs?.find(l => l.date === startDate);
+            if (log?.checkInTime) {
+                const checkInDate = new Date(log.checkInTime);
+                const checkInStr = format(checkInDate, 'HH:mm');
+                const minHours = parseFloat(masterOptions?.find(o => o.key === 'MIN_HOURS')?.label || '9');
+                const requiredCheckOut = calculateRequiredCheckOutTime(checkInStr, minHours);
+                setTargetTime(requiredCheckOut);
+            }
+        }
+    }, [startDate, selectedType, isShiftsEnabled, attendanceLogs, masterOptions]);
+
+    // Sync earliest required checkout time when selectedType is FORGOT_BOTH
+    useEffect(() => {
+        if (isShiftsEnabled && selectedType === 'FORGOT_BOTH' && targetTime) {
+            const minHours = parseFloat(masterOptions?.find(o => o.key === 'MIN_HOURS')?.label || '9');
+            const requiredCheckOut = calculateRequiredCheckOutTime(targetTime, minHours);
+            setEndTime(requiredCheckOut);
+        }
+    }, [targetTime, selectedType, isShiftsEnabled, masterOptions]);
+
     const handleReview = () => {
         if (!startDate || !endDate) {
             showAlert('กรุณาระบุวันที่ให้ครบถ้วนครับ', 'ข้อมูลไม่ครบ');
@@ -168,6 +193,35 @@ export const useLeaveFormLogic = ({
             }
         }
 
+        if (isShiftsEnabled) {
+            const minHours = parseFloat(masterOptions?.find(o => o.key === 'MIN_HOURS')?.label || '9');
+            
+            if (selectedType === 'FORGOT_CHECKOUT') {
+                const log = attendanceLogs?.find(l => l.date === startDate);
+                if (log?.checkInTime) {
+                    const checkInDate = new Date(log.checkInTime);
+                    const checkInStr = format(checkInDate, 'HH:mm');
+                    if (!isValidCheckOutTime(checkInStr, targetTime, minHours)) {
+                        const requiredCheckOut = calculateRequiredCheckOutTime(checkInStr, minHours);
+                        showAlert(
+                            `เวลาออกงานต้องทำงานอย่างน้อย ${minHours} ชั่วโมงครับ (เร็วที่สุดสำหรับวันดังกล่าวคือตั้งแต่เวลา ${requiredCheckOut} น. เป็นต้นไป)`,
+                            'เวลาออกงานไม่ถูกต้อง'
+                        );
+                        return;
+                    }
+                }
+            } else if (selectedType === 'FORGOT_BOTH') {
+                if (!isValidCheckOutTime(targetTime, endTime, minHours)) {
+                    const requiredCheckOut = calculateRequiredCheckOutTime(targetTime, minHours);
+                    showAlert(
+                        `เวลาออกงานต้องทำงานอย่างน้อย ${minHours} ชั่วโมงจากเวลาเข้างานครับ (เร็วที่สุดคือตั้งแต่เวลา ${requiredCheckOut} น. เป็นต้นไป)`,
+                        'เวลาออกงานไม่ถูกต้อง'
+                    );
+                    return;
+                }
+            }
+        }
+
         if (!reason.trim()) {
             showAlert('กรุณาระบุเหตุผลด้วยครับ', 'ข้อมูลไม่ครบ');
             return;
@@ -207,8 +261,8 @@ export const useLeaveFormLogic = ({
                     const [targetH, targetM] = targetTime.split(':').map(Number);
                     finalStartDate = new Date(year, month - 1, day, targetH, targetM, 0, 0);
                 } else {
-                    const [shiftH, shiftM] = mappedShift.split(':').map(Number);
-                    finalStartDate = new Date(year, month - 1, day, shiftH, shiftM, 0, 0);
+                    const [actualH, actualM] = actualCheckIn.split(':').map(Number);
+                    finalStartDate = new Date(year, month - 1, day, actualH, actualM, 0, 0);
                 }
 
                 if (selectedType === 'FORGOT_BOTH') {

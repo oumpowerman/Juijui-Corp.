@@ -9,8 +9,17 @@ import { useGamification } from './useGamification';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
 import { attendanceService } from '../services/attendanceService';
 import { adminApprovalService } from '../services/adminApprovalService';
-import { checkLeaveQuota } from '../utils/adminApprovalHelpers';
+import { checkLeaveQuota, validateCheckInTime } from '../utils/adminApprovalHelpers';
 import { useNotificationContext } from '../context/NotificationContext';
+
+export interface ApproveRequestParams {
+    request: LeaveRequest;
+    customOtHours?: number;
+    customStartTime?: string;
+    customEndTime?: string;
+    adminNote?: string;
+    hpPenalty?: number;
+}
 
 export const useAdminApprovals = (currentUser?: any, options: { enabled?: boolean } = {}) => {
     const { enabled = true } = options;
@@ -131,17 +140,43 @@ export const useAdminApprovals = (currentUser?: any, options: { enabled?: boolea
     }, [rawRequests, allUsers, enabled]);
 
     const approveRequest = async (
-        request: LeaveRequest, 
-        customOtHours?: number, 
-        customStartTime?: string, 
-        customEndTime?: string,
-        adminNote?: string,
-        hpPenalty?: number
+        paramsOrRequest: ApproveRequestParams | LeaveRequest, 
+        legacyOtHours?: number, 
+        legacyStartTime?: string, 
+        legacyEndTime?: string,
+        legacyAdminNote?: string,
+        legacyHpPenalty?: number
     ) => {
         if (!currentUser || currentUser.role !== 'ADMIN') {
             showToast('คุณไม่มีสิทธิ์ในการอนุมัติคำขอ', 'error');
             return;
         }
+
+        let request: LeaveRequest;
+        let customOtHours: number | undefined;
+        let customStartTime: string | undefined;
+        let customEndTime: string | undefined;
+        let adminNote: string | undefined;
+        let hpPenalty: number | undefined;
+
+        if (paramsOrRequest && 'request' in paramsOrRequest) {
+            request = paramsOrRequest.request;
+            customOtHours = paramsOrRequest.customOtHours;
+            customStartTime = paramsOrRequest.customStartTime;
+            customEndTime = paramsOrRequest.customEndTime;
+            adminNote = paramsOrRequest.adminNote;
+            hpPenalty = paramsOrRequest.hpPenalty;
+        } else {
+            request = paramsOrRequest as LeaveRequest;
+            customOtHours = legacyOtHours;
+            customStartTime = legacyStartTime;
+            customEndTime = legacyEndTime;
+            adminNote = legacyAdminNote;
+            hpPenalty = legacyHpPenalty;
+        }
+
+        // Centralized check-in/start time validation using helper - bypassed for admin overrides
+
 
         const isDedicatedOtRequest = (contextOtRequests || []).some(ot => ot.id === request.id);
 

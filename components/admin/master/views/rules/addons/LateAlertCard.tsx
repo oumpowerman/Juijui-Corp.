@@ -1,20 +1,7 @@
 import React, { useState } from 'react';
-import { Bell, AlertTriangle, Monitor, Play, Sparkles, Settings2 } from 'lucide-react';
+import { Bell, AlertTriangle, Monitor, Play, Sparkles, Settings2, Users, ShieldAlert } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-
-interface WorkTimeConfig {
-    start: string;
-    end: string;
-    buffer: string;
-    minHours: string;
-    otThreshold: string;
-    checkoutPenaltyTime: string;
-    dailySummaryDelayHours: string;
-    lineSummaryDestination: string;
-    enableAttendanceRace: string;
-    lateAlertMode?: string;
-    lateAlertOffset?: string;
-}
+import { WorkTimeConfig } from '../WorkTimeCard';
 
 interface LateAlertCardProps {
     tempTimeConfig: WorkTimeConfig;
@@ -27,9 +14,29 @@ const LateAlertCard: React.FC<LateAlertCardProps> = ({ tempTimeConfig, setTempTi
     const isProactive = tempTimeConfig.lateAlertMode === 'BEFORE_LIMIT';
     const offsetVal = parseInt(tempTimeConfig.lateAlertOffset || '5', 10) || 5;
 
+    const effectiveStartTime = (() => {
+        const shiftsEnabled = tempTimeConfig.multipleShiftsEnabled === 'true';
+        if (shiftsEnabled && tempTimeConfig.multipleShiftsList) {
+            const list = tempTimeConfig.multipleShiftsList
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean);
+            if (list.length > 0) {
+                // ดึงกะเวลาที่สายที่สุด (เวลามากที่สุด)
+                const sorted = [...list].sort((a, b) => {
+                    const [ha, ma] = a.split(':').map(Number);
+                    const [hb, mb] = b.split(':').map(Number);
+                    return (hb * 60 + mb) - (ha * 60 + ma); // เรียงจากสายสุดลงมา
+                });
+                return sorted[0]; // คืนค่าเวลาของกะที่สายที่สุด
+            }
+        }
+        return tempTimeConfig.start || '10:00';
+    })();
+
     const graceLimitTime = (() => {
         try {
-            const [h, m] = tempTimeConfig.start.split(':').map(Number);
+            const [h, m] = effectiveStartTime.split(':').map(Number);
             const buf = parseInt(tempTimeConfig.buffer, 10) || 0;
             const date = new Date();
             date.setHours(h, m + buf);
@@ -41,7 +48,7 @@ const LateAlertCard: React.FC<LateAlertCardProps> = ({ tempTimeConfig, setTempTi
 
     const planBTargetTime = (() => {
         try {
-            const [h, m] = tempTimeConfig.start.split(':').map(Number);
+            const [h, m] = effectiveStartTime.split(':').map(Number);
             const buf = parseInt(tempTimeConfig.buffer, 10) || 0;
             const date = new Date();
             if (isProactive) {
@@ -182,6 +189,39 @@ const LateAlertCard: React.FC<LateAlertCardProps> = ({ tempTimeConfig, setTempTi
                         </motion.div>
                     )}
                 </AnimatePresence>
+
+                {/* 🎯 กลุ่มเป้าหมายที่รับการแจ้งเตือน */}
+                <div className="mt-4 space-y-2">
+                    <label className="text-xs font-black text-gray-700 tracking-tight flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-indigo-500" /> กลุ่มเป้าหมายที่รับการแจ้งเตือนสาย
+                    </label>
+                    <div className="grid grid-cols-3 gap-1 p-1 bg-slate-50 border border-slate-200/50 rounded-2xl">
+                        {[
+                            { value: 'MEMBER', label: 'เฉพาะทั่วไป', desc: 'Member', icon: Users },
+                            { value: 'ADMIN', label: 'เฉพาะผู้ดูแล', desc: 'Admin', icon: ShieldAlert },
+                            { value: 'BOTH', label: 'ทั้งหมด', desc: 'Both', icon: Sparkles }
+                        ].map((role) => {
+                            const RoleIcon = role.icon;
+                            const isActive = (tempTimeConfig.lateAlertTargetRoles || 'BOTH') === role.value;
+                            return (
+                                <button
+                                    key={role.value}
+                                    type="button"
+                                    onClick={() => setTempTimeConfig(prev => ({ ...prev, lateAlertTargetRoles: role.value }))}
+                                    className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all outline-none relative overflow-hidden select-none cursor-pointer ${
+                                        isActive
+                                            ? 'bg-white text-indigo-700 shadow-sm border-b-2 border-indigo-600/80'
+                                            : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
+                                    }`}
+                                >
+                                    <RoleIcon className={`w-3.5 h-3.5 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
+                                    <span className="text-[10px] font-black tracking-tight">{role.label}</span>
+                                    <span className="text-[8px] font-bold opacity-60 leading-none">{role.desc}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
                 
                 {/* 3. Interactive Visual Timeline / Processing Badge */}
                 <div className="mt-4 p-3 bg-gradient-to-r from-indigo-50/50 to-indigo-100/20 rounded-2xl border border-indigo-100/70 flex items-center justify-between text-xs font-bold text-indigo-900 shadow-sm">

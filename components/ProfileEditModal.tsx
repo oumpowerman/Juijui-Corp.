@@ -36,7 +36,21 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose, us
   const handleSaveWrapped = async (updates: Partial<UserType>, file?: File) => {
     const success = await onSave(updates, file);
     if (success) {
-      showToast('บันทึกการแก้ไขโปรไฟล์เรียบร้อยแล้ว ✨', 'success');
+      const cleanNewEmail = updates.email?.trim().toLowerCase();
+      const currentCleanEmail = (user.email || '').trim().toLowerCase();
+      
+      const isMockNewEmail = cleanNewEmail?.endsWith('@juijui.local') || cleanNewEmail?.endsWith('@juijui-app.com');
+      const isMockCurrentEmail = currentCleanEmail.endsWith('@juijui.local') || currentCleanEmail.endsWith('@juijui-app.com') || !currentCleanEmail;
+
+      if (cleanNewEmail && cleanNewEmail !== currentCleanEmail && !isMockNewEmail) {
+        if (isMockCurrentEmail) {
+          showToast('เชื่อมต่ออีเมลของคุณกับระบบเสร็จสมบูรณ์! ตอนนี้คุณสามารถใช้อีเมลนี้ในการล็อกอินและกู้คืนรหัสผ่านได้ทันทีครับ 📧✨', 'success');
+        } else {
+          showToast('ระบบส่งลิงก์ยืนยันไปที่อีเมลใหม่เรียบร้อยแล้ว! อย่าลืมเข้าไปกดยืนยันในกล่องจดหมายของคุณเพื่อเปิดใช้งานการกู้คืนรหัสผ่านนะครับ 📧✨', 'success');
+        }
+      } else {
+        showToast('บันทึกการแก้ไขโปรไฟล์เรียบร้อยแล้ว ✨', 'success');
+      }
     }
     return success;
   };
@@ -54,6 +68,7 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose, us
     name, setName,
     position, setPosition,
     phone, setPhone,
+    email, setEmail,
     bio, setBio,
     feeling, setFeeling,
     workStatus,
@@ -219,11 +234,13 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose, us
                     name={name}
                     position={position}
                     phone={phone}
+                    email={email}
                     positions={positions}
                     user={user}
                     onNameChange={setName}
                     onPositionChange={setPosition}
                     onPhoneChange={setPhone}
+                    onEmailChange={setEmail}
                 />
 
                 {/* 8-bit Emoji Picker Selection */}

@@ -219,10 +219,11 @@ const ProfileStatusSection: React.FC<ProfileStatusSectionProps> = ({
                 
                 <motion.button 
                     type="button" 
-                    whileHover={{ rotate: 15, scale: 1.1 }}
-                    whileTap={{ scale: 0.9 }}
+                    initial={{ y: "-50%" }}
+                    whileHover={{ y: "-50%", rotate: 15, scale: 1.05 }} // ลด scale ลงเหลือ 1.05 เพื่อป้องกันหลุดกรอบ
+                    whileTap={{ y: "-50%", scale: 0.95 }}
                     onClick={randomFeeling} 
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-white text-pink-400 hover:text-pink-500 hover:shadow-md rounded-xl border border-pink-100 transition-all" 
+                    className="absolute right-3 top-1/2 p-2 bg-white text-pink-400 hover:text-pink-500 hover:shadow-md rounded-xl border border-pink-100 transition-shadow" 
                     title="สุ่มคำคม"
                 >
                     <Sparkles className="w-4 h-4 fill-pink-100" />

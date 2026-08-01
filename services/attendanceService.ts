@@ -235,13 +235,27 @@ export const attendanceService = {
             rejection_reason?: string;
         }
     ) {
+        // Fetch the existing reason to check and clean [PROVISIONAL_CHECKOUT]
+        const { data: currentReq, error: fetchError } = await supabase
+            .from('leave_requests')
+            .select('reason')
+            .eq('id', id)
+            .single();
+        if (fetchError) throw fetchError;
+
+        const updateData: any = {
+            status,
+            approver_id: updateFields.approver_id,
+            rejection_reason: updateFields.rejection_reason
+        };
+
+        if (currentReq && currentReq.reason && currentReq.reason.includes('[PROVISIONAL_CHECKOUT]')) {
+            updateData.reason = currentReq.reason.replace('[PROVISIONAL_CHECKOUT]', '').trim();
+        }
+
         const { data, error } = await supabase
             .from('leave_requests')
-            .update({
-                status,
-                approver_id: updateFields.approver_id,
-                rejection_reason: updateFields.rejection_reason
-            })
+            .update(updateData)
             .eq('id', id)
             .select()
             .single();

@@ -36,12 +36,16 @@ const AttendanceDetailCards: React.FC<Props> = ({ logs, type, onClose }) => {
     const configData = masterOptions.filter(o => o.type === 'WORK_CONFIG');
     const startTimeStr = configData?.find(c => c.key === 'START_TIME')?.label || '10:00';
     const buffer = parseInt(configData?.find(c => c.key === 'LATE_BUFFER')?.label || '0');
+    const multipleShifts = {
+        enabled: configData?.find(c => c.key === 'MULTIPLE_SHIFTS_ENABLED' || c.key === 'MULTIPLE_SHIFTS_ENABLE')?.label === 'true',
+        shiftsList: configData?.find(c => c.key === 'MULTIPLE_SHIFTS_LIST')?.label || ''
+    };
 
     const filteredLogs = logs.filter(log => {
         const summary = getAttendanceSummary(
             log.checkInTime,
             log.checkOutTime,
-            { startTime: startTimeStr, buffer, minHours: 9 }
+            { startTime: startTimeStr, buffer, minHours: 9, note: log.note, multipleShifts }
         );
 
         if (type === 'LATE') return summary.isLate;
@@ -145,7 +149,7 @@ const AttendanceDetailCards: React.FC<Props> = ({ logs, type, onClose }) => {
                 initial={{ opacity: 0, scale: 0.9, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                className={`relative w-full h-full sm:h-auto sm:max-h-[90vh] max-w-4xl rounded-none sm:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col border transition-all duration-500
+                className={`relative w-full h-full sm:h-[85vh] sm:max-h-[85vh] max-w-4xl rounded-none sm:rounded-[3rem] shadow-2xl overflow-hidden flex flex-col border transition-all duration-500
                     ${type === 'STREAK'
                         ? 'bg-white border-amber-200 shadow-[0_0_40px_rgba(245,158,11,0.12)] ring-1 ring-amber-100/40'
                         : 'bg-slate-50 border-white/20'
@@ -238,7 +242,7 @@ const AttendanceDetailCards: React.FC<Props> = ({ logs, type, onClose }) => {
                 </div>
 
                 {/* Content */}
-                <div className="flex-1 overflow-y-auto p-3 sm:p-6 custom-scrollbar">
+                <div className="flex-1 overflow-y-auto p-3 sm:p-6 custom-scrollbar flex flex-col">
                     {filteredLogs.length > 0 ? (
                         viewMode === 'table' ? (
                             <AttendanceDetailTable 
@@ -264,8 +268,8 @@ const AttendanceDetailCards: React.FC<Props> = ({ logs, type, onClose }) => {
                             />
                         )
                     ) : (
-                        <div className="py-12 sm:py-20 text-center bg-white rounded-2xl sm:rounded-[3rem] border-2 border-dashed border-slate-200">
-                            <AlertCircle className="w-12 h-12 text-slate-200 mx-auto mb-4" />
+                        <div className="flex-1 flex flex-col items-center justify-center text-center bg-white rounded-2xl sm:rounded-[3rem] border-2 border-dashed border-slate-200 p-8 min-h-[300px]">
+                            <AlertCircle className="w-12 h-12 text-slate-200 mb-4" />
                             <p className="text-slate-400 font-bold text-lg">ไม่พบข้อมูลในหมวดนี้</p>
                             <p className="text-slate-300 text-sm font-medium">ลองเลือกดูสถิติหมวดอื่นๆ แทนนะครับ</p>
                         </div>

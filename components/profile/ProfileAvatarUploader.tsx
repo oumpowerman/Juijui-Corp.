@@ -3,6 +3,7 @@ import { Camera, Loader2 } from 'lucide-react';
 import { User } from '../../types';
 import UserAvatarWithHP from '../common/UserAvatarWithHP';
 import { motion } from 'framer-motion';
+import { BRAND_CONFIG } from '../../config/brand';
 
 interface ProfileAvatarUploaderProps {
   user: User;
@@ -55,14 +56,16 @@ const ProfileAvatarUploader: React.FC<ProfileAvatarUploaderProps> = ({
         </div>
 
         {/* HP Badge */}
-        <motion.div 
-            initial={{ y: 10, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            className="absolute -bottom-2 left-1/2 -translate-x-1/2 z-30 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full shadow-lg border border-white/60 text-[10px] font-black text-gray-600 whitespace-nowrap flex items-center gap-1"
-        >
-            <span className={user.hp > 30 ? "text-emerald-500" : "text-rose-500"}>♥</span> 
-            {user.hp}/{user.maxHp} HP
-        </motion.div>
+        {BRAND_CONFIG.showProfileHpBadgeMode !== 2 && (
+          <motion.div 
+              initial={{ y: 10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              className="absolute -bottom-2 left-1/2 -translate-x-1/2 z-30 bg-white/90 backdrop-blur-md px-3 py-1 rounded-full shadow-lg border border-white/60 text-[10px] font-black text-gray-600 whitespace-nowrap flex items-center gap-1"
+          >
+              <span className={user.hp > 30 ? "text-emerald-500" : "text-rose-500"}>♥</span> 
+              {user.hp}/{user.maxHp} HP
+          </motion.div>
+        )}
 
         <input 
           type="file" 

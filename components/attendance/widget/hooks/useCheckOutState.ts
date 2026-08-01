@@ -15,7 +15,7 @@ interface UseCheckOutStateProps {
     isOpen: boolean;
     onClose: () => void;
     onConfirm: (location?: { lat: number, lng: number }, locationName?: string, reason?: string) => Promise<void>;
-    onRequest: (time: string, reason: string) => Promise<boolean>;
+    onRequest: (time: string, reason: string, requestType?: any) => Promise<boolean>;
     availableLocations: LocationDef[];
     checkInTime: Date;
     onOvertimeSubmit?: (otMinutes: number, reason: string) => Promise<boolean>;
@@ -378,6 +378,13 @@ export const useCheckOutState = ({
         setIsSubmitting(true);
         let finalReason = reason;
 
+        // Dynamically synchronize the time to the actual click-submit moment for real-time checkouts
+        let finalTime = time;
+        if (status !== 'ERROR') {
+            finalTime = format(new Date(), 'HH:mm');
+            setTime(finalTime);
+        }
+
         if (selectedImageFile) {
             setIsUploading(true);
             try {
@@ -434,7 +441,12 @@ export const useCheckOutState = ({
 
         // Perform the provisional check-out directly first
         const provTag = '[PROVISIONAL_CHECKOUT]';
-        const reasonWithProv = `[TIME:${time}] ${finalReason} ${provTag}`;
+        const timeTag = checkOutStatus === 'EARLY_LEAVE' ? `[EARLY:${finalTime}]` : `[TIME:${finalTime}]`;
+        
+        // เพิ่มแท็ก (Location Mismatch) เข้าไปในกรณีที่เป็นการเช็คเอาท์นอกพื้นที่
+        const locationMismatchTag = (checkOutStatus !== 'EARLY_LEAVE' || status === 'OUT_OF_RANGE') ? ' (Location Mismatch)' : '';
+        const reasonWithProv = `${timeTag} ${finalReason}${locationMismatchTag} ${provTag}`;
+        
         await onConfirm(
             { lat: currentLat, lng: currentLng }, 
             matchedLocation?.name || 'Unknown Location', 
@@ -442,7 +454,13 @@ export const useCheckOutState = ({
         );
 
         // Also submit the formal request for admin review/approval
-        await onRequest(time, finalReason);
+        const requestType = checkOutStatus === 'EARLY_LEAVE' ? 'EARLY_LEAVE' : 'OUT_OF_RANGE_CHECKOUT';
+        
+        let submitReason = finalReason;
+        if (status === 'OUT_OF_RANGE' && !submitReason.includes('(Location Mismatch)')) {
+            submitReason = `${submitReason} (Location Mismatch)`.trim();
+        }
+        await onRequest(finalTime, submitReason, requestType);
 
         setIsSubmitting(false);
         onClose();

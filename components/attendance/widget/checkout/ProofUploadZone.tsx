@@ -1,6 +1,7 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Camera, Upload, Trash2, Eye } from 'lucide-react';
+import { Camera, Upload, Trash2, Eye, Loader2 } from 'lucide-react';
+import { compressImage } from '../../../../lib/imageUtils';
 
 interface ProofUploadZoneProps {
     selectedFile: File | null;
@@ -16,6 +17,26 @@ export const ProofUploadZone: React.FC<ProofUploadZoneProps> = ({
     onOpenLightbox
 }) => {
     const localFileInputRef = useRef<HTMLInputElement>(null);
+    const [isConverting, setIsConverting] = useState(false);
+
+    const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setIsConverting(true);
+        try {
+            const processedFile = await compressImage(file);
+            const url = URL.createObjectURL(processedFile);
+            onFileSelect(processedFile, url);
+        } catch (err) {
+            console.error("File processing error in ProofUploadZone:", err);
+            const url = URL.createObjectURL(file);
+            onFileSelect(file, url);
+        } finally {
+            setIsConverting(false);
+            e.target.value = '';
+        }
+    };
 
     return (
         <div className="space-y-2">
@@ -90,7 +111,9 @@ export const ProofUploadZone: React.FC<ProofUploadZoneProps> = ({
                         whileHover="hover"
                         whileTap={{ scale: 0.99 }}
                         onClick={() => {
-                            localFileInputRef.current?.click();
+                            if (!isConverting) {
+                                localFileInputRef.current?.click();
+                            }
                         }}
                         className="p-6 rounded-2xl border border-dashed border-slate-200 bg-white/40 backdrop-blur-sm hover:border-indigo-300 hover:bg-white hover:shadow-lg hover:shadow-indigo-100/30 cursor-pointer transition-all flex flex-col items-center justify-center gap-2 text-center shadow-sm"
                     >
@@ -101,11 +124,17 @@ export const ProofUploadZone: React.FC<ProofUploadZoneProps> = ({
                             transition={{ type: 'spring', stiffness: 350, damping: 15 }}
                             className="p-3 bg-slate-50 text-slate-400 group-hover:text-indigo-500 rounded-xl"
                         >
-                            <Upload className="w-6 h-6 text-slate-400" />
+                            {isConverting ? (
+                                <Loader2 className="w-6 h-6 text-indigo-500 animate-spin" />
+                            ) : (
+                                <Upload className="w-6 h-6 text-slate-400" />
+                            )}
                         </motion.div>
                         <div>
-                            <p className="text-xs font-bold text-slate-500">แนบภาพหลักฐานประกอบ</p>
-                            <p className="text-[10px] text-slate-400 mt-0.5 font-bold tracking-wider">รองรับไฟล์รูปภาพสูงสุด 5MB</p>
+                            <p className="text-xs font-bold text-slate-500">
+                                {isConverting ? 'กำลังแปลงไฟล์ HEIC เป็น JPEG...' : 'แนบภาพหลักฐานประกอบ'}
+                            </p>
+                            <p className="text-[10px] text-slate-400 mt-0.5 font-bold tracking-wider">รองรับ JPG, PNG, HEIC สูงสุด 5MB</p>
                         </div>
                     </motion.div>
                 )}
@@ -115,14 +144,8 @@ export const ProofUploadZone: React.FC<ProofUploadZoneProps> = ({
                 type="file" 
                 ref={localFileInputRef} 
                 className="hidden" 
-                onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                        const url = URL.createObjectURL(file);
-                        onFileSelect(file, url);
-                    }
-                }} 
-                accept="image/*" 
+                onChange={handleFileChange} 
+                accept="image/*,.heic,.HEIC,.heif,.HEIF" 
             />
         </div>
     );

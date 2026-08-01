@@ -1,21 +1,8 @@
 import React, { useState } from 'react';
-import { CalendarClock, Clock, Monitor, Play, Sparkles } from 'lucide-react';
+import { CalendarClock, Clock, Monitor, Play, Sparkles, Users, ShieldAlert } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import TimePickerModal from '../../../../../ui/TimePickerModal';
-
-interface WorkTimeConfig {
-    start: string;
-    end: string;
-    buffer: string;
-    minHours: string;
-    otThreshold: string;
-    checkoutPenaltyTime: string;
-    dailySummaryDelayHours: string;
-    lineSummaryDestination: string;
-    enableAttendanceRace: string;
-    lateAlertMode?: string;
-    lateAlertOffset?: string;
-}
+import { WorkTimeConfig } from '../WorkTimeCard';
 
 interface MidnightCheckCardProps {
     tempTimeConfig: WorkTimeConfig;
@@ -106,6 +93,77 @@ const MidnightCheckCard: React.FC<MidnightCheckCardProps> = ({
                             initialTime={tempTimeConfig.checkoutPenaltyTime}
                             onSelect={(val) => setTempTimeConfig(prev => ({ ...prev, checkoutPenaltyTime: val }))}
                         />
+                    </div>
+                </div>
+
+                {/* 🎯 กลุ่มเป้าหมายหักแต้ม / เตือนลืมออกงาน */}
+                <div className="mt-4 space-y-2">
+                    <label className="text-xs font-black text-gray-700 tracking-tight flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-amber-500" /> กลุ่มเป้าหมายที่รับการลงโทษ / เตือนลืมออกงาน
+                    </label>
+                    <div className="grid grid-cols-3 gap-1 p-1 bg-slate-50 border border-slate-200/50 rounded-2xl">
+                        {[
+                            { value: 'MEMBER', label: 'เฉพาะทั่วไป', desc: 'Member', icon: Users },
+                            { value: 'ADMIN', label: 'เฉพาะผู้ดูแล', desc: 'Admin', icon: ShieldAlert },
+                            { value: 'BOTH', label: 'ทั้งหมด', desc: 'Both', icon: Sparkles }
+                        ].map((role) => {
+                            const RoleIcon = role.icon;
+                            const isActive = (tempTimeConfig.checkoutPenaltyTargetRoles || 'BOTH') === role.value;
+                            return (
+                                <button
+                                    key={role.value}
+                                    type="button"
+                                    onClick={() => setTempTimeConfig(prev => ({ ...prev, checkoutPenaltyTargetRoles: role.value }))}
+                                    className={`py-2 px-1 rounded-xl flex flex-col items-center justify-center gap-0.5 transition-all outline-none relative overflow-hidden select-none cursor-pointer ${
+                                        isActive
+                                            ? 'bg-white text-amber-700 shadow-sm border-b-2 border-amber-500/80'
+                                            : 'text-slate-500 hover:text-slate-700 hover:bg-white/50'
+                                    }`}
+                                >
+                                    <RoleIcon className={`w-3.5 h-3.5 ${isActive ? 'text-amber-600' : 'text-slate-400'}`} />
+                                    <span className="text-[10px] font-black tracking-tight">{role.label}</span>
+                                    <span className="text-[8px] font-bold opacity-60 leading-none">{role.desc}</span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* 🛡️ กฎแอดมินโดนหักคะแนนขาดงาน */}
+                <div className="mt-4 space-y-2">
+                    <label className="text-xs font-black text-gray-700 tracking-tight flex items-center justify-between">
+                        <span className="flex items-center gap-1.5">
+                            <ShieldAlert className="w-3.5 h-3.5 text-amber-500" /> หักคะแนนแอดมินขาดงาน
+                        </span>
+                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${
+                            (tempTimeConfig.adminAbsentPenaltyEnabled === 'true') 
+                                ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' 
+                                : 'bg-slate-50 text-slate-500 border border-slate-100'
+                        }`}>
+                            {(tempTimeConfig.adminAbsentPenaltyEnabled === 'true') ? 'เปิด (Active)' : 'ปิด (Bypassed)'}
+                        </span>
+                    </label>
+                    <div className="flex items-center justify-between p-3 bg-slate-50/60 border border-slate-200/50 rounded-2xl">
+                        <div className="space-y-0.5 pr-2">
+                            <p className="text-[11px] font-bold text-gray-700 leading-tight">ลงโทษ/แจ้งเตือนเมื่อแอดมินขาดงาน</p>
+                            <p className="text-[9.5px] font-medium text-gray-400 leading-snug">เมื่อ ADMIN ขาดงาน จะไม่หักคะแนนและไม่แจ้งเตือนใน LINE/Notification</p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setTempTimeConfig(prev => ({ 
+                                ...prev, 
+                                adminAbsentPenaltyEnabled: prev.adminAbsentPenaltyEnabled === 'true' ? 'false' : 'true' 
+                            }))}
+                            className={`w-10 h-6 shrink-0 rounded-full transition-colors relative focus:outline-none ${
+                                (tempTimeConfig.adminAbsentPenaltyEnabled === 'true') ? 'bg-amber-600' : 'bg-slate-200'
+                            }`}
+                        >
+                            <span 
+                                className={`block w-4 h-4 rounded-full bg-white absolute top-1 transition-transform ${
+                                    (tempTimeConfig.adminAbsentPenaltyEnabled === 'true') ? 'left-5' : 'left-1'
+                                }`} 
+                            />
+                        </button>
                     </div>
                 </div>
             </div>

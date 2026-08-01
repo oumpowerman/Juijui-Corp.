@@ -1,20 +1,8 @@
 import React, { useState } from 'react';
-import { FileSpreadsheet, Monitor, Play, Sparkles } from 'lucide-react';
+import { FileSpreadsheet, Monitor, Play, Sparkles, Clock } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-
-interface WorkTimeConfig {
-    start: string;
-    end: string;
-    buffer: string;
-    minHours: string;
-    otThreshold: string;
-    checkoutPenaltyTime: string;
-    dailySummaryDelayHours: string;
-    lineSummaryDestination: string;
-    enableAttendanceRace: string;
-    lateAlertMode?: string;
-    lateAlertOffset?: string;
-}
+import { WorkTimeConfig } from '../WorkTimeCard';
+import TimePickerModal from '../../../../../ui/TimePickerModal';
 
 interface DailyReportCardProps {
     tempTimeConfig: WorkTimeConfig;
@@ -26,6 +14,7 @@ const DailyReportCard: React.FC<DailyReportCardProps> = ({
     setTempTimeConfig,
 }) => {
     const [simD, setSimD] = useState({ active: false, showPreview: false });
+    const [isSummaryTimeOpen, setIsSummaryTimeOpen] = useState(false);
 
     const triggerPlanDSimulator = () => {
         setSimD(prev => ({
@@ -34,17 +23,7 @@ const DailyReportCard: React.FC<DailyReportCardProps> = ({
         }));
     };
 
-    const planDTargetTime = (() => {
-        try {
-            const [h, m] = tempTimeConfig.start.split(':').map(Number);
-            const delay = parseFloat(tempTimeConfig.dailySummaryDelayHours) || 1.0;
-            const date = new Date();
-            date.setHours(h, m + Math.round(delay * 60));
-            return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')} น.`;
-        } catch {
-            return '09:00 น.';
-        }
-    })();
+    const targetTimeDisplay = tempTimeConfig.dailySummaryTime || '18:00';
 
     return (
         <div id="sim-card-d" className="h-full flex flex-col justify-between space-y-3">
@@ -69,25 +48,28 @@ const DailyReportCard: React.FC<DailyReportCardProps> = ({
                 <div className="mt-3 p-3 bg-gradient-to-r from-emerald-50/40 to-emerald-100/10 rounded-2xl border border-emerald-100/60 space-y-2.5 shadow-sm">
                     <div className="grid grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1">
-                            <span className="text-[10px] font-extrabold text-emerald-800">⏱️ ตั้งเวลาหน่วงส่ง:</span>
-                            <div className="relative">
-                                <input
-                                    id="input-summary-delay"
-                                    type="number"
-                                    step="0.5"
-                                    min="0"
-                                    className="w-full pl-2.5 pr-8 py-1 bg-white border border-emerald-200/80 rounded-lg text-xs font-extrabold text-emerald-800 outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 transition-all shadow-sm"
-                                    value={tempTimeConfig.dailySummaryDelayHours || '1'}
-                                    onChange={e => setTempTimeConfig(prev => ({ ...prev, dailySummaryDelayHours: e.target.value }))}
-                                />
-                                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] text-emerald-600 font-extrabold">ชม.</span>
-                            </div>
+                            <span className="text-[10px] font-extrabold text-emerald-800">⏰ กำหนดเวลาส่งรายงาน:</span>
+                            <button
+                                id="btn-summary-time"
+                                type="button"
+                                onClick={() => setIsSummaryTimeOpen(true)}
+                                className="w-full px-2.5 py-1.5 bg-white border border-emerald-200/80 rounded-lg text-xs font-extrabold text-emerald-800 outline-none focus:border-emerald-400 text-left flex justify-between items-center transition-all shadow-sm hover:bg-emerald-50/30"
+                            >
+                                <span>{targetTimeDisplay}</span>
+                                <Clock className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                            </button>
+                            <TimePickerModal 
+                                isOpen={isSummaryTimeOpen}
+                                onClose={() => setIsSummaryTimeOpen(false)}
+                                initialTime={targetTimeDisplay}
+                                onSelect={(val) => setTempTimeConfig(prev => ({ ...prev, dailySummaryTime: val }))}
+                            />
                         </div>
                         <div className="flex flex-col justify-end pb-0.5 text-[11px] font-extrabold text-emerald-950/80">
-                            <div className="flex justify-between items-center bg-white px-2 py-1.5 rounded-lg border border-emerald-100/80 shadow-sm h-[28px]">
-                                <span>⏰ ส่งตอน:</span>
+                            <div className="flex justify-between items-center bg-white px-2 py-1.5 rounded-lg border border-emerald-100/80 shadow-sm h-[30px]">
+                                <span>🚀 ส่งตอน:</span>
                                 <span className="text-emerald-600 tracking-wide font-black">
-                                    {planDTargetTime}
+                                    {targetTimeDisplay} น.
                                 </span>
                             </div>
                         </div>

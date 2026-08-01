@@ -39,15 +39,18 @@ export async function approveSpecialWorkRequest({
     let updatedReason = request.reason;
 
     if (request.type === 'OVERTIME') {
-        isTimeModified = (customStartTime !== undefined) || (customEndTime !== undefined) || (customOtHours !== undefined);
-        if (isTimeModified) {
+        const isFixedOt = (request as any).isFixed || (request as any).is_fixed || (request.reason && request.reason.includes('[OT:FIXED]'));
+        
+        if (isFixedOt) {
+            isTimeModified = true;
             const { origStart, origEnd, origHours, cleanReason } = parseOtDetailsFromReason(request.reason || '');
-
-            const newStart = customStartTime || origStart;
-            const newEnd = customEndTime || origEnd;
-            const newHours = customOtHours !== undefined ? customOtHours : origHours;
-
-            updatedReason = `[OT:${newStart}-${newEnd}] (${newHours}hr) ${cleanReason}`;
+            
+            const newStart = '00:00';
+            const newEnd = '00:00';
+            const newHours = 0;
+            
+            let fixedCleanReason = cleanReason.replace(/\[OT:FIXED\]/g, '').trim();
+            updatedReason = `[OT:FIXED] [OT:${newStart}-${newEnd}] (${newHours}hr) ${fixedCleanReason}`.trim();
             
             const { finalDbNote: computedDbNote } = buildOtAuditLog(
                 origStart,
@@ -57,9 +60,33 @@ export async function approveSpecialWorkRequest({
                 newEnd,
                 newHours,
                 adminNote,
+                true,
                 true
             );
             finalDbNote = computedDbNote;
+        } else {
+            isTimeModified = (customStartTime !== undefined) || (customEndTime !== undefined) || (customOtHours !== undefined);
+            if (isTimeModified) {
+                const { origStart, origEnd, origHours, cleanReason } = parseOtDetailsFromReason(request.reason || '');
+
+                const newStart = customStartTime || origStart;
+                const newEnd = customEndTime || origEnd;
+                const newHours = customOtHours !== undefined ? customOtHours : origHours;
+
+                updatedReason = `[OT:${newStart}-${newEnd}] (${newHours}hr) ${cleanReason}`;
+                
+                const { finalDbNote: computedDbNote } = buildOtAuditLog(
+                    origStart,
+                    origEnd,
+                    origHours,
+                    newStart,
+                    newEnd,
+                    newHours,
+                    adminNote,
+                    true
+                );
+                finalDbNote = computedDbNote;
+            }
         }
     }
 
@@ -91,7 +118,17 @@ export async function approveSpecialWorkRequest({
                 newNote = newNote.replace(/\s+/g, ' ').trim();
             }
             
-            const targetStatus = freshLog.check_out_time ? 'COMPLETED' : 'WORKING';
+            const { startTime: startTimeStr, lateBuffer: buffer, multipleShifts } = parseWorkConfig(masterOptions);
+            let isLate = false;
+            let lateMinutes = 0;
+
+            if (freshLog.check_in_time) {
+                const checkInDate = new Date(freshLog.check_in_time);
+                isLate = checkIsLate(checkInDate, startTimeStr, buffer, freshLog.note, multipleShifts);
+                lateMinutes = isLate ? getLateMinutes(checkInDate, startTimeStr, buffer, freshLog.note, multipleShifts) : 0;
+            }
+
+            const targetStatus = isLate ? 'LATE' : (freshLog.check_out_time ? 'COMPLETED' : 'WORKING');
 
             await supabase.from('attendance_logs')
                 .update({ 
@@ -103,12 +140,6 @@ export async function approveSpecialWorkRequest({
             // Award check-in points on approval!
             if (freshLog.check_in_time) {
                 const checkInDate = new Date(freshLog.check_in_time);
-                const configData = masterOptions.filter(o => o.type === 'WORK_CONFIG');
-                const startTimeStr = configData?.find(c => c.key === 'START_TIME')?.label || '10:00';
-                const buffer = parseInt(configData?.find(c => c.key === 'LATE_BUFFER')?.label || '15');
-                const isLate = checkIsLate(checkInDate, startTimeStr, buffer);
-                const lateMinutes = isLate ? getLateMinutes(checkInDate, startTimeStr, buffer) : 0;
-                
                 await processAction(request.userId, 'ATTENDANCE_CHECK_IN', {
                     status: isLate ? 'LATE' : 'ON_TIME',
                     time: format(checkInDate, 'HH:mm'),
@@ -174,15 +205,22 @@ export async function approveAttendanceCorrection({
     processAction: (userId: string, actionType: any, payload?: any) => Promise<any>;
 }) {
     const timeMatch = request.reason.match(/\[TIME:(\d{2}:\d{2})(-\d{2}:\d{2})?\]/);
-    const timeStr = customStartTime || (timeMatch ? timeMatch[1] : '00:00');
-    const endTimeStr = timeMatch && timeMatch[2] ? timeMatch[2].substring(1) : null;
+    let timeStr = customStartTime || (timeMatch ? timeMatch[1] : '00:00');
+    let endTimeStr = timeMatch && timeMatch[2] ? timeMatch[2].substring(1) : null;
+
+    // ตรวจจับว่าถ้า customStartTime ที่รับเข้ามา มีการระบุขีด (-) แปลว่าเป็นช่วงเวลาเข้า-ออกคู่กัน
+    if (timeStr && timeStr.includes('-')) {
+        const parts = timeStr.split('-');
+        timeStr = parts[0];       // ดึงเอาเฉพาะเวลาเข้างานจริง เช่น "08:30"
+        endTimeStr = parts[1];    // ดึงเอาเฉพาะเวลาออกงานจริง เช่น "17:30"
+    }
     const shiftDateStr = format(request.startDate, 'yyyy-MM-dd');
 
     const registryItem = getRegistryItem(request.type);
     const behavior = registryItem?.approvalBehavior;
 
-    // Hard lock: check if timeStr exceeds max shift + buffer
-    if (behavior?.correctionTarget !== 'CHECKOUT_ONLY' && timeStr && timeStr !== '00:00') {
+    // Hard lock: check if timeStr exceeds max shift + buffer (Skip this lock for LATE_ENTRY as late entries can be at any time, and bypass if customStartTime is overridden by admin)
+    if (!customStartTime && request.type !== 'LATE_ENTRY' && behavior?.correctionTarget !== 'CHECKOUT_ONLY' && timeStr && timeStr !== '00:00') {
         const { maxAllowedTimeStr, maxShiftTimeStr, bufferMinutes } = getMaxShiftWithBuffer(masterOptions);
         if (timeStr > maxAllowedTimeStr) {
             throw new Error(`ไม่อนุญาตให้อนุมัติ: เวลาที่ระบุ (${timeStr} น.) เกินกำหนดเวลาสายสุดของกะงาน (${maxAllowedTimeStr} น. - คำนวณจากกะสุดท้าย ${maxShiftTimeStr} น. + Buffer ${bufferMinutes} นาที)`);
@@ -196,9 +234,39 @@ export async function approveAttendanceCorrection({
         .eq('date', shiftDateStr)
         .maybeSingle();
 
-    let finalReason = request.reason;
-    if (behavior?.correctionTarget === 'CHECKIN_ONLY' && customStartTime) {
-        finalReason = request.reason.replace(/\[TIME:\d{2}:\d{2}\]/g, `[TIME:${customStartTime}]`);
+    let finalReason = (request.reason || '').replace('[PROVISIONAL_CHECKOUT]', '').trim();
+    if (customStartTime) {
+        // Parse actual entry and exit times from customStartTime
+        let adminEntryTime = customStartTime;
+        let adminExitTime = '';
+        if (customStartTime.includes('-')) {
+            const parts = customStartTime.split('-');
+            adminEntryTime = parts[0].trim();
+            adminExitTime = parts[1].trim();
+        }
+
+        // Clean and replace [TARGET_SHIFT:...] tag with the correct admin approved entry/target time
+        if (finalReason.includes('[TARGET_SHIFT:')) {
+            finalReason = finalReason.replace(/\[TARGET_SHIFT:[^\]]+\]/g, `[TARGET_SHIFT:${adminEntryTime}]`);
+        }
+
+        // Clean and replace [TIME:...] tag with the correct range or single time
+        const newTimeTag = adminExitTime 
+            ? `[TIME:${adminEntryTime}-${adminExitTime}]` 
+            : `[TIME:${adminEntryTime}]`;
+            
+        if (finalReason.includes('[TIME:')) {
+            finalReason = finalReason.replace(/\[TIME:[^\]]+\]/g, newTimeTag);
+        }
+
+        // Now update or add [APPROVED_TIME:...] tag
+        const hasApprovedTimeMatch = finalReason.match(/\[APPROVED_TIME:[^\]]+\]/);
+        if (hasApprovedTimeMatch) {
+            finalReason = finalReason.replace(/\[APPROVED_TIME:[^\]]+\]/g, `[APPROVED_TIME:${customStartTime}]`);
+        } else {
+            finalReason = `${finalReason} [APPROVED_TIME:${customStartTime}]`.replace(/\s+/g, ' ').trim();
+        }
+
         await supabase.from('leave_requests')
             .update({ reason: finalReason })
             .eq('id', request.id);
@@ -269,16 +337,25 @@ export async function approveAttendanceCorrection({
     } else if (behavior?.correctionTarget === 'BOTH') {
         const checkInDateTime = new Date(`${shiftDateStr}T${timeStr}:00`);
         const checkOutDateTime = new Date(`${shiftDateStr}T${endTimeStr || '18:00'}:00`);
-        const originalStatusNote = freshLog?.status === 'ABSENT' ? '[ORIGINALLY: ABSENT] ' : '';
+        const originalStatusNote = (freshLog?.status === 'ABSENT' || freshLog?.note?.includes('[ORIGINALLY: ABSENT]')) ? '[ORIGINALLY: ABSENT] ' : '';
+
+        // Calculate isLate considering MULTIPLE_SHIFTS_ENABLED
+        const { startTime: startTimeStr, lateBuffer: buffer } = parseWorkConfig(masterOptions);
+        const { maxShiftTimeStr } = getMaxShiftWithBuffer(masterOptions);
+        const referenceStart = maxShiftTimeStr || startTimeStr;
+        const isLate = checkIsLate(checkInDateTime, referenceStart, buffer);
 
         // Determine targetWorkType
         const targetWorkType = await deduceTargetWorkType({
             userId: request.userId,
             dateStr: shiftDateStr,
-            requestReason: request.reason,
+            requestReason: finalReason,
             existingNote: freshLog?.note,
             existingWorkType: freshLog?.work_type
         });
+
+        // Clean up existing pending/provisional tags for FORGOT_BOTH
+        const cleanedNote = cleanAttendanceNoteTags(freshLog?.note || '', request.type);
 
         const payload = buildAttendanceCorrectionPayload({
             userId: request.userId,
@@ -286,9 +363,10 @@ export async function approveAttendanceCorrection({
             type: 'FORGOT_BOTH',
             checkInTime: checkInDateTime.toISOString(),
             checkOutTime: checkOutDateTime.toISOString(),
-            reason: request.reason,
+            isLate,
+            reason: finalReason,
             originalStatusNote,
-            existingNote: freshLog?.note,
+            existingNote: cleanedNote,
             existingWorkType: freshLog?.work_type,
             targetWorkType
         });
@@ -300,7 +378,9 @@ export async function approveAttendanceCorrection({
         const cleanedNote = cleanAttendanceNoteTags(freshLog?.note || '', request.type);
  
         const { startTime: startTimeStr, lateBuffer: buffer } = parseWorkConfig(masterOptions);
-        const isLate = checkIsLate(checkInDateTime, startTimeStr, buffer);
+        const { maxShiftTimeStr } = getMaxShiftWithBuffer(masterOptions);
+        const referenceStart = maxShiftTimeStr || startTimeStr;
+        const isLate = checkIsLate(checkInDateTime, referenceStart, buffer);
 
         // Determine targetWorkType
         const targetWorkType = await deduceTargetWorkType({
@@ -342,7 +422,7 @@ export async function approveAttendanceCorrection({
             const cleanedNoteStr = cleanAttendanceNoteTags(freshLogCheckout.note || '', request.type);
 
             const approvedTag = registryItem?.tags.approved || '[APPROVED CORRECTION]';
-            const finalNote = mergeAttendanceNotes(cleanedNoteStr, `${approvedTag} ${request.reason}`);
+            const finalNote = mergeAttendanceNotes(cleanedNoteStr, `${approvedTag} ${finalReason}`);
             const resolvedStatus = resolveAttendanceLogStatus(
                 freshLogCheckout.check_in_time,
                 checkOutDateTime.toISOString(),
@@ -365,7 +445,7 @@ export async function approveAttendanceCorrection({
                 statusBefore: freshLogCheckout.status,
                 noteBefore: freshLogCheckout.note,
                 behavior,
-                reason: request.reason,
+                reason: finalReason,
                 processAction
             });
         } else {
@@ -378,7 +458,7 @@ export async function approveAttendanceCorrection({
                 check_out_time: checkOutDateTime.toISOString(),
                 work_type: 'OFFICE',
                 status: 'COMPLETED',
-                note: `[AUTO-CREATED FOR ${request.type}] ${request.reason}`
+                note: `[AUTO-CREATED FOR ${request.type}] ${finalReason}`
             });
         }
     }
@@ -394,15 +474,16 @@ export async function approveAttendanceCorrection({
             statusBefore: freshLog?.status,
             noteBefore: freshLog?.note,
             behavior,
-            reason: request.reason,
+            reason: finalReason,
             processAction
         });
     }
 
     if (behavior?.correctionTarget !== 'CHECKOUT_ONLY') {
         const { startTime: defaultStartTime, lateBuffer: buffer } = parseWorkConfig(masterOptions);
+        const { maxShiftTimeStr } = getMaxShiftWithBuffer(masterOptions);
         
-        const referenceStartTime = customStartTime || defaultStartTime;
+        const referenceStartTime = customStartTime || maxShiftTimeStr || defaultStartTime;
         const checkInDateTime = new Date(`${shiftDateStr}T${timeStr}:00`);
         const isLate = checkIsLate(checkInDateTime, referenceStartTime, buffer);
         
@@ -576,9 +657,9 @@ export async function approveGpsSpoofAppealRequest({
         // Award check-in points on GPS spoof appeal approval!
         if (freshLog.check_in_time) {
             const checkInDate = new Date(freshLog.check_in_time);
-            const { startTime: startTimeStr, lateBuffer: buffer } = parseWorkConfig(masterOptions);
-            const isLate = checkIsLate(checkInDate, startTimeStr, buffer);
-            const lateMinutes = isLate ? getLateMinutes(checkInDate, startTimeStr, buffer) : 0;
+            const { startTime: startTimeStr, lateBuffer: buffer, multipleShifts } = parseWorkConfig(masterOptions);
+            const isLate = checkIsLate(checkInDate, startTimeStr, buffer, freshLog.note, multipleShifts);
+            const lateMinutes = isLate ? getLateMinutes(checkInDate, startTimeStr, buffer, freshLog.note, multipleShifts) : 0;
 
             await processAction(request.userId, 'ATTENDANCE_CHECK_IN', {
                 status: isLate ? 'LATE' : 'ON_TIME',

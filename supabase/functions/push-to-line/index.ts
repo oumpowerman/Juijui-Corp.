@@ -11,7 +11,8 @@ import {
   getWorkConfigOptions,
   markAsAbandoned,
   markAsSuccess,
-  markAsFailed
+  markAsFailed,
+  getSubmissionAlertMode
 } from './services/database.ts';
 import { sendLineMessages } from './services/lineService.ts';
 import { buildFlexHeader } from './templates/flexBase.ts';
@@ -63,8 +64,65 @@ Deno.serve(async (req: any) => {
 
         claimedIds = claimedRecords.map((r: any) => r.id);
 
-        // 1. Get Target LINE ID / Destination
-        const { targetDestination } = await getTargetDestination(supabaseAdmin, record);
+        // Fetch LINE submission alert mode config
+        const submissionAlertMode = await getSubmissionAlertMode(supabaseAdmin);
+
+        // Handle NONE Mode: Suppress notification entirely
+        if (record.type === 'APPROVAL_REQ' && submissionAlertMode === 'NONE') {
+          console.log(`Notification ${record.id} bypassed because LINE_SUBMISSION_ALERT_MODE is set to NONE.`);
+          await supabaseAdmin.from('notifications').update({
+            line_status: 'ABANDONED',
+            last_error: 'Submission notifications disabled by LINE_SUBMISSION_ALERT_MODE = NONE'
+          }).in('id', claimedIds);
+          return;
+        }
+
+        // Handle GROUP_ONLY Deduplication: If this is an APPROVAL_REQ, we only send it once to the group.
+        if (record.type === 'APPROVAL_REQ' && submissionAlertMode === 'GROUP_ONLY' && record.related_id) {
+          const { data: siblings, error: siblingError } = await supabaseAdmin
+            .from('notifications')
+            .select('id, line_status')
+            .eq('related_id', record.related_id)
+            .eq('type', 'APPROVAL_REQ');
+
+          if (siblingError) {
+            console.error("Error fetching sibling notifications for deduplication:", siblingError);
+          }
+
+          if (siblings && siblings.length > 0) {
+            // Check if any sibling is already marked as SUCCESS
+            const hasSuccess = siblings.some((s: any) => s.line_status === 'SUCCESS');
+            if (hasSuccess) {
+              console.log(`Deduplication: Notification for related_id ${record.related_id} was already sent to group successfully. Marking sibling notifications as ABANDONED.`);
+              await supabaseAdmin.from('notifications').update({
+                line_status: 'ABANDONED',
+                last_error: 'Duplicate request notification for group already sent'
+              }).in('id', claimedIds);
+              return;
+            }
+
+            // Sort sibling IDs lexicographically to find the smallest UUID (Elected Representative)
+            const sortedIds = siblings.map((s: any) => s.id).sort();
+            const smallestId = sortedIds[0];
+
+            // Only the notification with the smallest ID proceeds to send to the LINE group
+            const isElected = record.id === smallestId;
+
+            if (!isElected) {
+              console.log(`Deduplication: Notification ${record.id} is NOT the elected leader (Elected: ${smallestId}). Abandoning to avoid duplicate group send.`);
+              await supabaseAdmin.from('notifications').update({
+                line_status: 'ABANDONED',
+                last_error: 'Deduplicated: Sibling notification will handle group alert'
+              }).in('id', claimedIds);
+              return;
+            } else {
+              console.log(`Deduplication: Notification ${record.id} IS the elected leader. Proceeding to send the group alert.`);
+            }
+          }
+        }
+
+        // 1. Get Target LINE ID / Destination (passing submissionAlertMode)
+        const { targetDestination } = await getTargetDestination(supabaseAdmin, record, submissionAlertMode);
 
         // CASE: No LINE ID or Destination Linked
         if (!targetDestination) {
@@ -84,9 +142,21 @@ Deno.serve(async (req: any) => {
           lineMessagePayload = buildDailySummaryPayload(targetDestination, record);
         } else {
           const isBatch = claimedRecords.length > 1;
+          
+          let effectiveType = record.type;
+          const isAttendanceAlert = record.type === 'OVERDUE' && (
+            record.title?.includes('ลงเวลา') || 
+            record.title?.includes('ผ่อนปรน') || 
+            record.title?.includes('เช็คอิน') || 
+            record.link_path === 'ATTENDANCE'
+          );
+          if (isAttendanceAlert) {
+            effectiveType = 'ATTENDANCE_ALERT';
+          }
+
           const primaryConfig = isBatch
             ? { color: '#4f46e5', emoji: '🔔', label: 'การแจ้งเตือนแบบรวม' }
-            : (TYPE_CONFIG[record.type] || TYPE_CONFIG['INFO']);
+            : (TYPE_CONFIG[effectiveType] || TYPE_CONFIG['INFO']);
 
           const bodyContents = isBatch
             ? buildBatchBodyContents(claimedRecords)

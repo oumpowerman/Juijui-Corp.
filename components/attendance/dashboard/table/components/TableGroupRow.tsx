@@ -1,6 +1,7 @@
 import React from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { TableGroup } from "../types";
+import { BRAND_CONFIG } from "../../../../../config/brand";
 
 interface TableGroupRowProps {
   group: TableGroup;
@@ -15,12 +16,14 @@ export const TableGroupRow: React.FC<TableGroupRowProps> = ({
   isCollapsed,
   onToggle,
 }) => {
+  const colSpan = BRAND_CONFIG.showGradeMode === 2 ? 8 : 9;
+
   return (
     <tr
       className={`${group.bg} cursor-pointer border-y border-gray-100 select-none transition-all`}
       onClick={onToggle}
     >
-      <td colSpan={9} className="px-6 py-3 font-bold text-sm">
+      <td colSpan={colSpan} className="px-6 py-3 font-bold text-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span>{group.title}</span>

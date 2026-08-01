@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -68,80 +68,122 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({
     const startTime = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'START_TIME')?.label || '10:00';
     const lateBuffer = parseInt(masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'LATE_BUFFER')?.label || '15');
 
+    const shiftsEnabledOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && (o.key === 'MULTIPLE_SHIFTS_ENABLED' || o.key === 'MULTIPLE_SHIFTS_ENABLE'));
+    const shiftsListOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'MULTIPLE_SHIFTS_LIST');
+    const isShiftsEnabled = shiftsEnabledOpt?.label === 'true';
+
+    const { earliestStartTimeStr, latestStartTimeStr } = useMemo(() => {
+        let earliest = startTime;
+        let latest = startTime;
+        if (isShiftsEnabled && shiftsListOpt?.label) {
+            const shiftsList = shiftsListOpt.label.split(',').map(s => s.trim()).filter(Boolean);
+            if (shiftsList.length > 0) {
+                const sortedShifts = [...shiftsList].sort((a, b) => {
+                    const [ah, am] = a.split(':').map(Number);
+                    const [bh, bm] = b.split(':').map(Number);
+                    return (ah * 60 + am) - (bh * 60 + bm);
+                });
+                earliest = sortedShifts[0];
+                latest = sortedShifts[sortedShifts.length - 1];
+            }
+        }
+        return { earliestStartTimeStr: earliest, latestStartTimeStr: latest };
+    }, [startTime, isShiftsEnabled, shiftsListOpt]);
+
     const isForgotCheckInAllowed = useMemo(() => {
         if (initialDate) return true;
         if (!!todayLog) return false;
-        if (!startTime) return false;
+        if (!earliestStartTimeStr || !latestStartTimeStr) return false;
 
         const now = new Date();
-        const [startHour, startMinute] = startTime.split(':').map(Number);
-        const workStartTime = setMinutes(setHours(now, startHour), startMinute);
-        const showAfterTime = addMinutes(workStartTime, lateBuffer);
-        const hideAfterTime = addHours(workStartTime, 12);
+        const [earliestHour, earliestMinute] = earliestStartTimeStr.split(':').map(Number);
+        const earliestWorkStartTime = setMinutes(setHours(now, earliestHour), earliestMinute);
+        const showAfterTime = addMinutes(earliestWorkStartTime, lateBuffer);
+
+        const [latestHour, latestMinute] = latestStartTimeStr.split(':').map(Number);
+        const latestWorkStartTime = setMinutes(setHours(now, latestHour), latestMinute);
+        const hideAfterTime = addHours(latestWorkStartTime, 12);
 
         try {
             return isWithinInterval(now, { start: showAfterTime, end: hideAfterTime });
         } catch (e) {
             return false;
         }
-    }, [startTime, lateBuffer, todayLog, initialDate]);
+    }, [earliestStartTimeStr, latestStartTimeStr, lateBuffer, todayLog, initialDate]);
 
     const forgotCheckInWindow = useMemo(() => {
-        if (!startTime) return { showStr: '', hideStr: '' };
+        if (!earliestStartTimeStr || !latestStartTimeStr) return { showStr: '', hideStr: '' };
         const now = new Date();
-        const [startHour, startMinute] = startTime.split(':').map(Number);
-        const workStartTime = setMinutes(setHours(now, startHour), startMinute);
-        const showAfterTime = addMinutes(workStartTime, lateBuffer);
-        const hideAfterTime = addHours(workStartTime, 12);
+        const [earliestHour, earliestMinute] = earliestStartTimeStr.split(':').map(Number);
+        const earliestWorkStartTime = setMinutes(setHours(now, earliestHour), earliestMinute);
+        const showAfterTime = addMinutes(earliestWorkStartTime, lateBuffer);
+
+        const [latestHour, latestMinute] = latestStartTimeStr.split(':').map(Number);
+        const latestWorkStartTime = setMinutes(setHours(now, latestHour), latestMinute);
+        const hideAfterTime = addHours(latestWorkStartTime, 12);
         
         return {
             showStr: format(showAfterTime, 'HH:mm'),
             hideStr: format(hideAfterTime, 'HH:mm')
         };
-    }, [startTime, lateBuffer]);
+    }, [earliestStartTimeStr, latestStartTimeStr, lateBuffer]);
 
     const isForgotCheckOutAllowed = useMemo(() => {
         return outdatedLogs && outdatedLogs.length > 0;
     }, [outdatedLogs]);
 
+    const prevIsOpenRef = useRef(false);
+
     useEffect(() => {
         if (isOpen) {
             document.body.style.overflow = 'hidden';
-            if (fixedType) {
-                if (fixedType === 'FORGOT_CHECKIN' && !isForgotCheckInAllowed) {
-                    onClose();
-                    showAlert(
-                        `การแจ้งลืมลงเวลาเข้างาน จะสามารถส่งคำขอได้หลังจากเวลาเริ่มงานไปแล้ว ${startTime} + ${lateBuffer} นาที จนถึงไม่เกิน 12 ชั่วโมงหลังเริ่มงานเท่านั้น (ช่วงเวลาที่กำหนดคือ ${forgotCheckInWindow.showStr} น. - ${forgotCheckInWindow.hideStr} น.) ในเวลอนอกเหนือจากนี้กรุณาทำการลงเวลาเข้างานตามปกติครับ`,
-                        "เงื่อนไขการส่งคำร้อง"
-                    );
-                    return;
+            
+            // Only initialize step and selectedType when the modal is transitioning from closed to open
+            if (!prevIsOpenRef.current) {
+                if (fixedType) {
+                    if (fixedType === 'FORGOT_CHECKIN' && !isForgotCheckInAllowed) {
+                        prevIsOpenRef.current = isOpen;
+                        onClose();
+                        showAlert(
+                            `การแจ้งลืมลงเวลาเข้างาน จะสามารถส่งคำขอได้หลังจากเวลาเริ่มงานไปแล้ว ${earliestStartTimeStr} + ${lateBuffer} นาที จนถึงไม่เกิน 12 ชั่วโมงหลังเริ่มงานเท่านั้น (ช่วงเวลาที่กำหนดคือ ${forgotCheckInWindow.showStr} น. - ${forgotCheckInWindow.hideStr} น.) ในเวลอนอกเหนือจากนี้กรุณาทำการลงเวลาเข้างานตามปกติครับ`,
+                            "เงื่อนไขการส่งคำร้อง"
+                        );
+                        return;
+                    }
+                    if (fixedType === 'FORGOT_CHECKOUT' && !isForgotCheckOutAllowed) {
+                        prevIsOpenRef.current = isOpen;
+                        onClose();
+                        showAlert(
+                            "การแจ้งลืมลงเวลาออกงานของวันก่อนๆ กรุณากดแจ้งที่กล่องแจ้งเตือนสีส้มที่หน้าหลักของระบบ หรือหากต้องการยื่นย้อนหลังเป็นกรณีพิเศษ กรุณาติดต่อผู้ดูแลระบบครับ",
+                            "เงื่อนไขการส่งคำร้อง"
+                        );
+                        return;
+                    }
+                    setSelectedType(fixedType);
+                    setDirection('forward');
+                    setStep('FORM');
+                } else {
+                    setSelectedType(null);
+                    setDirection('forward');
+                    setStep('SELECT');
                 }
-                if (fixedType === 'FORGOT_CHECKOUT' && !isForgotCheckOutAllowed) {
-                    onClose();
-                    showAlert(
-                        "การแจ้งลืมลงเวลาออกงานของวันก่อนๆ กรุณากดแจ้งที่กล่องแจ้งเตือนสีส้มที่หน้าหลักของระบบ หรือหากต้องการยื่นย้อนหลังเป็นกรณีพิเศษ กรุณาติดต่อผู้ดูแลระบบครับ",
-                        "เงื่อนไขการส่งคำร้อง"
-                    );
-                    return;
-                }
-                setSelectedType(fixedType);
-                setDirection('forward');
-                setStep('FORM');
-            } else {
-                setSelectedType(null);
-                setDirection('forward');
-                setStep('SELECT');
             }
         } else {
             document.body.style.overflow = 'unset';
         }
 
+        prevIsOpenRef.current = isOpen;
+
         return () => {
             document.body.style.overflow = 'unset';
         };
-    }, [isOpen, fixedType, isForgotCheckInAllowed, isForgotCheckOutAllowed, startTime, lateBuffer, forgotCheckInWindow, onClose, showAlert]);
+    }, [isOpen, fixedType, isForgotCheckInAllowed, isForgotCheckOutAllowed, startTime, lateBuffer, forgotCheckInWindow.showStr, forgotCheckInWindow.hideStr, onClose, showAlert]);
 
     const handleSelectType = (key: string) => {
+        if (!isDriveConnected) {
+            connectDrive();
+            return;
+        }
         setDirection('forward');
         setSelectedType(key);
         setStep('FORM');

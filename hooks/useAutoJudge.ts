@@ -14,6 +14,7 @@ import { isUserOnLeave, isHolidayOrException, countWorkingDaysBetween } from '..
 import { toValidUuid } from '../utils/gamificationUtils';
 import { useMasterData } from './useMasterData';
 import { useUserSession } from '../context/UserSessionContext';
+import { BRAND_CONFIG } from '../config/brand';
 
 export const useAutoJudge = (currentUser: User | null) => {
     const { processAction } = useGamification(currentUser);
@@ -199,48 +200,49 @@ export const useAutoJudge = (currentUser: User | null) => {
             // =========================================================
             // SECTION F: DEATH SYSTEM (ระบบมีเวลาฟื้นฟู HP 7 วันทำงาน)
             // =========================================================
-            if (currentUser.hp <= 0 && !currentUser.hpDepletedAt) {
-                console.log(`[AutoJudge] HP Depleted! Setting start of death timer for ${currentUser.name}`);
-                await supabase.from('profiles').update({ hp_depleted_at: new Date().toISOString() }).eq('id', currentUser.id);
-            }
+            if (BRAND_CONFIG.gamificationMode !== 2) {
+                if (currentUser.hp <= 0 && !currentUser.hpDepletedAt) {
+                    console.log(`[AutoJudge] HP Depleted! Setting start of death timer for ${currentUser.name}`);
+                    await supabase.from('profiles').update({ hp_depleted_at: new Date().toISOString() }).eq('id', currentUser.id);
+                }
 
-            if (currentUser.hpDepletedAt && currentUser.status !== 'DEATH') {
-                const depletedDate = new Date(currentUser.hpDepletedAt);
-                const workingDaysPassed = countWorkingDaysBetween(
-                    depletedDate, 
-                    today, 
-                    annualHolidays, 
-                    calendarExceptions, 
-                    currentUser
-                );
+                if (currentUser.hpDepletedAt && currentUser.status !== 'DEATH') {
+                    const depletedDate = new Date(currentUser.hpDepletedAt);
+                    const workingDaysPassed = countWorkingDaysBetween(
+                        depletedDate, 
+                        today, 
+                        annualHolidays, 
+                        calendarExceptions, 
+                        currentUser
+                    );
 
-                console.log(`[AutoJudge] Death Timer: ${workingDaysPassed}/7 working days passed for ${currentUser.name}`);
+                    console.log(`[AutoJudge] Death Timer: ${workingDaysPassed}/7 working days passed for ${currentUser.name}`);
 
-                if (workingDaysPassed >= 7) {
-                    console.log(`[AutoJudge] 💀 FATALITY: ${currentUser.name} has been HP<=0 for 7 working days. Setting status to DEATH.`);
-                    await supabase.from('profiles').update({ status: 'DEATH', is_active: false }).eq('id', currentUser.id);
-                    
-                    // Create game log for burial
-                    await processAction(currentUser.id, 'SYSTEM_BURIAL', {
-                        hpChange: 0,
-                        xpChange: -100,
-                        pointsChange: 0,
-                        description: `เสียชีวิตอย่างเป็นทางการเนื่องจาก HP ไม่ได้รับการฟื้นฟูภายใน 7 วันทำการ`,
-                        relatedId: currentUser.id
-                    });
-                } else {
-                    // Send Warnings using Notifications (similar to Negligence but for Death)
-                    const daysRemaining = 7 - workingDaysPassed;
-                    
-                    if (daysRemaining <= 3 && !hasNotification('DEATH_WARNING', `${daysRemaining} วันสุดท้าย`)) {
-                        try {
-                            // Clear out older DEATH_WARNING notifications by marking them as read (to avoid stacks of modals)
-                            await supabase
-                                .from('notifications')
-                                .update({ is_read: true })
-                                .eq('user_id', currentUser.id)
-                                .eq('type', 'DEATH_WARNING')
-                                .eq('is_read', false);
+                    if (workingDaysPassed >= 7) {
+                        console.log(`[AutoJudge] 💀 FATALITY: ${currentUser.name} has been HP<=0 for 7 working days. Setting status to DEATH.`);
+                        await supabase.from('profiles').update({ status: 'DEATH', is_active: false }).eq('id', currentUser.id);
+                        
+                        // Create game log for burial
+                        await processAction(currentUser.id, 'SYSTEM_BURIAL', {
+                            hpChange: 0,
+                            xpChange: -100,
+                            pointsChange: 0,
+                            description: `เสียชีวิตอย่างเป็นทางการเนื่องจาก HP ไม่ได้รับการฟื้นฟูภายใน 7 วันทำการ`,
+                            relatedId: currentUser.id
+                        });
+                    } else {
+                        // Send Warnings using Notifications (similar to Negligence but for Death)
+                        const daysRemaining = 7 - workingDaysPassed;
+                        
+                        if (daysRemaining <= 3 && !hasNotification('DEATH_WARNING', `${daysRemaining} วันสุดท้าย`)) {
+                            try {
+                                // Clear out older DEATH_WARNING notifications by marking them as read (to avoid stacks of modals)
+                                await supabase
+                                    .from('notifications')
+                                    .update({ is_read: true })
+                                    .eq('user_id', currentUser.id)
+                                    .eq('type', 'DEATH_WARNING')
+                                    .eq('is_read', false);
                         } catch (cleanErr) {
                             console.error("Error cleaning old death warning notifications:", cleanErr);
                         }
@@ -256,6 +258,7 @@ export const useAutoJudge = (currentUser: User | null) => {
                     }
                 }
             }
+        }
 
         } catch (err) {
             console.error("Auto Judge Error:", err);

@@ -21,11 +21,9 @@ export const useAttendanceStatus = (userId: string) => {
         );
 
         let currentTodayLog = null;
-        let currentOutdatedLogs: AttendanceLog[] = [];
 
         if (activeLogs.length > 0) {
             currentTodayLog = activeLogs.find(l => l.date === todayDateStr) || null;
-            currentOutdatedLogs = activeLogs.filter(l => l.date !== todayDateStr);
 
             if (!currentTodayLog) {
                 currentTodayLog = userLogs.find(l => l.date === todayDateStr) || null;
@@ -33,6 +31,16 @@ export const useAttendanceStatus = (userId: string) => {
         } else {
             currentTodayLog = userLogs.find(l => l.date === todayDateStr) || null;
         }
+
+        const currentOutdatedLogs = userLogs.filter(log => {
+            if (log.date === todayDateStr) return false;
+            if (log.checkOutTime) return false;
+
+            const isNormalOutdated = ['WORKING', 'PENDING_VERIFY'].includes(log.status);
+            const isRejectedForgotCheckout = log.status === 'ACTION_REQUIRED' && !!log.checkInTime;
+
+            return isNormalOutdated || isRejectedForgotCheckout;
+        });
 
         return { todayLog: currentTodayLog, outdatedLogs: currentOutdatedLogs };
     }, [userId, attendanceLogs, todayDateStr]);

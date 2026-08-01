@@ -6,6 +6,7 @@ import { TableHeader } from "./table/components/TableHeader";
 import { TableGroupRow } from "./table/components/TableGroupRow";
 import { EmployeeRow } from "./table/components/EmployeeRow";
 import { UserStat, GroupMode, DashboardTableProps } from "./table/types";
+import { BRAND_CONFIG } from "../../../config/brand";
 
 const DashboardTable: React.FC<DashboardTableProps> = ({
   isLoading,
@@ -320,19 +321,21 @@ const DashboardTable: React.FC<DashboardTableProps> = ({
               </th>
 
               <th className="px-6 py-4 font-bold text-center">Total Hours</th>
-              <th className="px-6 py-4 font-bold text-center">Grade</th>
+              {BRAND_CONFIG.showGradeMode !== 2 && (
+                <th className="px-6 py-4 font-bold text-center">Grade</th>
+              )}
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
             {isLoading ? (
               <tr>
-                <td colSpan={9} className="py-20 text-center text-gray-400">
+                <td colSpan={BRAND_CONFIG.showGradeMode === 2 ? 8 : 9} className="py-20 text-center text-gray-400">
                   Loading Report...
                 </td>
               </tr>
             ) : filteredStats.length === 0 ? (
               <tr>
-                <td colSpan={9} className="py-20 text-center text-gray-400">
+                <td colSpan={BRAND_CONFIG.showGradeMode === 2 ? 8 : 9} className="py-20 text-center text-gray-400">
                   ไม่พบข้อมูลพนักงาน
                 </td>
               </tr>

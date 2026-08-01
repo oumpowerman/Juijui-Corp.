@@ -18,7 +18,7 @@ export interface ProcessedOtRequest {
 
 export interface MatchedOtRequest extends ProcessedOtRequest {
     actualScannedHours: number;
-    scanStatus: 'NOT_FOUND' | 'EARLY' | 'OK';
+    scanStatus: 'NOT_FOUND' | 'EARLY' | 'OK' | 'FIXED';
     checkoutDisplay: string;
     reqHours: number;
 }

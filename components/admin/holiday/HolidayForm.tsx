@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
-import { Edit2, CalendarPlus, X, Loader2, Check, Plus, Sparkles } from 'lucide-react';
+import { Edit2, CalendarPlus, X, Loader2, Check, Plus, Sparkles, AlertTriangle } from 'lucide-react';
 import { MasterOption } from '../../../types';
-import { MONTHS, HOLIDAY_TYPES } from './holidayTypes';
+import { MONTHS, HOLIDAY_TYPES, Holiday, getHolidayTypeInfo } from './holidayTypes';
 import FilterDropdown from '../../common/FilterDropdown';
 
 interface HolidayFormProps {
@@ -18,13 +18,24 @@ interface HolidayFormProps {
     onSubmit: (e: React.FormEvent) => void;
     isSubmitting: boolean;
     eventTypeOptions: MasterOption[];
+    annualHolidays: Holiday[];
 }
 
 const HolidayForm: React.FC<HolidayFormProps> = ({
     editingId, newName, setNewName, newDay, setNewDay, newMonth, setNewMonth, newTypeKey, setNewTypeKey,
-    onCancelEdit, onSubmit, isSubmitting, eventTypeOptions
+    onCancelEdit, onSubmit, isSubmitting, eventTypeOptions, annualHolidays
 }) => {
     
+    // Check if the current selected date has an existing holiday configured
+    const duplicateHoliday = useMemo(() => {
+        return (annualHolidays || []).find(h => h.day === newDay && h.month === newMonth && h.id !== editingId);
+    }, [annualHolidays, newDay, newMonth, editingId]);
+
+    const duplicateTypeInfo = useMemo(() => {
+        if (!duplicateHoliday) return null;
+        return getHolidayTypeInfo(duplicateHoliday.typeKey || duplicateHoliday.type_key || 'ANNUAL', eventTypeOptions);
+    }, [duplicateHoliday, eventTypeOptions]);
+
     // Dynamic day options according to selected month
     const dayOptions = useMemo(() => {
         const daysMap: Record<number, number> = {
@@ -145,18 +156,31 @@ const HolidayForm: React.FC<HolidayFormProps> = ({
                     </div>
                 </div>
 
-                <div>
-                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5 pl-1">ประเภทวันหยุด</label>
-                    <FilterDropdown
-                        label="เลือกประเภทวันหยุด"
-                        options={typeOptions}
-                        value={newTypeKey}
-                        onChange={setNewTypeKey}
-                        showAllOption={false}
-                        clearable={false}
-                        align="left"
-                        activeColorClass="bg-indigo-50 border-indigo-200 text-indigo-700 font-extrabold"
-                    />
+                <div className="space-y-3">
+                    <div>
+                        <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5 pl-1">ประเภทวันหยุด</label>
+                        <FilterDropdown
+                            label="เลือกประเภทวันหยุด"
+                            options={typeOptions}
+                            value={newTypeKey}
+                            onChange={setNewTypeKey}
+                            showAllOption={false}
+                            clearable={false}
+                            align="left"
+                            activeColorClass="bg-indigo-50 border-indigo-200 text-indigo-700 font-extrabold"
+                        />
+                    </div>
+
+                    {duplicateHoliday && duplicateTypeInfo && (
+                        <div className="p-4 bg-amber-50 rounded-2xl border border-amber-200/80 flex items-start gap-2.5 animate-in fade-in slide-in-from-top-1 duration-200 shadow-sm">
+                            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                            <div className="text-xs leading-relaxed text-amber-800 font-medium">
+                                <span className="font-extrabold text-amber-950">วันที่ระบุมีวันหยุดอยู่แล้ว:</span>{' '}
+                                <span className="font-extrabold text-amber-900 underline">{duplicateHoliday.name}</span>{' '}
+                                ({duplicateTypeInfo.label})
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 <button 

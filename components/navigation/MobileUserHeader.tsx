@@ -3,6 +3,7 @@ import { Heart, Trophy, Minimize2, Maximize2, X } from 'lucide-react';
 import { User } from '../../types';
 import SkinManager from '../dashboard/member/welcome-header/SkinManager';
 import { MobileSkinTheme } from './MobileSkinThemes';
+import { BRAND_CONFIG } from '../../config/brand';
 
 interface MobileUserHeaderProps {
     currentUser: User;
@@ -27,6 +28,21 @@ const MobileUserHeader: React.FC<MobileUserHeaderProps> = ({
     progressPercent,
     getStatusColor,
 }) => {
+    const hpMode = BRAND_CONFIG.hpDisplayMode ?? 1;
+    const maxHp = currentUser.maxHp || 100;
+    const currentHp = currentUser.hp ?? 100;
+    const lostHp = Math.max(0, maxHp - currentHp);
+
+    // Mode 1: Standard Remaining HP (starts at 100% when HP is full)
+    // Mode 2: Damage/Penalty Bar (starts at 0% when HP is full, fills up as HP is lost)
+    const hpFillPercentage = hpMode === 1
+        ? Math.max(0, Math.min(100, (currentHp / maxHp) * 100))
+        : Math.max(0, Math.min(100, (lostHp / maxHp) * 100));
+
+    const hpFillColor = hpMode === 1
+        ? (currentHp <= 0 ? 'bg-red-700' : activeSkinTheme.hpFill)
+        : (lostHp > 0 ? 'bg-gradient-to-r from-amber-500 to-red-600' : 'bg-slate-700/30');
+
     return (
         <div className={`${activeSkinTheme.cardBg} p-4 pb-6 min-[375px]:p-6 min-[375px]:pb-8 rounded-b-[2.5rem] min-[375px]:rounded-b-[3rem] shadow-2xl relative overflow-hidden shrink-0 transition-all duration-300`}>
             {/* Ambient Blur Circles */}
@@ -76,20 +92,24 @@ const MobileUserHeader: React.FC<MobileUserHeaderProps> = ({
 
                 {/* Mini Stats Bar */}
                 <div className="flex gap-2.5 min-[375px]:gap-3">
-                    <div className={`flex-1 ${activeSkinTheme.badgeBg} rounded-2xl p-2 min-[375px]:p-3 backdrop-blur-md border shadow-inner`}>
-                        <div className={`flex justify-between items-center text-[9px] min-[375px]:text-[10px] font-bold ${activeSkinTheme.statLabelColor} mb-1`}>
+                    <div className={`flex-1 ${activeSkinTheme.badgeBg} rounded-2xl p-2 min-[375px]:p-3 backdrop-blur-md border shadow-inner flex flex-col justify-center`}>
+                        <div className={`flex justify-between items-center text-[9px] min-[375px]:text-[10px] font-bold ${activeSkinTheme.statLabelColor} ${hpMode === 2 ? '' : 'mb-1'}`}>
                             <span className="flex items-center">
-                                <Heart className={`w-3 h-3 mr-1 ${currentUser.hp <= 0 ? 'text-red-600 animate-pulse' : 'text-red-400'} fill-current`} /> 
+                                <Heart className={`w-3 h-3 mr-1 ${currentHp <= 0 ? 'text-red-600 animate-pulse' : 'text-red-400'} fill-current`} /> 
                                 HP
                             </span>
-                            <span className={currentUser.hp < 0 ? 'text-red-400 font-black' : ''}>{currentUser.hp}/{currentUser.maxHp}</span>
+                            <span className={currentHp < 0 ? 'text-red-400 font-black' : ''}>
+                                {hpMode === 2 ? `${currentHp}` : `${currentHp}/${maxHp}`}
+                            </span>
                         </div>
-                        <div className={`h-1 ${activeSkinTheme.hpBg} rounded-full overflow-hidden`}>
-                            <div 
-                                className={`h-full transition-all duration-500 ${currentUser.hp <= 0 ? 'bg-red-700' : activeSkinTheme.hpFill}`} 
-                                style={{ width: `${Math.max(0, Math.min(100, (currentUser.hp / (currentUser.maxHp || 100)) * 100))}%` }}
-                            ></div>
-                        </div>
+                        {hpMode !== 2 && (
+                            <div className={`h-1 ${activeSkinTheme.hpBg} rounded-full overflow-hidden`}>
+                                <div 
+                                    className={`h-full transition-all duration-500 ${hpFillColor}`} 
+                                    style={{ width: `${hpFillPercentage}%` }}
+                                ></div>
+                            </div>
+                        )}
                     </div>
                     <div className={`flex-1 ${activeSkinTheme.badgeBg} rounded-2xl p-2 min-[375px]:p-3 backdrop-blur-md border shadow-inner`}>
                         <div className={`flex justify-between items-center text-[9px] min-[375px]:text-[10px] font-bold ${activeSkinTheme.statLabelColor} mb-1`}>

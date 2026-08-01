@@ -6,6 +6,7 @@ import { format } from 'date-fns';
 import { LeaveRequest } from '../../../types/attendance';
 import { getWorkingDaysDifference, getMaxShiftWithBuffer } from '../../../lib/attendanceUtils';
 import { useMasterData } from '../../../hooks/useMasterData';
+import { ApproveRequestParams } from '../../../hooks/useAdminApprovals';
 import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 import { attendanceService } from '../../../services/attendanceService';
 
@@ -17,19 +18,13 @@ import { AdminOtAdjustment } from './request-detail/AdminOtAdjustment';
 import { ActionFooter } from './request-detail/ActionFooter';
 import { parseReason } from './request-detail/utils';
 import { HpPenaltySection } from './request-detail/HpPenaltySection';
+import { getRegistryItem } from '../../../constants/attendanceRegistry';
 
 interface RequestDetailModalProps {
     request: LeaveRequest | null;
     isOpen: boolean;
     onClose: () => void;
-    onApprove: (
-        req: LeaveRequest, 
-        customOtHours?: number, 
-        customStartTime?: string, 
-        customEndTime?: string,
-        adminNote?: string,
-        hpPenalty?: number
-    ) => Promise<void>;
+    onApprove: (params: ApproveRequestParams) => Promise<void>;
     onReject: (id: string, reason: string, customCheckInTime?: string, hpPenalty?: number, rejectionMode?: 'ABSENT' | 'ACTION_REQUIRED' | 'KEEP_WORKING') => Promise<void>;
     initialRejectMode?: boolean;
 }
@@ -88,6 +83,7 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
     ));
 
     const parsed = parseReason(request?.reason || '');
+    const isFixedOt = !!(request && ((request as any).isFixed || (request as any).is_fixed || parsed.isFixedOt));
 
     useEffect(() => {
         setAdminNote('');
@@ -108,6 +104,10 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
                     sTime = '';
                     eTime = '';
                 }
+            }
+            if (isFixedOt) {
+                sTime = '00:00';
+                eTime = '00:00';
             }
             setEditStartTime(sTime);
             setEditEndTime(eTime);
@@ -177,31 +177,25 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
     const handleApprove = async (customStartTimeArg?: string) => {
         setIsSubmitting(true);
         try {
-            const hasCustom = request.type === 'OVERTIME' && editOtHours !== '';
-            const finalStartTime = request.type === 'FORGOT_CHECKIN'
-                ? (customStartTimeArg || editStartTime || undefined)
+            const isOvertime = request.type === 'OVERTIME';
+            const finalStartTime = isOvertime
+                ? (editStartTime !== originalStartTime ? editStartTime : undefined)
                 : (customStartTimeArg || editStartTime || undefined);
+            const finalEndTime = isOvertime
+                ? (editEndTime !== originalEndTime ? editEndTime : undefined)
+                : (editEndTime || undefined);
+            const hasCustom = isOvertime && editOtHours !== '' && editOtHours !== originalOtHours;
 
-            if (finalStartTime && ['FORGOT_CHECKIN', 'FORGOT_BOTH', 'LATE_ENTRY', 'TIME_CORRECTION'].includes(request.type)) {
-                const { maxAllowedTimeStr, maxShiftTimeStr, bufferMinutes } = getMaxShiftWithBuffer(masterOptions);
-                if (finalStartTime > maxAllowedTimeStr) {
-                    showAlert(
-                        `ไม่สามารถอนุมัติได้: เวลาที่ระบุ (${finalStartTime} น.) เกินเวลาสายสุดของกะงานรวม Buffer (${maxAllowedTimeStr} น. - คำนวณจากกะสุดท้าย ${maxShiftTimeStr} น. + Buffer ${bufferMinutes} นาที)`,
-                        'เวลาเกินกำหนดสายสุด'
-                    );
-                    setIsSubmitting(false);
-                    return;
-                }
-            }
+            // Centralized check-in/start time validation using helper - bypassed for admin overrides
 
-            await onApprove(
+            await onApprove({
                 request,
-                hasCustom ? parseFloat(editOtHours) : undefined,
-                finalStartTime,
-                editEndTime || undefined,
-                adminNote || undefined,
-                hpPenalty || undefined
-            );
+                customOtHours: hasCustom ? parseFloat(editOtHours) : undefined,
+                customStartTime: finalStartTime,
+                customEndTime: finalEndTime,
+                adminNote: adminNote || undefined,
+                hpPenalty: hpPenalty || undefined
+            });
             onClose();
         } catch (e: any) {
             console.error(e);
@@ -223,11 +217,16 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
         }
     };
 
-    let defaultCheckInTime = '10:00';
-    if (request && request.type === 'FORGOT_CHECKIN') {
-        const timeMatch = request.reason ? request.reason.match(/\[TIME:(\d{2}:\d{2})\]/) : null;
-        defaultCheckInTime = timeMatch ? timeMatch[1] : '10:00';
-    }
+    const shiftsListOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'MULTIPLE_SHIFTS_LIST');
+    const shiftsList = (shiftsListOpt?.label || '08:00, 08:30, 09:00')
+        .split(',')
+        .map(s => s.trim())
+        .filter(Boolean);
+
+    const registryItem = request ? getRegistryItem(request.type) : undefined;
+    const defaultCheckInTime = isFixedOt 
+        ? '00:00' 
+        : (parsed.time || parsed.targetShift || registryItem?.rules?.defaultTargetTime || shiftsList[0] || '08:30');
 
     return createPortal(
         <motion.div 
@@ -252,6 +251,32 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
             >
                 {/* Header Profile Panel */}
                 <RequestHeader request={request} onClose={onClose} />
+
+                {/* Friendly Status Banner if the request is not pending */}
+                {request.status !== 'PENDING' && (
+                    <div className={`px-6 py-3 flex items-center justify-between gap-3 text-sm font-bold shadow-sm ${
+                        request.status === 'APPROVED' 
+                            ? 'bg-emerald-50 text-emerald-800 border-b border-emerald-100' 
+                            : 'bg-rose-50 text-rose-800 border-b border-rose-100'
+                    }`} id="request-status-friendly-banner">
+                        <div className="flex items-center gap-2">
+                            {request.status === 'APPROVED' ? (
+                                <>
+                                    <span className="text-lg">✅</span>
+                                    <span>คำขอนี้ได้รับการอนุมัติเรียบร้อยแล้ว</span>
+                                </>
+                            ) : (
+                                <>
+                                    <span className="text-lg">❌</span>
+                                    <span>คำขอนี้ถูกปฏิเสธแล้ว</span>
+                                </>
+                            )}
+                        </div>
+                        <span className="text-xs bg-white px-2.5 py-1 rounded-full border shadow-xs font-black">
+                            {request.status === 'APPROVED' ? 'APPROVED' : 'REJECTED'}
+                        </span>
+                    </div>
+                )}
 
                 {/* Main Content Area */}
                 <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-hidden">
@@ -308,7 +333,7 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
                                         originalStartTime={originalStartTime}
                                         originalEndTime={originalEndTime}
                                         originalOtHours={originalOtHours}
-                                        isFixed={request.isFixed || request.is_fixed || parsed.isFixedOt}
+                                        isFixed={isFixedOt}
                                     />
                                 )}
 
@@ -341,6 +366,7 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
                                     defaultCheckInTime={defaultCheckInTime}
                                     isProvisional={isProvisional}
                                     initialRejectMode={initialRejectMode}
+                                    isFixed={isFixedOt}
                                 />
                             )}
                         </div>
@@ -452,7 +478,7 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
                                                 originalStartTime={originalStartTime}
                                                 originalEndTime={originalEndTime}
                                                 originalOtHours={originalOtHours}
-                                                isFixed={request.isFixed || request.is_fixed || parsed.isFixedOt}
+                                                isFixed={isFixedOt}
                                             />
                                         )}
 
@@ -485,6 +511,7 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
                                             defaultCheckInTime={defaultCheckInTime}
                                             isProvisional={isProvisional}
                                             initialRejectMode={initialRejectMode}
+                                            isFixed={isFixedOt}
                                         />
                                     )}
                                 </div>

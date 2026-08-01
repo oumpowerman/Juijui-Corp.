@@ -13,6 +13,7 @@ import { User, ViewMode, TaskType, MenuGroup, Task } from '../types';
 import { useMobileBackHandler } from '../hooks/useMobileBackHandler';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
 import { useWorkboxContext } from '../context/WorkboxContext';
+import { BRAND_CONFIG } from '../config/brand';
 import SidebarBadge from './SidebarBadge';
 import CommandPalette from '../components/ui/CommandPalette';
 import { useMasterDataContext } from '../context/MasterDataContext';
@@ -346,7 +347,7 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({
                         >
                             {/* PANEL 1: MENU GRID */}
                             <div className="w-1/2 h-full overflow-y-auto p-4 min-[375px]:p-5 pb-32 space-y-6 min-[375px]:space-y-8 scrollbar-hide">
-                                {isDocked && (
+                                {BRAND_CONFIG.showWorkboxMode === 1 && isDocked && (
                                     <motion.button
                                         whileHover={{ scale: 1.02 }}
                                         whileTap={{ scale: 0.98 }}
@@ -378,34 +379,36 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({
                                     </motion.button>
                                 )}
 
-                                <motion.button
-                                    whileHover={{ scale: 1.02 }}
-                                    whileTap={{ scale: 0.98 }}
-                                    onClick={() => {
-                                        if (onOpenChatAssistant) {
-                                            onOpenChatAssistant();
-                                        }
-                                        setIsMenuOpen(false); // Close mobile navigation drawer
-                                    }}
-                                    className={`
-                                        w-full flex items-center justify-between p-4 rounded-2xl border transition-all duration-300 shadow-sm relative overflow-hidden group/btn
-                                        ${isDarkTheme 
-                                            ? 'bg-purple-600/20 border-purple-500/20 text-purple-200' 
-                                            : 'bg-purple-50 border-purple-100 text-purple-700'}
-                                    `}
-                                >
-                                    <div className="flex items-center gap-3 relative z-10">
-                                        <div className={`p-2 rounded-xl transition-colors duration-300 ${isDarkTheme ? 'bg-purple-500/20 text-purple-300' : 'bg-white text-purple-600 shadow-sm'}`}>
-                                            <Bot className="w-5 h-5" />
+                                {BRAND_CONFIG.showJuiJuiAiMode === 1 && (
+                                    <motion.button
+                                        whileHover={{ scale: 1.02 }}
+                                        whileTap={{ scale: 0.98 }}
+                                        onClick={() => {
+                                            if (onOpenChatAssistant) {
+                                                onOpenChatAssistant();
+                                            }
+                                            setIsMenuOpen(false); // Close mobile navigation drawer
+                                        }}
+                                        className={`
+                                            w-full flex items-center justify-between p-4 rounded-2xl border transition-all duration-300 shadow-sm relative overflow-hidden group/btn
+                                            ${isDarkTheme 
+                                                ? 'bg-purple-600/20 border-purple-500/20 text-purple-200' 
+                                                : 'bg-purple-50 border-purple-100 text-purple-700'}
+                                        `}
+                                    >
+                                        <div className="flex items-center gap-3 relative z-10">
+                                            <div className={`p-2 rounded-xl transition-colors duration-300 ${isDarkTheme ? 'bg-purple-500/20 text-purple-300' : 'bg-white text-purple-600 shadow-sm'}`}>
+                                                <Bot className="w-5 h-5" />
+                                            </div>
+                                            <div className="text-left">
+                                                <h5 className="text-sm font-black tracking-tight flex items-center gap-1">
+                                                    ผู้ช่วย Juijui Bot (AI) <Sparkles className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
+                                                </h5>
+                                                <p className={`text-[10px] ${isDarkTheme ? 'text-purple-400' : 'text-purple-500'} font-bold`}>สั่งงาน สร้างโปรเจกต์ หรือพูดคุยสอบถาม 🤖</p>
+                                            </div>
                                         </div>
-                                        <div className="text-left">
-                                            <h5 className="text-sm font-black tracking-tight flex items-center gap-1">
-                                                ผู้ช่วย Juijui Bot (AI) <Sparkles className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500" />
-                                            </h5>
-                                            <p className={`text-[10px] ${isDarkTheme ? 'text-purple-400' : 'text-purple-500'} font-bold`}>สั่งงาน สร้างโปรเจกต์ หรือพูดคุยสอบถาม 🤖</p>
-                                        </div>
-                                    </div>
-                                </motion.button>
+                                    </motion.button>
+                                )}
 
                                 {filteredMenuGroups.map((group) => {
                                     if (group.adminOnly && currentUser.role !== 'ADMIN') return null;

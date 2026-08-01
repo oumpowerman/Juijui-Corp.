@@ -25,7 +25,7 @@ const GROUPS = [
     {
         id: 'resources',
         title: 'Resources & HR',
-        keys: ['INVENTORY', 'ITEM_CONDITION', 'POSITION', 'ATTENDANCE_RULES', 'REJECTION_REASON']
+        keys: ['INVENTORY', 'ITEM_CONDITION', 'POSITION', 'ATTENDANCE_RULES', 'LOCATIONS', 'REJECTION_REASON']
     },
     {
         id: 'system',

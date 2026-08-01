@@ -83,6 +83,7 @@ const mapProfileToUser = (data: any): User => ({
     firstName: data.first_name || '',
     lastName: data.last_name || '',
     nickname: data.nickname || '',
+    username: data.username || '',
     acceptedTermsVersion: data.accepted_terms_version || 0,
     acceptedTermsAt: data.accepted_terms_at ? new Date(data.accepted_terms_at) : null
 });
@@ -124,6 +125,7 @@ const mapDBToUserUpdates = (u: any): Partial<User> => {
     if ('first_name' in u) updates.firstName = u.first_name;
     if ('last_name' in u) updates.lastName = u.last_name;
     if ('nickname' in u) updates.nickname = u.nickname;
+    if ('username' in u) updates.username = u.username;
     if ('accepted_terms_version' in u) updates.acceptedTermsVersion = u.accepted_terms_version;
     if ('accepted_terms_at' in u) updates.acceptedTermsAt = u.accepted_terms_at ? new Date(u.accepted_terms_at) : null;
     if ('start_date' in u) updates.startDate = u.start_date ? new Date(u.start_date) : undefined;
@@ -422,6 +424,43 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
             if (updates.acceptedTermsVersion !== undefined) payload.accepted_terms_version = updates.acceptedTermsVersion;
             if (updates.acceptedTermsAt !== undefined) payload.accepted_terms_at = updates.acceptedTermsAt ? updates.acceptedTermsAt.toISOString() : null;
 
+            if (updates.email !== undefined) {
+                const cleanNewEmail = updates.email.trim().toLowerCase();
+                const currentCleanEmail = (currentUserProfile.email || '').trim().toLowerCase();
+                
+                const isMockNewEmail = cleanNewEmail.endsWith('@juijui.local') || cleanNewEmail.endsWith('@juijui-app.com');
+                const isMockCurrentEmail = currentCleanEmail.endsWith('@juijui.local') || currentCleanEmail.endsWith('@juijui-app.com') || !currentCleanEmail;
+
+                if (cleanNewEmail && cleanNewEmail !== currentCleanEmail && !isMockNewEmail) {
+                    if (isMockCurrentEmail) {
+                        // Use our backend admin-bypass route because changing from a mock local email domain
+                        // triggers GoTrue/SMTP "Secure email change" verification errors for the non-existent domain.
+                        const sessionData = await supabase.auth.getSession();
+                        const token = sessionData.data.session?.access_token;
+                        if (!token) throw new Error('ไม่พบข้อมูลเซสชันการเข้าสู่ระบบ กรุณาลองใหม่อีกครั้ง');
+
+                        const res = await fetch('/api/auth/update-email', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: JSON.stringify({ email: cleanNewEmail })
+                        });
+
+                        if (!res.ok) {
+                            const errData = await res.json().catch(() => ({}));
+                            throw new Error(errData.error || 'ไม่สามารถอัปเดตอีเมลผ่านระบบหลังบ้านได้');
+                        }
+                    } else {
+                        // Regular flow for normal email addresses
+                        const { error: authError } = await supabase.auth.updateUser({ email: cleanNewEmail });
+                        if (authError) throw authError;
+                    }
+                    payload.email = cleanNewEmail;
+                }
+            }
+
             if (avatarFile) {
                 const fileExt = avatarFile.name.split('.').pop();
                 const fileName = `${currentUserProfile.id}-${Date.now()}.${fileExt}`;
@@ -435,7 +474,7 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
             if (error) throw error;
             
             // Optimistic update
-            setCurrentUserProfile(prev => prev ? ({ ...prev, ...updates, avatarUrl: payload.avatar_url || prev.avatarUrl }) : null);
+            setCurrentUserProfile(prev => prev ? ({ ...prev, ...updates, email: payload.email || prev.email, avatarUrl: payload.avatar_url || prev.avatarUrl }) : null);
             return true;
         } catch (err: any) {
             console.error('Update profile failed:', err);
@@ -549,6 +588,7 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
             if (updates.name) payload.full_name = updates.name;
             if (updates.position) payload.position = updates.position;
             if (updates.role) payload.role = updates.role;
+            if (updates.employmentType !== undefined) payload.employment_type = updates.employmentType;
             if (updates.workDays) payload.work_days = updates.workDays;
             if (updates.baseSalary !== undefined) payload.base_salary = updates.baseSalary;
             if (updates.bankAccount !== undefined) payload.bank_account = updates.bankAccount;

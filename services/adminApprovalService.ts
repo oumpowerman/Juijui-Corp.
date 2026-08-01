@@ -18,12 +18,14 @@ import {
     rejectLateEntryRequest,
     rejectForgotCheckOutRequest,
     rejectOutOfRangeCheckoutRequest,
-    rejectGpsSpoofAppealRequest
+    rejectGpsSpoofAppealRequest,
+    rejectForgotBothRequest
 } from './admin-approval/rejectionFlows';
 import {
     sendApprovalNotification,
     sendRejectionNotification,
-    publishToTeamChannel
+    publishToTeamChannel,
+    sendGroupSummaryNotification
 } from './admin-approval/communicationHelpers';
 
 export function translateRequestType(type: string): string {
@@ -158,7 +160,8 @@ export const adminApprovalService = {
             customEndTime || otReq.endTime,
             finalHours,
             adminNote,
-            isTimeModified
+            isTimeModified,
+            isFixedOt
         );
 
         if (finalDbNote) {
@@ -172,7 +175,9 @@ export const adminApprovalService = {
         // Build a custom notification message with edit logs
         let notifMsg = `คำขอ OT วันที่: ${dateDisplay} (${finalHours} ชม.) ได้รับการอนุมัติแล้ว\nรายละเอียดเดิม: ${otReq.reason}`;
         
-        if (isTimeModified) {
+        if (isFixedOt) {
+            notifMsg += `\n\n⚙️ [อนุมัติ OT แบบเหมาจ่าย (Lump-sum)]`;
+        } else if (isTimeModified) {
             const origStartStr = otReq.startTime.substring(0, 5);
             const origEndStr = otReq.endTime.substring(0, 5);
             const newStartStr = (customStartTime || otReq.startTime).substring(0, 5);
@@ -188,6 +193,17 @@ export const adminApprovalService = {
         await sendApprovalNotification(otReq.userId, '✅ อนุมัติคำขอพิเศษ (OT)', notifMsg, otReq.id, { request_type: 'OT' });
 
         await publishToTeamChannel(`✅ คำขอ OT ของ **${otReq.user?.name || 'พนักงาน'}** วันที่ ${dateDisplay} (${finalHours} ชม.) ได้รับการอนุมัติแล้ว${checkOutMsg}${adminNote ? `\n📝 บันทึก: ${adminNote}` : ''}`);
+
+        await sendGroupSummaryNotification(
+            otReq.userId,
+            otReq.user?.name || 'พนักงาน',
+            translateRequestType('OVERTIME'),
+            currentUser.name || currentUser.full_name || 'ผู้พิจารณา (Admin)',
+            'อนุมัติแล้ว ✅',
+            adminNote,
+            otReq.id,
+            { request_type: 'OT' }
+        );
 
         return { success: true, checkOutMsg };
     },
@@ -292,7 +308,18 @@ export const adminApprovalService = {
 
         await sendApprovalNotification(request.userId, notifTitle, notifMsg, request.id, { request_type: request.type });
 
-        await publishToTeamChannel(`✅ คำขอของ **${request.user?.name}** (${translateRequestType(request.type)}) ได้รับการอนุมัติแล้ว`);
+        await publishToTeamChannel(`✅ คำขอของ **${request.user?.name || 'พนักงาน'}** (${translateRequestType(request.type)}) ได้รับการอนุมัติแล้ว`);
+
+        await sendGroupSummaryNotification(
+            request.userId,
+            request.user?.name || 'พนักงาน',
+            translateRequestType(request.type),
+            currentUser.name || currentUser.full_name || 'ผู้พิจารณา (Admin)',
+            'อนุมัติแล้ว ✅',
+            adminNote,
+            request.id,
+            { request_type: request.type }
+        );
 
         return { success: true, type: request.type };
     },
@@ -328,6 +355,17 @@ export const adminApprovalService = {
             const dateDisplay = format(new Date(otReq.date), 'd MMM yyyy');
             await sendRejectionNotification(otReq.userId, '❌ ปฏิเสธคำขอพิเศษ (OT)', `คำขอ OT วันที่: ${dateDisplay} ถูกปฏิเสธ\nเหตุผล: ${reason}`, otReq.id, { request_type: 'OT' });
 
+            await sendGroupSummaryNotification(
+                otReq.userId,
+                otReq.user?.name || 'พนักงาน',
+                translateRequestType('OVERTIME'),
+                currentUser.name || currentUser.full_name || 'ผู้พิจารณา (Admin)',
+                'ถูกปฏิเสธ ❌',
+                reason,
+                otReq.id,
+                { request_type: 'OT' }
+            );
+
             return { success: true };
         }
 
@@ -338,7 +376,7 @@ export const adminApprovalService = {
             rejection_reason: reason
         });
 
-        if (req && req.type === 'FORGOT_CHECKOUT') {
+        if (req && (req.type === 'FORGOT_CHECKOUT' || req.type === 'EARLY_LEAVE')) {
             await rejectForgotCheckOutRequest({
                 req,
                 reason,
@@ -370,6 +408,15 @@ export const adminApprovalService = {
                 req,
                 reason,
                 customCheckInTime,
+                masterOptions,
+                processAction
+            });
+        }
+
+        if (req && req.type === 'FORGOT_BOTH') {
+            await rejectForgotBothRequest({
+                req,
+                reason,
                 masterOptions,
                 processAction
             });
@@ -410,6 +457,17 @@ export const adminApprovalService = {
             await sendRejectionNotification(targetReq.userId, '❌ ปฏิเสธคำขอ', `คำขอประเภท: ${translateRequestType(targetReq.type)} วันที่: ${dateDisplay} ถูกปฏิเสธ\nเหตุผล: ${reason}`, targetReq.id, { request_type: targetReq.type });
 
             await publishToTeamChannel(`❌ คำขอของ **${targetReq.user?.name || 'พนักงาน'}** (${translateRequestType(targetReq.type)}) ถูกปฏิเสธ`);
+
+            await sendGroupSummaryNotification(
+                targetReq.userId,
+                targetReq.user?.name || 'พนักงาน',
+                translateRequestType(targetReq.type),
+                currentUser.name || currentUser.full_name || 'ผู้พิจารณา (Admin)',
+                'ถูกปฏิเสธ ❌',
+                reason,
+                targetReq.id,
+                { request_type: targetReq.type }
+            );
         }
 
         return { success: true };

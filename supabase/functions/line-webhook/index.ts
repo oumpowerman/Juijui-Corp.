@@ -388,7 +388,7 @@ Deno.serve(async (req: any) => {
         console.log(`Processing triggered event type "${type}" for LINE User ID: ${userId}`);
 
         // Construct the custom link URL containing the line_user_id query param
-        const linkingUrl = `${appUrl.replace(/\/$/, '')}?line_user_id=${userId}`;
+        const linkingUrl = `${appUrl.replace(/\/$/, '')}?openExternalBrowser=1&line_user_id=${userId}`;
 
         // Construct beautiful Flex Message contents
         const flexPayload = {

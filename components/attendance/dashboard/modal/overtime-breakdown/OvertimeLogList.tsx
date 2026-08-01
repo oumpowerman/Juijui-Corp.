@@ -122,6 +122,10 @@ export const OvertimeLogList: React.FC<OvertimeLogListProps> = ({
                                 'NOT_FOUND': {
                                     container: 'bg-rose-50/50 border-rose-100/80 text-rose-800 sm:bg-gradient-to-r sm:from-rose-50/60 sm:to-rose-100/10',
                                     icon: 'text-rose-500'
+                                },
+                                'FIXED': {
+                                    container: 'bg-indigo-50/50 border-indigo-100/80 text-indigo-800 sm:bg-gradient-to-r sm:from-indigo-50/60 sm:to-indigo-100/10',
+                                    icon: 'text-indigo-500'
                                 }
                             }[req.scanStatus] || {
                                 container: 'bg-slate-50/50 border-slate-100 text-slate-800',
@@ -199,6 +203,7 @@ export const OvertimeLogList: React.FC<OvertimeLogListProps> = ({
                                             {req.scanStatus === 'OK' && <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0 mt-0.5 sm:mt-0" />}
                                             {req.scanStatus === 'EARLY' && <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5 sm:mt-0" />}
                                             {req.scanStatus === 'NOT_FOUND' && <AlertTriangle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5 sm:mt-0" />}
+                                            {req.scanStatus === 'FIXED' && <CheckCircle2 className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5 sm:mt-0" />}
                                             
                                             <div className="min-w-0">
                                                 <p className="text-[11px] sm:text-xs md:text-[13px] font-semibold text-slate-700 tracking-tight leading-snug">{req.checkoutDisplay}</p>
@@ -206,6 +211,7 @@ export const OvertimeLogList: React.FC<OvertimeLogListProps> = ({
                                                     {req.scanStatus === 'OK' && 'เช็คเอาท์ตามจริง ครบกำหนดตามช่วงเวลาที่ขออนุมัติ'}
                                                     {req.scanStatus === 'EARLY' && `กลับก่อนเวลาที่ขอ! เวลาทำ OT สแกนจริงได้เพียง ${req.actualScannedHours.toFixed(2)} ชม.`}
                                                     {req.scanStatus === 'NOT_FOUND' && 'ไม่พบข้อมูลการตอกบัตรเช็คเอาท์ในระบบของวันนี้'}
+                                                    {req.scanStatus === 'FIXED' && 'ได้รับการยกเว้นการตรวจสอบสแกนออกเนื่องจากเป็นรายการทำงานล่วงเวลาแบบเหมาจ่าย'}
                                                 </p>
                                             </div>
                                         </div>
@@ -218,7 +224,9 @@ export const OvertimeLogList: React.FC<OvertimeLogListProps> = ({
                                             </div>
                                             <div className="px-1 py-0.5 sm:px-2.5 sm:py-1 rounded border-l border-r border-slate-200/50 sm:border sm:border-slate-100/50 bg-slate-50/40">
                                                 <span className="opacity-60 block text-[8px] sm:text-[9px] uppercase tracking-wider font-semibold text-slate-500 mb-0.5">สแกนจริง</span>
-                                                <span className="text-slate-700 font-bold text-[10px] sm:text-xs">{req.scanStatus === 'NOT_FOUND' ? '0.00' : req.actualScannedHours.toFixed(2)} ชม.</span>
+                                                <span className="text-slate-700 font-bold text-[10px] sm:text-xs">
+                                                    {req.scanStatus === 'FIXED' ? 'เหมาจ่าย' : `${(req.scanStatus === 'NOT_FOUND' ? 0 : req.actualScannedHours).toFixed(2)} ชม.`}
+                                                </span>
                                             </div>
                                             <div className="px-1 py-0.5 sm:px-2.5 sm:py-1 rounded bg-indigo-50/50 border border-indigo-100/30">
                                                 <span className="text-indigo-600/70 block text-[8px] sm:text-[9px] uppercase tracking-wider font-bold mb-0.5">จ่ายจริง</span>

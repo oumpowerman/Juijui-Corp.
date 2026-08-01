@@ -1,208 +1,439 @@
-import React from 'react';
-import { MapPin, Crosshair, HelpCircle } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { InteractiveMap } from './InteractiveMap';
-import { GeoLocationItem } from './locationUtils';
+-- ==========================================
+-- ⏰ PLAN B: DYNAMIC PG_CRON CHECK-IN REMINDER WITH AUTO-RESCHEDULING
+-- ==========================================
 
-interface LocationFormProps {
-  isEditing: boolean;
-  isOffice: boolean;
-  type: 'WORK_LOCATION' | 'SHOOT_LOCATION';
-  name: string;
-  setName: (v: string) => void;
-  lat: string;
-  setLat: (v: string) => void;
-  lng: string;
-  setLng: (v: string) => void;
-  radius: string;
-  setRadius: (v: string) => void;
-  isLocating: boolean;
-  smartInput: string;
-  parseSuccess: boolean;
-  handleSmartParse: (val: string) => void;
-  getCurrentLocation: () => void;
-  onSubmit: (e: React.FormEvent) => void;
-  onCancel: () => void;
-  mapOtherLocations: GeoLocationItem[];
-}
+-- 1. Ensure pg_cron extension is enabled if possible
+-- Wrap in block to prevent failures if extension isn't supported in standard containers
+DO $$
+BEGIN
+    CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA pg_catalog;
+EXCEPTION WHEN OTHERS THEN
+    RAISE NOTICE 'pg_cron extension could not be enabled automatically. Make sure it is enabled in your Supabase project.';
+END;
+$$;
 
-export const LocationForm: React.FC<LocationFormProps> = ({
-  isEditing,
-  isOffice,
-  type,
-  name,
-  setName,
-  lat,
-  setLat,
-  lng,
-  setLng,
-  radius,
-  setRadius,
-  isLocating,
-  smartInput,
-  parseSuccess,
-  handleSmartParse,
-  getCurrentLocation,
-  onSubmit,
-  onCancel,
-  mapOtherLocations,
-}) => {
-  return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-150 p-5 space-y-5 animate-in fade-in duration-300">
-      <h3 className="font-bold text-slate-800 flex items-center text-base">
-        <span className={`p-1.5 rounded-lg mr-2 ${isOffice ? 'bg-indigo-50 text-indigo-600' : 'bg-orange-50 text-orange-600'}`}>
-          <MapPin className="w-4 h-4" />
-        </span>
-        {isEditing ? `แก้ไขพิกัด${isOffice ? 'ออฟฟิศหลัก' : 'สถานที่ถ่ายทำ'}` : `เพิ่มพิกัด${isOffice ? 'ออฟฟิศหลัก' : 'สถานที่ถ่ายทำ'}ใหม่`}
-      </h3>
+-- 2. Create helper to check if a specific date is a working day for a user
+CREATE OR REPLACE FUNCTION public.is_working_day_db(check_date DATE, check_user_id UUID)
+RETURNS BOOLEAN AS $$
+DECLARE
+    is_exception RECORD;
+    is_holiday BOOLEAN;
+    user_start_date DATE;
+    day_of_week INT;
+BEGIN
+    -- 1. Check if check_date is before user's start date
+    SELECT start_date INTO user_start_date FROM public.profiles WHERE id = check_user_id;
+    IF user_start_date IS NOT NULL AND check_date < user_start_date THEN
+        RETURN FALSE;
+    END IF;
 
-      {/* Interactive Dynamic Map Preview & Geofence Simulator */}
-      <div className="rounded-2xl border border-slate-150 overflow-hidden shadow-sm bg-slate-50">
-        <InteractiveMap 
-          lat={parseFloat(lat) || 13.7563}
-          lng={parseFloat(lng) || 100.5018}
-          radius={parseInt(radius) || 100}
-          otherLocations={mapOtherLocations}
-          type={type}
-        />
-        {/* Map Quick-Action Controls */}
-        <div className="p-3 bg-white border-t border-slate-100 grid grid-cols-2 gap-2">
-          <button 
-            type="button"
-            onClick={getCurrentLocation}
-            disabled={isLocating}
-            className="py-2 bg-indigo-50 hover:bg-indigo-100/80 text-indigo-600 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] disabled:opacity-50"
-          >
-            <Crosshair className={`w-3.5 h-3.5 ${isLocating ? 'animate-spin' : ''}`} /> 
-            ดึง GPS ปัจจุบัน
-          </button>
+    -- 2. Check calendar exceptions (Highest Priority)
+    SELECT * INTO is_exception FROM public.calendar_exceptions WHERE date = check_date LIMIT 1;
+    IF is_exception IS NOT NULL THEN
+        RETURN is_exception.type = 'WORK_DAY';
+    END IF;
 
-          <a
-            href="https://www.google.com/maps"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="py-2 bg-slate-50 hover:bg-slate-100 text-slate-600 border border-slate-200/60 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 active:scale-[0.98] text-center"
-          >
-            <span>🔍 ค้นหาพิกัดบนเว็บ</span>
-          </a>
-        </div>
-      </div>
+    -- 3. Check annual holidays
+    SELECT EXISTS(
+        SELECT 1 FROM public.annual_holidays 
+        WHERE is_active = TRUE 
+          AND day = EXTRACT(DAY FROM check_date) 
+          AND month = EXTRACT(MONTH FROM check_date)
+    ) INTO is_holiday;
+    IF is_holiday THEN
+        RETURN FALSE;
+    END IF;
 
-      {/* Smart Coordinates Parser Module */}
-      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 space-y-3">
-        <div className="flex items-center justify-between">
-          <span className="text-[10px] sm:text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
-            <span>💡 ตัวดึงพิกัดอัจฉริยะ (Smart Paste Engine)</span>
-          </span>
-          <AnimatePresence>
-            {parseSuccess && (
-              <motion.span 
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0.8, opacity: 0 }}
-                className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100 animate-pulse"
-              >
-                ✓ สกัดพิกัดสำเร็จ!
-              </motion.span>
-            )}
-          </AnimatePresence>
-        </div>
+    -- 4. Check standard working days (Default: Monday - Friday, 1-5)
+    -- EXTRACT(dow FROM check_date) returns 0 (Sunday) to 6 (Saturday)
+    day_of_week := EXTRACT(dow FROM check_date);
+    IF day_of_week = 0 OR day_of_week = 6 THEN
+        RETURN FALSE;
+    END IF;
 
-        <div className="relative">
-          <input
-            type="text"
-            className={`w-full px-3 py-2.5 border rounded-xl text-xs font-bold outline-none transition-all placeholder-slate-400 ${
-              parseSuccess 
-                ? 'border-emerald-500 ring-2 ring-emerald-50/50 text-emerald-700 bg-emerald-50/10' 
-                : 'border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-50 text-slate-700 bg-white'
-            }`}
-            placeholder="วางลิงก์ Google Maps หรือพิกัดที่คัดลอกมา เช่น 13.75, 100.5"
-            value={smartInput}
-            onChange={e => handleSmartParse(e.target.value)}
-          />
-        </div>
-        <p className="text-[9px] text-slate-400 leading-normal">
-          * คัดลอกค่าละติจูด-ลองจิจูด หรือกดแชร์หมุดจากแอป <b>Google Maps</b> บนอุปกรณ์ของคุณ แล้วนำลิงก์มาวางในช่องนี้เพื่อสกัดพิกัดอัตโนมัติได้อย่างแม่นยำ 100%
-        </p>
-      </div>
+    RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
-      {/* Entry form */}
-      <form onSubmit={onSubmit} className="space-y-4">
-        <div>
-          <label className="block text-xs font-bold text-slate-500 mb-1">
-            {isOffice ? '🏢 ชื่อออฟฟิศ / สาขาหลัก' : '🎬 ชื่อสถานที่ถ่ายทำ / กองถ่าย'}
-          </label>
-          <div className="relative">
-            <input 
-              type="text" 
-              className="w-full pl-3 pr-3 py-2 border border-slate-200 focus:border-indigo-500 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-50 transition-all placeholder-slate-400"
-              placeholder={isOffice ? 'เช่น สำนักงานใหญ่, ออฟฟิศอโศก' : 'เช่น สตูดิโอ A, สยามพารากอน'}
-              value={name}
-              onChange={e => setName(e.target.value)}
-            />
-          </div>
-        </div>
+--- 3. Create Cron Task: Checks check-ins, leaves, and logs reminder notifications
+CREATE OR REPLACE FUNCTION public.check_in_reminder_cron()
+RETURNS void AS $$
+DECLARE
+    cur_date DATE;
+    profile_rec RECORD;
+    has_checkin BOOLEAN;
+    on_leave BOOLEAN;
+    start_time_val TEXT := '10:00';
+    shifts_enabled_val TEXT := 'false';
+    shifts_list_val TEXT := '';
+    late_buffer_val TEXT := '15';
+    late_alert_mode_val TEXT := 'AFTER_LIMIT';
+    late_alert_offset_val TEXT := '5';
+    start_time_parsed TIME;
+    late_buffer_minutes INT;
+    grace_limit_time TIME;
+    grace_limit_str TEXT;
+    notification_title TEXT;
+    notification_message TEXT;
+BEGIN
+    -- Determine current date in Thailand (Asia/Bangkok timezone) to remain server-independent
+    cur_date := (timezone('Asia/Bangkok'::text, now()))::DATE;
+
+    -- Fetch WORK_CONFIGs from master_options
+    SELECT label INTO start_time_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'START_TIME' LIMIT 1;
+    IF start_time_val IS NULL THEN
+        start_time_val := '10:00';
+    END IF;
+
+    SELECT label INTO shifts_enabled_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'MULTIPLE_SHIFTS_ENABLED' LIMIT 1;
+    IF shifts_enabled_val = 'true' THEN
+        SELECT label INTO shifts_list_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'MULTIPLE_SHIFTS_LIST' LIMIT 1;
+        IF shifts_list_val IS NOT NULL AND shifts_list_val <> '' THEN
+            BEGIN
+                SELECT to_char(max(trim(s)::TIME), 'HH24:MI') INTO start_time_val
+                FROM unnest(string_to_array(shifts_list_val, ',')) s;
+            EXCEPTION WHEN OTHERS THEN
+                -- Fallback to original START_TIME if parsing fails
+            END;
+        END IF;
+    END IF;
+
+    SELECT label INTO late_buffer_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'LATE_BUFFER' LIMIT 1;
+    IF late_buffer_val IS NULL THEN
+        late_buffer_val := '15';
+    END IF;
+
+    SELECT label INTO late_alert_mode_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'LATE_ALERT_MODE' LIMIT 1;
+    IF late_alert_mode_val IS NULL THEN
+        late_alert_mode_val := 'AFTER_LIMIT';
+    END IF;
+
+    SELECT label INTO late_alert_offset_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'LATE_ALERT_OFFSET' LIMIT 1;
+    IF late_alert_offset_val IS NULL THEN
+        late_alert_offset_val := '5';
+    END IF;
+
+    -- Parse start time and buffer
+    BEGIN
+        start_time_parsed := start_time_val::TIME;
+    EXCEPTION WHEN OTHERS THEN
+        start_time_parsed := '10:00'::TIME;
+    END;
+
+    BEGIN
+        late_buffer_minutes := late_buffer_val::INT;
+    EXCEPTION WHEN OTHERS THEN
+        late_buffer_minutes := 15;
+    END;
+
+    -- Calculate grace limit time
+    grace_limit_time := start_time_parsed + (late_buffer_minutes || ' minutes')::INTERVAL;
+    grace_limit_str := to_char(grace_limit_time, 'HH24:MI');
+
+    -- Setup dynamic title & message
+    IF late_alert_mode_val = 'BEFORE_LIMIT' THEN
+        notification_title := '⏰ รีบลงเวลางานน้า (ใกล้หมดเวลาผ่อนปรน)';
+        notification_message := 'อีก ' || late_alert_offset_val || ' นาทีจะสิ้นสุดช่วงผ่อนปรนลงเวลาเข้างานแล้วนะคะ รีบเช็คอินก่อน ' || grace_limit_str || ' น้า~ 😊 เข้าแอปมาเช็คอินตอนนี้เลยเพื่อรักษาพลังชีวิต (HP) กันค่ะ';
+    ELSE
+        notification_title := '⏰ ลืมลงเวลาทำงานหรือเปล่าเอ่ย?';
+        notification_message := 'เลยเวลาเริ่มงานของวันนี้ (' || start_time_val || ') และหมดช่วงผ่อนปรนแล้ว (' || grace_limit_str || ') ระบบยังไม่พบบันทึกการตอกบัตรเข้างานของคุณ รีบเข้าแอปมาลงเวลาก่อนถูกหักพลังชีวิต (HP) นะคะ';
+    END IF;
+
+    -- Loop through active profiles
+    FOR profile_rec IN 
+        SELECT id, full_name 
+        FROM public.profiles 
+        WHERE is_active = TRUE
+    LOOP
+        -- Check if today is a working day for this user
+        IF public.is_working_day_db(cur_date, profile_rec.id) THEN
+            -- Check if user already checked in today
+            SELECT EXISTS (
+                SELECT 1 FROM public.attendance_logs 
+                WHERE user_id = profile_rec.id 
+                  AND date = cur_date 
+                  AND check_in_time IS NOT NULL
+            ) INTO has_checkin;
+
+            IF NOT has_checkin THEN
+                -- Check if user is on leave today
+                SELECT EXISTS (
+                    SELECT 1 FROM public.leave_requests 
+                    WHERE user_id = profile_rec.id 
+                      AND status = 'APPROVED'
+                      AND start_date <= cur_date 
+                      AND end_date >= cur_date
+                ) INTO on_leave;
+
+                IF NOT on_leave THEN
+                    -- Check if we have already sent an OVERDUE check-in reminder today
+                    IF NOT EXISTS (
+                        SELECT 1 FROM public.notifications 
+                        WHERE user_id = profile_rec.id 
+                          AND type = 'OVERDUE' 
+                          AND (title LIKE '%ลงเวลาทำงาน%' OR title LIKE '%ลงเวลางาน%' OR title LIKE '%ผ่อนปรน%')
+                          AND created_at >= (cur_date::TIMESTAMP)
+                    ) THEN
+                        -- Insert notification
+                        -- Setting line_status explicitly to NULL to trigger Deno webhook Push-to-LINE
+                        INSERT INTO public.notifications (
+                            user_id,
+                            type,
+                            title,
+                            message,
+                            is_read,
+                            link_path,
+                            line_status
+                        ) VALUES (
+                            profile_rec.id,
+                            'OVERDUE',
+                            notification_title,
+                            notification_message,
+                            FALSE,
+                            'ATTENDANCE',
+                            NULL
+                        );
+                    END IF;
+                END IF;
+            END IF;
+        END IF;
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 4. Create the Trigger Function that recalculates local clock and reschedules pg_cron
+CREATE OR REPLACE FUNCTION public.recalculate_and_reschedule_checkin_cron()
+RETURNS trigger AS $$
+DECLARE
+    start_time_val TEXT;
+    shifts_enabled_val TEXT;
+    shifts_list_val TEXT;
+    late_buffer_val TEXT;
+    late_alert_mode_val TEXT;
+    late_alert_offset_val TEXT;
+    start_time_parsed TIME;
+    late_buffer_minutes INT;
+    late_alert_offset_minutes INT;
+    local_alert_time TIME;
+    utc_alert_timestamp TIMESTAMP;
+    utc_hour INT;
+    utc_minute INT;
+    cron_expr TEXT;
+BEGIN
+    -- Check if we are updating START_TIME, LATE_BUFFER, LATE_ALERT_MODE, LATE_ALERT_OFFSET, MULTIPLE_SHIFTS_ENABLED, or MULTIPLE_SHIFTS_LIST under WORK_CONFIG type
+    IF (NEW.type = 'WORK_CONFIG' AND (
+        NEW.key = 'START_TIME' OR 
+        NEW.key = 'LATE_BUFFER' OR 
+        NEW.key = 'LATE_ALERT_MODE' OR 
+        NEW.key = 'LATE_ALERT_OFFSET' OR
+        NEW.key = 'MULTIPLE_SHIFTS_ENABLED' OR
+        NEW.key = 'MULTIPLE_SHIFTS_LIST'
+    )) THEN
+        -- Fetch START_TIME from database
+        SELECT label INTO start_time_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'START_TIME' LIMIT 1;
+        -- Fetch MULTIPLE_SHIFTS_ENABLED from database
+        SELECT label INTO shifts_enabled_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'MULTIPLE_SHIFTS_ENABLED' LIMIT 1;
+        -- Fetch MULTIPLE_SHIFTS_LIST from database
+        SELECT label INTO shifts_list_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'MULTIPLE_SHIFTS_LIST' LIMIT 1;
+        -- Fetch LATE_BUFFER from database
+        SELECT label INTO late_buffer_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'LATE_BUFFER' LIMIT 1;
+        -- Fetch LATE_ALERT_MODE from database
+        SELECT label INTO late_alert_mode_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'LATE_ALERT_MODE' LIMIT 1;
+        -- Fetch LATE_ALERT_OFFSET from database
+        SELECT label INTO late_alert_offset_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'LATE_ALERT_OFFSET' LIMIT 1;
+
+        -- Fallbacks
+        IF start_time_val IS NULL THEN
+            start_time_val := '10:00';
+        END IF;
+        IF shifts_enabled_val IS NULL THEN
+            shifts_enabled_val := 'false';
+        END IF;
+        IF late_buffer_val IS NULL THEN
+            late_buffer_val := '15';
+        END IF;
+        IF late_alert_mode_val IS NULL THEN
+            late_alert_mode_val := 'AFTER_LIMIT';
+        END IF;
+        IF late_alert_offset_val IS NULL THEN
+            late_alert_offset_val := '5';
+        END IF;
+
+        -- Override start_time_val with max shift if multiple shifts are enabled
+        IF shifts_enabled_val = 'true' AND shifts_list_val IS NOT NULL AND shifts_list_val <> '' THEN
+            BEGIN
+                SELECT to_char(max(trim(s)::TIME), 'HH24:MI') INTO start_time_val
+                FROM unnest(string_to_array(shifts_list_val, ',')) s;
+            EXCEPTION WHEN OTHERS THEN
+                -- Keep start_time_val if parse error
+            END;
+        END IF;
+
+        -- Parse START_TIME as TIME
+        BEGIN
+            start_time_parsed := start_time_val::TIME;
+        EXCEPTION WHEN OTHERS THEN
+            start_time_parsed := '10:00'::TIME;
+        END;
+
+        -- Parse LATE_BUFFER as INT
+        BEGIN
+            late_buffer_minutes := late_buffer_val::INT;
+        EXCEPTION WHEN OTHERS THEN
+            late_buffer_minutes := 15;
+        END;
+
+        -- Parse LATE_ALERT_OFFSET as INT
+        BEGIN
+            late_alert_offset_minutes := late_alert_offset_val::INT;
+        EXCEPTION WHEN OTHERS THEN
+            late_alert_offset_minutes := 5;
+        END;
+
+        -- Calculate local alert time
+        IF late_alert_mode_val = 'BEFORE_LIMIT' THEN
+            -- Proactive mode: START_TIME + LATE_BUFFER - LATE_ALERT_OFFSET
+            local_alert_time := start_time_parsed + (late_buffer_minutes || ' minutes')::INTERVAL - (late_alert_offset_minutes || ' minutes')::INTERVAL;
+        ELSE
+            -- Standard mode: START_TIME + LATE_BUFFER + 1 minute
+            local_alert_time := start_time_parsed + (late_buffer_minutes || ' minutes')::INTERVAL + '1 minute'::INTERVAL;
+        END IF;
+
+        -- Convert local alert time to UTC to set up pg_cron
+        -- Using CURRENT_DATE combined with local time and casting with timezone 'Asia/Bangkok'
+        -- then extracting hour and minute in 'UTC'
+        utc_alert_timestamp := (CURRENT_DATE + local_alert_time) AT TIME ZONE 'Asia/Bangkok' AT TIME ZONE 'UTC';
+        utc_hour := EXTRACT(HOUR FROM utc_alert_timestamp);
+        utc_minute := EXTRACT(MINUTE FROM utc_alert_timestamp);
+
+        -- Build daily cron expression: 'minute hour * * *'
+        cron_expr := utc_minute || ' ' || utc_hour || ' * * *';
+
+        -- Update/reschedule pg_cron job using SECURITY DEFINER permissions
+        -- First unschedule the existing job if exists
+        BEGIN
+            PERFORM cron.unschedule('check-in-reminder');
+        EXCEPTION WHEN OTHERS THEN
+            -- Ignored if cron is not active or job does not exist
+        END;
         
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1">📍 ละติจูด (Lat)</label>
-            <input 
-              type="number" 
-              step="any"
-              className="w-full px-3 py-2 border border-slate-200 focus:border-indigo-500 rounded-xl text-sm font-mono text-slate-600 outline-none focus:ring-2 focus:ring-indigo-50 transition-all"
-              value={lat}
-              onChange={e => setLat(e.target.value)}
-              placeholder="เช่น 13.7563"
-            />
-          </div>
-          <div>
-            <label className="block text-xs font-bold text-slate-500 mb-1">📍 ลองจิจูด (Lng)</label>
-            <input 
-              type="number" 
-              step="any"
-              className="w-full px-3 py-2 border border-slate-200 focus:border-indigo-500 rounded-xl text-sm font-mono text-slate-600 outline-none focus:ring-2 focus:ring-indigo-50 transition-all"
-              value={lng}
-              onChange={e => setLng(e.target.value)}
-              placeholder="เช่น 100.5018"
-            />
-          </div>
-        </div>
+        -- Schedule the check-in-reminder job to run daily at the calculated UTC time
+        BEGIN
+            PERFORM cron.schedule('check-in-reminder', cron_expr, 'SELECT public.check_in_reminder_cron()');
+        EXCEPTION WHEN OTHERS THEN
+            -- Ignored if cron extension isn't active/installed
+        END;
+        
+        RAISE NOTICE 'Rescheduled check-in-reminder cron job to UTC time: %:% (%)', utc_hour, utc_minute, cron_expr;
+    END IF;
 
-        <div>
-          <label className="block text-xs font-bold text-slate-500 mb-1">🎯 รัศมีการอนุญาตเช็คอิน (เมตร)</label>
-          <input 
-            type="number" 
-            className="w-full px-3 py-2 border border-slate-200 focus:border-indigo-500 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-50 transition-all"
-            value={radius}
-            onChange={e => setRadius(e.target.value)}
-            placeholder="แนะนำ 100 - 500 เมตร"
-          />
-        </div>
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
-        <div className="pt-2">
-          <div className="flex gap-2">
-            {isEditing && (
-              <button 
-                type="button"
-                onClick={onCancel}
-                className="flex-1 py-2.5 bg-slate-100 text-slate-500 rounded-xl text-xs font-bold hover:bg-slate-200 transition-all active:scale-[0.98]"
-              >
-                ยกเลิก
-              </button>
-            )}
-            <button 
-              type="submit"
-              className={`flex-1 py-2.5 text-white rounded-xl text-xs font-bold transition-all shadow-md active:scale-[0.98] ${
-                isOffice 
-                  ? 'bg-indigo-600 hover:bg-indigo-700 shadow-indigo-100' 
-                  : 'bg-orange-600 hover:bg-orange-700 shadow-orange-100'
-              }`}
-            >
-              {isEditing ? '✓ บันทึกการแก้ไข' : '＋ บันทึกสถานที่ใหม่'}
-            </button>
-          </div>
-        </div>
-      </form>
-    </div>
-  );
-};
+-- 5. Attach the Trigger to master_options
+DROP TRIGGER IF EXISTS trg_reschedule_checkin_cron ON public.master_options;
+CREATE TRIGGER trg_reschedule_checkin_cron
+AFTER INSERT OR UPDATE ON public.master_options
+FOR EACH ROW
+EXECUTE FUNCTION public.recalculate_and_reschedule_checkin_cron();
+
+-- 6. Trigger Initial Execution to establish the initial scheduling right now
+DO $$
+DECLARE
+    start_time_val TEXT;
+    shifts_enabled_val TEXT;
+    shifts_list_val TEXT;
+    late_buffer_val TEXT;
+    late_alert_mode_val TEXT;
+    late_alert_offset_val TEXT;
+    start_time_parsed TIME;
+    late_buffer_minutes INT;
+    late_alert_offset_minutes INT;
+    local_alert_time TIME;
+    utc_alert_timestamp TIMESTAMP;
+    utc_hour INT;
+    utc_minute INT;
+    cron_expr TEXT;
+BEGIN
+    -- Fetch from database
+    SELECT label INTO start_time_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'START_TIME' LIMIT 1;
+    SELECT label INTO shifts_enabled_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'MULTIPLE_SHIFTS_ENABLED' LIMIT 1;
+    SELECT label INTO shifts_list_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'MULTIPLE_SHIFTS_LIST' LIMIT 1;
+    SELECT label INTO late_buffer_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'LATE_BUFFER' LIMIT 1;
+    SELECT label INTO late_alert_mode_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'LATE_ALERT_MODE' LIMIT 1;
+    SELECT label INTO late_alert_offset_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'LATE_ALERT_OFFSET' LIMIT 1;
+
+    -- Fallbacks
+    IF start_time_val IS NULL THEN
+        start_time_val := '10:00';
+    END IF;
+    IF shifts_enabled_val IS NULL THEN
+        shifts_enabled_val := 'false';
+    END IF;
+    IF late_buffer_val IS NULL THEN
+        late_buffer_val := '15';
+    END IF;
+    IF late_alert_mode_val IS NULL THEN
+        late_alert_mode_val := 'AFTER_LIMIT';
+    END IF;
+    IF late_alert_offset_val IS NULL THEN
+        late_alert_offset_val := '5';
+    END IF;
+
+    -- Override start_time_val with max shift if multiple shifts are enabled
+    IF shifts_enabled_val = 'true' AND shifts_list_val IS NOT NULL AND shifts_list_val <> '' THEN
+        BEGIN
+            SELECT to_char(max(trim(s)::TIME), 'HH24:MI') INTO start_time_val
+            FROM unnest(string_to_array(shifts_list_val, ',')) s;
+        EXCEPTION WHEN OTHERS THEN
+            -- Keep start_time_val if parse error
+        END;
+    END IF;
+
+    -- Parse START_TIME as TIME
+    BEGIN
+        start_time_parsed := start_time_val::TIME;
+    EXCEPTION WHEN OTHERS THEN
+        start_time_parsed := '10:00'::TIME;
+    END;
+
+    -- Parse LATE_BUFFER as INT
+    BEGIN
+        late_buffer_minutes := late_buffer_val::INT;
+    EXCEPTION WHEN OTHERS THEN
+        late_buffer_minutes := 15;
+    END;
+
+    -- Parse LATE_ALERT_OFFSET as INT
+    BEGIN
+        late_alert_offset_minutes := late_alert_offset_val::INT;
+    EXCEPTION WHEN OTHERS THEN
+        late_alert_offset_minutes := 5;
+    END;
+
+    -- Calculate local alert time
+    IF late_alert_mode_val = 'BEFORE_LIMIT' THEN
+        local_alert_time := start_time_parsed + (late_buffer_minutes || ' minutes')::INTERVAL - (late_alert_offset_minutes || ' minutes')::INTERVAL;
+    ELSE
+        local_alert_time := start_time_parsed + (late_buffer_minutes || ' minutes')::INTERVAL + '1 minute'::INTERVAL;
+    END IF;
+
+    utc_alert_timestamp := (CURRENT_DATE + local_alert_time) AT TIME ZONE 'Asia/Bangkok' AT TIME ZONE 'UTC';
+    utc_hour := EXTRACT(HOUR FROM utc_alert_timestamp);
+    utc_minute := EXTRACT(MINUTE FROM utc_alert_timestamp);
+    cron_expr := utc_minute || ' ' || utc_hour || ' * * *';
+
+    BEGIN
+        PERFORM cron.unschedule('check-in-reminder');
+    EXCEPTION WHEN OTHERS THEN
+        -- Ignored
+    END;
+
+    BEGIN
+        PERFORM cron.schedule('check-in-reminder', cron_expr, 'SELECT public.check_in_reminder_cron()');
+    EXCEPTION WHEN OTHERS THEN
+        -- Ignored
+    END;
+END;
+$$;

@@ -600,9 +600,11 @@ const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* 2.5 AI Status Area */}
-      <div className={`px-4 py-2 mb-2 ${isCollapsed ? 'flex justify-center' : ''}`}>
-        <AIStatusBadge collapsed={isCollapsed} />
-      </div>
+      {BRAND_CONFIG.showSidebarAiStatusMode !== 2 && (
+        <div className={`px-4 py-2 mb-2 ${isCollapsed ? 'flex justify-center' : ''}`}>
+          <AIStatusBadge collapsed={isCollapsed} />
+        </div>
+      )}
 
       {/* 3. User Footer */}
       <div className={`${themeClasses.footer} p-4 transition-all`}>

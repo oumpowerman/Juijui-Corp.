@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { useMasterData } from '../../../hooks/useMasterData';
 import { useLeaveRequests } from '../../../hooks/useLeaveRequests';
 import { User } from '../../../types';
@@ -92,13 +92,25 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user, onNavigateToH
     }, [todayActiveLeave]);
 
     // --- Handlers ---
-    const handleLeaveSubmit = async (type: LeaveType, start: Date, end: Date, reason: string, file?: File, linkedRemoteType?: 'WFH' | 'ONSITE'): Promise<boolean> => {
+    const handleLeaveSubmit = useCallback(async (type: LeaveType, start: Date, end: Date, reason: string, file?: File, linkedRemoteType?: 'WFH' | 'ONSITE'): Promise<boolean> => {
         const result = await submitRequest(type, start, end, reason, file, linkedRemoteType);
         if (result) {
             setIsCheckInModalOpen(false);
         }
         return !!result;
-    };
+    }, [submitRequest]);
+
+    const handleCloseLeaveModal = useCallback(() => {
+        setIsLeaveModalOpen(false);
+        setLeaveModalType(undefined);
+        setLinkedRemoteType(undefined);
+    }, []);
+
+    const handleOpenLeaveModal = useCallback((type?: LeaveType, workType?: 'WFH' | 'ONSITE') => {
+        setLeaveModalType(type);
+        setLinkedRemoteType(workType);
+        setIsLeaveModalOpen(true);
+    }, []);
 
     return (
         <div className="space-y-6">
@@ -112,12 +124,9 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user, onNavigateToH
             <AttendanceControl 
                 user={user}
                 todayActiveLeave={todayActiveLeave}
+                requests={requests}
                 onLeaveSubmit={handleLeaveSubmit}
-                onOpenLeave={(type?: LeaveType, workType?: 'WFH' | 'ONSITE') => {
-                    setLeaveModalType(type);
-                    setLinkedRemoteType(workType);
-                    setIsLeaveModalOpen(true);
-                }}
+                onOpenLeave={handleOpenLeaveModal}
                 isCheckInModalOpen={isCheckInModalOpen}
                 setIsCheckInModalOpen={setIsCheckInModalOpen}
             />
@@ -131,11 +140,7 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user, onNavigateToH
             {/* Modals */}
             <LeaveRequestModal 
                 isOpen={isLeaveModalOpen}
-                onClose={() => {
-                    setIsLeaveModalOpen(false);
-                    setLeaveModalType(undefined);
-                    setLinkedRemoteType(undefined);
-                }}
+                onClose={handleCloseLeaveModal}
                 onSubmit={handleLeaveSubmit}
                 masterOptions={masterOptions}
                 leaveUsage={leaveUsage}

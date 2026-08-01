@@ -3,7 +3,7 @@ import { CalendarDays, Sunset, Coffee } from 'lucide-react';
 
 interface HolidayStatsProps {
     totalCount: number;
-    monthStats: { name: string; count: number };
+    monthStats: { name: string; count: number; label?: string };
     typeBreakdown: { label: string; count: number };
 }
 
@@ -28,7 +28,9 @@ const HolidayStats: React.FC<HolidayStatsProps> = ({ totalCount, monthStats, typ
                     <Sunset className="w-6 h-6" />
                 </div>
                 <div>
-                    <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider">เดือนหยุดพักผ่อนมากที่สุด</span>
+                    <span className="block text-xs font-bold text-slate-400 uppercase tracking-wider">
+                        {monthStats.label || "เดือนหยุดพักผ่อนมากที่สุด"}
+                    </span>
                     <div className="flex items-baseline gap-2 mt-0.5">
                         <span className="text-xl font-black text-slate-800">{monthStats.name}</span>
                         {monthStats.count > 0 && (

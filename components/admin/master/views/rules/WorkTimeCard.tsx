@@ -12,6 +12,7 @@ export interface WorkTimeConfig {
     otThreshold: string;
     checkoutPenaltyTime: string;
     dailySummaryDelayHours: string;
+    dailySummaryTime?: string;
     lineSummaryDestination: string;
     enableAttendanceRace: string;
     lateAlertMode?: string;
@@ -20,6 +21,15 @@ export interface WorkTimeConfig {
     multipleShiftsList?: string;
     lineApprovalMode?: string;
     lineHeaderTitle?: string;
+    lateAlertTargetRoles?: string;
+    checkoutPenaltyTargetRoles?: string;
+    checkoutAlertEnabled?: string;
+    checkoutAlertMode?: string;
+    checkoutAlertOffset?: string;
+    checkoutAlertTargetRoles?: string;
+    adminAbsentPenaltyEnabled?: string;
+    forgotCheckInLimitHours?: string;
+    lineSubmissionAlertMode?: string;
 }
 
 interface WorkTimeCardProps {
@@ -56,7 +66,7 @@ const WorkTimeCard: React.FC<WorkTimeCardProps> = ({
                 ตั้งค่าเวลาทำการ (Hybrid Logic)
             </h3>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6 items-end">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 items-end">
                 <div className="space-y-2">
                     <label className="block text-xs font-bold text-gray-500 mb-1 ml-1">เวลาเข้างาน (Start Time)</label>
                     <button
@@ -149,6 +159,20 @@ const WorkTimeCard: React.FC<WorkTimeCardProps> = ({
                             placeholder="10"
                         />
                         <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100 shadow-sm">JP/ชม.</span>
+                    </div>
+                </div>
+
+                <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-1">ระยะเวลายื่นลืมลงเวลาเข้า (Forgot Limit)</label>
+                    <div className="relative">
+                        <input 
+                            id="input-forgot-checkin-limit-hours"
+                            type="number" 
+                            className="w-full pl-4 pr-14 py-3 border border-gray-200 rounded-xl font-bold text-gray-800 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-50/70 outline-none transition-all"
+                            value={tempTimeConfig.forgotCheckInLimitHours || '12'}
+                            onChange={e => setTempTimeConfig(prev => ({ ...prev, forgotCheckInLimitHours: e.target.value }))}
+                        />
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100 shadow-sm">Hrs / ชม.</span>
                     </div>
                 </div>
             </div>

@@ -2,6 +2,7 @@ import React, { useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Upload, CheckCircle2 } from 'lucide-react';
 import { getRegistryItem } from '../../../../constants/attendanceRegistry';
+import { useGlobalDialog } from '../../../../context/GlobalDialogContext';
 
 interface FileAttachmentZoneProps {
     file: File | null;
@@ -15,13 +16,14 @@ export const FileAttachmentZone: React.FC<FileAttachmentZoneProps> = ({
     selectedType,
 }) => {
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const { showAlert } = useGlobalDialog();
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const selectedFile = e.target.files?.[0] || null;
         if (selectedFile) {
             // Check file size (5MB limit)
             if (selectedFile.size > 5 * 1024 * 1024) {
-                alert('ขนาดไฟล์เกินกำหนด 5MB');
+                showAlert('ขนาดไฟล์ประกอบของคุณเกินขนาดสูงสุดที่กำหนด 5MB กรุณาเลือกไฟล์ใหม่ครับ', 'ขนาดไฟล์เกินกำหนด');
                 return;
             }
             setFile(selectedFile);

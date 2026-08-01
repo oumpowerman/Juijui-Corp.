@@ -51,13 +51,20 @@ export const EmployeeHpCell: React.FC<EmployeeHpCellProps> = ({
     (s) => s.user_id === user.id && s.snapshot_date === endingSnapshotDateStr
   );
 
-  const baseHp = userBaseSnapshot ? userBaseSnapshot.hp_value : maxHp;
+  const baseHp = userBaseSnapshot ? userBaseSnapshot.hp_value : currentHp;
   const endingHp = userEndingSnapshot ? userEndingSnapshot.hp_value : currentHp;
 
   // Values depending on view mode
   let displayedHp = currentHp;
 
-  if (isMonthlyMode) {
+  // Check if there are no snapshots at all for this user, or if we don't have the starting snapshot for this month
+  const hasNoSnapshotsForUser = !snapshots || !snapshots.some((s) => s.user_id === user.id);
+  const isFirstMonthOrNoSnapshot = !userBaseSnapshot;
+
+  if (hasNoSnapshotsForUser || isFirstMonthOrNoSnapshot) {
+    // Fallback: show the user's actual HP from profile directly (behaving like Yearly mode)
+    displayedHp = currentHp;
+  } else if (isMonthlyMode) {
     if (useCurrentHp) {
       // Monthly HP = maxHp - (HP lost during this month)
       const lostHp = Math.max(0, baseHp - currentHp);

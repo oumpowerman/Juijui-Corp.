@@ -19,10 +19,12 @@ import ExportSettingsModal from './ExportSettingsModal';
 import { useMasterDataContext } from '../../../context/MasterDataContext';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Check, X } from 'lucide-react';
+import { BRAND_CONFIG } from '../../../config/brand';
 
 // --- Main Dashboard ---
 const AdminWeeklyTimesheet: React.FC<{ users: User[] }> = ({ users }) => {
     const { masterOptions } = useMasterDataContext();
+    const shouldHideAdmins = BRAND_CONFIG.hideAdminFromAttendanceDashboardMode === 2;
     
     // Toast state
     const [exportToast, setExportToast] = useState<{ filename: string; id: string } | null>(null);
@@ -45,7 +47,16 @@ const AdminWeeklyTimesheet: React.FC<{ users: User[] }> = ({ users }) => {
     const workConfig = useMemo(() => {
         const startTime = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'START_TIME')?.label || '10:00';
         const buffer = parseInt(masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'LATE_BUFFER')?.label || '15');
-        return { startTime, buffer };
+        const shiftsEnabled = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'MULTIPLE_SHIFTS_ENABLED')?.label === 'true';
+        const shiftsList = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'MULTIPLE_SHIFTS_LIST')?.label || '';
+        return {
+            startTime,
+            buffer,
+            multipleShifts: {
+                enabled: shiftsEnabled,
+                shiftsList
+            }
+        };
     }, [masterOptions]);
     const [currentDate, setCurrentDate] = useState(new Date());
     const [searchTerm, setSearchTerm] = useState('');
@@ -71,9 +82,11 @@ const AdminWeeklyTimesheet: React.FC<{ users: User[] }> = ({ users }) => {
         ).length;
     }, [logs]);
     const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
+    const [otRequests, setOtRequests] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedLog, setSelectedLog] = useState<AttendanceLog | null>(null);
     const [selectedLeaveRequest, setSelectedLeaveRequest] = useState<any | null>(null);
+    const [selectedOtRequest, setSelectedOtRequest] = useState<any | null>(null);
 
     // Smart Calendar Data
     const { annualHolidays } = useAnnualHolidays();
@@ -142,6 +155,16 @@ const AdminWeeklyTimesheet: React.FC<{ users: User[] }> = ({ users }) => {
                 if (leaveError) throw leaveError;
                 setLeaveRequests(leaveData || []);
 
+                // 3. Fetch OT Requests
+                const { data: otData, error: otError } = await supabase
+                    .from('ot_requests')
+                    .select('*')
+                    .gte('date', startStr)
+                    .lte('date', endStr);
+                
+                if (otError) throw otError;
+                setOtRequests(otData || []);
+
             } catch (err) {
                 console.error("Fetch data failed", err);
             } finally {
@@ -169,20 +192,36 @@ const AdminWeeklyTimesheet: React.FC<{ users: User[] }> = ({ users }) => {
             }, () => fetchData())
             .subscribe();
 
+        const otChannel = supabase.channel('admin-timesheet-ot')
+            .on('postgres_changes', { 
+                event: '*', 
+                schema: 'public', 
+                table: 'ot_requests',
+                filter: `date=gte.${startStr}&date=lte.${endStr}`
+            }, () => fetchData())
+            .subscribe();
+
         return () => {
             supabase.removeChannel(logsChannel);
             supabase.removeChannel(leavesChannel);
+            supabase.removeChannel(otChannel);
         };
     }, [dateRange]);
 
     // Department Grouping Logic
     const departments = useMemo(() => {
-        const set = new Set(users.map(u => u.position || 'General'));
+        const set = new Set(
+            users
+                .filter(u => !(shouldHideAdmins && u.role === 'ADMIN'))
+                .map(u => u.position || 'General')
+        );
         return Array.from(set).sort();
-    }, [users]);
+    }, [users, shouldHideAdmins]);
 
     const filteredAndGroupedUsers = useMemo(() => {
         const filtered = users.filter(u => {
+            if (shouldHideAdmins && u.role === 'ADMIN') return false;
+
             const matchesSearch = u.name.toLowerCase().includes(searchTerm.toLowerCase());
             const matchesDept = filterDepartment === 'ALL' || u.position === filterDepartment;
             const matchesActive = showInactive || u.isActive;
@@ -261,22 +300,26 @@ const AdminWeeklyTimesheet: React.FC<{ users: User[] }> = ({ users }) => {
                 filteredAndGroupedUsers={filteredAndGroupedUsers}
                 logs={logs}
                 leaveRequests={leaveRequests}
+                otRequests={otRequests}
                 getEffectiveDayStatus={getEffectiveDayStatus}
                 workConfig={workConfig}
-                onCellClick={(log, leaveReq) => {
+                onCellClick={(log, leaveReq, otReq) => {
                     setSelectedLog(log);
                     setSelectedLeaveRequest(leaveReq);
+                    setSelectedOtRequest(otReq);
                 }}
             />
 
             <AnimatePresence>
-                {(selectedLog || selectedLeaveRequest) && (
+                {(selectedLog || selectedLeaveRequest || selectedOtRequest) && (
                     <TimesheetDetailModal 
                         log={selectedLog}
                         leaveRequest={selectedLeaveRequest}
+                        otRequest={selectedOtRequest}
                         onClose={() => {
                             setSelectedLog(null);
                             setSelectedLeaveRequest(null);
+                            setSelectedOtRequest(null);
                         }}
                     />
                 )}

@@ -9,6 +9,8 @@ import { supabase } from '../../lib/supabase';
 interface RegisterFormProps {
   email: string;
   setEmail: (val: string) => void;
+  username: string;
+  setUsername: (val: string) => void;
   password: string;
   setPassword: (val: string) => void;
   showPassword: boolean;
@@ -43,6 +45,8 @@ interface RegisterFormProps {
 export const RegisterForm: React.FC<RegisterFormProps> = ({
   email,
   setEmail,
+  username,
+  setUsername,
   password,
   setPassword,
   showPassword,
@@ -83,6 +87,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
     'firstName',
     'lastName',
     'nickname',
+    'username',
     'position',
     'employmentType',
     'email',
@@ -156,8 +161,18 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
   }, [name, errors.nickname]);
 
   React.useEffect(() => {
+    if (username && /^[a-z0-9_.]{3,20}$/i.test(username) && errors.username) {
+      setErrors(prev => {
+        const copy = { ...prev };
+        delete copy.username;
+        return copy;
+      });
+    }
+  }, [username, errors.username]);
+
+  React.useEffect(() => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (email && emailRegex.test(email) && errors.email) {
+    if ((!email || emailRegex.test(email)) && errors.email) {
       setErrors(prev => {
         const copy = { ...prev };
         delete copy.email;
@@ -251,10 +266,14 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
       newErrors.nickname = 'กรุณากรอกชื่อเล่นนะครับ';
     }
     
+    if (!username || !username.trim()) {
+      newErrors.username = 'กรุณากรอกชื่อผู้ใช้นะครับ';
+    } else if (!/^[a-z0-9_.]{3,20}$/i.test(username)) {
+      newErrors.username = 'ชื่อผู้ใช้ต้องประกอบด้วยภาษาอังกฤษ ตัวเลข ขีดล่าง (_) และจุด (.) ความยาว 3-20 ตัวอักษรเท่านั้นนะครับ';
+    }
+    
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email) {
-      newErrors.email = 'กรุณากรอกอีเมลนะครับ';
-    } else if (!emailRegex.test(email)) {
+    if (email && !emailRegex.test(email)) {
       newErrors.email = 'กรุณากรอกอีเมลในรูปแบบที่ถูกต้องนะครับ';
     }
 
@@ -490,9 +509,40 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
         )}
       </div>
 
+      {/* Username Input */}
+      <div id="register-username-container" className="space-y-1">
+        <label className="text-xs font-bold text-slate-500 ml-1 uppercase">ชื่อผู้ใช้ (Username) *</label>
+        <div className="relative group">
+          <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
+            <motion.div
+              animate={{ rotate: [0, 5, -5, 5, 0] }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            >
+              <Sparkles className={`w-5 h-5 transition-colors duration-300 ${errors.username ? 'text-red-400 group-focus-within:text-red-500' : 'text-slate-400 group-focus-within:text-indigo-500'}`} />
+            </motion.div>
+          </div>
+          <input 
+            type="text" 
+            value={username} 
+            onChange={(e) => setUsername(e.target.value)} 
+            className={getInputClass(!!errors.username, "pl-11 pr-4")}
+            placeholder="ชื่อผู้ใช้ เช่น john_doe" 
+          />
+        </div>
+        {errors.username ? (
+          <p className="text-xs font-bold text-red-500 mt-1 ml-1 animate-in fade-in duration-300">
+            {errors.username}
+          </p>
+        ) : (
+          <p className="text-[10px] text-slate-400 mt-0.5 ml-1">
+            ใช้ในการล็อกอินแทนอีเมล (ภาษาอังกฤษ ตัวเลข และ _ ยาว 3-20 ตัวอักษร)
+          </p>
+        )}
+      </div>
+
       {/* Email Input */}
       <div id="register-email-container" className="space-y-1">
-        <label className="text-xs font-bold text-slate-500 ml-1 uppercase">อีเมล *</label>
+        <label className="text-xs font-bold text-slate-500 ml-1 uppercase">อีเมลสำรอง (ไม่บังคับ) 📧</label>
         <div className="relative group">
           <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
             <motion.div
@@ -507,12 +557,16 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
             value={email} 
             onChange={(e) => setEmail(e.target.value)} 
             className={getInputClass(!!errors.email, "pl-11 pr-4")}
-            placeholder="email@example.com" 
+            placeholder="email@example.com (ไม่บังคับ)" 
           />
         </div>
-        {errors.email && (
+        {errors.email ? (
           <p className="text-xs font-bold text-red-500 mt-1 ml-1 animate-in fade-in duration-300">
             {errors.email}
+          </p>
+        ) : (
+          <p className="text-[10px] text-slate-400 mt-0.5 ml-1">
+            แนะนำให้กรอกไว้เพื่อใช้ในการกู้คืนรหัสผ่านหากลืมรหัสผ่านในอนาคตครับ (หรือจะข้ามไปก่อนและไปผูกอีเมลทีหลังในหน้าตั้งค่าโปรไฟล์ได้ครับ)
           </p>
         )}
       </div>

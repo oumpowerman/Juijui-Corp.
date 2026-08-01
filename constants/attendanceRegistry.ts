@@ -276,6 +276,29 @@ export const ATTENDANCE_REGISTRY: Record<LeaveType, AttendanceRegistryItem> = {
             rejected: '[REJECTED GPS_SPOOF_APPEAL]'
         },
         placeholder: 'กรุณาระบุรายละเอียดข้อเท็จจริงและเหตุผลที่พิกัดผิดปกติ เพื่อให้แอดมินตรวจสอบย้อนหลัง...'
+    },
+    EARLY_LEAVE: {
+        id: 'EARLY_LEAVE',
+        label: 'กลับก่อนเวลา (Early Leave)',
+        category: 'CORRECTION',
+        colors: { bg: 'bg-orange-50/80', text: 'text-orange-700', border: 'border-orange-100', accent: 'bg-orange-500' },
+        rules: { isTimeSpecific: true, isSingleDay: true, isProvisionalAllowed: true, requireAttachment: true, defaultTargetTime: '18:00' },
+        tags: {
+            provisional: '[PROVISIONAL_CHECKOUT]',
+            pending: '[EARLY_LEAVE_PENDING]',
+            approved: '[APPROVED EARLY_LEAVE_APPEAL]',
+            rejected: '[REJECTED EARLY_LEAVE_APPEAL]'
+        },
+        placeholder: 'กรุณาระบุรายละเอียดเหตุจำเป็นที่ทำให้ต้องขอกลับก่อนเวลา เพื่อความรวดเร็วในการพิจารณาอนุมัติย้อนหลัง...',
+        approvalBehavior: {
+            correctionTarget: 'CHECKOUT_ONLY',
+            verifyLateness: false,
+            updateProfileOnline: false,
+            refundHpOnAbsent: true,
+            refundHpOnCorrection: true,
+            refundDescriptionAbsent: 'จากการแก้วันเวลากลับก่อนเวลาวันที่',
+            refundDescriptionPenalized: 'จากการแก้เวลากลับก่อนเวลาวันที่'
+        }
     }
 };
 
@@ -301,7 +324,20 @@ export const getTypesByCategory = (category: 'LEAVE' | 'CORRECTION' | 'SPECIAL')
 export const findPendingRegistryItemByNote = (note?: string): AttendanceRegistryItem | undefined => {
     if (!note) return undefined;
     return Object.values(ATTENDANCE_REGISTRY).find(item => {
-        if (item.tags.provisional && note.includes(item.tags.provisional)) return true;
+        if (item.tags.provisional && note.includes(item.tags.provisional)) {
+            if (item.tags.provisional === '[PROVISIONAL_CHECKOUT]') {
+                if (item.id === 'EARLY_LEAVE') {
+                    return note.includes('[EARLY:');
+                }
+                if (item.id === 'OUT_OF_RANGE_CHECKOUT') {
+                    return note.includes('(Location Mismatch)');
+                }
+                if (item.id === 'FORGOT_CHECKOUT') {
+                    return !note.includes('[EARLY:') && !note.includes('(Location Mismatch)');
+                }
+            }
+            return true;
+        }
         if (note.includes(item.tags.pending)) return true;
         return false;
     });
@@ -337,6 +373,16 @@ export const WORK_TYPE_REGISTRY: Record<string, WorkTypeRegistryItem> = {
         id: 'SITE',
         label: 'SITE',
         colors: { bg: 'bg-emerald-50', text: 'text-emerald-600', border: 'border-emerald-100' }
+    },
+    UNAUTHORIZED_WFH: {
+        id: 'UNAUTHORIZED_WFH',
+        label: 'WFH ไม่ได้รับอนุญาต',
+        colors: { bg: 'bg-rose-50', text: 'text-rose-600', border: 'border-rose-100' }
+    },
+    UNAUTHORIZED_ONSITE: {
+        id: 'UNAUTHORIZED_ONSITE',
+        label: 'On-site ไม่ได้รับอนุญาต',
+        colors: { bg: 'bg-rose-50', text: 'text-rose-600', border: 'border-rose-100' }
     },
     ABSENT: {
         id: 'ABSENT',

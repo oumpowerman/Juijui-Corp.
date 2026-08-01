@@ -7,7 +7,9 @@ import { ATTENDANCE_REGISTRY } from '../../../constants/attendanceRegistry';
 import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMasterData } from '../../../hooks/useMasterData';
+import { ApproveRequestParams } from '../../../hooks/useAdminApprovals';
 import { getMaxShiftWithBuffer } from '../../../lib/attendanceUtils';
+import { parseReason } from './request-detail/utils';
 import { RequestDetailModal } from './RequestDetailModal';
 import MultiDatePickerModal from '../../ui/MultiDatePickerModal';
 import TimePickerModal from '../../ui/TimePickerModal';
@@ -23,14 +25,7 @@ interface LeaveApprovalListProps {
     isLoading: boolean;
     isLoadingHistorical?: boolean;
     fetchRequestsForRange?: (start?: Date, end?: Date) => Promise<LeaveRequest[]>;
-    onApprove: (
-        req: LeaveRequest, 
-        customOtHours?: number, 
-        customStartTime?: string, 
-        customEndTime?: string,
-        adminNote?: string,
-        hpPenalty?: number
-    ) => Promise<void>;
+    onApprove: (params: ApproveRequestParams) => Promise<void>;
     onReject: (id: string, reason: string, customCheckInTime?: string, hpPenalty?: number, rejectionMode?: 'ABSENT' | 'ACTION_REQUIRED' | 'KEEP_WORKING') => Promise<void>;
 }
 
@@ -197,16 +192,8 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
             setActiveCategory('ALL');
             const matchingReq = combinedRequests.find(r => r.id === highlightReqId);
             if (matchingReq) {
-                if (matchingReq.status === 'PENDING') {
-                    setFilterStatus('PENDING');
-                } else {
-                    setFilterStatus('HISTORY');
-                    if (matchingReq.status === 'APPROVED') {
-                        setHistorySubFilter('APPROVED');
-                    } else if (matchingReq.status === 'REJECTED') {
-                        setHistorySubFilter('REJECTED');
-                    }
-                }
+                // Option 1: Always stay on the PENDING tab to let the admin work on remaining pending items
+                setFilterStatus('PENDING');
                 
                 // Auto-open modal if not already open for this request
                 if (!selectedRequest || selectedRequest.id !== highlightReqId) {
@@ -359,29 +346,24 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
     };
 
     const handleApproveClick = async (req: LeaveRequest, customStartTime?: string) => {
-        if (customStartTime && customStartTime !== 'DIRECT_APPROVE' && customStartTime !== 'ADJUST_TIME') {
-            const { maxAllowedTimeStr, maxShiftTimeStr, bufferMinutes } = getMaxShiftWithBuffer(masterOptions);
-            if (customStartTime > maxAllowedTimeStr) {
-                await showAlert(
-                    `ไม่สามารถอนุมัติได้: เวลาที่ระบุ (${customStartTime} น.) เกินเวลาสายสุดของกะงานรวม Buffer (${maxAllowedTimeStr} น. - คำนวณจากกะสุดท้าย ${maxShiftTimeStr} น. + Buffer ${bufferMinutes} นาที)`,
-                    'เวลาเกินกำหนดสายสุด'
-                );
-                return;
-            }
-        }
+        const parsed = parseReason(req.reason || '');
+        const targetTime = (customStartTime && customStartTime !== 'DIRECT_APPROVE' && customStartTime !== 'ADJUST_TIME')
+            ? customStartTime
+            : (parsed.time || undefined);
 
+        // Admin override: bypass max shift/buffer time checks to allow full flexibility in manual approval
         try {
             if (customStartTime === 'DIRECT_APPROVE') {
-                if (await showConfirm('คุณต้องการอนุมัติคำขอลงเวลานี้ตามที่ขอมาใช่หรือไม่?')) {
-                    await onApprove(req);
+                if (await showConfirm(`คุณต้องการอนุมัติคำขอลงเวลานี้ตามที่ขอมา${targetTime ? ` (${targetTime} น.)` : ''} ใช่หรือไม่?`)) {
+                    await onApprove({ request: req, customStartTime: targetTime });
                 }
             } else if (customStartTime === 'ADJUST_TIME') {
                 setSelectedRequest(req);
             } else if (req.type === 'OVERTIME' || req.type === 'FORGOT_CHECKIN') {
                 setSelectedRequest(req);
             } else {
-                if (await showConfirm(`คุณต้องการอนุมัติคำขอนี้${customStartTime ? ` (เวลากะ ${customStartTime} น.)` : ''} ใช่หรือไม่?`)) {
-                    await onApprove(req, undefined, customStartTime);
+                if (await showConfirm(`คุณต้องการอนุมัติคำขอนี้${targetTime ? ` (เวลากะ ${targetTime} น.)` : ''} ใช่หรือไม่?`)) {
+                    await onApprove({ request: req, customStartTime: targetTime });
                 }
             }
         } catch (e: any) {

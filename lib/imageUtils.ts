@@ -2,9 +2,14 @@
 import heic2any from 'heic2any';
 
 export const compressImage = async (file: File, maxWidth = 1920, quality = 0.8): Promise<File> => {
-    // 1. Handle HEIC Conversion
+    // 1. Handle HEIC Conversion with safety checks for large files
     let processedFile = file;
     if (file.type === 'image/heic' || file.name.toLowerCase().endsWith('.heic')) {
+        // If HEIC is too large (e.g. > 3MB), skip client-side conversion to prevent tab crashes
+        if (file.size > 3 * 1024 * 1024) {
+            console.warn(`HEIC file is too large (${(file.size / (1024 * 1024)).toFixed(2)}MB) for client-side conversion. Skipping to prevent browser crash.`);
+            return file;
+        }
         try {
             const blob = await heic2any({
                 blob: file,
@@ -18,7 +23,7 @@ export const compressImage = async (file: File, maxWidth = 1920, quality = 0.8):
         }
     }
 
-    // 2. Resize & Compress
+    // 2. Resize & Compress with megapixel safety checks
     return new Promise((resolve, reject) => {
         // If not an image, return original
         if (!processedFile.type.startsWith('image/')) {
@@ -34,6 +39,14 @@ export const compressImage = async (file: File, maxWidth = 1920, quality = 0.8):
             img.src = event.target?.result as string;
             
             img.onload = () => {
+                // Safeguard against high megapixel images (e.g., > 8MP) to prevent iOS Canvas memory crashes
+                const totalPixels = img.width * img.height;
+                if (totalPixels > 8 * 1000 * 1000) {
+                    console.warn(`Image resolution is too high (${img.width}x${img.height} = ${(totalPixels / 1000000).toFixed(2)}MP). Skipping Canvas drawing to prevent memory crash.`);
+                    resolve(processedFile);
+                    return;
+                }
+
                 const canvas = document.createElement('canvas');
                 let width = img.width;
                 let height = img.height;
@@ -53,6 +66,10 @@ export const compressImage = async (file: File, maxWidth = 1920, quality = 0.8):
                     return;
                 }
                 
+                // Fill white background to prevent black background on transparent/HEIC images
+                ctx.fillStyle = '#FFFFFF';
+                ctx.fillRect(0, 0, width, height);
+
                 ctx.drawImage(img, 0, 0, width, height);
 
                 canvas.toBlob(

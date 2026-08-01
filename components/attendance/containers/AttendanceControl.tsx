@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { User } from '../../../types';
 import { WorkLocation } from '../../../types/attendance';
 import { useAttendanceStatus } from '../../../hooks/attendance/useAttendanceStatus';
@@ -42,6 +42,14 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({
 
     const [isRulesModalOpen, setIsRulesModalOpen] = useState(false);
     const [isCheckingIn, setIsCheckingIn] = useState(false);
+    const [isDesktop, setIsDesktop] = useState(false);
+
+    useEffect(() => {
+        if (typeof window !== 'undefined' && navigator?.userAgent) {
+            const isMobileOrTablet = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            setIsDesktop(!isMobileOrTablet);
+        }
+    }, []);
 
     const availableLocations = useMemo(() => {
         const locs = masterOptions.filter(o => o.type === 'WORK_LOCATION' || o.type === 'SHOOT_LOCATION');
@@ -296,6 +304,20 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({
                 </button>
             </div>
 
+            {isDesktop && (
+                <div className="mb-4 bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3 text-left relative z-10 shadow-sm">
+                    <div className="bg-red-100 p-2 rounded-xl text-red-600 shrink-0">
+                        <AlertTriangle className="w-5 h-5" />
+                    </div>
+                    <div>
+                        <h4 className="text-sm font-bold text-red-800 font-kanit">⚠️ สำหรับโทรศัพท์มือถือและแท็บเล็ตเท่านั้น</h4>
+                        <p className="text-[11px] text-red-600 leading-normal mt-1 font-sarabun font-medium">
+                            ระบบลงเวลาเข้าออกงาน (Attendance) รองรับการทำรายการผ่านโทรศัพท์มือถือและแท็บเล็ตเพื่อความปลอดภัยเท่านั้น ปุ่มลงเวลาและการทำรายการทั้งหมดถูกปิดใช้งานชั่วคราวบนคอมพิวเตอร์
+                        </p>
+                    </div>
+                </div>
+            )}
+
             <LiveClock hp={user?.hp} />
 
             <StatusCard 
@@ -307,6 +329,7 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({
                 onCheckOut={handleCheckOut}
                 onCheckOutRequest={onLeaveSubmit}
                 onOpenCheckIn={async (isHoliday) => {
+                    if (isDesktop) return;
                     if (isHoliday) {
                         const confirm = await showConfirm(
                             "โปรดยืนยันว่าการลงเวลาในวันหยุดครั้งนี้ ได้รับการอนุมัติหรือเห็นชอบจากหัวหน้างานของคุณแล้ว\nกดตกลงเพื่อเริ่มต้นขั้นตอนตรวจสอบสถานที่และเข้าสู่ระบบบันทึกเวลา",
@@ -325,6 +348,7 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({
                 availableLocations={availableLocations}
                 startTime={startTime}
                 lateBuffer={lateBuffer}
+                isDesktop={isDesktop}
             />
 
             <CheckInModal 

@@ -10,10 +10,18 @@ interface TimesheetCellProps {
     date: Date;
     log?: AttendanceLog;
     leaveRequest?: any;
+    otRequest?: any;
     dayStatus: { status: 'WORK_DAY' | 'HOLIDAY', source: string, desc: string };
     isToday: boolean;
-    onCellClick: (log: AttendanceLog | null, leaveRequest?: any) => void;
-    workConfig: { startTime: string; buffer: number };
+    onCellClick: (log: AttendanceLog | null, leaveRequest?: any, otRequest?: any) => void;
+    workConfig: { 
+        startTime: string; 
+        buffer: number;
+        multipleShifts?: {
+            enabled?: boolean;
+            shiftsList?: string[] | string;
+        };
+    };
     userStartDate?: Date | string | null;
 }
 
@@ -21,6 +29,7 @@ const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({
     date,
     log, 
     leaveRequest,
+    otRequest,
     dayStatus,
     isToday, 
     onCellClick,
@@ -31,8 +40,8 @@ const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({
     const isPastDay = isPast(date) && !isToday;
 
     const handleClick = () => {
-        if (log || leaveRequest) {
-            onCellClick(log || null, leaveRequest);
+        if (log || leaveRequest || otRequest) {
+            onCellClick(log || null, leaveRequest, otRequest);
         }
     };
 
@@ -95,6 +104,33 @@ const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({
             );
         }
 
+        // 1.5 Handle OT Requests (Pending or Approved but no log yet)
+        if (otRequest) {
+            const isPending = otRequest.status === 'PENDING';
+            const isApproved = otRequest.status === 'APPROVED';
+            const isFixed = otRequest.is_fixed;
+            
+            return (
+                <div 
+                    onClick={handleClick}
+                    className={`h-16 w-full flex flex-col items-center justify-center border-r border-slate-100/50 cursor-pointer group/cell transition-all
+                        ${isPending ? 'bg-purple-50/30 hover:bg-purple-50/50' : 
+                          isFixed ? 'bg-purple-50/60 hover:bg-purple-100/80 border-l-2 border-purple-500' : 'bg-amber-50/40 hover:bg-amber-100/60 border-l-2 border-amber-500'}`}
+                >
+                    <div className={`
+                        px-1.5 py-0.5 rounded-md border text-[8px] font-bold uppercase tracking-tighter text-center leading-tight
+                        ${isPending ? 'bg-purple-100/80 border-purple-200 text-purple-700' :
+                          isFixed ? 'bg-purple-200/95 border-purple-300 text-purple-800 shadow-sm' : 'bg-amber-100 border-amber-200 text-amber-700'}
+                    `}>
+                        {isPending ? 'PENDING' : 'APPROVED'}
+                        <div className="mt-0.5 text-[7px] font-medium leading-none">
+                            {isFixed ? 'OT FIXED' : 'OT REGULAR'}
+                        </div>
+                    </div>
+                </div>
+            );
+        }
+
         // 2. Handle Absent
         const isAbsent = dayStatus.status === 'WORK_DAY' && isPastDay;
         if (isAbsent) {
@@ -130,7 +166,7 @@ const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({
         );
     }
 
-    const late = log.checkInTime && checkIsLate(log.checkInTime, workConfig.startTime, workConfig.buffer);
+    const late = log.checkInTime && checkIsLate(log.checkInTime, workConfig.startTime, workConfig.buffer, log.note, workConfig.multipleShifts);
     const isLeave = log.status === 'LEAVE' || log.workType === 'LEAVE';
     const isPendingVerify = log.status === 'PENDING_VERIFY';
     const isHardAbsent = log.status === 'ABSENT' || log.status === 'NO_SHOW';
@@ -234,11 +270,17 @@ const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({
                     </div>
                 )}
 
-                {dayStatus.status === 'HOLIDAY' && (
+                {otRequest && otRequest.status === 'APPROVED' ? (
+                    <div className="absolute -bottom-1 -right-1 z-[20]">
+                        <div className={`text-[7px] font-bold px-1 py-0.5 rounded-sm shadow-sm text-white whitespace-nowrap leading-none ${otRequest.is_fixed ? 'bg-purple-600' : 'bg-amber-500'}`}>
+                            {otRequest.is_fixed ? 'OT เหมา' : 'OT'}
+                        </div>
+                    </div>
+                ) : dayStatus.status === 'HOLIDAY' ? (
                     <div className="absolute -bottom-1 -right-1">
                         <div className="bg-orange-500 text-white text-[7px] font-bold px-1 rounded-sm shadow-sm">OT</div>
                     </div>
-                )}
+                ) : null}
             </div>
         </div>
     );
@@ -271,9 +313,16 @@ const areEqual = (prevProps: TimesheetCellProps, nextProps: TimesheetCellProps) 
         prevProps.leaveRequest?.status === nextProps.leaveRequest?.status &&
         prevProps.leaveRequest?.type === nextProps.leaveRequest?.type &&
         prevProps.leaveRequest?.reason === nextProps.leaveRequest?.reason &&
+        // Compare otRequest properties
+        prevProps.otRequest?.id === nextProps.otRequest?.id &&
+        prevProps.otRequest?.status === nextProps.otRequest?.status &&
+        prevProps.otRequest?.is_fixed === nextProps.otRequest?.is_fixed &&
+        prevProps.otRequest?.duration_hours === nextProps.otRequest?.duration_hours &&
         // Compare workConfig
         prevProps.workConfig.startTime === nextProps.workConfig.startTime &&
-        prevProps.workConfig.buffer === nextProps.workConfig.buffer
+        prevProps.workConfig.buffer === nextProps.workConfig.buffer &&
+        prevProps.workConfig.multipleShifts?.enabled === nextProps.workConfig.multipleShifts?.enabled &&
+        prevProps.workConfig.multipleShifts?.shiftsList === nextProps.workConfig.multipleShifts?.shiftsList
     );
 };
 

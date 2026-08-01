@@ -14,6 +14,8 @@ interface WorkingNowDisplayProps {
     onOpenLeave?: (type?: any) => void;
     todayActiveLeave?: LeaveRequest | null;
     isApprovedLeaveToday?: boolean;
+    todayRequests?: any[];
+    isDesktop?: boolean;
 }
 
 export const WorkingNowDisplay: React.FC<WorkingNowDisplayProps> = ({
@@ -25,7 +27,9 @@ export const WorkingNowDisplay: React.FC<WorkingNowDisplayProps> = ({
     onNavigateToHistory,
     onOpenLeave,
     todayActiveLeave,
-    isApprovedLeaveToday
+    isApprovedLeaveToday,
+    todayRequests,
+    isDesktop = false
 }) => {
     const [isCheckOutModalOpen, setIsCheckOutModalOpen] = useState(false);
 
@@ -38,11 +42,23 @@ export const WorkingNowDisplay: React.FC<WorkingNowDisplayProps> = ({
         }
     };
 
-    const isAppealPending = todayLog?.status === 'APPEAL' || !!todayLog?.note?.includes('[APPEAL_PENDING]');
-    const isProvisionalLate = !!todayLog?.note?.includes('[PROVISIONAL_LATE_ENTRY]');
+    // Calculate approved/pending status of various requests to prevent conflicting banners
+    const isWfhApproved = (isApprovedLeaveToday && todayActiveLeave?.type === 'WFH') || 
+        !!(todayRequests && todayRequests.some(r => r.type === 'WFH' && r.status === 'APPROVED'));
+
+    const isOnsiteApproved = (isApprovedLeaveToday && todayActiveLeave?.type === 'ONSITE') || 
+        !!(todayRequests && todayRequests.some(r => (r.type === 'ONSITE' || r.type === 'OFFSITE') && r.status === 'APPROVED'));
+
+    const isLateApproved = !!(todayRequests && todayRequests.some(r => r.type === 'LATE_ENTRY' && r.status === 'APPROVED'));
+
+    const isAppealPending = (todayLog?.status === 'APPEAL' || !!todayLog?.note?.includes('[APPEAL_PENDING]')) && !isLateApproved;
+    const isProvisionalLate = !!todayLog?.note?.includes('[PROVISIONAL_LATE_ENTRY]') && !isLateApproved;
     const isProvisionalForgotCheckin = !!todayLog?.note?.includes('[PROVISIONAL_FORGOT_CHECKIN]');
-    const isProvisionalWfh = !!todayLog?.note?.includes('[PROVISIONAL_WFH]');
-    const isProvisionalOnsite = !!todayLog?.note?.includes('[PROVISIONAL_ONSITE]');
+    
+    // Suppress provisional warnings if they actually have approved requests
+    const isProvisionalWfh = !!todayLog?.note?.includes('[PROVISIONAL_WFH]') && !isWfhApproved;
+    const isProvisionalOnsite = !!todayLog?.note?.includes('[PROVISIONAL_ONSITE]') && !isOnsiteApproved;
+    
     const isProvisionalGps = !!todayLog?.note?.includes('[PROVISIONAL_GPS_SPOOF_APPEAL]') || !!todayLog?.note?.includes('[GPS_SPOOF_APPEAL_PENDING]');
     const isPendingVerify = todayLog?.status === 'PENDING_VERIFY';
 
@@ -194,8 +210,14 @@ export const WorkingNowDisplay: React.FC<WorkingNowDisplayProps> = ({
             )}
 
             <button 
+                disabled={isDesktop}
                 onClick={() => setIsCheckOutModalOpen(true)}
-                className="w-full py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold shadow-lg shadow-red-200 transition-all active:scale-95 flex items-center justify-center gap-2"
+                className={`w-full py-3 rounded-xl font-bold transition-all flex items-center justify-center gap-2
+                    ${isDesktop 
+                        ? 'bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed shadow-none' 
+                        : 'bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-200 active:scale-95'
+                    }
+                `}
             >
                 <LogOut className="w-5 h-5" /> ตอกบัตรออก (Check Out)
             </button>

@@ -7,7 +7,8 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import th from 'date-fns/locale/th';
-import { parseReason, getTypeName as getLeaveTypeName } from '../../leave-request/request-detail/utils';
+import { parseReason, getTypeName as getLeaveTypeName, formatSpecialTypeName } from '../../leave-request/request-detail/utils';
+import { AttendanceStatusBadge, AttendanceConditionBadges, AttendanceReasonBox, AttendanceProvisionalBanner } from '../../shared/AttendanceBadges';
 
 export type DetailRecordType = 'ATTENDANCE' | 'LEAVE' | 'OT' | 'ABSENT';
 
@@ -21,21 +22,7 @@ interface RecordDetailModalProps {
     onClose: () => void;
 }
 
-// Friendly Work / Request Type Name Formatter
-const formatSpecialTypeName = (typeStr: string | undefined): string => {
-    if (!typeStr) return 'ทำงาน ณ สถานที่ตั้ง';
-    const upper = typeStr.toUpperCase();
-    if (upper === 'WFH') return 'ขอทำงานที่บ้าน (WFH)';
-    if (upper === 'ONSITE' || upper === 'SITE') return 'ทำงานนอกสถานที่ (On-site)';
-    if (upper === 'OFFICE') return 'ทำงาน ณ สำนักงานใหญ่';
-    if (upper === 'LATE_ENTRY') return 'คำขอเข้าสาย (Late Entry)';
-    if (upper === 'EARLY_LEAVE') return 'คำขอกลับก่อนเวลา (Early Leave)';
-    if (upper === 'FORGOT_CHECKIN') return 'คำขอลืมลงเวลาเข้างาน (Forgot Check-in)';
-    if (upper === 'FORGOT_CHECKOUT') return 'คำขอลืมลงเวลาออกงาน (Forgot Check-out)';
-    if (upper === 'FORGOT_BOTH') return 'คำขอลืมบันทึกเวลาทั้งเข้าและออก';
-    if (upper === 'OUT_OF_RANGE_CHECKOUT') return 'ลงเวลานอกพื้นที่ (Out of Range)';
-    return getLeaveTypeName(typeStr) || typeStr;
-};
+export { formatSpecialTypeName };
 
 export const RecordDetailModal: React.FC<RecordDetailModalProps> = ({ record, onClose }) => {
     const [copiedGps, setCopiedGps] = useState(false);
@@ -110,78 +97,41 @@ export const RecordDetailModal: React.FC<RecordDetailModalProps> = ({ record, on
                         {/* 1. ATTENDANCE TYPE */}
                         {type === 'ATTENDANCE' && (() => {
                             const note = data.note || '';
-                            const parsed = parseReason(note);
-                            const checkInStr = data.checkInTime ? format(new Date(data.checkInTime), 'HH:mm:ss น.') : (data.checkIn_time || data.check_in_time || '--:--:--');
-                            const checkOutStr = data.checkOutTime ? format(new Date(data.checkOutTime), 'HH:mm:ss น.') : (data.checkOut_time || data.check_out_time || 'ยังไม่ได้เช็คเอาท์');
+                            const checkInTimeVal = data.checkInTime || data.checkIn_time || data.check_in_time;
+                            const checkOutTimeVal = data.checkOutTime || data.checkOut_time || data.check_out_time;
+                            const parsed = parseReason(note, checkInTimeVal, checkOutTimeVal);
+                            
+                            const isForgotBothPending = note.includes('[FORGOT_BOTH_PENDING]');
+                            let checkInStr = data.checkInTime ? format(new Date(data.checkInTime), 'HH:mm:ss น.') : (data.checkIn_time || data.check_out_time || '--:--:--');
+                            let checkOutStr = data.checkOutTime ? format(new Date(data.checkOutTime), 'HH:mm:ss น.') : (data.checkOut_time || data.check_out_time || 'ยังไม่ได้เช็คเอาท์');
 
-                            const lat = data.checkInLat || data.check_in_lat || data.lat;
-                            const lng = data.checkInLng || data.check_in_lng || data.lng;
-                            const gpsCoords = lat && lng ? `${lat}, ${lng}` : null;
-                            const locationName = data.locationName || data.site_name || data.location_name || (parsed.isProvisionalWfh ? 'Work From Home' : parsed.isProvisionalOnsite ? 'นอกสถานที่ (On-site)' : 'สำนักงานใหญ่');
-                            const photoUrl = data.checkInPhoto || data.selfie_url || data.proofUrl || data.attachment_url;
+                            if (isForgotBothPending && parsed.time && parsed.time.includes('-')) {
+                                const parts = parsed.time.split('-');
+                                checkInStr = `${parts[0]} น. (ระบุในคำขอ)`;
+                                checkOutStr = `${parts[1]} น. (ระบุในคำขอ)`;
+                            }
+                            const locationName = data.locationName || data.location_name || 'ไม่ได้ระบุสถานที่';
+                            const photoUrl = data.photoUrl || data.photo_url || data.image_url;
+                            const lat = data.latitude || data.lat;
+                            const lng = data.longitude || data.lng;
+                            const gpsCoords = (lat && lng) ? `${lat}, ${lng}` : null;
 
                             return (
                                 <>
+                                    {/* Provisional Alert Banner */}
+                                    <AttendanceProvisionalBanner parsed={parsed} />
+
                                     {/* Status & Badges Section */}
                                     <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-3">
                                         <div className="flex items-center justify-between">
                                             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">สถานะการลงเวลา</span>
                                             <div className="flex flex-wrap items-center gap-1.5">
-                                                <span className={`px-2.5 py-1 rounded-xl text-xs font-bold uppercase ${
-                                                    data.status === 'LATE' || data.status === 'APPEAL' 
-                                                        ? 'bg-amber-100 text-amber-700' 
-                                                        : 'bg-emerald-100 text-emerald-700'
-                                                }`}>
-                                                    {data.status === 'LATE' ? 'ลงเวลาสาย' : data.status === 'APPEAL' ? 'อุทธรณ์เวลา' : 'ตรงเวลา'}
-                                                </span>
+                                                <AttendanceStatusBadge status={data.status} isEarlyLeaveAcceptPenalty={parsed.isEarlyLeaveAcceptPenalty} />
                                             </div>
                                         </div>
 
                                         {/* Provisional & Special Condition Badges */}
-                                        {(parsed.isProvisionalWfh || parsed.isProvisionalOnsite || parsed.isProvisionalForgotCheckin || parsed.isProvisionalCheckout || parsed.isProvisionalLate || parsed.isLocationMismatch || parsed.isLateSubmission || parsed.forgotCheckoutPenalty) && (
-                                            <div className="flex flex-wrap gap-1.5 pt-1 border-t border-slate-100">
-                                                {parsed.isProvisionalWfh && (
-                                                    <span className="px-2.5 py-1 bg-sky-100 text-sky-800 border border-sky-200 rounded-xl text-xs font-bold flex items-center gap-1">
-                                                        🏠 WFH แบบจำลอง (รออนุมัติ)
-                                                    </span>
-                                                )}
-                                                {parsed.isProvisionalOnsite && (
-                                                    <span className="px-2.5 py-1 bg-orange-100 text-orange-800 border border-orange-200 rounded-xl text-xs font-bold flex items-center gap-1">
-                                                        📍 On-site แบบจำลอง (รออนุมัติ)
-                                                    </span>
-                                                )}
-                                                {parsed.isProvisionalForgotCheckin && (
-                                                    <span className="px-2.5 py-1 bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold flex items-center gap-1">
-                                                        ⏰ ลืมลงเวลาแบบจำลอง
-                                                    </span>
-                                                )}
-                                                {parsed.isProvisionalLate && (
-                                                    <span className="px-2.5 py-1 bg-violet-100 text-violet-800 border border-violet-200 rounded-xl text-xs font-bold flex items-center gap-1">
-                                                        ⏳ ขอเข้าสายแบบจำลอง
-                                                    </span>
-                                                )}
-                                                {parsed.isProvisionalCheckout && (
-                                                    <span className="px-2.5 py-1 bg-pink-100 text-pink-800 border border-pink-200 rounded-xl text-xs font-bold flex items-center gap-1">
-                                                        🚪 เช็คเอาท์แบบจำลอง
-                                                    </span>
-                                                )}
-                                                {parsed.isLocationMismatch && (
-                                                    <span className="px-2.5 py-1 bg-rose-100 text-rose-800 border border-rose-200 rounded-xl text-xs font-bold flex items-center gap-1">
-                                                        📍 นอกรัศมีพื้นที่ (Location Mismatch)
-                                                    </span>
-                                                )}
-                                                {parsed.isLateSubmission && (
-                                                    <span className="px-2.5 py-1 bg-purple-100 text-purple-800 border border-purple-200 rounded-xl text-xs font-bold flex items-center gap-1">
-                                                        ⏰ ยื่นขอย้อนหลัง (Late Submission)
-                                                    </span>
-                                                )}
-                                                {parsed.forgotCheckoutPenalty && (
-                                                    <span className="px-2.5 py-1 bg-amber-100 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold flex items-center gap-1">
-                                                        🚪 ลืมตอกบัตรออก (Penalized)
-                                                    </span>
-                                                )}
-                                            </div>
-                                        )}
+                                        <AttendanceConditionBadges parsed={parsed} status={data.status} size="md" hideProvisional={true} />
                                     </div>
 
                                     {/* Scan Times Grid */}
@@ -207,7 +157,7 @@ export const RecordDetailModal: React.FC<RecordDetailModalProps> = ({ record, on
                                                 <MapPin className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
                                                 <div>
                                                     <p className="text-xs font-bold text-slate-800">{locationName}</p>
-                                                    <p className="text-[11px] text-slate-500 mt-0.5">ประเภท: {data.workType || 'ทำงาน ณ สถานที่ตั้ง'}</p>
+                                                    <p className="text-[11px] text-slate-500 mt-0.5">ประเภท: {formatSpecialTypeName(data.workType)}</p>
                                                 </div>
                                             </div>
                                         </div>
@@ -237,16 +187,7 @@ export const RecordDetailModal: React.FC<RecordDetailModalProps> = ({ record, on
                                     </div>
 
                                     {/* Reasons / Full Notes */}
-                                    {note && (
-                                        <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl space-y-1">
-                                            <p className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
-                                                <FileText className="w-3.5 h-3.5 text-slate-400" /> เหตุผล / หมายเหตุฉบับเต็ม
-                                            </p>
-                                            <p className="text-xs text-slate-700 leading-relaxed font-medium whitespace-pre-wrap pt-1">
-                                                {parsed.cleanReason || note}
-                                            </p>
-                                        </div>
-                                    )}
+                                    <AttendanceReasonBox parsed={parsed} rawNote={note} />
 
                                     {/* Proof Image / Selfie */}
                                     {photoUrl && (
@@ -271,8 +212,50 @@ export const RecordDetailModal: React.FC<RecordDetailModalProps> = ({ record, on
                         {/* 2. LEAVE / PERMISSION TYPE */}
                         {type === 'LEAVE' && (() => {
                             const parsed = parseReason(data.reason || data.note || '');
-                            const leaveType = data.type || data.workType || 'LEAVE';
-                            const status = data.status || 'APPROVED';
+                            const leaveTypeMatch = data.note?.match(/\[(?:APPROVED|REJECTED) LEAVE: (.*?)\]/);
+                            let leaveType = leaveTypeMatch ? leaveTypeMatch[1] : (data.type || data.workType || 'LEAVE');
+                            
+                            if (data.note) {
+                                if (data.note.includes('SICK_LEAVE')) leaveType = 'SICK_LEAVE';
+                                else if (data.note.includes('VACATION_LEAVE')) leaveType = 'VACATION_LEAVE';
+                                else if (data.note.includes('PERSONAL_LEAVE')) leaveType = 'PERSONAL_LEAVE';
+                                else if (data.note.includes('EMERGENCY_LEAVE')) leaveType = 'EMERGENCY_LEAVE';
+                                else if (data.note.includes('UNPAID_LEAVE')) leaveType = 'UNPAID_LEAVE';
+                            }
+
+                            const isNoteRejected = data.note && (
+                                data.note.includes('[REJECTED SICK_LEAVE]') ||
+                                data.note.includes('[REJECTED VACATION_LEAVE]') ||
+                                data.note.includes('[REJECTED PERSONAL_LEAVE]') ||
+                                data.note.includes('[REJECTED EMERGENCY_LEAVE]') ||
+                                data.note.includes('[REJECTED UNPAID_LEAVE]') ||
+                                data.note.includes('[REJECTED LEAVE:') ||
+                                data.note.includes('ปฏิเสธ')
+                            );
+                            
+                            const isNoteApproved = data.note && (
+                                data.note.includes('[APPROVED SICK_LEAVE]') ||
+                                data.note.includes('[APPROVED VACATION_LEAVE]') ||
+                                data.note.includes('[APPROVED PERSONAL_LEAVE]') ||
+                                data.note.includes('[APPROVED EMERGENCY_LEAVE]') ||
+                                data.note.includes('[APPROVED UNPAID_LEAVE]') ||
+                                data.note.includes('[APPROVED LEAVE:')
+                            );
+
+                            const rawStatus = data.status || 'APPROVED';
+                            let status = rawStatus;
+                            if (rawStatus === 'LEAVE' || rawStatus === 'APPROVED') {
+                                if (isNoteRejected) {
+                                    status = 'REJECTED';
+                                } else {
+                                    status = 'APPROVED';
+                                }
+                            } else if (isNoteRejected) {
+                                status = 'REJECTED';
+                            } else if (isNoteApproved) {
+                                status = 'APPROVED';
+                            }
+
                             const attachment = data.attachment_url || data.attachmentUrl;
 
                             return (
@@ -324,7 +307,16 @@ export const RecordDetailModal: React.FC<RecordDetailModalProps> = ({ record, on
                             const reqStartStr = data.startTime || '18:30';
                             const reqEndStr = data.endTime || '20:30';
                             const multiplierLabel = data.type === 'NORMAL_DAY' ? 'วันทำงานปกติ (1.5x)' : data.type === 'HOLIDAY' ? 'วันหยุดปกติ (2.0x)' : 'วันหยุดพิเศษ (3.0x)';
-                            const scanStatusText = data.scanStatus === 'OK' ? 'เช็คเอาท์ตามจริง ครบกำหนดตามช่วงเวลาที่ขอ' : data.scanStatus === 'EARLY' ? `กลับก่อนเวลา! สแกนจริงได้ ${data.actualScannedHours?.toFixed(2)} ชม.` : 'ไม่พบสแกนเช็คเอาท์';
+                            
+                            const isFixed = data.scanStatus === 'FIXED' || !!(data.reason && data.reason.includes('[OT:FIXED]')) || (data.startTime === '00:00' && data.endTime === '00:00');
+
+                            const scanStatusText = isFixed
+                                ? 'ได้รับการยกเว้นการตรวจสอบสแกนออกเนื่องจากเป็นรายการทำงานล่วงเวลาแบบเหมาจ่าย'
+                                : data.scanStatus === 'OK'
+                                    ? 'เช็คเอาท์ตามจริง ครบกำหนดตามช่วงเวลาที่ขอ'
+                                    : data.scanStatus === 'EARLY'
+                                        ? `กลับก่อนเวลา! สแกนจริงได้ ${data.actualScannedHours?.toFixed(2)} ชม.`
+                                        : 'ไม่พบสแกนเช็คเอาท์';
 
                             return (
                                 <>
@@ -336,7 +328,7 @@ export const RecordDetailModal: React.FC<RecordDetailModalProps> = ({ record, on
                                             </span>
                                         </div>
                                         <p className="text-xs text-purple-600 font-medium pt-1">
-                                            ช่วงเวลาที่อนุมัติ: <strong>{reqStartStr} - {reqEndStr} น.</strong>
+                                            ช่วงเวลาที่อนุมัติ: <strong>{isFixed ? 'เหมาจ่าย' : `${reqStartStr} - ${reqEndStr} น.`}</strong>
                                         </p>
                                     </div>
 
@@ -344,11 +336,15 @@ export const RecordDetailModal: React.FC<RecordDetailModalProps> = ({ record, on
                                     <div className="grid grid-cols-3 gap-2 text-center">
                                         <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase">ขออนุมัติ</p>
-                                            <p className="text-sm font-bold text-slate-700 mt-1">{data.reqHours?.toFixed(2) || '0.00'} ชม.</p>
+                                            <p className="text-sm font-bold text-slate-700 mt-1">
+                                                {isFixed ? '0.00 ชม.' : `${(data.reqHours || 0).toFixed(2)} ชม.`}
+                                            </p>
                                         </div>
                                         <div className="p-3 bg-slate-50 border border-slate-100 rounded-2xl">
                                             <p className="text-[10px] font-bold text-slate-400 uppercase">สแกนจริง</p>
-                                            <p className="text-sm font-bold text-slate-700 mt-1">{data.actualScannedHours?.toFixed(2) || '0.00'} ชม.</p>
+                                            <p className="text-sm font-bold text-slate-700 mt-1">
+                                                {isFixed ? 'เหมาจ่าย' : `${(data.actualScannedHours || 0).toFixed(2)} ชม.`}
+                                            </p>
                                         </div>
                                         <div className="p-3 bg-indigo-50 border border-indigo-100 rounded-2xl">
                                             <p className="text-[10px] font-bold text-indigo-500 uppercase">จ่ายจริง</p>

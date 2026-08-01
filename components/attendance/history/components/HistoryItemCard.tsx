@@ -45,10 +45,17 @@ const getLeaveLabel = (type: string) => {
         'ONSITE': '📍 On-site (นอกสถานที่)',
         'FORGOT_CHECKIN': '🕒 ลืม Check-in',
         'FORGOT_CHECKOUT': '🏃 ลืม Check-out (แก้เวลาออก)',
+        'FORGOT_BOTH': '🔍 ลืมลงเวลาเข้า/ออก',
         'OUT_OF_RANGE_CHECKOUT': '📍 ลงเวลานอกพื้นที่ (Out of Range)',
         'OVERTIME': '🌙 ขอ OT'
     };
     return labels[type] || type;
+};
+
+const isTimeDifferent = (time1: string | null, time2: string | null): boolean => {
+    if (!time1 || !time2) return false;
+    const clean = (t: string) => t.replace(/[^a-zA-Z0-9:]/g, '').trim();
+    return clean(time1) !== clean(time2);
 };
 
 export const HistoryItemCard: React.FC<HistoryItemCardProps> = ({ req, isHighlighted = false }) => {
@@ -182,11 +189,24 @@ export const HistoryItemCard: React.FC<HistoryItemCardProps> = ({ req, isHighlig
                                     <span>ลงเวลาแบบจำลอง (อุทธรณ์ GPS)</span>
                                 </span>
                             )}
-                            {parsed.time && (
-                                <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-purple-700 bg-purple-50 border border-purple-100 px-2 py-0.5 rounded">
-                                    <Clock className="w-3 h-3" />
-                                    <span>เวลา: {parsed.time} น.</span>
-                                </span>
+                            {parsed.approvedTime && isTimeDifferent(parsed.time, parsed.approvedTime) ? (
+                                <>
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-slate-500 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded">
+                                        <Clock className="w-3 h-3 text-slate-400" />
+                                        <span>เวลาที่ยื่นขอ: {parsed.time?.includes('-') ? parsed.time.replace('-', ' - ') : parsed.time} น.</span>
+                                    </span>
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded animate-pulse">
+                                        <CheckCircle2 className="w-3 h-3 text-emerald-500" />
+                                        <span>เวลาแอดมินปรับแก้: {parsed.approvedTime.includes('-') ? parsed.approvedTime.replace('-', ' - ') : parsed.approvedTime} น.</span>
+                                    </span>
+                                </>
+                            ) : (
+                                parsed.time && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-purple-700 bg-purple-50 border border-purple-100 px-2 py-0.5 rounded">
+                                        <Clock className="w-3 h-3" />
+                                        <span>เวลา: {parsed.time?.includes('-') ? parsed.time.replace('-', ' - ') : parsed.time} น.</span>
+                                    </span>
+                                )
                             )}
                             {parsed.actualCheckInTime && (
                                 <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-teal-700 bg-teal-50 border border-teal-100 px-2 py-0.5 rounded">

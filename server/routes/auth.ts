@@ -1,5 +1,6 @@
 import express from 'express';
 import { SCOPES, getGoogleOAuthClient } from '../utils/google-client.js';
+import { serverSupabase } from '../utils/supabase.js';
 
 const router = express.Router();
 
@@ -163,6 +164,45 @@ router.get('/auth/google/callback', async (req, res) => {
                 <button onclick="window.close()" style="padding: 8px 16px; background: #64748b; color: white; border: none; border-radius: 6px; cursor: pointer;">Close Window</button>
             </div>
         `);
+    }
+});
+
+// Route to securely update user email by bypassing old domain restrictions (like juijui.local) using the admin SDK
+router.post('/api/auth/update-email', async (req, res) => {
+    try {
+        const authHeader = req.headers.authorization;
+        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+            return res.status(401).json({ error: 'ไม่พบข้อมูลสิทธิ์การใช้งาน (Authorization header)' });
+        }
+        
+        const token = authHeader.split(' ')[1];
+        const { data: { user }, error: authError } = await serverSupabase.auth.getUser(token);
+        if (authError || !user) {
+            return res.status(401).json({ error: 'เซสชันหมดอายุหรือสิทธิ์ไม่ถูกต้อง: ' + (authError?.message || 'Invalid token') });
+        }
+        
+        const { email } = req.body;
+        if (!email || !email.trim()) {
+            return res.status(400).json({ error: 'กรุณากรอกอีเมล' });
+        }
+        
+        const cleanEmail = email.trim().toLowerCase();
+        
+        // Use admin client to update user email directly and bypass verification on the old invalid domain
+        const { data: updatedUser, error: updateError } = await serverSupabase.auth.admin.updateUserById(
+            user.id,
+            { email: cleanEmail, email_confirm: true }
+        );
+        
+        if (updateError) {
+            console.error('Failed to update email via admin client:', updateError);
+            return res.status(500).json({ error: updateError.message });
+        }
+        
+        res.json({ success: true, user: updatedUser });
+    } catch (error: any) {
+        console.error('Error in update-email endpoint:', error);
+        res.status(500).json({ error: error.message || 'เกิดข้อผิดพลาดในการอัปเดตอีเมล' });
     }
 });
 

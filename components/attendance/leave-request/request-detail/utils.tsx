@@ -20,14 +20,26 @@ export interface ParsedReason {
     isProvisionalCheckout: boolean;
     isProvisionalLate: boolean;
     isProvisionalGps: boolean;
+    isForgotBothPending: boolean;
+    isEarlyLeaveAcceptPenalty: boolean;
+    isEarlyLeaveApproved: boolean;
+    earlyLeaveMissingMinutes: number | null;
     proofUrl: string | null;
     linkId: string | null;
     remoteType: string | null;
     distance: string | null;
     actualCheckInTime: string | null;
+    okHoursWorked: number | null;
+    okFormatted: string | null;
+    isEarlyLeave: boolean;
+    approvedTime: string | null;
 }
 
-export const parseReason = (reason: string): ParsedReason => {
+export const parseReason = (
+    reason: string,
+    checkInTime?: string | Date | null,
+    checkOutTime?: string | Date | null
+): ParsedReason => {
     let text = reason || '';
 
     // Extract [PROOF:url]
@@ -70,6 +82,81 @@ export const parseReason = (reason: string): ParsedReason => {
         text = text.replace(/\[ACTUAL_CHECK_IN:\d{2}:\d{2}(:\d{2})?\]/g, '');
     }
     
+    // Clean up internal system tags (e.g. [ACTUAL_TIME], Actual_Time, [OFFICE_CHECKIN])
+    text = text.replace(/\[ACTUAL_TIME_CHECKIN\]/gi, '');
+    text = text.replace(/\[ACTUAL_TIME_CHECKOUT\]/gi, '');
+    text = text.replace(/\[ACTUAL_TIME\]/gi, '');
+    text = text.replace(/\[OFFICE_CHECKIN\]/gi, '');
+    text = text.replace(/\[LOCATION_CHECK:[^\]]+\]/gi, '');
+    text = text.replace(/\[AUTO_APPROVED\]/gi, '');
+    text = text.replace(/\[SYSTEM\]/gi, '');
+    text = text.replace(/Actual_Time/gi, '');
+
+    // Translate unauthorized work types in note text
+    text = text.replace(/\[UNAUTHORIZED_WFH\]/g, 'ทำงานที่บ้านไม่ได้รับอนุญาต (Unauthorized WFH)');
+    text = text.replace(/\[UNAUTHORIZED_ONSITE\]/g, 'ทำงานนอกสถานที่ไม่ได้รับอนุญาต (Unauthorized On-site)');
+    text = text.replace(/\[FORGETFUL_ADJUST_CHECKOUT\]/g, 'ลืมลงเวลาออกงาน (ปรับเวลาเช็คเอาท์อัตโนมัติ)');
+    text = text.replace(/\[EARLY:\s*Missing\s*(\d+)m\]/gi, 'กลับก่อนกำหนด (ขาดอีก $1 นาที)');
+
+    // Calculate actual hours and minutes from timestamps when available, fallback to [OK: X.X hrs]
+    const isEarlyLeaveDetected = !!(
+        (reason && (
+            reason.includes('EARLY_LEAVE') || 
+            /\[EARLY:/i.test(reason) || 
+            /\[ACCEPT_PENALTY\]/i.test(reason) || 
+            /\[ACCEPTED_PENALTY\]/i.test(reason) || 
+            /ACCEPT_PENALTY/i.test(reason)
+        )) || 
+        (text && (
+            text.includes('EARLY_LEAVE') || 
+            /\[EARLY:/i.test(text)
+        ))
+    );
+
+    const prefix = isEarlyLeaveDetected ? 'เวลาทำงานจริง' : 'ทำงานปกติ';
+
+    const okMatch = text.match(/\[OK:\s*([\d\.]+)\s*hrs?\]/i);
+    let okHoursWorked: number | null = null;
+    let okFormatted: string | null = null;
+
+    let calculatedFromTimestamps = false;
+    if (checkInTime && checkOutTime) {
+        const inDate = new Date(checkInTime);
+        const outDate = new Date(checkOutTime);
+        if (!isNaN(inDate.getTime()) && !isNaN(outDate.getTime()) && outDate >= inDate) {
+            const totalMinutes = Math.round((outDate.getTime() - inDate.getTime()) / 60000);
+            okHoursWorked = totalMinutes / 60;
+            const hrs = Math.floor(totalMinutes / 60);
+            const mins = totalMinutes % 60;
+            if (hrs > 0 && mins > 0) {
+                okFormatted = `${prefix} (${hrs} ชั่วโมง ${mins} นาที)`;
+            } else if (hrs > 0) {
+                okFormatted = `${prefix} (${hrs} ชั่วโมง)`;
+            } else {
+                okFormatted = `${prefix} (${mins} นาที)`;
+            }
+            calculatedFromTimestamps = true;
+        }
+    }
+
+    if (!calculatedFromTimestamps && okMatch) {
+        const hours = parseFloat(okMatch[1]);
+        if (!isNaN(hours)) {
+            okHoursWorked = hours;
+            const totalMinutes = Math.round(hours * 60);
+            const hrs = Math.floor(totalMinutes / 60);
+            const mins = totalMinutes % 60;
+            if (hrs > 0 && mins > 0) {
+                okFormatted = `${prefix} (${hrs} ชั่วโมง ${mins} นาที)`;
+            } else if (hrs > 0) {
+                okFormatted = `${prefix} (${hrs} ชั่วโมง)`;
+            } else {
+                okFormatted = `${prefix} (${mins} นาที)`;
+            }
+        }
+    }
+    text = text.replace(/\[OK:\s*[\d\.]+\s*hrs?\]/gi, '');
+
     const isLateSubmission = text.includes('[LATE_SUBMISSION]');
     text = text.replace(/\[LATE_SUBMISSION\]/g, '');
     
@@ -99,9 +186,39 @@ export const parseReason = (reason: string): ParsedReason => {
     const isProvisionalCheckout = text.includes('[PROVISIONAL_CHECKOUT]');
     text = text.replace(/\[PROVISIONAL_CHECKOUT\]/g, '');
 
+    const isForgotBothPending = text.includes('[FORGOT_BOTH_PENDING]');
+    text = text.replace(/\[FORGOT_BOTH_PENDING\]/g, '');
+
+    // Extract Early Leave Penalty Acceptance
+    const isEarlyLeaveAcceptPenalty = text.includes('[ACCEPT_PENALTY]') || text.includes('[ACCEPTED_PENALTY]') || text.includes('ACCEPT_PENALTY');
+    
+    // Extract Early Leave Approved
+    const isEarlyLeaveApproved = text.includes('[APPROVED EARLY_LEAVE]') || text.includes('[APPROVED EARLY_LEAVE_APPEAL]');
+    
+    // Extract missing minutes if present in tags or text
+    const earlyMatch = text.match(/\[EARLY:\s*Missing\s*(\d+)m?\]/i) || text.match(/ขาด(?:อีก)?\s*(\d+)\s*นาที/i);
+    let earlyLeaveMissingMinutes: number | null = null;
+    if (earlyMatch) {
+        earlyLeaveMissingMinutes = parseInt(earlyMatch[1], 10);
+    }
+
+    // Clean up early leave penalty tags and system phrases
+    text = text.replace(/\[EARLY:\s*Missing\s*\d+m?\]/gi, '');
+    text = text.replace(/\[ACCEPT_PENALTY\]/gi, '');
+    text = text.replace(/\[ACCEPTED_PENALTY\]/gi, '');
+    text = text.replace(/ACCEPT_PENALTY/gi, '');
+    text = text.replace(/\[APPROVED EARLY_LEAVE\]/gi, '');
+    text = text.replace(/\[APPROVED EARLY_LEAVE_APPEAL\]/gi, '');
+    text = text.replace(/กลับก่อนกำหนด\s*\(ขาดอีก\s*\d+\s*นาที\)/gi, '');
+    text = text.replace(/ยอมรับบทลงโทษกลับก่อนเวลา/gi, '');
+    text = text.replace(/\[REJECTED EARLY_LEAVE_APPEAL\]/gi, '');
+
     const isProvisionalGps = text.includes('[PROVISIONAL_GPS_SPOOF_APPEAL]') || text.includes('[GPS_SPOOF_APPEAL_PENDING]');
     text = text.replace(/\[PROVISIONAL_GPS_SPOOF_APPEAL\]/g, '');
     text = text.replace(/\[GPS_SPOOF_APPEAL_PENDING\]/g, '');
+
+    // Beautify reason tag formatting - now that system tags inside/around are cleaned up
+    text = text.replace(/\[REASON:\s*(.*?)\]/gi, '($1)');
     
     const targetShiftMatch = text.match(/\[TARGET_SHIFT:(\d{2}:\d{2})\]/);
     let targetShift: string | null = null;
@@ -110,11 +227,22 @@ export const parseReason = (reason: string): ParsedReason => {
         text = text.replace(/\[TARGET_SHIFT:\d{2}:\d{2}\]/g, '');
     }
 
-    const timeMatch = text.match(/\[TIME:(\d{2}:\d{2})\]/);
+    const approvedTimeMatch = text.match(/\[APPROVED_TIME:([^\]]+)\]/);
+    let approvedTime: string | null = null;
+    if (approvedTimeMatch) {
+        approvedTime = approvedTimeMatch[1];
+        text = text.replace(/\[APPROVED_TIME:[^\]]+\]/g, '');
+    }
+
+    const timeMatch = text.match(/\[TIME:([^\]]+)\]/);
+    const earlyTimeMatch = text.match(/\[EARLY:(\d{2}:\d{2})\]/);
     let time: string | null = null;
     if (timeMatch) {
         time = timeMatch[1];
-        text = text.replace(/\[TIME:\d{2}:\d{2}\]/g, '');
+        text = text.replace(/\[TIME:[^\]]+\]/g, '');
+    } else if (earlyTimeMatch) {
+        time = earlyTimeMatch[1];
+        text = text.replace(/\[EARLY:\d{2}:\d{2}\]/g, '');
     }
 
     // Extract [OT:HH:MM-HH:MM]
@@ -139,6 +267,9 @@ export const parseReason = (reason: string): ParsedReason => {
     text = text.replace(/\[OT_MINUTES:\d+\]/g, '');
     text = text.replace(/\[OT:[\d\.]+hr\]/g, '');
 
+    text = text.replace(/\(\s*\)/g, '');
+    text = text.replace(/\[\s*\]/g, '');
+    text = removeOrphanedParentheses(text);
     text = text.replace(/\s+/g, ' ').trim();
 
     // Check if the message is a system-generated generic provisional text
@@ -158,7 +289,10 @@ export const parseReason = (reason: string): ParsedReason => {
         cleanLower === 'provisional onsite' ||
         cleanLower === 'provisional checkout' ||
         cleanLower === 'provisional gps appeal' ||
-        cleanLower === 'provisional';
+        cleanLower === 'provisional' ||
+        cleanLower === 'actual_time' ||
+        cleanLower === 'actual_time_checkin' ||
+        cleanLower === 'office';
 
     if (isGenericProvisional && isProvisionalGps) {
         text = 'ยื่นคำขออุทธรณ์พิกัด GPS ผิดปกติเนื่องจากสัญญาณระบบคลาดเคลื่อน (ระบบลงเวลาแบบจำลองให้อัตโนมัติ)';
@@ -181,17 +315,43 @@ export const parseReason = (reason: string): ParsedReason => {
         isProvisionalCheckout,
         isProvisionalLate,
         isProvisionalGps,
+        isForgotBothPending,
+        isEarlyLeaveAcceptPenalty,
+        isEarlyLeaveApproved,
+        earlyLeaveMissingMinutes,
         proofUrl,
         linkId,
         remoteType,
         distance,
-        actualCheckInTime
+        actualCheckInTime,
+        okHoursWorked,
+        okFormatted,
+        isEarlyLeave: isEarlyLeaveDetected,
+        approvedTime
     };
 };
 
 export const getTypeName = (type: string) => {
     const registryItem = getRegistryItem(type);
     return registryItem ? registryItem.label : type;
+};
+
+// Friendly Work / Request Type Name Formatter
+export const formatSpecialTypeName = (typeStr: string | undefined): string => {
+    if (!typeStr) return 'ทำงาน ณ สถานที่ตั้ง';
+    const upper = typeStr.trim().toUpperCase();
+    if (upper === 'WFH') return 'ขอทำงานที่บ้าน (WFH)';
+    if (upper === 'ONSITE' || upper === 'SITE') return 'ทำงานนอกสถานที่ (On-site)';
+    if (upper === 'UNAUTHORIZED_WFH') return 'ทำงานที่บ้านไม่ได้รับอนุญาต (Unauthorized WFH)';
+    if (upper === 'UNAUTHORIZED_ONSITE') return 'ทำงานนอกสถานที่ไม่ได้รับอนุญาต (Unauthorized On-site)';
+    if (upper === 'OFFICE' || upper === 'ACTUAL_TIME' || upper === 'ACTUAL_TIME_CHECKIN' || upper === 'ACTUAL_TIME_CHECKOUT' || upper === 'REGULAR' || upper === 'NORMAL') return 'ทำงาน ณ สำนักงานใหญ่';
+    if (upper === 'LATE_ENTRY') return 'คำขอเข้าสาย (Late Entry)';
+    if (upper === 'EARLY_LEAVE') return 'คำขอกลับก่อนเวลา (Early Leave)';
+    if (upper === 'FORGOT_CHECKIN') return 'คำขอลืมลงเวลาเข้างาน (Forgot Check-in)';
+    if (upper === 'FORGOT_CHECKOUT') return 'คำขอลืมลงเวลาออกงาน (Forgot Check-out)';
+    if (upper === 'FORGOT_BOTH') return 'คำขอลืมบันทึกเวลาทั้งเข้าและออก';
+    if (upper === 'OUT_OF_RANGE_CHECKOUT') return 'ลงเวลานอกพื้นที่ (Out of Range)';
+    return getTypeName(typeStr) || typeStr;
 };
 
 export const getTypeColorClass = (type: string) => {
@@ -212,3 +372,35 @@ export const getStatusBadge = (status: string) => {
         </span>
     );
 };
+
+// Helper to remove orphaned/unmatched parentheses from cleaned reason strings
+function removeOrphanedParentheses(str: string): string {
+    let result = '';
+    const stack: number[] = [];
+    const chars = Array.from(str);
+    const toRemove = new Set<number>();
+
+    for (let i = 0; i < chars.length; i++) {
+        if (chars[i] === '(') {
+            stack.push(i);
+        } else if (chars[i] === ')') {
+            if (stack.length > 0) {
+                stack.pop();
+            } else {
+                toRemove.add(i);
+            }
+        }
+    }
+
+    while (stack.length > 0) {
+        toRemove.add(stack.pop()!);
+    }
+
+    for (let i = 0; i < chars.length; i++) {
+        if (!toRemove.has(i)) {
+            result += chars[i];
+        }
+    }
+
+    return result.replace(/\(\s*\)/g, '').replace(/\s+/g, ' ').trim();
+}

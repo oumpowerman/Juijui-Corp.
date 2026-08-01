@@ -161,15 +161,28 @@ export function useCheckInState({
     const shiftResult = useMemo(() => {
         if (!isShiftsEnabled) return null;
         const now = new Date();
-        return getMatchedShiftSlot(now, shiftsList, lateBuffer);
+        return getMatchedShiftSlot(now, shiftsList, lateBuffer, true);
     }, [isShiftsEnabled, shiftsList, lateBuffer, isOpen]);
+
+    const isExceededLastShift = useMemo(() => {
+        if (approvedLateTime) return false;
+        if (isShiftsEnabled && shiftResult) {
+            return !!shiftResult.isExceededLastShift;
+        }
+        if (!startTime) return false;
+        const effectiveStartTime = approvedLateTime || startTime;
+        const [h, m] = effectiveStartTime.split(':').map(Number);
+        const limitWithBuffer = new Date();
+        limitWithBuffer.setHours(h, m + lateBuffer, 0, 0);
+        return new Date() > limitWithBuffer;
+    }, [isShiftsEnabled, shiftResult, approvedLateTime, startTime, lateBuffer]);
 
     const isUserLate = useMemo(() => {
         if (hasAcceptedLateness) return false;
         if (hasLateRequest && !approvedLateTime) return false;
 
         if (isShiftsEnabled && shiftResult) {
-            return shiftResult.isLate || shiftResult.isBlocked;
+            return !!shiftResult.isRawLate;
         }
 
         if (!startTime) return false;
@@ -191,7 +204,7 @@ export function useCheckInState({
         const effectiveStartTime = approvedLateTime || startTime;
         const [h, m] = effectiveStartTime.split(':').map(Number);
         const limit = new Date();
-        limit.setHours(h, m + lateBuffer, 0, 0);
+        limit.setHours(h, m, 0, 0);
         return now > limit;
     }, [isShiftsEnabled, shiftResult, startTime, lateBuffer, hasLateRequest, approvedLateTime, pendingLateTime, hasAcceptedLateness]);
 
@@ -223,13 +236,17 @@ export function useCheckInState({
     }, [isShiftsEnabled, shiftResult, startTime, approvedLateTime, pendingLateTime, lateBuffer]);
 
     useEffect(() => {
+        if (isOpen && isExceededLastShift && !showLateIntervention) {
+            setShowLateIntervention(true);
+            return;
+        }
         if (step === 'CONFIRM_LOCATION' && isGpsSecure && isUserLate && isOpen && !showLateIntervention && !showLatePenaltyBreakdown) {
             const timer = setTimeout(() => {
                 setShowLateIntervention(true);
             }, 3000);
             return () => clearTimeout(timer);
         }
-    }, [step, isGpsSecure, isUserLate, isOpen, showLateIntervention, showLatePenaltyBreakdown]);
+    }, [step, isGpsSecure, isUserLate, isOpen, showLateIntervention, showLatePenaltyBreakdown, isExceededLastShift]);
 
     const checkLocation = () => {
         runCheckLocation(
@@ -283,6 +300,12 @@ export function useCheckInState({
     const handleSubmit = async (forceCheckIn = false, typeToSubmit?: WorkLocation, bypassFile?: boolean, passProvisionalOnsite?: boolean) => {
         if (isSubmitting) return;
 
+        if (isExceededLastShift && !approvedLateTime) {
+            if (typeToSubmit) setSelectedType(typeToSubmit);
+            setShowLateIntervention(true);
+            return;
+        }
+
         const targetType = typeToSubmit || selectedType;
         if (!targetType) return;
 
@@ -315,7 +338,7 @@ export function useCheckInState({
                 } else if (effectiveCheckStartTime) {
                     const [h, m] = effectiveCheckStartTime.split(':').map(Number);
                     const limit = new Date();
-                    limit.setHours(h, m + lateBuffer, 0, 0);
+                    limit.setHours(h, m, 0, 0);
                     isLateCheck = now > limit;
                 }
 
@@ -520,6 +543,7 @@ export function useCheckInState({
         isGpsSecure,
         gpsThreatReason,
         isUserLate,
+        isExceededLastShift,
         lateMinutes,
         isShiftsEnabled,
         shiftsList,

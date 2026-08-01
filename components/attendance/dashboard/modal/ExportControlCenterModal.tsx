@@ -7,6 +7,7 @@ import {
 import { User } from '../../../../types';
 import { useUserSession } from '../../../../context/UserSessionContext';
 import { useMasterData } from '../../../../hooks/useMasterData';
+import { useGlobalDialog } from '../../../../context/GlobalDialogContext';
 import { 
     generateAttendanceSummaryCSV, 
     generateRawClocksCSV, 
@@ -44,6 +45,7 @@ export const ExportControlCenterModal: React.FC<ExportControlCenterModalProps> =
 }) => {
     const { leaveRequests, otRequests, attendanceLogs, currentUserProfile } = useUserSession();
     const { masterOptions, annualHolidays, calendarExceptions } = useMasterData();
+    const { showAlert } = useGlobalDialog();
 
     // Filter active users once to simplify all downstream operations
     const activeUsers = useMemo(() => {
@@ -308,7 +310,7 @@ export const ExportControlCenterModal: React.FC<ExportControlCenterModalProps> =
     const handleExportSubmit = () => {
         const exportingUsers = activeUsers.filter(u => selectedUserIds.has(u.id));
         if (exportingUsers.length === 0) {
-            alert('กรุณาเลือกพนักงานอย่างน้อย 1 ท่านเพื่อทำการส่งออกข้อมูล');
+            showAlert('กรุณาเลือกพนักงานอย่างน้อย 1 ท่านเพื่อทำการส่งออกข้อมูล', 'ไม่พบพนักงานที่เลือก');
             return;
         }
 

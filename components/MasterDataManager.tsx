@@ -43,7 +43,8 @@ const MasterDataManager: React.FC = () => {
         handleEditDashboardConfig, handleSaveDashboardConfig,
         addMasterOption, updateMasterOption, 
         editingDashboardConfig, isDashboardModalOpen, setIsDashboardModalOpen,
-        filteredOptions
+        filteredOptions,
+        activeTabsConfig
     } = useMasterDataView();
 
     const { seedDefaults, saveMasterOptionsBulk } = useMasterData(); // Hook specifically for seeding and bulk updates
@@ -57,17 +58,6 @@ const MasterDataManager: React.FC = () => {
 
     const [isTabConfigOpen, setIsTabConfigOpen] = useState(false);
     const { showToast } = useToast();
-
-    const activeTabsConfig = useMemo(() => {
-        const config = masterOptions.find(o => o.type === 'MASTER_DATA_CONFIG' && o.key === 'ACTIVE_TABS');
-        if (!config) return null;
-        try {
-            return JSON.parse(config.label) as string[];
-        } catch (e) {
-            console.error("Failed to parse master data active tabs config", e);
-            return null;
-        }
-    }, [masterOptions]);
 
     const handleSaveTabConfig = async (selectedTabs: string[]) => {
         try {
@@ -166,6 +156,7 @@ const MasterDataManager: React.FC = () => {
                     activeTab={activeTab} 
                     onTabChange={handleSwitchTab} 
                     masterOptions={masterOptions}
+                    activeTabsConfig={activeTabsConfig}
                 />
 
                 {/* 2. Main Content Area */}
@@ -205,6 +196,7 @@ const MasterDataManager: React.FC = () => {
                                         masterOptions={masterOptions}
                                         onUpdate={updateMasterOption}
                                         onAdd={addMasterOption}
+                                        saveMasterOptionsBulk={saveMasterOptionsBulk}
                                     />
                                 ) : activeTab === 'YEARLY' ? (
                                     <AnnualHolidayManager masterOptions={masterOptions} />

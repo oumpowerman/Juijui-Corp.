@@ -17,6 +17,13 @@ export const useProfileForm = ({ user, onSave, onClose }: UseProfileFormProps) =
   const [name, setName] = useState(user.name);
   const [position, setPosition] = useState(user.position);
   const [phone, setPhone] = useState(user.phoneNumber || '');
+  const [email, setEmail] = useState(
+    user.email && 
+    !user.email.endsWith('@juijui.local') && 
+    !user.email.endsWith('@juijui-app.com') 
+      ? user.email 
+      : ''
+  );
   const [bio, setBio] = useState(user.bio || ''); 
   const [feeling, setFeeling] = useState(user.feeling || ''); 
   
@@ -144,6 +151,7 @@ export const useProfileForm = ({ user, onSave, onClose }: UseProfileFormProps) =
         name: name.trim(),
         position: position.trim(),
         phoneNumber: phone.trim(),
+        email: email.trim(),
         bio: bio,
         feeling: feeling,
         workStatus: workStatus,
@@ -162,6 +170,7 @@ export const useProfileForm = ({ user, onSave, onClose }: UseProfileFormProps) =
       name, setName,
       position, setPosition,
       phone, setPhone,
+      email, setEmail,
       bio, setBio,
       feeling, setFeeling,
       workStatus, setWorkStatus,

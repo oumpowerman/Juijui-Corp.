@@ -14,9 +14,17 @@ interface TimesheetTableProps {
     filteredAndGroupedUsers: Record<string, User[]>;
     logs: AttendanceLog[];
     leaveRequests?: any[];
+    otRequests?: any[];
     getEffectiveDayStatus: (date: Date) => { status: 'WORK_DAY' | 'HOLIDAY', source: string, desc: string };
-    onCellClick: (log: AttendanceLog | null, leaveRequest?: any) => void;
-    workConfig: { startTime: string; buffer: number };
+    onCellClick: (log: AttendanceLog | null, leaveRequest?: any, otRequest?: any) => void;
+    workConfig: { 
+        startTime: string; 
+        buffer: number;
+        multipleShifts?: {
+            enabled?: boolean;
+            shiftsList?: string[] | string;
+        };
+    };
 }
 
 const rowVariants = {
@@ -43,6 +51,7 @@ const TimesheetTable: React.FC<TimesheetTableProps> = ({
     filteredAndGroupedUsers,
     logs,
     leaveRequests = [],
+    otRequests = [],
     getEffectiveDayStatus,
     onCellClick,
     workConfig
@@ -71,6 +80,16 @@ const TimesheetTable: React.FC<TimesheetTableProps> = ({
         });
         return map;
     }, [leaveRequests, dateRange]);
+
+    // 3. Client-Side Indexing for OT Requests: Map<`${userId}_${dateStr}`, OtRequest>
+    const otRequestsMap = React.useMemo(() => {
+        const map = new Map<string, any>();
+        otRequests.forEach(req => {
+            if (!req.user_id) return;
+            map.set(`${req.user_id}_${req.date}`, req);
+        });
+        return map;
+    }, [otRequests]);
 
     return (
         <div className="bg-white rounded-3xl sm:rounded-[2.5rem] border border-slate-200 shadow-xl overflow-hidden flex flex-col min-h-[500px] sm:min-h-[600px] relative z-10">
@@ -198,6 +217,9 @@ const TimesheetTable: React.FC<TimesheetTableProps> = ({
                                                 
                                                 // Find relevant leave request in O(1) time
                                                 const relevantRequest = leaveRequestsMap.get(`${user.id}_${dateStr}`);
+                                                
+                                                // Find relevant OT request in O(1) time
+                                                const relevantOtRequest = otRequestsMap.get(`${user.id}_${dateStr}`);
 
                                                 return (
                                                     <td key={day.toString()} className="p-0">
@@ -205,6 +227,7 @@ const TimesheetTable: React.FC<TimesheetTableProps> = ({
                                                             date={day}
                                                             log={log} 
                                                             leaveRequest={relevantRequest}
+                                                            otRequest={relevantOtRequest}
                                                             dayStatus={dayStatus}
                                                             isToday={isToday(day)}
                                                             workConfig={workConfig}

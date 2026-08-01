@@ -1,11 +1,11 @@
 import React from 'react';
-import { Mail, Lock, Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react';
+import { User, Lock, Eye, EyeOff, Loader2, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { BRAND_CONFIG } from '../../config/brand';
 
 interface LoginFormProps {
-  email: string;
-  setEmail: (val: string) => void;
+  username: string;
+  setUsername: (val: string) => void;
   password: string;
   setPassword: (val: string) => void;
   showPassword: boolean;
@@ -17,8 +17,8 @@ interface LoginFormProps {
 }
 
 export const LoginForm: React.FC<LoginFormProps> = ({
-  email,
-  setEmail,
+  username,
+  setUsername,
   password,
   setPassword,
   showPassword,
@@ -30,24 +30,24 @@ export const LoginForm: React.FC<LoginFormProps> = ({
 }) => {
   return (
     <form onSubmit={onSubmit} className="space-y-4">
-      {/* Email Input */}
+      {/* Username Input */}
       <div className="space-y-1">
-        <label className="text-xs font-bold text-slate-500 ml-1 uppercase">อีเมล *</label>
+        <label className="text-xs font-bold text-slate-500 ml-1 uppercase">ชื่อผู้ใช้ (Username) *</label>
         <div className="relative group">
           <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10 pointer-events-none">
             <motion.div
               animate={{ y: [0, -2, 0] }}
               transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
             >
-              <Mail className="w-5 h-5 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+              <User className="w-5 h-5 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
             </motion.div>
           </div>
           <input 
-            type="email" 
-            value={email} 
-            onChange={(e) => setEmail(e.target.value)} 
+            type="text" 
+            value={username} 
+            onChange={(e) => setUsername(e.target.value)} 
             className="w-full pl-11 pr-4 py-3 bg-slate-50 border-2 border-transparent focus:bg-white focus:border-indigo-400 rounded-xl outline-none transition-all font-bold text-slate-700" 
-            placeholder="email@example.com" 
+            placeholder="ชื่อผู้ใช้ของคุณ" 
             required 
           />
         </div>

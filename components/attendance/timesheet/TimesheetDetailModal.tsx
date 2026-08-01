@@ -7,7 +7,8 @@ import { AttendanceLog } from '../../../types/attendance';
 import { getDirectDriveUrl } from '../../../lib/imageUtils';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { parseReason } from '../leave-request/request-detail/utils';
+import { parseReason, getTypeName, formatSpecialTypeName } from '../leave-request/request-detail/utils';
+import { AttendanceConditionBadges, AttendanceStatusBadge, AttendanceProvisionalBanner, AttendanceReasonBox } from '../shared/AttendanceBadges';
 
 const lightboxBackdropVariants = {
     hidden: { opacity: 0 },
@@ -108,6 +109,7 @@ const Lightbox: React.FC<{ url: string; onClose: () => void }> = ({ url, onClose
 interface TimesheetDetailModalProps {
     log?: AttendanceLog | null;
     leaveRequest?: any | null;
+    otRequest?: any | null;
     onClose: () => void;
 }
 
@@ -150,16 +152,36 @@ const modalVariants = {
     }),
 };
 
-const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveRequest, onClose }) => {
+const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveRequest, otRequest, onClose }) => {
     const [showLightbox, setShowLightbox] = useState(false);
     const [lightboxUrl, setLightboxUrl] = useState('');
     const isMobile = useIsMobile();
 
-    const displayDate = log ? new Date(log.date) : (leaveRequest ? new Date(leaveRequest.start_date) : new Date());
-    const note = log?.note || leaveRequest?.reason || '';
+    const displayDate = log 
+        ? new Date(log.date) 
+        : (leaveRequest ? new Date(leaveRequest.start_date) : (otRequest ? new Date(otRequest.date) : new Date()));
+    const note = log?.note || leaveRequest?.reason || otRequest?.reason || '';
     
-    const logParsed = parseReason(log?.note || '');
+    const logParsed = parseReason(log?.note || '', log?.checkInTime, log?.checkOutTime);
     const requestParsed = parseReason(leaveRequest?.reason || '');
+
+    const combinedParsed = {
+        ...requestParsed,
+        ...logParsed,
+        isProvisionalWfh: logParsed.isProvisionalWfh || requestParsed.isProvisionalWfh,
+        isProvisionalOnsite: logParsed.isProvisionalOnsite || requestParsed.isProvisionalOnsite,
+        isProvisionalForgotCheckin: logParsed.isProvisionalForgotCheckin || requestParsed.isProvisionalForgotCheckin,
+        isProvisionalCheckout: logParsed.isProvisionalCheckout || requestParsed.isProvisionalCheckout,
+        isProvisionalLate: logParsed.isProvisionalLate || requestParsed.isProvisionalLate,
+        isProvisionalGps: logParsed.isProvisionalGps || requestParsed.isProvisionalGps,
+        isEarlyLeaveAcceptPenalty: logParsed.isEarlyLeaveAcceptPenalty || requestParsed.isEarlyLeaveAcceptPenalty,
+        earlyLeaveMissingMinutes: logParsed.earlyLeaveMissingMinutes || requestParsed.earlyLeaveMissingMinutes,
+        isLateSubmission: logParsed.isLateSubmission || requestParsed.isLateSubmission,
+        isLocationMismatch: logParsed.isLocationMismatch || requestParsed.isLocationMismatch,
+        forgotCheckoutPenalty: logParsed.forgotCheckoutPenalty || requestParsed.forgotCheckoutPenalty,
+        cleanReason: logParsed.cleanReason || requestParsed.cleanReason,
+        okFormatted: logParsed.okFormatted || requestParsed.okFormatted,
+    };
 
     const isGpsApproved = note.includes('[APPROVED GPS_SPOOF_APPEAL]') || (leaveRequest?.type === 'GPS_SPOOF_APPEAL' && leaveRequest?.status === 'APPROVED');
     const isOutOfRangeApproved = note.includes('[APPROVED OUT_OF_RANGE_CHECKOUT]') || (leaveRequest?.type === 'OUT_OF_RANGE_CHECKOUT' && leaveRequest?.status === 'APPROVED');
@@ -172,6 +194,9 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
     const isProvisionalLate = (log?.status === 'APPEAL' || note.includes('[APPEAL_PENDING]') || note.includes('[PROVISIONAL_LATE_ENTRY')) && !isLeaveApproved && !note.includes('[APPROVED LATE_ENTRY]');
     const isProvisionalGps = (note.includes('[PROVISIONAL_GPS_SPOOF_APPEAL]') || note.includes('[GPS_SPOOF_APPEAL_PENDING]') || (leaveRequest?.type === 'GPS_SPOOF_APPEAL' && leaveRequest?.status === 'PENDING')) && !isGpsApproved;
     const isLocationMismatch = (logParsed.isLocationMismatch || requestParsed.isLocationMismatch || (leaveRequest?.type === 'OUT_OF_RANGE_CHECKOUT' && leaveRequest?.status === 'PENDING')) && !isOutOfRangeApproved && !isGpsApproved;
+
+    const isEarlyLeaveAcceptPenalty = logParsed.isEarlyLeaveAcceptPenalty || requestParsed.isEarlyLeaveAcceptPenalty || note.includes('[ACCEPT_PENALTY]');
+    const earlyLeaveMissingMins = logParsed.earlyLeaveMissingMinutes || requestParsed.earlyLeaveMissingMinutes;
 
     const userReason = requestParsed.cleanReason;
     const adminRejection = leaveRequest?.rejectionReason || leaveRequest?.rejection_reason || '';
@@ -273,87 +298,13 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
 
                     {/* Details Content Container (With inner Padding) */}
                     <div className={`p-6 md:p-8 flex-1 flex flex-col space-y-7 ${hasImage ? 'pb-[calc(env(safe-area-inset-bottom,24px)+24px)]' : 'pb-2'} min-h-0`}>
-                        {/* Provisional Alert Banner */}
-                        {isProvisionalWfh && (
-                            <div className="bg-sky-50 border border-sky-100 p-4 rounded-2xl text-sky-800 flex gap-3 items-start shrink-0 animate-pulse shadow-sm">
-                                <AlertTriangle className="w-5 h-5 text-sky-500 shrink-0 mt-0.5" />
-                                <div className="flex-1 space-y-1">
-                                    <h5 className="font-bold text-xs text-sky-900 tracking-wide">
-                                        ⚠️ WFH แบบจำลอง (รออนุมัติสิทธิ์ย้อนหลัง)
-                                    </h5>
-                                    <p className="text-[11px] leading-relaxed text-sky-800/80 font-semibold font-sans">
-                                        ระบบสร้างใบคำขอให้อัตโนมัติเนื่องจากเป็นการลงเวลางานประเภท WFH ที่ไม่ได้ยื่นล่วงหน้า
-                                    </p>
-                                </div>
-                            </div>
-                        )}
-                        {isProvisionalOnsite && (
-                            <div className="bg-orange-50 border border-orange-100 p-4 rounded-2xl text-orange-800 flex gap-3 items-start shrink-0 animate-pulse shadow-sm">
-                                <AlertTriangle className="w-5 h-5 text-orange-500 shrink-0 mt-0.5" />
-                                <div className="flex-1 space-y-1">
-                                    <h5 className="font-bold text-xs text-orange-900 tracking-wide">
-                                        ⚠️ On-site แบบจำลอง (รออนุมัติสิทธิ์ย้อนหลัง)
-                                    </h5>
-                                    <p className="text-[11px] leading-relaxed text-orange-800/80 font-semibold font-sans">
-                                        ระบบสร้างใบคำขอให้อัตโนมัติเนื่องจากเป็นการลงเวลางานประเภท On-site ที่ไม่ได้ยื่นล่วงหน้า
-                                    </p>
-                                </div>
-                            </div>
-                        )}
-                        {isProvisionalForgotCheckin && (
-                            <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl text-amber-800 flex gap-3 items-start shrink-0 animate-pulse shadow-sm">
-                                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                                <div className="flex-1 space-y-1">
-                                    <h5 className="font-bold text-xs text-amber-900 tracking-wide">
-                                        ⚠️ ลืมลงเวลาแบบจำลอง (รออนุมัติสิทธิ์ย้อนหลัง)
-                                    </h5>
-                                    <p className="text-[11px] leading-relaxed text-amber-800/80 font-semibold font-sans">
-                                        ระบบสร้างใบคำขอให้อัตโนมัติสำหรับพนักงานที่ลืมลงเวลาเข้างานเพื่อขอลงย้อนหลัง
-                                    </p>
-                                </div>
-                            </div>
-                        )}
-                        {isProvisionalCheckout && (
-                            <div className="bg-amber-50 border border-amber-100 p-4 rounded-2xl text-amber-800 flex gap-3 items-start shrink-0 animate-pulse shadow-sm">
-                                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                                <div className="flex-1 space-y-1">
-                                    <h5 className="font-bold text-xs text-amber-900 tracking-wide">
-                                        {isLocationMismatch ? '⚠️ ลงเวลานอกพื้นที่แบบจำลอง (รออนุมัติสิทธิ์ย้อนหลัง)' : '⚠️ เช็คเอาท์แบบจำลอง (รออนุมัติสิทธิ์ย้อนหลัง)'}
-                                    </h5>
-                                    <p className="text-[11px] leading-relaxed text-amber-800/80 font-semibold font-sans">
-                                        {isLocationMismatch 
-                                            ? 'ระบบบันทึกเวลาเลิกงานนอกพื้นที่แบบจำลองชั่วคราวให้ โดยอยู่ระหว่างรอตรวจสอบภาพหลักฐานสถานที่จริงจากแอดมิน'
-                                            : 'ระบบบันทึกเวลาเลิกงานจำลองชั่วคราวให้เรียบร้อยเพื่อความสะดวกในการปฏิบัติงานในวันถัดไป โดยอยู่ระหว่างการรออนุมัติจากผู้ดูแลระบบ'}
-                                    </p>
-                                </div>
-                            </div>
-                        )}
-                        {isProvisionalLate && (
-                            <div className="bg-violet-50 border border-violet-100 p-4 rounded-2xl text-violet-800 flex gap-3 items-start shrink-0 animate-pulse shadow-sm">
-                                <AlertTriangle className="w-5 h-5 text-violet-500 shrink-0 mt-0.5" />
-                                <div className="flex-1 space-y-1">
-                                    <h5 className="font-bold text-xs text-violet-900 tracking-wide">
-                                        ⚠️ อยู่ระหว่างการอุทธรณ์ (รออนุมัติเข้าสายย้อนหลัง)
-                                    </h5>
-                                    <p className="text-[11px] leading-relaxed text-violet-800/80 font-semibold font-sans">
-                                        พนักงานลงเวลานอกเหนือเกณฑ์เข้างานปกติ โดยอยู่ระหว่างยื่นอุทธรณ์พิจารณาสิทธิ์เข้างานสาย รอผู้ดูแลระบบอนุมัติคำขอ
-                                    </p>
-                                </div>
-                            </div>
-                        )}
-                        {isProvisionalGps && (
-                            <div className="bg-rose-50 border border-rose-100 p-4 rounded-2xl text-rose-800 flex gap-3 items-start shrink-0 animate-pulse shadow-sm">
-                                <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
-                                <div className="flex-1 space-y-1">
-                                    <h5 className="font-bold text-xs text-rose-900 tracking-wide">
-                                        ⚠️ อยู่ระหว่างการอุทธรณ์พิกัด GPS (รออนุมัติภาพถ่ายหน้างานจริง)
-                                    </h5>
-                                    <p className="text-[11px] leading-relaxed text-rose-800/80 font-semibold font-sans">
-                                        พนักงานเช็คอิน/เช็คเอาท์บนอุปกรณ์หรือเครือข่ายที่ผิดปกติ โดยได้ส่งอุทธรณ์พร้อมภาพถ่ายและเหตุผลเพื่อรอให้ผู้ดูแลระบบตรวจสอบล้างสิทธิ์โทษ
-                                    </p>
-                                </div>
-                            </div>
-                        )}
+                        {/* Provisional Alert Banners (Centralized) */}
+                        <AttendanceProvisionalBanner 
+                            parsed={combinedParsed} 
+                            isApproved={isLeaveApproved} 
+                            isGpsApproved={isGpsApproved} 
+                            isOutOfRangeApproved={isOutOfRangeApproved} 
+                        />
 
                         {/* Cozy Pastel Info Alert Card when no image exists */}
                         {!hasImage && (
@@ -373,33 +324,44 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                         <div className="flex justify-between items-start shrink-0">
                             <div>
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mb-1">
-                                    {log ? 'Time Analysis Log' : 'Leave Request Detail'}
+                                    {log ? 'Time Analysis Log' : (leaveRequest ? 'Leave Request Detail' : 'Overtime Request Detail')}
                                 </p>
                                 <h3 className="text-2xl md:text-3xl font-bold text-slate-800">
                                     {format(displayDate, 'EEEE d MMMM', { locale: th })}
                                 </h3>
                                 {leaveRequest && (
-                                    <div className={`mt-2 inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest border shrink-0
+                                    <div className={`mt-2 inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold tracking-widest border shrink-0
                                     ${leaveRequest.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 
                                       leaveRequest.status === 'PENDING' ? 'bg-amber-100 text-amber-700 border-amber-200' : 
                                       'bg-red-100 text-red-700 border-red-200'}`}>
-                                    {leaveRequest.status} {leaveRequest.type}
+                                        {leaveRequest.status === 'APPROVED' ? 'อนุมัติแล้ว' : leaveRequest.status === 'PENDING' ? 'รออนุมัติ' : 'ปฏิเสธ'} · {formatSpecialTypeName(leaveRequest.type)}
+                                    </div>
+                                )}
+                                {otRequest && (
+                                    <div className={`mt-2 inline-flex items-center px-3 py-1 rounded-full text-[10px] font-bold tracking-widest border shrink-0
+                                    ${otRequest.status === 'APPROVED' ? 'bg-purple-100 text-purple-700 border-purple-200' : 
+                                      otRequest.status === 'PENDING' ? 'bg-amber-100 text-amber-700 border-amber-200' : 
+                                      'bg-red-100 text-red-700 border-red-200'}`}>
+                                        {otRequest.status === 'APPROVED' ? 'อนุมัติแล้ว' : otRequest.status === 'PENDING' ? 'รออนุมัติ' : 'ปฏิเสธ'} · {otRequest.is_fixed ? 'OT แบบเหมาจ่าย' : 'OT รายชั่วโมง'}
+                                    </div>
+                                )}
+                                {log && !leaveRequest && (() => {
+                                    const leaveMatch = log.note?.match(/\[APPROVED LEAVE: (.*?)\]/);
+                                    if (leaveMatch) {
+                                        return (
+                                            <div className="mt-2 inline-flex items-center px-3 py-1 rounded-full bg-sky-100 text-sky-700 text-[10px] font-bold uppercase tracking-widest border border-sky-200 shrink-0">
+                                                {formatSpecialTypeName(leaveMatch[1])}
+                                            </div>
+                                        );
+                                    }
+                                    return null;
+                                })()}
+                                <div className="mt-2.5">
+                                    <AttendanceConditionBadges parsed={combinedParsed} status={log?.status} size="sm" hideProvisional={true} />
                                 </div>
-                            )}
-                            {log && !leaveRequest && (() => {
-                                const leaveMatch = log.note?.match(/\[APPROVED LEAVE: (.*?)\]/);
-                                if (leaveMatch) {
-                                    return (
-                                        <div className="mt-2 inline-flex items-center px-3 py-1 rounded-full bg-sky-100 text-sky-700 text-[10px] font-bold uppercase tracking-widest border border-sky-200 shrink-0">
-                                            {leaveMatch[1]} LEAVE
-                                        </div>
-                                    );
-                                }
-                                return null;
-                            })()}
                         </div>
                         <div className="p-3 md:p-4 bg-indigo-50 text-indigo-600 rounded-[1.25rem] md:rounded-[1.5rem] shadow-inner shrink-0">
-                            {leaveRequest ? <Info className="w-6 h-6 md:w-8 md:h-8" /> : <Clock className="w-6 h-6 md:w-8 md:h-8" />}
+                            {leaveRequest || otRequest ? <Info className="w-6 h-6 md:w-8 md:h-8" /> : <Clock className="w-6 h-6 md:w-8 md:h-8" />}
                         </div>
                     </div>
 
@@ -420,7 +382,7 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                                 <p className="text-[10px] text-slate-500 mt-2 font-bold flex items-center"><MapPin className="w-3 h-3 mr-1 text-slate-300"/> {log.checkOutLocationName || 'Unspecified'}</p>
                             </div>
                         </div>
-                    ) : leaveRequest && (
+                    ) : leaveRequest ? (
                         <div className="bg-slate-50 p-5 md:p-6 rounded-[2rem] border border-slate-100 shrink-0">
                             <div className="flex items-center justify-between mb-4">
                                 <div className="flex items-center gap-2">
@@ -437,8 +399,55 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                                     <Info className="w-4 h-4 text-indigo-500" />
                                     <span className="text-xs font-bold text-slate-600">Type</span>
                                 </div>
-                                <span className="text-xs font-bold text-slate-800 uppercase tracking-widest">{leaveRequest.type}</span>
+                                <span className="text-xs font-bold text-slate-800 uppercase tracking-widest">{formatSpecialTypeName(leaveRequest.type)}</span>
                             </div>
+                        </div>
+                    ) : otRequest && (
+                        <div className="bg-purple-50/55 p-5 md:p-6 rounded-[2rem] border border-purple-100 shrink-0">
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2">
+                                    <Clock className="w-4 h-4 text-purple-600" />
+                                    <span className="text-xs font-bold text-slate-600">เวลาปฏิบัติงานล่วงเวลา</span>
+                                </div>
+                                <span className="text-xs font-mono font-bold text-purple-700">
+                                    {otRequest.start_time ? otRequest.start_time.substring(0, 5) : '--:--'} น. - {otRequest.end_time ? otRequest.end_time.substring(0, 5) : '--:--'} น.
+                                </span>
+                            </div>
+                            <div className="h-[1px] bg-purple-100 w-full mb-4"></div>
+                            
+                            <div className="flex items-center justify-between mb-4">
+                                <div className="flex items-center gap-2">
+                                    <Info className="w-4 h-4 text-purple-600" />
+                                    <span className="text-xs font-bold text-slate-600">จำนวนชั่วโมงที่ขอ</span>
+                                </div>
+                                <span className="text-xs font-bold text-purple-800">
+                                    {otRequest.duration_hours ? Number(otRequest.duration_hours).toFixed(2) : '0.00'} ชม.
+                                </span>
+                            </div>
+                            <div className="h-[1px] bg-purple-100 w-full mb-4"></div>
+
+                            {otRequest.is_fixed && (
+                                <div className="bg-purple-100/60 border border-purple-200/50 p-3.5 rounded-2xl text-purple-900 mb-4 flex gap-2.5 items-start">
+                                    <span className="text-sm">⭐</span>
+                                    <div className="flex-1">
+                                        <h6 className="font-bold text-[11px] text-purple-950">รายการทำงานล่วงเวลาแบบเหมาจ่าย (OT Fixed)</h6>
+                                        <p className="text-[10px] leading-relaxed text-purple-800/90 font-medium">
+                                            ได้รับการยกเว้นการตรวจสอบสแกนออก ระบบจะคำนวณและประมวลผลให้โดยอัตโนมัติ
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {otRequest.computed_payout !== undefined && (
+                                <div className="flex items-center justify-between mt-1">
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-xs font-bold text-slate-600">ประมาณการเงินได้ (Payout)</span>
+                                    </div>
+                                    <span className="text-sm font-extrabold text-purple-700">
+                                        ฿{Number(otRequest.computed_payout || 0).toLocaleString('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </span>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -458,8 +467,11 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                         </div>
                     )}
 
+                    {/* Central AttendanceReasonBox for OK formatted work hours or notes */}
+                    <AttendanceReasonBox parsed={combinedParsed} rawNote={note} showTitle={true} />
+
                     {/* Employee Leave/Edit Time Reason */}
-                    {userReason && (
+                    {userReason && userReason !== combinedParsed.cleanReason && (
                         <div className="bg-indigo-900 rounded-[2rem] p-6 text-indigo-100 shadow-2xl relative overflow-hidden shrink-0">
                             <div className="absolute top-0 right-0 p-4 opacity-10"><Info className="w-16 h-16"/></div>
                             <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] mb-2 text-indigo-400">เหตุผลคำขอ (Employee Reason)</h4>

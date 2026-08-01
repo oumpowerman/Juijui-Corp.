@@ -37,12 +37,37 @@ export const useMasterDataView = () => {
         return queryTab || 'STATUS';
     });
 
-    useEffect(() => {
-        const queryTab = searchParams.get('tab') as MasterTab;
-        if (queryTab && queryTab !== activeTab) {
-            setActiveTabState(queryTab);
+    const activeTabsConfig = React.useMemo(() => {
+        const config = masterOptions.find(o => o.type === 'MASTER_DATA_CONFIG' && o.key === 'ACTIVE_TABS');
+        if (!config) return null;
+        try {
+            const parsed = JSON.parse(config.label);
+            return Array.isArray(parsed) ? (parsed as string[]) : null;
+        } catch (e) {
+            console.error("Failed to parse master data active tabs config", e);
+            return null;
         }
-    }, [searchParams]);
+    }, [masterOptions]);
+
+    // Ensure activeTab matches activeTabsConfig if configuration is present
+    useEffect(() => {
+        if (activeTabsConfig && activeTabsConfig.length > 0) {
+            const queryTab = searchParams.get('tab') as MasterTab;
+            if (queryTab && activeTabsConfig.includes(queryTab)) {
+                if (activeTab !== queryTab) {
+                    setActiveTabState(queryTab);
+                }
+            } else if (!activeTabsConfig.includes(activeTab)) {
+                const firstValid = activeTabsConfig[0] as MasterTab;
+                setActiveTabState(firstValid);
+                setSearchParams(prev => {
+                    const next = new URLSearchParams(prev);
+                    next.set('tab', firstValid);
+                    return next;
+                }, { replace: true });
+            }
+        }
+    }, [activeTabsConfig, searchParams, activeTab]);
 
     const setActiveTab = (tab: MasterTab) => {
         setActiveTabState(tab);
@@ -224,6 +249,7 @@ export const useMasterDataView = () => {
         rewards, rewardsLoading, deleteReward,
         dashboardConfigs, dashboardLoading,
         filteredOptions,
+        activeTabsConfig,
         
         // Maintenance Hook Access
         maintenance,

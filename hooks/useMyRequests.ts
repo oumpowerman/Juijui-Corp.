@@ -29,7 +29,7 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
     const [isLoading, setIsLoading] = useState(enabled);
     const [isLoadingHistorical, setIsLoadingHistorical] = useState(false);
     const { showToast } = useToast();
-    const { showConfirm } = useGlobalDialog();
+    const { showConfirm, showLoading, hideLoading } = useGlobalDialog();
     const { uploadFileToDrive, isReady: isDriveReady } = useGoogleDrive();
 
     const checkLateSubmissionRule = (
@@ -203,6 +203,7 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
         linkedRemoteType?: 'WFH' | 'ONSITE'
     ): Promise<boolean> => {
         if (!currentUser?.id) return false;
+        showLoading('กำลังอัปโหลดไฟล์และส่งคำขอเข้าระบบ...');
         try {
             const startDateStr = format(startDate, 'yyyy-MM-dd');
             const timestamp = Date.now();
@@ -211,6 +212,12 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
 
             if (linkedRemoteType && !finalReasonWithLink.includes('[REMOTE:')) {
                 finalReasonWithLink = `[REMOTE:${linkedRemoteType}] ${finalReasonWithLink}`;
+            }
+
+            if (type === 'FORGOT_CHECKOUT' || type === 'OUT_OF_RANGE_CHECKOUT') {
+                if (!finalReasonWithLink.includes('[PROVISIONAL_CHECKOUT]')) {
+                    finalReasonWithLink = `[PROVISIONAL_CHECKOUT] ${finalReasonWithLink}`;
+                }
             }
 
             // --- OT Request Handling ---
@@ -382,12 +389,18 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                     if (pendingLeave) {
                         const originalTypeName = ATTENDANCE_REGISTRY[pendingLeave.type as LeaveType]?.label || pendingLeave.type;
                         const newTypeName = ATTENDANCE_REGISTRY[type]?.label || type;
+                        
+                        // Hide loading overlay so the user can interact with the confirmation dialog
+                        hideLoading();
+
                         const confirmReplace = await showConfirm(
                             `ในระบบมีคำขอลา [${originalTypeName}] ที่อยู่ระหว่างรออนุมัติอยู่แล้วในวันนี้\nคุณต้องการ ยกเลิกคำขอเดิม แล้วยื่นคำขอ [${newTypeName}] นี้เข้าไปแทนที่หรือไม่?`,
                             'ตรวจพบคำขอลาซ้ำซ้อน'
                         );
 
                         if (confirmReplace) {
+                            // Re-show loading as the process resumes
+                            showLoading('กำลังอัปโหลดไฟล์และส่งคำขอเข้าระบบ...');
                             await supabase
                                 .from('leave_requests')
                                 .update({ 
@@ -528,6 +541,50 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                 }
             }
 
+            if (type === 'FORGOT_BOTH') {
+                const { data: existingLog } = await supabase
+                    .from('attendance_logs')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .eq('date', startDateStr)
+                    .maybeSingle();
+
+                let finalNote = '[FORGOT_BOTH_PENDING]';
+                if (linkedRemoteType) {
+                    finalNote = `[FORGOT_BOTH_PENDING] [PROVISIONAL_${linkedRemoteType}]`;
+                }
+
+                const wasAbsent = existingLog?.status === 'ABSENT' || existingLog?.note?.includes('[ORIGINALLY: ABSENT]');
+
+                if (existingLog?.note) {
+                    if (!existingLog.note.includes('[FORGOT_BOTH_PENDING]')) {
+                        finalNote = `${existingLog.note} ${finalNote}`.trim();
+                    } else {
+                        finalNote = existingLog.note;
+                    }
+                }
+
+                if (wasAbsent && !finalNote.includes('[ORIGINALLY: ABSENT]')) {
+                    finalNote = `[ORIGINALLY: ABSENT] ${finalNote}`;
+                }
+                
+                const payload: any = {
+                    user_id: currentUser.id,
+                    date: startDateStr,
+                    check_in_time: startDate.toISOString(), // บันทึกเวลาเข้าจำลองชั่วคราว
+                    check_out_time: endDate.toISOString(), // บันทึกเวลาออกจำลองชั่วคราวตามที่ส่งขอ
+                    status: 'PENDING_VERIFY', // ตั้งเป็น PENDING_VERIFY เพื่อรออนุมัติ
+                    note: finalNote,
+                    work_type: linkedRemoteType || existingLog?.work_type || 'OFFICE'
+                };
+
+                await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
+
+                if (startDateStr === format(new Date(), 'yyyy-MM-dd')) {
+                    await supabase.from('profiles').update({ work_status: 'ONLINE' }).eq('id', currentUser.id);
+                }
+            }
+
             if (type === 'LATE_ENTRY') {
                 const { data: existingLog } = await supabase
                     .from('attendance_logs')
@@ -565,7 +622,33 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
             }
 
             if (type === 'FORGOT_CHECKOUT' || type === 'OUT_OF_RANGE_CHECKOUT') {
-                await supabase.from('attendance_logs').update({ status: 'PENDING_VERIFY' }).eq('user_id', currentUser.id).eq('date', startDateStr);
+                const { data: existingLog } = await supabase
+                    .from('attendance_logs')
+                    .select('*')
+                    .eq('user_id', currentUser.id)
+                    .eq('date', startDateStr)
+                    .maybeSingle();
+
+                let finalNote = '[PROVISIONAL_CHECKOUT]';
+                if (existingLog?.note) {
+                    if (!existingLog.note.includes('[PROVISIONAL_CHECKOUT]')) {
+                        finalNote = `${existingLog.note} ${finalNote}`.trim();
+                    } else {
+                        finalNote = existingLog.note;
+                    }
+                }
+
+                const payload: any = {
+                    status: 'PENDING_VERIFY',
+                    note: finalNote,
+                    check_out_time: endDate.toISOString()
+                };
+
+                await supabase
+                    .from('attendance_logs')
+                    .update(payload)
+                    .eq('user_id', currentUser.id)
+                    .eq('date', startDateStr);
             }
 
             if (type === 'WFH' || type === 'ONSITE') {
@@ -625,6 +708,8 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
         } catch (err: any) {
             showToast('ส่งคำขอไม่สำเร็จ: ' + err.message, 'error');
             return false;
+        } finally {
+            hideLoading();
         }
     };
 

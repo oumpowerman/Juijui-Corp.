@@ -8,9 +8,10 @@ interface PayrollRulesViewProps {
     masterOptions: MasterOption[];
     onUpdate: (option: MasterOption) => Promise<boolean>;
     onAdd: (option: Omit<MasterOption, 'id'>) => Promise<boolean>;
+    saveMasterOptionsBulk?: (options: MasterOption[]) => Promise<boolean>;
 }
 
-const PayrollRulesView: React.FC<PayrollRulesViewProps> = ({ masterOptions, onUpdate, onAdd }) => {
+const PayrollRulesView: React.FC<PayrollRulesViewProps> = ({ masterOptions, onUpdate, onAdd, saveMasterOptionsBulk }) => {
     const { showAlert } = useGlobalDialog();
     const [values, setValues] = useState<Record<string, string>>({});
     const [isSaving, setIsSaving] = useState(false);
@@ -36,6 +37,7 @@ const PayrollRulesView: React.FC<PayrollRulesViewProps> = ({ masterOptions, onUp
     const handleSave = async () => {
         setIsSaving(true);
         try {
+            const optionsToSave: any[] = [];
             for (const conf of rules) {
                 const val = values[conf.key] || '0';
                 const found = masterOptions.find(o => o.type === 'PAYROLL_CONFIG' && o.key === conf.key);
@@ -43,11 +45,11 @@ const PayrollRulesView: React.FC<PayrollRulesViewProps> = ({ masterOptions, onUp
                 if (found) {
                     // Update existing
                     if (found.label !== val) {
-                        await onUpdate({ ...found, label: val });
+                        optionsToSave.push({ ...found, label: val });
                     }
                 } else {
                     // Create new
-                    await onAdd({
+                    optionsToSave.push({
                         type: 'PAYROLL_CONFIG',
                         key: conf.key,
                         label: val,
@@ -57,6 +59,21 @@ const PayrollRulesView: React.FC<PayrollRulesViewProps> = ({ masterOptions, onUp
                     });
                 }
             }
+            
+            if (optionsToSave.length > 0) {
+                if (saveMasterOptionsBulk) {
+                    await saveMasterOptionsBulk(optionsToSave);
+                } else {
+                    for (const opt of optionsToSave) {
+                        if (opt.id) {
+                            await onUpdate(opt as MasterOption);
+                        } else {
+                            await onAdd(opt);
+                        }
+                    }
+                }
+            }
+            
             await showAlert('บันทึกค่าปรับเรียบร้อย ✅');
         } catch (error) {
             console.error(error);

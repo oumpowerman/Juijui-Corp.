@@ -4,6 +4,7 @@ import { User, WorkStatus } from '../../../types';
 import GameRulesModal from '../../gamification/GameRulesModal';
 import DeathHistoryModal from './DeathHistoryModal';
 import { useGreetings } from '../../../hooks/useGreetings';
+import { BRAND_CONFIG } from '../../../config/brand';
 
 // Sub-components
 import DeadStateView from './welcome-header/DeadStateView';
@@ -55,7 +56,7 @@ const WelcomeHeader: React.FC<WelcomeHeaderProps> = ({
     // HP Percentage
     const hpPercent = Math.max(0, Math.min((user.hp / (user.maxHp || 100)) * 100, 100));
     const isHpLow = user.hp < (user.maxHp * 0.3);
-    const isDead = user.hp <= 0;
+    const isDead = user.hp <= 0 && BRAND_CONFIG.gamificationMode !== 2;
     const isDivine = hpPercent >= 90;
     const isTiered = hpPercent >= 50;
 

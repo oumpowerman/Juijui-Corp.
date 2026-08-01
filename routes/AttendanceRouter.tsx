@@ -19,6 +19,7 @@ import { useAttendanceAlerts } from '../hooks/attendance/useAttendanceAlerts';
 import { useMasterData } from '../hooks/useMasterData';
 import { Clock, Calendar, PieChart, FileCheck, TableProperties } from 'lucide-react';
 import AppBackground, { BackgroundTheme } from '../components/common/AppBackground';
+import { BRAND_CONFIG } from '../config/brand';
 
 interface AttendanceRouterProps {
     currentUser: User;
@@ -51,10 +52,22 @@ const parseTabParam = (param: string | null, highlightReqId?: string | null, use
 const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users }) => {
     const [searchParams, setSearchParams] = useSearchParams();
     
+    const isCheckInAndHistoryHiddenForAdmin = useMemo(() => {
+        return currentUser?.role === 'ADMIN' && BRAND_CONFIG.hideAdminCheckInAndHistoryMode === 2;
+    }, [currentUser?.role]);
+
     // Derived State from URL searchParams (Single Source of Truth)
     const currentTab = useMemo(() => {
-        return parseTabParam(searchParams.get('tab'), searchParams.get('highlightReqId') || searchParams.get('id'), currentUser?.role);
-    }, [searchParams, currentUser?.role]);
+        const tab = parseTabParam(searchParams.get('tab'), searchParams.get('highlightReqId') || searchParams.get('id'), currentUser?.role);
+        
+        // กรณีที่ตั้งค่าซ่อน และผู้ใช้เป็น ADMIN ให้ปัดไปแท็บ TIMESHEET แทน
+        if (isCheckInAndHistoryHiddenForAdmin) {
+            if (tab === 'CHECK_IN' || tab === 'HISTORY') {
+                return 'TIMESHEET'; 
+            }
+        }
+        return tab;
+    }, [searchParams, currentUser?.role, isCheckInAndHistoryHiddenForAdmin]);
 
     const selectTab = (tab: AttendanceTab) => {
         setSearchParams(prev => {
@@ -134,34 +147,38 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
                 {/* Navigation Tabs & Actions */}
                 <div className="flex flex-wrap items-center gap-3">
                     <div className="flex p-1 bg-white/80 backdrop-blur-xl rounded-2xl border border-white/60 shadow-xl shadow-indigo-500/5 w-fit overflow-x-auto scrollbar-hide">
-                        <button 
-                            onClick={() => selectTab('CHECK_IN')}
-                            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'CHECK_IN' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'}`}
-                        >
-                            <Clock className="w-4 h-4" /> ลงเวลา
-                        </button>
-                        
-                        <button 
-                            onClick={() => selectTab('HISTORY')}
-                            className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'HISTORY' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'}`}
-                        >
-                            <Calendar className="w-4 h-4" /> 
-                            <span>ประวัติ</span>
-                            {actionRequiredCount > 0 ? (
-                                <span className="inline-flex items-center justify-center bg-rose-500 text-white text-[9px] font-bold h-[18px] min-w-[18px] px-1 rounded-full animate-bounce shadow-sm">
-                                    {actionRequiredCount}
-                                </span>
-                            ) : myPendingCount > 0 ? (
-                                <span className="inline-flex items-center justify-center bg-orange-500 text-white text-[9px] font-bold h-[18px] min-w-[18px] px-1 rounded-full animate-pulse shadow-sm">
-                                    {myPendingCount}
-                                </span>
-                            ) : null}
-                        </button>
+                        {!isCheckInAndHistoryHiddenForAdmin && (
+                            <>
+                                <button 
+                                    onClick={() => selectTab('CHECK_IN')}
+                                    className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'CHECK_IN' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'}`}
+                                >
+                                    <Clock className="w-4 h-4" /> ลงเวลา
+                                </button>
+                                
+                                <button 
+                                    onClick={() => selectTab('HISTORY')}
+                                    className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'HISTORY' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'}`}
+                                >
+                                    <Calendar className="w-4 h-4" /> 
+                                    <span>ประวัติ</span>
+                                    {actionRequiredCount > 0 ? (
+                                        <span className="inline-flex items-center justify-center bg-rose-500 text-white text-[9px] font-bold h-[18px] min-w-[18px] px-1 rounded-full animate-bounce shadow-sm">
+                                            {actionRequiredCount}
+                                        </span>
+                                    ) : myPendingCount > 0 ? (
+                                        <span className="inline-flex items-center justify-center bg-orange-500 text-white text-[9px] font-bold h-[18px] min-w-[18px] px-1 rounded-full animate-pulse shadow-sm">
+                                            {myPendingCount}
+                                        </span>
+                                    ) : null}
+                                </button>
+                            </>
+                        )}
 
                         {/* Only Admin see these tabs */}
                         {currentUser.role === 'ADMIN' && (
                             <>
-                                <div className="w-px h-6 bg-gray-300/50 mx-1 self-center"></div>
+                                {!isCheckInAndHistoryHiddenForAdmin && <div className="w-px h-6 bg-gray-300/50 mx-1 self-center"></div>}
                                 <button 
                                     onClick={() => selectTab('TIMESHEET')}
                                     className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'TIMESHEET' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'}`}
@@ -190,23 +207,25 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
                     </div>
 
                     {/* Quota Button (Trigger) */}
-                    <motion.button
-                        whileHover={{ scale: 1.02, y: -1 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => setIsQuotaOpen(true)}
-                        className="ml-auto md:ml-0 px-4 py-2.5 bg-[#FAF7F2] border-2 border-[#5C544A] text-[#5C544A] rounded-2xl text-xs font-bold flex items-center gap-2 shadow-[2px_2px_0px_0px_rgba(92,84,74,1)] hover:bg-[#F2ECE0] transition-colors relative group cursor-pointer"
-                    >
-                        {/* Animated Icon */}
-                        <PieChart className="w-4 h-4 text-[#5C544A] group-hover:rotate-12 transition-transform duration-300 ease-out" /> 
-                        
-                        <span className="relative z-10 tracking-wide">เช็คโควต้า (My Quota)</span>
-                        
-                        {/* Organic Earth-tone pulse badge */}
-                        <span className="flex h-2 w-2 relative">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#D48C70]/40 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-[#D48C70]"></span>
-                        </span>
-                    </motion.button>
+                    {!isCheckInAndHistoryHiddenForAdmin && (
+                        <motion.button
+                            whileHover={{ scale: 1.02, y: -1 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={() => setIsQuotaOpen(true)}
+                            className="ml-auto md:ml-0 px-4 py-2.5 bg-[#FAF7F2] border-2 border-[#5C544A] text-[#5C544A] rounded-2xl text-xs font-bold flex items-center gap-2 shadow-[2px_2px_0px_0px_rgba(92,84,74,1)] hover:bg-[#F2ECE0] transition-colors relative group cursor-pointer"
+                        >
+                            {/* Animated Icon */}
+                            <PieChart className="w-4 h-4 text-[#5C544A] group-hover:rotate-12 transition-transform duration-300 ease-out" /> 
+                            
+                            <span className="relative z-10 tracking-wide">เช็คโควต้า (My Quota)</span>
+                            
+                            {/* Organic Earth-tone pulse badge */}
+                            <span className="flex h-2 w-2 relative">
+                                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#D48C70]/40 opacity-75"></span>
+                                <span className="relative inline-flex rounded-full h-2 w-2 bg-[#D48C70]"></span>
+                            </span>
+                        </motion.button>
+                    )}
                 </div>
 
                 {/* Content Area */}

@@ -146,6 +146,15 @@ const StockFilterBar: React.FC<StockFilterBarProps> = React.memo(({
                         searchQuery={searchQuery}
                         setSearchQuery={setSearchQuery}
                         tasks={tasks}
+                        activeFilters={{
+                            status: filterStatuses,
+                            channelId: filterChannel,
+                            format: filterFormat,
+                            pillar: filterPillar,
+                            category: filterCategory,
+                            contentSubTab: contentSubTab,
+                            showStockOnly: showStockOnly
+                        }}
                     />
 
                     {/* Shoot Date Picker Component */}

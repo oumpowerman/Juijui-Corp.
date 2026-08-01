@@ -1,5 +1,5 @@
 import express from 'express';
-import { tagIndexService } from '../../utils/tagIndexer.js';
+import { tagIndexService, getTopTags } from '../../utils/tagIndexer.js';
 
 const router = express.Router();
 
@@ -9,7 +9,18 @@ router.get('/api/tags', async (req, res) => {
     const startTime = process.hrtime();
     
     try {
-        const matchedTags = await tagIndexService.searchTags(q, limit);
+        const { status, channelId, format, pillar, category, contentSubTab, showStockOnly } = req.query;
+        
+        const matchedTags = await getTopTags(limit, {
+            status: status as string,
+            channelId: channelId as string,
+            format: format as string,
+            pillarId: pillar as string,
+            categoryId: category as string,
+            contentSubTab: contentSubTab as string,
+            showStockOnly: showStockOnly as string
+        }, q);
+
         const diff = process.hrtime(startTime);
         const speedMs = (diff[0] * 1e3 + diff[1] * 1e-6).toFixed(3); // precise duration
         

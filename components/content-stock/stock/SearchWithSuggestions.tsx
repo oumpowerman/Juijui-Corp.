@@ -7,12 +7,22 @@ interface SearchWithSuggestionsProps {
     searchQuery: string;
     setSearchQuery: (val: string) => void;
     tasks: Task[];
+    activeFilters?: {
+        status?: string[];
+        channelId?: string[];
+        format?: string[];
+        pillar?: string[];
+        category?: string[];
+        contentSubTab?: 'ACTIVE' | 'ARCHIVE';
+        showStockOnly?: boolean;
+    };
 }
 
 export const SearchWithSuggestions: React.FC<SearchWithSuggestionsProps> = React.memo(({
     searchQuery,
     setSearchQuery,
-    tasks
+    tasks,
+    activeFilters
 }) => {
     // Local state for debouncing search input
     const [localSearch, setLocalSearch] = useState(searchQuery);
@@ -45,10 +55,69 @@ export const SearchWithSuggestions: React.FC<SearchWithSuggestionsProps> = React
     // State for top 10 tags fetched directly from server to match database counts perfectly
     const [serverTopTags, setServerTopTags] = useState<{ name: string; count: number }[] | null>(null);
 
-    // Compute local fallback top 10 tags
+    // Compute query parameters for active filters to send to the server
+    const filterQueryParams = useMemo(() => {
+        const queryParams = new URLSearchParams();
+        if (activeFilters?.status && activeFilters.status.length > 0) {
+            queryParams.append('status', activeFilters.status.join(','));
+        }
+        if (activeFilters?.channelId && activeFilters.channelId.length > 0) {
+            queryParams.append('channelId', activeFilters.channelId.join(','));
+        }
+        if (activeFilters?.format && activeFilters.format.length > 0) {
+            queryParams.append('format', activeFilters.format.join(','));
+        }
+        if (activeFilters?.pillar && activeFilters.pillar.length > 0) {
+            queryParams.append('pillar', activeFilters.pillar.join(','));
+        }
+        if (activeFilters?.category && activeFilters.category.length > 0) {
+            queryParams.append('category', activeFilters.category.join(','));
+        }
+        if (activeFilters?.contentSubTab) {
+            queryParams.append('contentSubTab', activeFilters.contentSubTab);
+        }
+        if (activeFilters?.showStockOnly) {
+            queryParams.append('showStockOnly', 'true');
+        }
+        return queryParams.toString();
+    }, [activeFilters]);
+
+    // Compute local fallback top 10 tags (applying activeFilters client-side for perfect parity)
     const localTopTags = useMemo(() => {
         const counts: Record<string, number> = {};
-        tasks.forEach((task) => {
+        
+        const filteredTasks = tasks.filter(task => {
+            if (activeFilters) {
+                if (activeFilters.channelId && activeFilters.channelId.length > 0 && (!task.channelId || !activeFilters.channelId.includes(task.channelId))) return false;
+                if (activeFilters.format && activeFilters.format.length > 0) {
+                    const taskFormats = task.contentFormats || [];
+                    const hasMatch = taskFormats.some(f => activeFilters.format!.includes(f));
+                    if (!hasMatch) return false;
+                }
+                if (activeFilters.pillar && activeFilters.pillar.length > 0 && (!task.pillar || !activeFilters.pillar.includes(task.pillar))) return false;
+                if (activeFilters.category && activeFilters.category.length > 0 && (!task.category || !activeFilters.category.includes(task.category))) return false;
+                
+                const isArchive = activeFilters.contentSubTab === 'ARCHIVE';
+                const isTerminal = (status?: string) => {
+                    if (!status) return false;
+                    const s = status.trim().toUpperCase();
+                    return ['DONE', 'APPROVE', 'PASSED', 'PUBLISH', 'POSTED', 'COMPLETE', 'SUCCESS'].some(k => s.includes(k));
+                };
+                
+                const isTerminalStatus = isTerminal(task.status);
+                if (isArchive) {
+                    if (!isTerminalStatus) return false;
+                } else {
+                    if (isTerminalStatus) return false;
+                    if (activeFilters.status && activeFilters.status.length > 0 && !activeFilters.status.includes(task.status as any)) return false;
+                }
+                
+                if (activeFilters.showStockOnly && !task.isUnscheduled) return false;
+            }
+            return true;
+        });
+
+        filteredTasks.forEach((task) => {
             if (Array.isArray(task.tags)) {
                 task.tags.forEach((tag: string) => {
                     const trimmed = tag?.trim();
@@ -62,7 +131,7 @@ export const SearchWithSuggestions: React.FC<SearchWithSuggestionsProps> = React
             .map(([name, count]) => ({ name, count }))
             .sort((a, b) => b.count - a.count)
             .slice(0, 10);
-    }, [tasks]);
+    }, [tasks, activeFilters]);
 
     // Use server-side top tags when available to ensure exact database-wide counts, otherwise use local fallback
     const top10Tags = serverTopTags !== null ? serverTopTags : localTopTags;
@@ -72,7 +141,8 @@ export const SearchWithSuggestions: React.FC<SearchWithSuggestionsProps> = React
         let isCurrent = true;
         async function fetchTop10Tags() {
             try {
-                const response = await fetch('/api/tags?q=&limit=10');
+                const queryParams = filterQueryParams ? `&${filterQueryParams}` : '';
+                const response = await fetch(`/api/tags?q=&limit=10${queryParams}`);
                 if (!response.ok) throw new Error('API query failed');
                 const data = await response.json();
                 if (isCurrent && data.success && Array.isArray(data.tags)) {
@@ -86,7 +156,7 @@ export const SearchWithSuggestions: React.FC<SearchWithSuggestionsProps> = React
         return () => {
             isCurrent = false;
         };
-    }, [tasks]);
+    }, [tasks, filterQueryParams]);
 
     // Helper to extract tag typing context
     const currentTagTypeMatch = useMemo(() => localSearch.match(/#(\S*)$/), [localSearch]);
@@ -101,12 +171,18 @@ export const SearchWithSuggestions: React.FC<SearchWithSuggestionsProps> = React
 
             setIsSearchingTags(true);
             try {
-                const response = await fetch(`/api/tags?q=${encodeURIComponent(filterKeyword)}&limit=15`);
+                const queryParams = filterQueryParams ? `&${filterQueryParams}` : '';
+                const response = await fetch(`/api/tags?q=${encodeURIComponent(filterKeyword)}&limit=15${queryParams}`);
                 if (!response.ok) throw new Error('API query failed');
                 const data = await response.json();
                 
                 if (isCurrent && data.success) {
-                    setFilteredTags(data.tags || []);
+                    if (data.tags && data.tags.length > 0) {
+                        setFilteredTags(data.tags);
+                    } else {
+                        // หากฝั่งฐานข้อมูลว่างเปล่าหรือเซิร์ฟเวอร์ไม่มีข้อมูล ให้ใช้ผลประมวลผลจากหน้าบ้านทันที
+                        setFilteredTags(currentTagTypeMatch ? localTopTags.filter(tag => tag.name.toLowerCase().includes(filterKeyword)) : localTopTags);
+                    }
                     setSearchSpeedMs(data.speedMs || '0ms');
                 }
             } catch (err) {
@@ -114,7 +190,38 @@ export const SearchWithSuggestions: React.FC<SearchWithSuggestionsProps> = React
                 
                 if (isCurrent) {
                     const counts: Record<string, number> = {};
-                    tasks.forEach((task) => {
+                    const filteredTasks = tasks.filter(task => {
+                        if (activeFilters) {
+                            if (activeFilters.channelId && activeFilters.channelId.length > 0 && (!task.channelId || !activeFilters.channelId.includes(task.channelId))) return false;
+                            if (activeFilters.format && activeFilters.format.length > 0) {
+                                const taskFormats = task.contentFormats || [];
+                                const hasMatch = taskFormats.some(f => activeFilters.format!.includes(f));
+                                if (!hasMatch) return false;
+                            }
+                            if (activeFilters.pillar && activeFilters.pillar.length > 0 && (!task.pillar || !activeFilters.pillar.includes(task.pillar))) return false;
+                            if (activeFilters.category && activeFilters.category.length > 0 && (!task.category || !activeFilters.category.includes(task.category))) return false;
+                            
+                            const isArchive = activeFilters.contentSubTab === 'ARCHIVE';
+                            const isTerminal = (status?: string) => {
+                                if (!status) return false;
+                                const s = status.trim().toUpperCase();
+                                return ['DONE', 'APPROVE', 'PASSED', 'PUBLISH', 'POSTED', 'COMPLETE', 'SUCCESS'].some(k => s.includes(k));
+                            };
+                            
+                            const isTerminalStatus = isTerminal(task.status);
+                            if (isArchive) {
+                                if (!isTerminalStatus) return false;
+                            } else {
+                                if (isTerminalStatus) return false;
+                                if (activeFilters.status && activeFilters.status.length > 0 && !activeFilters.status.includes(task.status as any)) return false;
+                            }
+                            
+                            if (activeFilters.showStockOnly && !task.isUnscheduled) return false;
+                        }
+                        return true;
+                    });
+
+                    filteredTasks.forEach((task) => {
                         if (Array.isArray(task.tags)) {
                             task.tags.forEach((tag: string) => {
                                 const trimmed = tag.trim();
@@ -160,7 +267,7 @@ export const SearchWithSuggestions: React.FC<SearchWithSuggestionsProps> = React
             isCurrent = false;
             clearTimeout(fetchDebounce);
         };
-    }, [filterKeyword, showSuggestions, currentTagTypeMatch, tasks]);
+    }, [filterKeyword, showSuggestions, filterQueryParams, tasks, localTopTags, currentTagTypeMatch, activeFilters]);
 
     // Automatically sync when client alters/creates/edits task tags
     useEffect(() => {

@@ -32,7 +32,7 @@ interface TaskModalBodyProps {
     // Handlers
     onSave: (task: Task) => void;
     onUpdate?: (task: Task) => void;
-    onDelete?: (taskId: string) => void;
+    onDelete?: (taskId: string, taskType?: TaskType) => void;
     onClose: () => void;
     onOpenTask?: (task: Task, currentViewMode?: string) => void;
     updateScript: (id: string, updates: Partial<Script>) => Promise<any>;
@@ -135,7 +135,7 @@ const TaskModalBody: React.FC<TaskModalBodyProps> = ({
                                     mode={mode}
                                     setMode={setMode}
                                     onSave={onSave}
-                                    onDelete={onDelete ? () => onDelete(taskData.id) : undefined}
+                                    onDelete={onDelete ? () => onDelete(taskData.id, taskData.type) : undefined}
                                     onClose={onClose}
                                     initialTab={initialContentTab}
                                 />
@@ -145,7 +145,7 @@ const TaskModalBody: React.FC<TaskModalBodyProps> = ({
                                     users={users}
                                     masterOptions={masterOptions}
                                     onEdit={() => setMode('EDIT')}
-                                    onDelete={onDelete ? () => onDelete(taskData.id) : undefined}
+                                    onDelete={onDelete ? () => onDelete(taskData.id, taskData.type) : undefined}
                                     onClose={onClose}
                                     onOpenTask={(t) => onOpenTask && onOpenTask(t, viewMode)}
                                 />
@@ -161,7 +161,7 @@ const TaskModalBody: React.FC<TaskModalBodyProps> = ({
                                     mode={mode}
                                     setMode={setMode}
                                     onSave={onSave}
-                                    onDelete={onDelete && taskData ? () => onDelete(taskData.id) : undefined}
+                                    onDelete={onDelete && taskData ? () => onDelete(taskData.id, taskData.type) : undefined}
                                     onClose={onClose}
                                     initialTab="EDIT"
                                 />

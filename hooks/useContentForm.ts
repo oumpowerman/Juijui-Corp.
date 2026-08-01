@@ -93,9 +93,9 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
 
     const categoryOptions = useMemo(() => {
         const base = masterOptions.filter(o => o.type === 'CATEGORY' && o.isActive);
-        const filtered = !channelId
-            ? base
-            : base.filter(o => !o.parentKey || o.parentKey === channelId);
+        const filtered = !pillar
+            ? []
+            : base.filter(o => o.parentKey === pillar);
 
         // Append current selected category if missing from list
         const currentCatOption = category ? masterOptions.find(o => o.key === category) : null;
@@ -109,9 +109,9 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
 
         return filtered.map(o => {
             if (o.parentKey) {
-                const channel = channels.find(c => c.id === o.parentKey);
-                if (channel) {
-                    const cleanedLabel = o.label.includes('(') ? o.label : `${o.label} (${channel.name})`;
+                const parentPillar = masterOptions.find(p => p.type === 'PILLAR' && p.key === o.parentKey);
+                if (parentPillar) {
+                    const cleanedLabel = o.label.includes('(') ? o.label : `${o.label} (${parentPillar.label})`;
                     return {
                         ...o,
                         label: cleanedLabel
@@ -120,7 +120,7 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
             }
             return o;
         }).sort((a,b) => a.sortOrder - b.sortOrder);
-    }, [masterOptions, channelId, channels, category]);
+    }, [masterOptions, pillar, category]);
 
     const statusOptions = useMemo(() => 
         masterOptions.filter(o => o.type === 'STATUS' && o.isActive).sort((a,b) => a.sortOrder - b.sortOrder),
@@ -143,19 +143,30 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
                     }
                 }
             }
-            if (category) {
-                const isOriginalCat = initialData && initialData.type === 'CONTENT' && initialData.category === category;
-                const keepCat = isOriginalCat && !hasChannelChanged;
-
-                if (!keepCat) {
-                    const validCats = masterOptions.filter(o => o.type === 'CATEGORY' && o.isActive && (!o.parentKey || o.parentKey === channelId));
-                    if (!validCats.some(o => o.key === category)) {
-                        setCategory('');
-                    }
-                }
-            }
         }
     }, [channelId, masterOptions, initialData]);
+
+    // ✅ Auto-clear Category when Pillar changes or if Category is not valid for selected Pillar
+    useEffect(() => {
+        if (pillar) {
+            if (category) {
+                const isOriginalCat = initialData && initialData.type === 'CONTENT' && initialData.category === category;
+                const isOriginalPillar = initialData && initialData.type === 'CONTENT' && initialData.pillar === pillar;
+                // If this is the initial pillar & category loaded from DB, we do not clear it
+                if (isOriginalCat && isOriginalPillar) {
+                    return;
+                }
+
+                // Otherwise check if category belongs to the current selected pillar
+                const validCats = masterOptions.filter(o => o.type === 'CATEGORY' && o.isActive && o.parentKey === pillar);
+                if (!validCats.some(o => o.key === category)) {
+                    setCategory('');
+                }
+            }
+        } else {
+            setCategory('');
+        }
+    }, [pillar, masterOptions, initialData]);
 
     // --- Initialization ---
     useEffect(() => {
@@ -326,6 +337,14 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
                 // Assets & Script
                 assets,   
                 scriptId, // Linkage
+
+                // Preserve queue & soft status
+                isInShootQueue: initialData?.isInShootQueue || false,
+                shootTripId: initialData?.shootTripId,
+                shootTimeStart: initialData?.shootTimeStart,
+                shootTimeEnd: initialData?.shootTimeEnd,
+                shootNotes: initialData?.shootNotes,
+                isSoftFinished: initialData?.isSoftFinished,
             };
 
             await onSave(newTask as Task); // Wait for save (usually async in parent wrapper)

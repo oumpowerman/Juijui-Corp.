@@ -210,10 +210,14 @@ const CFCategorization: React.FC<CFCategorizationProps> = ({
                     icon={Tag}
                     theme="emerald"
                     isWarning={isCategoryWarning}
-                    warningMsg={categoryLabel.includes('ปิดการใช้งาน') ? 'ประเภทนี้ถูกปิดใช้งานแล้ว' : 'อยู่นอกหมวดหมู่ของช่องปัจจุบัน'}
+                    warningMsg={categoryLabel.includes('ปิดการใช้งาน') ? 'ประเภทนี้ถูกปิดใช้งานแล้ว' : 'อยู่นอกหมวดหมู่ของแกนที่เลือก'}
                     onClick={() => {
                         if (!channelId) {
                             showAlert('กรุณาเลือกช่องรายการ (Channel) ก่อนเลือกหมวดหมู่ (Category) นะครับ');
+                            return;
+                        }
+                        if (!pillar) {
+                            showAlert('กรุณาเลือกแกนเนื้อหา (Content Pillar) ก่อนเลือกหมวดหมู่ย่อย (Category) นะครับ');
                             return;
                         }
                         setActiveModal('CATEGORY');

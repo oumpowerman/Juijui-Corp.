@@ -479,7 +479,7 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
         }
     };
 
-    const handleDeleteTask = async (taskId: string) => {
+    const handleDeleteTask = async (taskId: string, taskType?: 'CONTENT' | 'TASK') => {
         const previousTasks = [...tasks];
         
         setTasks(prev => prev.filter(t => t.id !== taskId));
@@ -488,7 +488,9 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
 
         try {
             const targetTask = previousTasks.find(t => t.id === taskId);
-            const table = targetTask?.type === 'CONTENT' ? 'contents' : 'tasks';
+            // หาประเภทงาน: ใช้จากพารามิเตอร์ที่ส่งมาก่อน -> ถ้าไม่มีค่อยหาจาก cache -> ถ้าหาไม่เจอจริงๆ ให้ default เป็น 'TASK'
+            const resolvedType = taskType || targetTask?.type || 'TASK';
+            const table = resolvedType === 'CONTENT' ? 'contents' : 'tasks';
 
             const { error } = await supabase.from(table).delete().eq('id', taskId);
             if (error) throw error;

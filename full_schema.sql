@@ -1317,6 +1317,12 @@ BEGIN
     IF absent_list = '' THEN absent_list := '  (ไม่มี)'; END IF;
 
     -- Construct message
+    -- หากไม่มีพนักงานที่ต้องเข้างานในวันนี้เลย (ผลรวมเป็น 0) ให้หยุดการทำงานทันทีเพื่อไม่ให้มีสรุปส่งเข้ากลุ่ม LINE
+    IF (ontime_count + late_count + leave_count + absent_count) = 0 THEN
+        RAISE NOTICE 'ไม่มีพนักงานที่ต้องเข้างานในวันนี้ ข้ามการส่งรายงานสรุป';
+        RETURN;
+    END IF;
+
     message_content := '📊 สรุปรายงานการเข้างานประจำวันที่ ' || to_char(cur_date, 'DD/MM/YYYY') || E'\n\n' ||
                        '🟢 มาปกติ (' || ontime_count::TEXT || E' คน):\n' || ontime_list || E'\n\n' ||
                        '🟡 มาสาย (' || late_count::TEXT || E' คน):\n' || late_list || E'\n\n' ||

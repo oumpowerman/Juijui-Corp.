@@ -52,9 +52,12 @@ export const useUI = () => {
     };
 
     const handleEditTask = (t: Task, currentViewMode?: string) => { 
-        // If we're already editing a task, and it's not the same one, push to stack
-        if (editingTask && editingTask.id !== t.id) {
+        // ✅ แก้ไข: จะทำการ Push ลง Stack ก็ต่อเมื่อเป็นการเปิดซ้อนในขณะที่ Modal กำลังเปิดอยู่จริงๆ เท่านั้น
+        if (isModalOpen && editingTask && editingTask.id !== t.id) {
             setTaskStack(prev => [...prev, { task: editingTask, viewMode: currentViewMode }]);
+        } else if (!isModalOpen) {
+            // หากเป็นการกดเปิด Modal ใหม่จากหน้าตาราง ให้เคลียร์ Stack ทุกครั้งเพื่อป้องกันข้อมูลตกค้าง
+            setTaskStack([]);
         }
         setEditingTask(t); 
         setInitialViewMode(currentViewMode || null); 

@@ -15,7 +15,7 @@ interface TaskModalProps {
   onClose: () => void;
   onSave: (task: Task) => void;
   onUpdate?: (task: Task) => void; 
-  onDelete?: (taskId: string) => void;
+  onDelete?: (taskId: string, taskType?: TaskType) => void;
   initialData?: Task | null;
   selectedDate?: Date | null;
   channels: Channel[];

@@ -114,9 +114,19 @@ class EnterpriseTagIndex {
             return this.cache.slice(0, limit);
         }
 
-        return this.cache
-            .filter(tag => tag.name.toLowerCase().includes(cleanQuery))
-            .slice(0, limit);
+        const filtered = this.cache.filter(tag => tag.name.toLowerCase().includes(cleanQuery));
+
+        const sorted = [...filtered].sort((a, b) => {
+            const aName = a.name.toLowerCase();
+            const bName = b.name.toLowerCase();
+            const aStarts = aName.startsWith(cleanQuery);
+            const bStarts = bName.startsWith(cleanQuery);
+            if (aStarts && !bStarts) return -1;
+            if (!aStarts && bStarts) return 1;
+            return b.count - a.count;
+        });
+
+        return sorted.slice(0, limit);
     }
 
     /**

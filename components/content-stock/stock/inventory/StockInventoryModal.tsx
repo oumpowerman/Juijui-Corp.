@@ -2,11 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, LayoutGrid, BarChart3, PackageSearch, Loader2, RotateCw, Landmark } from 'lucide-react';
+import { X, LayoutGrid, BarChart3, PackageSearch, Loader2, RotateCw, Landmark, Target } from 'lucide-react';
 import { supabase } from '../../../../lib/supabase';
 import { Task, MasterOption, Channel } from '../../../../types';
 import InventorySummaryTable from './InventorySummaryTable';
 import InventoryDashboard from './InventoryDashboard';
+import StrategyPlanner from './StrategyPlanner';
 import FilterDropdown from '../../../common/FilterDropdown';
 
 interface StockInventoryModalProps {
@@ -17,7 +18,7 @@ interface StockInventoryModalProps {
 }
 
 const StockInventoryModal: React.FC<StockInventoryModalProps> = ({ isOpen, onClose, masterOptions, channels }) => {
-    const [activeTab, setActiveTab] = useState<'STATS' | 'TABLE'>('STATS');
+    const [activeTab, setActiveTab] = useState<'STATS' | 'STRATEGY' | 'TABLE'>('STATS');
     const [selectedChannel, setSelectedChannel] = useState<string>('ALL');
     const [stockTasks, setStockTasks] = useState<Task[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -111,66 +112,75 @@ const StockInventoryModal: React.FC<StockInventoryModalProps> = ({ isOpen, onClo
                 initial={{ opacity: 0, scale: 0.9, y: 20 }}
                 animate={{ opacity: 1, scale: 1, y: 0 }}
                 exit={{ opacity: 0, scale: 0.9, y: 20 }}
-                className="relative w-full max-w-6xl bg-gray-50 rounded-[3rem] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+                className="relative w-full max-w-6xl h-[85vh] min-h-[550px] bg-gray-50 rounded-[3rem] shadow-2xl overflow-hidden flex flex-col"
             >
                 {/* Header */}
-                <div className="bg-white px-8 py-6 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-100">
-                            <PackageSearch className="w-6 h-6" />
-                        </div>
-                        <div>
-                            <h2 className="text-xl font-bold text-gray-800 uppercase tracking-tight">Content Inventory Analysis</h2>
-                            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">วิเคราะห์คลังคอนเทนต์ (Stock Only)</p>
-                        </div>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                        {/* Channel Filter */}
-                        <div className="w-56">
-                            <FilterDropdown
-                                label="ทุกช่องทาง"
-                                options={channelOptions}
-                                value={selectedChannel}
-                                onChange={(val) => setSelectedChannel(val)}
-                                showAllOption={false}
-                                clearable={false}
-                                placeholder="เลือกช่องทาง"
-                            />
+                <div className="bg-white px-6 py-6 md:px-8 border-b border-gray-100 relative">
+                    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pr-12 lg:pr-16">
+                        <div className="flex items-center gap-4">
+                            <div className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-100 shrink-0">
+                                <PackageSearch className="w-6 h-6" />
+                            </div>
+                            <div>
+                                <h2 className="text-lg md:text-xl font-bold text-gray-800 uppercase tracking-tight">Content Inventory Analysis</h2>
+                                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">วิเคราะห์คลังคอนเทนต์ (Stock Only)</p>
+                            </div>
                         </div>
 
-                        {/* Refresh Button */}
-                        <button
-                            onClick={fetchStockData}
-                            disabled={isLoading}
-                            className="p-2.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all disabled:opacity-50"
-                            title="รีเฟรชข้อมูล"
-                        >
-                            <RotateCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
-                        </button>
+                        <div className="flex flex-wrap items-center gap-3">
+                            {/* Channel Filter */}
+                            <div className="w-48 sm:w-56">
+                                <FilterDropdown
+                                    label="ทุกช่องทาง"
+                                    options={channelOptions}
+                                    value={selectedChannel}
+                                    onChange={(val) => setSelectedChannel(val)}
+                                    showAllOption={false}
+                                    clearable={false}
+                                    placeholder="เลือกช่องทาง"
+                                />
+                            </div>
 
-                        {/* Tab Switcher */}
-                        <div className="flex bg-gray-100 p-1.5 rounded-2xl">
+                            {/* Refresh Button */}
                             <button
-                                onClick={() => setActiveTab('STATS')}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'STATS' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                                onClick={fetchStockData}
+                                disabled={isLoading}
+                                className="p-2.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all disabled:opacity-50 shrink-0"
+                                title="รีเฟรชข้อมูล"
                             >
-                                <BarChart3 className="w-4 h-4" />
-                                Dashboard
+                                <RotateCw className={`w-5 h-5 ${isLoading ? 'animate-spin' : ''}`} />
                             </button>
-                            <button
-                                onClick={() => setActiveTab('TABLE')}
-                                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'TABLE' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
-                            >
-                                <LayoutGrid className="w-4 h-4" />
-                                Breakdown
-                            </button>
+
+                            {/* Tab Switcher */}
+                            <div className="flex bg-gray-100 p-1 rounded-xl md:rounded-2xl shrink-0">
+                                <button
+                                    onClick={() => setActiveTab('STATS')}
+                                    className={`flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'STATS' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                                >
+                                    <BarChart3 className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                                    Dashboard
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('STRATEGY')}
+                                    className={`flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'STRATEGY' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                                >
+                                    <Target className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                                    Strategy
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('TABLE')}
+                                    className={`flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-1.5 md:py-2 rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold uppercase tracking-widest transition-all ${activeTab === 'TABLE' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-400 hover:text-gray-600'}`}
+                                >
+                                    <LayoutGrid className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                                    Breakdown
+                                </button>
+                            </div>
                         </div>
                     </div>
 
                     <button
                         onClick={onClose}
-                        className="absolute top-6 right-8 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all"
+                        className="absolute top-6 right-6 md:right-8 p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all"
                     >
                         <X className="w-6 h-6" />
                     </button>
@@ -192,9 +202,13 @@ const StockInventoryModal: React.FC<StockInventoryModalProps> = ({ isOpen, onClo
                                 exit={{ opacity: 0, x: -10 }}
                                 transition={{ duration: 0.2 }}
                             >
-                                {activeTab === 'STATS' ? (
-                                    <InventoryDashboard tasks={stockTasks} masterOptions={masterOptions} selectedChannel={selectedChannel} />
-                                ) : (
+                                {activeTab === 'STATS' && (
+                                    <InventoryDashboard tasks={stockTasks} masterOptions={masterOptions} selectedChannel={selectedChannel} channels={channels} />
+                                )}
+                                {activeTab === 'STRATEGY' && (
+                                    <StrategyPlanner channels={channels} selectedChannel={selectedChannel} setSelectedChannel={setSelectedChannel} masterOptions={masterOptions} />
+                                )}
+                                {activeTab === 'TABLE' && (
                                     <InventorySummaryTable tasks={stockTasks} masterOptions={masterOptions} selectedChannel={selectedChannel} />
                                 )}
                             </motion.div>

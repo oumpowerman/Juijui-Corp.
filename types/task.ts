@@ -13,6 +13,17 @@ export type ReviewStatus = 'PENDING' | 'PASSED' | 'REVISE' | 'EXPIRED';
 export type AssigneeType = 'TEAM' | 'INDIVIDUAL';
 export type FilterType = 'STATUS' | 'FORMAT' | 'CHANNEL' | 'PILLAR' | 'CATEGORY' | 'ASSIGNEE';
 
+export interface ChannelStrategy {
+    pillars: {
+        key: string;
+        targetPercentage: number;
+        categories: {
+            key: string;
+            targetPercentage: number;
+        }[];
+    }[];
+}
+
 export interface Channel {
     id: string;
     name: string;
@@ -20,6 +31,7 @@ export interface Channel {
     color: string;
     platforms: Platform[];
     logoUrl?: string;
+    content_strategy?: ChannelStrategy | null;
 }
 
 export interface TaskPerformance {

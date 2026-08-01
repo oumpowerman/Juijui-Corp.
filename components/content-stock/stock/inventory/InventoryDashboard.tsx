@@ -1,36 +1,40 @@
 
-import React from 'react';
-import { MasterOption, Task } from '../../../../types';
+import React, { useMemo } from 'react';
+import { MasterOption, Task, Channel } from '../../../../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import StatCard from './StatCard';
-import { Package, TrendingUp, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Package, TrendingUp, AlertCircle, CheckCircle2, Target, ArrowRight } from 'lucide-react';
 
 interface InventoryDashboardProps {
     tasks: Task[];
     masterOptions: MasterOption[];
     selectedChannel?: string;
+    channels?: Channel[];
 }
 
 const COLORS = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ef4444'];
 
-const InventoryDashboard: React.FC<InventoryDashboardProps> = ({ tasks, masterOptions, selectedChannel = 'ALL' }) => {
+const InventoryDashboard: React.FC<InventoryDashboardProps> = ({ tasks, masterOptions, selectedChannel = 'ALL', channels = [] }) => {
+    const channel = channels.find(c => c.id === selectedChannel);
+    const strategy = channel?.content_strategy;
+
     const pillarOptions = masterOptions.filter(o => 
-        o.type === 'PILLAR' && 
-        (selectedChannel === 'ALL' || !o.parentKey || o.parentKey === selectedChannel)
+        o.type === 'CONTENT_PILLAR' && o.isActive
     );
     const categoryOptions = masterOptions.filter(o => 
-        o.type === 'CATEGORY' && 
-        (selectedChannel === 'ALL' || !o.parentKey || o.parentKey === selectedChannel)
+        o.type === 'CONTENT_CATEGORY' && o.isActive
     );
 
     // Data for Pillar Bar Chart
     const pillarData = pillarOptions.map(p => ({
+        key: p.key,
         name: p.label,
         count: tasks.filter(t => t.pillar === p.key).length
     })).filter(d => d.count > 0).sort((a, b) => b.count - a.count);
 
     // Data for Category Pie Chart
     const categoryData = categoryOptions.map(c => ({
+        key: c.key,
         name: c.label,
         value: tasks.filter(t => t.category === c.key).length
     })).filter(d => d.value > 0).sort((a, b) => b.value - a.value);
@@ -38,6 +42,54 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({ tasks, masterOp
     const totalStock = tasks.length;
     const topPillar = pillarData[0]?.name || '-';
     const topCategory = categoryData[0]?.name || '-';
+
+    // Target vs Actual Analysis
+    const strategyAnalysis = useMemo(() => {
+        if (!strategy || totalStock === 0) return null;
+
+        const analysis = strategy.pillars.map(sp => {
+            const pillarDef = pillarOptions.find(p => p.key === sp.key);
+            const actualCount = tasks.filter(t => t.pillar === sp.key).length;
+            const actualPercentage = Math.round((actualCount / totalStock) * 100);
+            const diff = actualPercentage - sp.targetPercentage;
+            
+            let status: 'PERFECT' | 'EXCESS' | 'DEFICIT' = 'PERFECT';
+            if (diff > 5) status = 'EXCESS';
+            else if (diff < -5) status = 'DEFICIT';
+
+            const cats = sp.categories.map(sc => {
+                const catDef = categoryOptions.find(c => c.key === sc.key);
+                const actualCatCount = tasks.filter(t => t.pillar === sp.key && t.category === sc.key).length;
+                const actualCatPercentage = actualCount > 0 ? Math.round((actualCatCount / actualCount) * 100) : 0;
+                const catDiff = actualCatPercentage - sc.targetPercentage;
+
+                let cStatus: 'PERFECT' | 'EXCESS' | 'DEFICIT' = 'PERFECT';
+                if (catDiff > 10) cStatus = 'EXCESS';
+                else if (catDiff < -10) cStatus = 'DEFICIT';
+
+                return {
+                    key: sc.key,
+                    name: catDef?.label || sc.key,
+                    target: sc.targetPercentage,
+                    actual: actualCatPercentage,
+                    diff: catDiff,
+                    status: cStatus
+                };
+            });
+
+            return {
+                key: sp.key,
+                name: pillarDef?.label || sp.key,
+                target: sp.targetPercentage,
+                actual: actualPercentage,
+                diff,
+                status,
+                categories: cats
+            };
+        });
+
+        return analysis;
+    }, [strategy, tasks, totalStock, pillarOptions, categoryOptions]);
 
     return (
         <div className="space-y-6">
@@ -72,6 +124,69 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({ tasks, masterOp
                     subtitle="Inventory"
                 />
             </div>
+
+            {strategyAnalysis && (
+                <div className="bg-white p-6 rounded-[2.5rem] border border-gray-100 shadow-sm mb-6">
+                    <h3 className="text-sm font-bold text-gray-800 uppercase tracking-widest mb-2 flex items-center gap-2">
+                        <Target className="w-5 h-5 text-indigo-500" /> Target vs Actual Analysis
+                    </h3>
+                    <p className="text-xs text-gray-500 mb-6">เทียบสัดส่วนเป้าหมายกับจำนวนที่มีจริงใน Stock</p>
+
+                    <div className="space-y-6">
+                        {strategyAnalysis.map((pa, idx) => (
+                            <div key={pa.key} className="p-4 bg-gray-50 rounded-2xl border border-gray-100">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className={`w-3 h-3 rounded-full ${pa.status === 'EXCESS' ? 'bg-red-500' : pa.status === 'DEFICIT' ? 'bg-orange-500' : 'bg-green-500'}`} />
+                                        <div>
+                                            <h4 className="font-bold text-gray-800">{pa.name}</h4>
+                                            <p className="text-xs font-bold text-gray-400">
+                                                Target: {pa.target}% <ArrowRight className="inline w-3 h-3 mx-1" /> Actual: {pa.actual}%
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <div className="text-xs font-bold px-3 py-1.5 rounded-lg bg-white border border-gray-200">
+                                        {pa.status === 'EXCESS' && <span className="text-red-500">🛑 ล้นสต๊อก! (ควรหยุดเติม)</span>}
+                                        {pa.status === 'DEFICIT' && <span className="text-orange-500">⚠️ ขาดหาย (ควรหาไอเดียเพิ่ม)</span>}
+                                        {pa.status === 'PERFECT' && <span className="text-green-500">✅ สัดส่วนสมบูรณ์แบบ</span>}
+                                    </div>
+                                </div>
+                                
+                                {/* Progress Bar */}
+                                <div className="relative h-4 bg-gray-200 rounded-full overflow-hidden mb-4">
+                                    <div 
+                                        className="absolute top-0 left-0 h-full bg-gray-300 border-r border-white/50"
+                                        style={{ width: `${pa.target}%` }}
+                                        title={`Target: ${pa.target}%`}
+                                    />
+                                    <div 
+                                        className={`absolute top-0 left-0 h-full opacity-80 ${pa.status === 'EXCESS' ? 'bg-red-500' : pa.status === 'DEFICIT' ? 'bg-orange-500' : 'bg-green-500'}`}
+                                        style={{ width: `${pa.actual}%` }}
+                                        title={`Actual: ${pa.actual}%`}
+                                    />
+                                </div>
+
+                                {/* Categories Analysis */}
+                                {pa.categories.length > 0 && (
+                                    <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        {pa.categories.map(ca => (
+                                            <div key={ca.key} className="flex justify-between items-center bg-white p-2 rounded-xl border border-gray-100">
+                                                <span className="text-[10px] font-bold text-gray-600 truncate mr-2">{ca.name}</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[10px] font-bold text-gray-400">{ca.target}% vs {ca.actual}%</span>
+                                                    {ca.status === 'EXCESS' && <span className="text-[10px] text-red-500 font-black">↓ ลด</span>}
+                                                    {ca.status === 'DEFICIT' && <span className="text-[10px] text-orange-500 font-black">↑ เพิ่ม</span>}
+                                                    {ca.status === 'PERFECT' && <span className="text-[10px] text-green-500 font-black">✓ พอดี</span>}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 {/* Pillar Distribution Chart */}

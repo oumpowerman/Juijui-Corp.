@@ -1,9 +1,29 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL || 'https://dfokfuetumchkqhtgeui.supabase.co';
-const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmb2tmdWV0dW1jaGtxaHRnZXVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3MzcxOTEsImV4cCI6MjEwMDMxMzE5MX0.ruhSJ1584rs87Pz5pyJB02Xfz5I-9NB43Rcgq3m6770';
+let supabaseInstance: any = null;
 
-export const serverSupabase = createClient(supabaseUrl, process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || supabaseAnonKey);
+function getSupabase() {
+    if (!supabaseInstance) {
+        const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL || 'https://dfokfuetumchkqhtgeui.supabase.co';
+        const supabaseAnonKey = process.env.REACT_APP_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmb2tmdWV0dW1jaGtxaHRnZXVpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3MzcxOTEsImV4cCI6MjEwMDMxMzE5MX0.ruhSJ1584rs87Pz5pyJB02Xfz5I-9NB43Rcgq3m6770';
+        const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SERVICE_KEY || supabaseAnonKey;
+        
+        supabaseInstance = createClient(supabaseUrl, serviceKey);
+    }
+    return supabaseInstance;
+}
+
+// Export serverSupabase as a Proxy to allow transparent lazy initialization
+export const serverSupabase = new Proxy({} as any, {
+    get(target, prop, receiver) {
+        const instance = getSupabase();
+        const value = Reflect.get(instance, prop, receiver);
+        if (typeof value === 'function') {
+            return value.bind(instance);
+        }
+        return value;
+    }
+});
 
 export const isTaskCompletedServer = (status: string): boolean => {
     if (!status) return false;

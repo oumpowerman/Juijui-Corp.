@@ -4,6 +4,7 @@ import { Film, Landmark, BarChart3, ChevronDown, ListFilter, CalendarRange } fro
 import { MasterOption, Task } from '../../../types';
 import MultiSelectFilter from '../../common/MultiSelectFilter';
 import { ShootDatePicker } from './ShootDatePicker';
+import FilterDropdown from '../../common/FilterDropdown';
 
 interface StockSecondaryFilterBarProps {
     filterFormat: string[];
@@ -78,7 +79,7 @@ export const StockSecondaryFilterBar: React.FC<StockSecondaryFilterBarProps> = R
                 }
             }}
             exit={{ height: 0, opacity: 0, marginTop: 0 }}
-            className="overflow-hidden w-full"
+            className={`w-full ${isOpen ? 'overflow-visible' : 'overflow-hidden'}`}
         >
             <div className="p-4 rounded-2xl bg-slate-50/50 border border-slate-100 flex flex-col gap-4">
                 {/* Header title */}
@@ -87,7 +88,7 @@ export const StockSecondaryFilterBar: React.FC<StockSecondaryFilterBarProps> = R
                     <span className="text-[10px] font-extrabold uppercase tracking-wider text-slate-500">ตัวกรองละเอียด (Advanced Filters)</span>
                 </div>
 
-                <div className="flex items-center gap-3 w-full overflow-x-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] pb-1">
+                <div className="flex flex-wrap items-center gap-3 w-full overflow-visible pb-1">
                     {/* Format Filter */}
                     <div className="shrink-0">
                         <MultiSelectFilter 
@@ -140,30 +141,23 @@ export const StockSecondaryFilterBar: React.FC<StockSecondaryFilterBarProps> = R
 
                     {/* Checklist Progress Selection Dropdown */}
                     {contentSubTab === 'ACTIVE' && (
-                        <div className="relative shrink-0">
-                            <select
-                                id="checklist-progress-select-secondary"
+                        <div className="shrink-0">
+                            <FilterDropdown
+                                label="ขั้นตอนย่อย: ทั้งหมด"
                                 value={filterChecklistProgress}
-                                onChange={(e) => setFilterChecklistProgress(e.target.value as any)}
-                                className={`
-                                    appearance-none pl-10 pr-10 py-3 rounded-2xl text-sm font-bold border transition-all cursor-pointer active:scale-95 focus:outline-none focus:ring-4 focus:ring-indigo-100 focus:border-indigo-300 min-h-[44px]
-                                    ${filterChecklistProgress !== 'ALL'
-                                        ? 'bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm ring-2 ring-indigo-100 ring-offset-1 font-extrabold'
-                                        : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300'}
-                                `}
-                            >
-                                <option value="ALL">ขั้นตอนย่อย: ทั้งหมด</option>
-                                <option value="STEPS_1_3">ขั้นตอน 1-3 เสร็จสิ้น</option>
-                                <option value="STEPS_4_5">ขั้นตอน 4-5 เสร็จสิ้น</option>
-                                <option value="COMPLETED">เสร็จสมบูรณ์ 100%</option>
-                                <option value="INCOMPLETE">ยังไม่เสร็จสิ้น</option>
-                            </select>
-                            <div className={`absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none ${filterChecklistProgress !== 'ALL' ? 'text-indigo-600' : 'text-gray-400'}`}>
-                                <ListFilter className="w-3.5 h-3.5" />
-                            </div>
-                            <div className={`absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none ${filterChecklistProgress !== 'ALL' ? 'text-indigo-600' : 'text-gray-400'}`}>
-                                <ChevronDown className="w-4 h-4" />
-                            </div>
+                                options={[
+                                    { key: 'ALL', label: 'ขั้นตอนย่อย: ทั้งหมด' },
+                                    { key: 'STEPS_1_3', label: 'ขั้นตอน 1-3 เสร็จสิ้น' },
+                                    { key: 'STEPS_4_5', label: 'ขั้นตอน 4-5 เสร็จสิ้น' },
+                                    { key: 'COMPLETED', label: 'เสร็จสมบูรณ์ 100%' },
+                                    { key: 'INCOMPLETE', label: 'ยังไม่เสร็จสิ้น' },
+                                ]}
+                                onChange={(val) => setFilterChecklistProgress(val as any)}
+                                icon={<ListFilter className="w-3.5 h-3.5" />}
+                                activeColorClass="bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm ring-2 ring-indigo-100 ring-offset-1 font-extrabold"
+                                showAllOption={false}
+                                clearable={false}
+                            />
                         </div>
                     )}
 

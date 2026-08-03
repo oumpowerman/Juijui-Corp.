@@ -89,8 +89,8 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
   }, []);
 
   return (
-    <AppBackground theme={bgTheme} pattern="icons" className="p-4 md:p-8 min-h-screen overflow-x-hidden">
-      <div className="relative z-10 space-y-4 animate-in fade-in duration-500 pb-20 max-w-full overflow-x-hidden">
+    <AppBackground theme={bgTheme} pattern="icons" className="p-4 md:p-8 min-h-screen overflow-x-hidden scrollbar-hide">
+      <div className="relative z-10 space-y-4 animate-in fade-in duration-500 pb-20 max-w-full overflow-x-hidden scrollbar-hide">
         <MentorTip variant="purple" messages={[
             "มุมมอง List แบบละเอียด ช่วยให้เช็คสถานะงานได้ครบถ้วน", 
             "ใช้ตัวกรอง Status เลือกดูเฉพาะขั้นตอนที่สนใจได้ เช่น ดูเฉพาะ 'Script' และ 'Shooting'", 

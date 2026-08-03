@@ -35,7 +35,28 @@ export const useScriptHubFilters = ({
     // UI state
     const [viewTab, setViewTab] = useState<'QUEUE' | 'LIBRARY' | 'HISTORY'>('LIBRARY');
     const [layoutMode, setLayoutMode] = useState<'GRID' | 'LIST'>('LIST'); 
-    const [page, setPage] = useState(1);
+
+    // Single Source of Truth: Retrieve page directly from URL parameter
+    const pageVal = parseInt(searchParams.get('scriptPage') || '1', 10);
+    const page = isNaN(pageVal) || pageVal < 1 ? 1 : pageVal;
+
+    // Custom setPage to sync with URL query param
+    const setPage = useCallback((newPageOrFn: number | ((prev: number) => number)) => {
+        setSearchParams(prevParams => {
+            const newParams = new URLSearchParams(prevParams);
+            const currentPageVal = parseInt(newParams.get('scriptPage') || '1', 10);
+            const currentPage = isNaN(currentPageVal) || currentPageVal < 1 ? 1 : currentPageVal;
+            const nextVal = typeof newPageOrFn === 'function' ? newPageOrFn(currentPage) : newPageOrFn;
+            const validNextVal = nextVal < 1 ? 1 : nextVal;
+            
+            if (validNextVal > 1) {
+                newParams.set('scriptPage', validNextVal.toString());
+            } else {
+                newParams.delete('scriptPage');
+            }
+            return newParams;
+        }, { replace: true });
+    }, [setSearchParams]);
 
     // Initialize layout mode based on screen width
     useEffect(() => {
@@ -89,10 +110,71 @@ export const useScriptHubFilters = ({
         }
     };
 
-    // Reset page on filter changes
+    // 1. แปลงสถานะอาร์เรย์ให้เป็นข้อความพื้นฐาน (เพื่อเฝ้าดูการเปลี่ยนแปลงของค่าจริง ไม่ใช่ Reference)
+    const filterOwnerKey = filterOwner.join(',');
+    const filterChannelKey = filterChannel.join(',');
+    const filterStatusKey = filterStatus.join(',');
+    const filterTagsKey = filterTags.join(',');
+
+    // Track previous filters to detect actual changes (and skip on initial mount/page-only change)
+    const prevFiltersRef = useRef<{
+        searchQuery: string;
+        viewTab: string;
+        filterOwnerKey: string;
+        filterChannelKey: string;
+        filterCategory: string;
+        filterStatusKey: string;
+        filterTagsKey: string;
+        isDeepSearch: boolean;
+    } | null>(null);
+
+    // Reset page on filter changes (skip on initial mount or when only page changes)
     useEffect(() => {
-        setPage(1);
-    }, [searchQuery, viewTab, filterOwner, filterChannel, filterCategory, filterStatus, filterTags, isDeepSearch]);
+        const currentFilters = {
+            searchQuery,
+            viewTab,
+            filterOwnerKey,
+            filterChannelKey,
+            filterCategory,
+            filterStatusKey,
+            filterTagsKey,
+            isDeepSearch
+        };
+
+        if (prevFiltersRef.current === null) {
+            // Initial mount: save filters and do not reset page
+            prevFiltersRef.current = currentFilters;
+            return;
+        }
+
+        // Check if any of the actual filters changed
+        const didFilterChange =
+            prevFiltersRef.current.searchQuery !== searchQuery ||
+            prevFiltersRef.current.viewTab !== viewTab ||
+            prevFiltersRef.current.filterOwnerKey !== filterOwnerKey ||
+            prevFiltersRef.current.filterChannelKey !== filterChannelKey ||
+            prevFiltersRef.current.filterCategory !== filterCategory ||
+            prevFiltersRef.current.filterStatusKey !== filterStatusKey ||
+            prevFiltersRef.current.filterTagsKey !== filterTagsKey ||
+            prevFiltersRef.current.isDeepSearch !== isDeepSearch;
+
+        if (didFilterChange) {
+            setPage(1);
+        }
+
+        // Always update the ref with current filters
+        prevFiltersRef.current = currentFilters;
+    }, [
+        searchQuery,
+        viewTab,
+        filterOwnerKey,
+        filterChannelKey,
+        filterCategory,
+        filterStatusKey,
+        filterTagsKey,
+        isDeepSearch,
+        setPage
+    ]);
 
     // --- DEBOUNCE & QUERY DEDUPLICATION ---
     const [debouncedOptions, setDebouncedOptions] = useState(() => ({
@@ -156,15 +238,16 @@ export const useScriptHubFilters = ({
                 clearTimeout(debounceTimeoutRef.current);
             }
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [
         page, 
         searchQuery, 
         viewTab, 
-        filterOwner, 
-        filterChannel, 
+        filterOwnerKey, 
+        filterChannelKey, 
         filterCategory, 
-        filterTags, 
-        filterStatus, 
+        filterTagsKey, 
+        filterStatusKey, 
         sortOrder, 
         isDeepSearch, 
         mode

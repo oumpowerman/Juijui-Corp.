@@ -296,12 +296,14 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
                   if (view !== 'ContentStock') {
                       next.delete('stockMode');
                       next.delete('stockTab');
+                      next.delete('stockPage');
                   }
                   if (view !== 'SCRIPT_HUB') {
                       next.delete('scriptId');
                       next.delete('q');
                       next.delete('deep');
                       next.delete('origin');
+                      next.delete('scriptPage');
                   }
                   if (view !== 'ATTENDANCE') {
                       next.delete('tab');
@@ -337,12 +339,14 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
               if (view !== 'ContentStock') {
                   next.delete('stockMode');
                   next.delete('stockTab');
+                  next.delete('stockPage');
               }
               if (view !== 'SCRIPT_HUB') {
                   next.delete('scriptId');
                   next.delete('q');
                   next.delete('deep');
                   next.delete('origin');
+                  next.delete('scriptPage');
               }
               if (view !== 'ATTENDANCE') {
                   next.delete('tab');

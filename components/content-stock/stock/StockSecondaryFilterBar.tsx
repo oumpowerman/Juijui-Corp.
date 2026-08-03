@@ -15,8 +15,8 @@ interface StockSecondaryFilterBarProps {
     setFilterCategory: React.Dispatch<React.SetStateAction<string[]>>;
     filterStatuses: string[];
     setFilterStatuses: React.Dispatch<React.SetStateAction<string[]>>;
-    filterChecklistProgress?: 'ALL' | 'STEPS_1_3' | 'STEPS_4_5' | 'COMPLETED' | 'INCOMPLETE';
-    setFilterChecklistProgress?: (val: 'ALL' | 'STEPS_1_3' | 'STEPS_4_5' | 'COMPLETED' | 'INCOMPLETE') => void;
+    filterChecklistProgress?: string;
+    setFilterChecklistProgress?: (val: string) => void;
     contentSubTab?: 'ACTIVE' | 'ARCHIVE';
     
     // Date Range
@@ -32,6 +32,7 @@ interface StockSecondaryFilterBarProps {
     pillarOptions: MasterOption[];
     categoryOptions: MasterOption[];
     statusOptions: MasterOption[];
+    masterOptions?: MasterOption[];
     
     isOpen: boolean;
     tasks?: Task[];
@@ -54,10 +55,46 @@ export const StockSecondaryFilterBar: React.FC<StockSecondaryFilterBarProps> = R
     pillarOptions,
     categoryOptions,
     statusOptions,
+    masterOptions = [],
     
     isOpen,
     tasks = []
 }) => {
+    // Dynamically calculate the options based on single status vs multi/no status selected
+    const checklistDropdownOptions = React.useMemo(() => {
+        const isSingleStatus = filterStatuses.length === 1;
+        if (!isSingleStatus) {
+            return [
+                { key: 'ALL', label: 'ขั้นตอนย่อย: ทั้งหมด' },
+                { key: 'COMPLETED', label: 'เสร็จสมบูรณ์ 100%' },
+                { key: 'INCOMPLETE', label: 'ยังไม่เสร็จสิ้น' },
+            ];
+        }
+
+        const selectedStatus = filterStatuses[0];
+        // Fetch checklist items for the selected status from masterOptions
+        const statusSteps = masterOptions
+            .filter(o => o.type === 'STATUS_CHECKLIST' && o.parentKey === selectedStatus && o.isActive)
+            .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+
+        const stepOptions = statusSteps.map(step => ({
+            key: step.key,
+            label: `เสร็จสิ้น: ${step.label}`,
+        }));
+
+        return [
+            { key: 'ALL', label: 'ขั้นตอนย่อย: ทั้งหมด' },
+            ...stepOptions,
+            { key: 'COMPLETED', label: 'เสร็จสมบูรณ์ 100%' },
+            { key: 'INCOMPLETE', label: 'ยังไม่เสร็จสิ้น' },
+        ];
+    }, [filterStatuses, masterOptions]);
+
+    const checklistDropdownLabel = React.useMemo(() => {
+        const currentOpt = checklistDropdownOptions.find(opt => opt.key === filterChecklistProgress);
+        return currentOpt ? currentOpt.label : 'ขั้นตอนย่อย: ทั้งหมด';
+    }, [filterChecklistProgress, checklistDropdownOptions]);
+
     return (
         <motion.div
             initial={{ height: 0, opacity: 0, marginTop: 0 }}
@@ -168,16 +205,10 @@ export const StockSecondaryFilterBar: React.FC<StockSecondaryFilterBarProps> = R
                     {contentSubTab === 'ACTIVE' && (
                         <div className="shrink-0">
                             <FilterDropdown
-                                label="ขั้นตอนย่อย: ทั้งหมด"
+                                label={checklistDropdownLabel}
                                 value={filterChecklistProgress}
-                                options={[
-                                    { key: 'ALL', label: 'ขั้นตอนย่อย: ทั้งหมด' },
-                                    { key: 'STEPS_1_3', label: 'ขั้นตอน 1-3 เสร็จสิ้น' },
-                                    { key: 'STEPS_4_5', label: 'ขั้นตอน 4-5 เสร็จสิ้น' },
-                                    { key: 'COMPLETED', label: 'เสร็จสมบูรณ์ 100%' },
-                                    { key: 'INCOMPLETE', label: 'ยังไม่เสร็จสิ้น' },
-                                ]}
-                                onChange={(val) => setFilterChecklistProgress(val as any)}
+                                options={checklistDropdownOptions}
+                                onChange={(val) => setFilterChecklistProgress(val)}
                                 icon={<ListFilter className="w-3.5 h-3.5" />}
                                 activeColorClass="bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm ring-2 ring-indigo-100 ring-offset-1 font-extrabold"
                                 showAllOption={false}

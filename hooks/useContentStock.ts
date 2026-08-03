@@ -22,7 +22,7 @@ interface UseContentStockProps {
         shootDateStart?: string; // Changed to Start
         shootDateEnd?: string;   // Changed to End
         contentSubTab?: 'ACTIVE' | 'ARCHIVE';
-        checklistProgress?: 'ALL' | 'STEPS_1_3' | 'STEPS_4_5' | 'COMPLETED' | 'INCOMPLETE';
+        checklistProgress?: string;
     };
     sortConfig: { key: string; direction: 'asc' | 'desc' } | null;
     masterOptions?: MasterOption[];
@@ -274,6 +274,10 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
                     // At least one active step is NOT completed
                     const anyIncomplete = statusSteps.some(s => !progress[s.key]);
                     if (!anyIncomplete) return false;
+                } else {
+                    // It must be a specific step key!
+                    const isStepDone = !!progress[activeFilters.checklistProgress];
+                    if (!isStepDone) return false;
                 }
             }
         }

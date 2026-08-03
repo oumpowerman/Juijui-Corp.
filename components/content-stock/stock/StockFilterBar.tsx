@@ -23,8 +23,8 @@ interface StockFilterBarProps {
     setFilterCategory: React.Dispatch<React.SetStateAction<string[]>>;
     filterStatuses: string[];
     setFilterStatuses: React.Dispatch<React.SetStateAction<string[]>>;
-    filterChecklistProgress?: 'ALL' | 'STEPS_1_3' | 'STEPS_4_5' | 'COMPLETED' | 'INCOMPLETE';
-    setFilterChecklistProgress?: (val: 'ALL' | 'STEPS_1_3' | 'STEPS_4_5' | 'COMPLETED' | 'INCOMPLETE') => void;
+    filterChecklistProgress?: string;
+    setFilterChecklistProgress?: (val: string) => void;
     contentSubTab?: 'ACTIVE' | 'ARCHIVE';
     
     // Updated for Range
@@ -300,6 +300,7 @@ const StockFilterBar: React.FC<StockFilterBarProps> = React.memo(({
                         pillarOptions={pillarOptions}
                         categoryOptions={categoryOptions}
                         statusOptions={statusOptions}
+                        masterOptions={masterOptions}
                         isOpen={isAdvancedOpen}
                         tasks={tasks}
                     />

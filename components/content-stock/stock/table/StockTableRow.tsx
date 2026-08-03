@@ -1,7 +1,8 @@
 
 import React, { useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { motion } from 'framer-motion';
-import { Package, ClipboardList, Tag, FileText, MoreHorizontal, CalendarPlus, Inbox, Video, BarChart3, AlertCircle, Zap } from 'lucide-react';
+import { Package, ClipboardList, Tag, FileText, MoreHorizontal, CalendarPlus, Inbox, Video, BarChart3, AlertCircle, Zap, Loader2, Check, AlertTriangle, HardDrive } from 'lucide-react';
 import { format, differenceInDays, startOfToday } from 'date-fns';
 import th from 'date-fns/locale/th';
 import { Task, Channel, User, MasterOption } from '../../../../types';
@@ -83,15 +84,132 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
             .sort((a, b) => a.sortOrder - b.sortOrder);
     }, [task.status, masterOptions]);
 
-    const handleToggleStep = async (e: React.MouseEvent, stepKey: string) => {
+    const [syncStatus, setSyncStatus] = React.useState<'idle' | 'pending' | 'saved' | 'error'>('idle');
+    const [localProgress, setLocalProgress] = React.useState<Record<string, boolean>>(() => task.subChecklistProgress || {});
+    const progressRef = React.useRef(localProgress);
+    const lastAttemptedProgressRef = React.useRef<Record<string, boolean>>(localProgress);
+    const debounceTimerRef = React.useRef<NodeJS.Timeout | null>(null);
+
+    // Sync with prop when task.id or task.subChecklistProgress changes, unless actively pending/saved
+    const progressStr = JSON.stringify(task.subChecklistProgress || {});
+    React.useEffect(() => {
+        if (syncStatus !== 'pending' && syncStatus !== 'saved') {
+            setLocalProgress(task.subChecklistProgress || {});
+            progressRef.current = task.subChecklistProgress || {};
+        }
+    }, [task.id, progressStr, syncStatus]);
+
+    // Clean up timer on unmount
+    React.useEffect(() => {
+        return () => {
+            if (debounceTimerRef.current) {
+                clearTimeout(debounceTimerRef.current);
+            }
+        };
+    }, []);
+
+    // States and handlers for Local Path Tooltip Portal
+    const [tooltipCoords, setTooltipCoords] = React.useState({ top: 0, left: 0 });
+    const [isTooltipHovered, setIsTooltipHovered] = React.useState(false);
+    const badgeRef = React.useRef<HTMLDivElement>(null);
+
+    const handleMouseEnter = () => {
+        if (badgeRef.current) {
+            const rect = badgeRef.current.getBoundingClientRect();
+            setTooltipCoords({
+                top: rect.top + window.scrollY,
+                left: rect.left + window.scrollX + (rect.width / 2)
+            });
+            setIsTooltipHovered(true);
+        }
+    };
+
+    const handleMouseLeave = () => {
+        setIsTooltipHovered(false);
+    };
+
+    const handleToggleStep = (e: React.MouseEvent, stepKey: string) => {
         e.stopPropagation();
         if (!onUpdateSubChecklist) return;
-        const currentProgress = task.subChecklistProgress || {};
+
         const nextProgress = {
-            ...currentProgress,
-            [stepKey]: !currentProgress[stepKey]
+            ...progressRef.current,
+            [stepKey]: !progressRef.current[stepKey]
         };
-        await onUpdateSubChecklist(task.id, nextProgress);
+
+        // Instantly update local state for responsive UI (Optimistic Update)
+        setLocalProgress(nextProgress);
+        progressRef.current = nextProgress;
+        lastAttemptedProgressRef.current = nextProgress; // Backup in case of error
+        setSyncStatus('pending');
+
+        // Debounce database update (600ms)
+        if (debounceTimerRef.current) {
+            clearTimeout(debounceTimerRef.current);
+        }
+
+        debounceTimerRef.current = setTimeout(async () => {
+            try {
+                const success = await onUpdateSubChecklist(task.id, nextProgress);
+                if (success) {
+                    setSyncStatus('saved');
+                    setTimeout(() => {
+                        setSyncStatus(prev => prev === 'saved' ? 'idle' : prev);
+                    }, 1500);
+                } else {
+                    setSyncStatus('error');
+                    // Automatic Rollback to original database values
+                    const actualProgress = task.subChecklistProgress || {};
+                    setLocalProgress(actualProgress);
+                    progressRef.current = actualProgress;
+                }
+            } catch (err) {
+                console.error("Failed to update sub-checklist:", err);
+                setSyncStatus('error');
+                // Automatic Rollback to original database values
+                const actualProgress = task.subChecklistProgress || {};
+                setLocalProgress(actualProgress);
+                progressRef.current = actualProgress;
+            }
+        }, 600);
+    };
+
+    const handleRetry = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!onUpdateSubChecklist) return;
+
+        const targetProgress = lastAttemptedProgressRef.current;
+        setLocalProgress(targetProgress);
+        progressRef.current = targetProgress;
+        setSyncStatus('pending');
+
+        if (debounceTimerRef.current) {
+            clearTimeout(debounceTimerRef.current);
+        }
+
+        debounceTimerRef.current = setTimeout(async () => {
+            try {
+                const success = await onUpdateSubChecklist(task.id, targetProgress);
+                if (success) {
+                    setSyncStatus('saved');
+                    setTimeout(() => {
+                        setSyncStatus(prev => prev === 'saved' ? 'idle' : prev);
+                    }, 1500);
+                } else {
+                    setSyncStatus('error');
+                    // Rollback
+                    const actualProgress = task.subChecklistProgress || {};
+                    setLocalProgress(actualProgress);
+                    progressRef.current = actualProgress;
+                }
+            } catch (err) {
+                console.error("Failed to update sub-checklist on retry:", err);
+                setSyncStatus('error');
+                const actualProgress = task.subChecklistProgress || {};
+                setLocalProgress(actualProgress);
+                progressRef.current = actualProgress;
+            }
+        }, 200);
     };
 
     const handleDragStart = (e: React.DragEvent) => {
@@ -279,18 +397,102 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
                         </div>
                     )}
 
+                    {/* Drive and Local Path Badge */}
+                    {task.driveLabel && task.localPath && (
+                        <div 
+                            ref={badgeRef}
+                            onMouseEnter={handleMouseEnter}
+                            onMouseLeave={handleMouseLeave}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <motion.div 
+                                whileHover={{ scale: 1.05 }}
+                                className="text-[9px] font-bold text-teal-700 bg-teal-50 hover:bg-teal-100/80 border border-teal-200/50 px-2.5 py-0.5 rounded-full flex items-center gap-1 cursor-help transition-all duration-300 shadow-sm"
+                            >
+                                <HardDrive className="w-2.5 h-2.5 text-teal-600" />
+                                <span>{task.driveLabel}</span>
+                            </motion.div>
+                            
+                            {/* React Portal Hover Tooltip */}
+                            {isTooltipHovered && createPortal(
+                                <div 
+                                    style={{ 
+                                        position: 'absolute', 
+                                        top: `${tooltipCoords.top}px`, 
+                                        left: `${tooltipCoords.left}px`,
+                                        transform: 'translate(-50%, -100%)',
+                                        zIndex: 9999 
+                                    }}
+                                    className="pointer-events-none mb-2"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
+                                    <motion.div 
+                                        initial={{ opacity: 0, y: 8, scale: 0.95 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        transition={{ duration: 0.2, ease: "easeOut" }}
+                                        className="bg-white/95 backdrop-blur-xl text-teal-950 text-[10px] font-bold px-3 py-2.5 rounded-2xl shadow-xl border border-teal-100 flex flex-col gap-1.5 min-w-[220px] max-w-[340px]"
+                                    >
+                                        <div className="text-[8px] text-teal-600 uppercase tracking-widest mb-0.5 opacity-80 flex items-center gap-1">
+                                            <HardDrive className="w-2.5 h-2.5 text-teal-500 animate-pulse" />
+                                            <span>ที่อยู่ไฟล์ในเครื่อง (Local Path) 🖥️</span>
+                                        </div>
+                                        <div className="font-mono text-[9px] text-slate-650 bg-slate-50 border border-slate-100 p-2 rounded-xl break-all select-all leading-normal">
+                                            {task.localPath}
+                                        </div>
+                                        {/* Arrow */}
+                                        <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-[6px] border-transparent border-t-white" />
+                                    </motion.div>
+                                </div>,
+                                document.body
+                            )}
+                        </div>
+                    )}
+
                     {/* Sub-checklist steps */}
                     {checklistSteps.length > 0 && (
                         <div className="mt-3 pt-2.5 border-t border-dashed border-gray-150 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
                             <div className="flex items-center justify-between">
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 select-none">
                                     <ClipboardList className="w-3 h-3 text-slate-400" />
-                                    ขั้นตอนย่อย ({checklistSteps.filter(s => !!(task.subChecklistProgress && task.subChecklistProgress[s.key])).length}/{checklistSteps.length})
+                                    ขั้นตอนย่อย ({checklistSteps.filter(s => !!(localProgress && localProgress[s.key])).length}/{checklistSteps.length})
                                 </span>
+
+                                {/* Sub-checklist Sync Status Indicators */}
+                                <div className="flex items-center gap-1.5">
+                                    {syncStatus === 'pending' && (
+                                        <div className="flex items-center gap-1 text-[9px] font-bold text-indigo-500 animate-pulse bg-indigo-50/50 px-2 py-0.5 rounded-full border border-indigo-100/30">
+                                            <Loader2 className="w-2.5 h-2.5 text-indigo-500 animate-spin" />
+                                            <span>กำลังบันทึก...</span>
+                                        </div>
+                                    )}
+                                    {syncStatus === 'saved' && (
+                                        <motion.div 
+                                            initial={{ opacity: 0, scale: 0.9 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            exit={{ opacity: 0 }}
+                                            className="flex items-center gap-1 text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-100"
+                                        >
+                                            <Check className="w-2.5 h-2.5 text-emerald-500" />
+                                            <span>บันทึกแล้ว ✨</span>
+                                        </motion.div>
+                                    )}
+                                    {syncStatus === 'error' && (
+                                        <div className="flex items-center gap-1 text-[9px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-full border border-rose-100">
+                                            <AlertTriangle className="w-2.5 h-2.5 text-rose-500 animate-bounce" />
+                                            <span>บันทึกไม่สำเร็จ ⚠️</span>
+                                            <button 
+                                                onClick={handleRetry}
+                                                className="ml-1 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-extrabold px-1.5 py-0.5 rounded text-[8px] uppercase tracking-tighter cursor-pointer"
+                                            >
+                                                Retry
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                             </div>
                             <div className="flex flex-wrap gap-1">
                                 {checklistSteps.map((step) => {
-                                    const isStepChecked = !!(task.subChecklistProgress && task.subChecklistProgress[step.key]);
+                                    const isStepChecked = !!(localProgress && localProgress[step.key]);
                                     return (
                                         <button
                                             key={step.key}

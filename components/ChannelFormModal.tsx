@@ -146,7 +146,11 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
   const modalContent = (
     <AnimatePresence>
       {isOpen && (
-        <div
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.25 }}
           className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md overflow-y-auto"
           onClick={() => { if (!isSubmitting) onClose(); }}
         >
@@ -307,7 +311,7 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
               </div>
             </form>
           </motion.div>
-        </div>
+        </motion.div>
       )}
     </AnimatePresence>
   );

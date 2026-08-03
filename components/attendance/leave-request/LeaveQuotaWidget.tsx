@@ -26,7 +26,11 @@ const AnimatedCounter: React.FC<{ value: number }> = ({ value }) => {
             // Ease out quad formula for pleasant deceleration
             const easeProgress = progress * (2 - progress);
             
-            const current = Math.round(easeProgress * (end - start) + start);
+            const currentRaw = easeProgress * (end - start) + start;
+            const hasDecimal = end % 1 !== 0;
+            const current = hasDecimal 
+                ? Number(currentRaw.toFixed(1))
+                : Math.round(currentRaw);
             setCount(current);
 
             if (progress < 1) {
@@ -39,7 +43,8 @@ const AnimatedCounter: React.FC<{ value: number }> = ({ value }) => {
         requestAnimationFrame(animate);
     }, [value]);
 
-    return <span>{count}</span>;
+    const hasDecimal = value % 1 !== 0;
+    return <span>{hasDecimal ? count.toFixed(1) : count}</span>;
 };
 
 interface LeaveQuotaWidgetProps {

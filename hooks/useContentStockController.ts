@@ -30,6 +30,7 @@ export const useContentStockController = ({ globalTasks, channels, users, master
     const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
     const [filterOnlyOverdue, setFilterOnlyOverdue] = useState(false);
     const [filterOnlyMissingStorage, setFilterOnlyMissingStorage] = useState(false);
+    const [filterChecklistProgress, setFilterChecklistProgress] = useState<'ALL' | 'STEPS_1_3' | 'STEPS_4_5' | 'COMPLETED' | 'INCOMPLETE'>('ALL');
     
     // Range Filter
     const [filterHasShootDate, setFilterHasShootDate] = useState(false);
@@ -101,7 +102,7 @@ export const useContentStockController = ({ globalTasks, channels, users, master
     // Reset pagination when filters change
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchQuery, filterChannel, filterFormat, filterPillar, filterCategory, filterStatuses, filterHasShootDate, filterShootDateStart, filterShootDateEnd, showStockOnly, sortConfig, filterOnlyMissingStorage]);
+    }, [searchQuery, filterChannel, filterFormat, filterPillar, filterCategory, filterStatuses, filterHasShootDate, filterShootDateStart, filterShootDateEnd, showStockOnly, sortConfig, filterOnlyMissingStorage, filterChecklistProgress]);
 
     const filters = useMemo(() => ({
         channelId: filterChannel,
@@ -115,8 +116,9 @@ export const useContentStockController = ({ globalTasks, channels, users, master
         showStockOnly,
         onlyOverdue: filterOnlyOverdue,
         onlyMissingStorage: filterOnlyMissingStorage,
-        contentSubTab
-    }), [filterChannel, filterFormat, filterPillar, filterCategory, filterStatuses, filterHasShootDate, filterShootDateStart, filterShootDateEnd, showStockOnly, filterOnlyOverdue, filterOnlyMissingStorage, contentSubTab]);
+        contentSubTab,
+        checklistProgress: filterChecklistProgress
+    }), [filterChannel, filterFormat, filterPillar, filterCategory, filterStatuses, filterHasShootDate, filterShootDateStart, filterShootDateEnd, showStockOnly, filterOnlyOverdue, filterOnlyMissingStorage, contentSubTab, filterChecklistProgress]);
 
     useEffect(() => {
         setIsFiltering(true);
@@ -124,12 +126,13 @@ export const useContentStockController = ({ globalTasks, channels, users, master
         return () => clearTimeout(timer);
     }, [filters]);
 
-    const { contents: paginatedTasks, totalCount, overdueCount, missingStorageCount, isLoading, isRefreshing, fetchContents, updateLocalItem, toggleShootQueue } = useContentStock({
+    const { contents: paginatedTasks, totalCount, overdueCount, missingStorageCount, isLoading, isRefreshing, fetchContents, updateLocalItem, toggleShootQueue, updateSubChecklistProgress } = useContentStock({
         page: currentPage,
         pageSize: ITEMS_PER_PAGE,
         searchQuery,
         filters,
-        sortConfig
+        sortConfig,
+        masterOptions
     });
 
     const handleSort = useCallback((key: SortKey) => {
@@ -154,6 +157,7 @@ export const useContentStockController = ({ globalTasks, channels, users, master
         setFilterStatuses([]);
         setFilterOnlyOverdue(false);
         setFilterOnlyMissingStorage(false);
+        setFilterChecklistProgress('ALL');
     }, []);
 
     const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -205,6 +209,7 @@ export const useContentStockController = ({ globalTasks, channels, users, master
         filterStatuses, setFilterStatuses,
         filterOnlyOverdue, setFilterOnlyOverdue,
         filterOnlyMissingStorage, setFilterOnlyMissingStorage,
+        filterChecklistProgress, setFilterChecklistProgress,
         filterHasShootDate, setFilterHasShootDate,
         filterShootDateStart, setFilterShootDateStart,
         filterShootDateEnd, setFilterShootDateEnd,
@@ -240,6 +245,7 @@ export const useContentStockController = ({ globalTasks, channels, users, master
         fetchContents,
         updateLocalItem,
         toggleShootQueue,
+        updateSubChecklistProgress,
         searchParams,
         setSearchParams
     };

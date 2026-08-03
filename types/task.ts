@@ -198,6 +198,7 @@ export interface Task {
     last_penalized_at?: Date;
     hasAnalytics?: boolean;
     analyticsStatus?: 'NONE' | 'PARTIAL' | 'COMPLETE' | string;
+    subChecklistProgress?: Record<string, boolean>;
     _isPartial?: boolean;
 }
 

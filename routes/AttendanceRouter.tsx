@@ -24,6 +24,8 @@ import { BRAND_CONFIG } from '../config/brand';
 interface AttendanceRouterProps {
     currentUser: User;
     users: User[]; 
+    onApproveMember?: (memberId: string) => void;
+    onRemoveMember?: (memberId: string) => void;
 }
 
 type AttendanceTab = 'CHECK_IN' | 'HISTORY' | 'TIMESHEET' | 'REPORT' | 'APPROVALS';
@@ -49,7 +51,12 @@ const parseTabParam = (param: string | null, highlightReqId?: string | null, use
     return resolvedTab;
 };
 
-const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users }) => {
+const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ 
+    currentUser, 
+    users,
+    onApproveMember,
+    onRemoveMember
+}) => {
     const [searchParams, setSearchParams] = useSearchParams();
     
     const isCheckInAndHistoryHiddenForAdmin = useMemo(() => {
@@ -114,6 +121,11 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
     [requests, currentUser.id]);
 
     const actionRequiredCount = useMemo(() => actionRequiredLogs.length, [actionRequiredLogs]);
+
+    const showPendingInTimesheet = BRAND_CONFIG.showPendingMembersInTimesheetMode === 2;
+    const pendingMembersCount = useMemo(() => 
+        users.filter(u => !u.isApproved && u.isActive).length, 
+    [users]);
 
     // Scroll to top when tab changes
     useEffect(() => {
@@ -181,9 +193,15 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
                                 {!isCheckInAndHistoryHiddenForAdmin && <div className="w-px h-6 bg-gray-300/50 mx-1 self-center"></div>}
                                 <button 
                                     onClick={() => selectTab('TIMESHEET')}
-                                    className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'TIMESHEET' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'}`}
+                                    className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap relative ${currentTab === 'TIMESHEET' ? 'bg-indigo-50 text-indigo-600 shadow-sm' : 'text-gray-500 hover:text-gray-700 hover:bg-white/50'}`}
                                 >
-                                    <TableProperties className="w-4 h-4" /> ตรวจสอบทีม
+                                    <TableProperties className="w-4 h-4" /> 
+                                    <span>ตรวจสอบทีม</span>
+                                    {showPendingInTimesheet && pendingMembersCount > 0 && (
+                                        <span className="ml-1 bg-orange-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full animate-pulse shadow-sm">
+                                            {pendingMembersCount}
+                                        </span>
+                                    )}
                                 </button>
                                 <button 
                                     onClick={() => selectTab('APPROVALS')}
@@ -286,7 +304,11 @@ const AttendanceRouter: React.FC<AttendanceRouterProps> = ({ currentUser, users 
                                 transition={{ duration: 0.25, ease: "easeOut" }}
                                 className="w-full"
                             >
-                                <AdminWeeklyTimesheet users={users} />
+                                <AdminWeeklyTimesheet 
+                                    users={users} 
+                                    onApproveMember={onApproveMember}
+                                    onRemoveMember={onRemoveMember}
+                                />
                             </motion.div>
                         )}
                         

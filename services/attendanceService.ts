@@ -45,6 +45,10 @@ export const attendanceService = {
                 approverId: r.approver_id,
                 createdAt: new Date(r.created_at),
                 rejectionReason: r.rejection_reason,
+                is_half_day: r.is_half_day,
+                isHalfDay: r.is_half_day,
+                half_day_session: r.half_day_session,
+                halfDaySession: r.half_day_session,
             user: r.profiles ? {
                 id: r.profiles.id,
                 name: r.profiles.full_name,
@@ -151,6 +155,8 @@ export const attendanceService = {
         reason: string;
         attachment_url: string | null;
         status: string;
+        is_half_day?: boolean;
+        half_day_session?: string | null;
     }) {
         const { data, error } = await supabase
             .from('leave_requests')
@@ -286,7 +292,11 @@ export const attendanceService = {
             status: r.status as RequestStatus,
             approverId: r.approver_id,
             createdAt: new Date(r.created_at),
-            rejectionReason: r.rejection_reason
+            rejectionReason: r.rejection_reason,
+            is_half_day: r.is_half_day,
+            isHalfDay: r.is_half_day,
+            half_day_session: r.half_day_session,
+            halfDaySession: r.half_day_session
         }));
     }
 };

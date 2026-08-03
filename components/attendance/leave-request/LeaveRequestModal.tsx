@@ -17,7 +17,16 @@ interface LeaveRequestModalProps {
     isOpen: boolean;
     onClose: () => void;
     onBack?: () => void;
-    onSubmit: (type: LeaveType, start: Date, end: Date, reason: string, file?: File, linkedRemoteType?: 'WFH' | 'ONSITE') => Promise<boolean>;
+    onSubmit: (
+        type: LeaveType, 
+        start: Date, 
+        end: Date, 
+        reason: string, 
+        file?: File, 
+        linkedRemoteType?: 'WFH' | 'ONSITE',
+        isHalfDay?: boolean,
+        halfDaySession?: string
+    ) => Promise<boolean>;    
     masterOptions?: MasterOption[];
     leaveUsage?: LeaveUsage; 
     pendingUsage?: LeaveUsage;

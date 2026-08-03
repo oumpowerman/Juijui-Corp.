@@ -8,6 +8,8 @@ import AttendanceRaceCard from './addons/AttendanceRaceCard';
 import LineApprovalModeCard from './addons/LineApprovalModeCard';
 import CheckoutReminderCard from './addons/CheckoutReminderCard';
 import SubmissionAlertCard from './addons/SubmissionAlertCard';
+import AbsentCheckCard from './addons/AbsentCheckCard';
+
 
 interface WorkTimeConfig {
     start: string;
@@ -31,6 +33,9 @@ interface WorkTimeConfig {
     checkoutAlertOffset?: string;
     checkoutAlertTargetRoles?: string;
     adminAbsentPenaltyEnabled?: string;
+    absentPenaltyEnabled?: string;
+    absentPenaltyTime?: string;
+    absentPenaltyTargetRoles?: string;
     lineSubmissionAlertMode?: string;
 }
 
@@ -56,7 +61,7 @@ const ServerAddonsSection: React.FC<ServerAddonsSectionProps> = ({
         return () => media.removeEventListener('change', listener);
     }, []);
 
-    const totalSlides = 7;
+    const totalSlides = 8;
 
     const handleNext = () => {
         setActiveSlide((prev) => (prev + 1) % totalSlides);
@@ -118,6 +123,13 @@ const ServerAddonsSection: React.FC<ServerAddonsSectionProps> = ({
                         setTempTimeConfig={setTempTimeConfig}
                     />
                 );
+            case 7:
+                return (
+                    <AbsentCheckCard
+                        tempTimeConfig={tempTimeConfig}
+                        setTempTimeConfig={setTempTimeConfig}
+                    />
+                );
             default:
                 return null;
         }
@@ -132,6 +144,8 @@ const ServerAddonsSection: React.FC<ServerAddonsSectionProps> = ({
         { title: 'LINE Approval Mode', color: 'bg-emerald-500', glow: 'shadow-emerald-500/30' },
         { title: 'Checkout Reminder', color: 'bg-indigo-500', glow: 'shadow-indigo-500/30' },
         { title: 'Submission Alert Policy', color: 'bg-emerald-500', glow: 'shadow-emerald-500/30' },
+        { title: 'Daily Absent Check', color: 'bg-rose-500', glow: 'shadow-rose-500/30' },
+        { title: 'OT Summary Notification', color: 'bg-indigo-500', glow: 'shadow-indigo-500/30' },
     ];
 
     return (
@@ -211,7 +225,7 @@ const ServerAddonsSection: React.FC<ServerAddonsSectionProps> = ({
                             }}
                             transition={{ type: "spring", stiffness: 220, damping: 26 }}
                         >
-                            {[0, 1, 2, 3, 4, 5, 6].map((idx) => {
+                            {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((idx) => {
                                 const isActive = idx === activeSlide;
                                 return (
                                     <motion.div
@@ -264,7 +278,7 @@ const ServerAddonsSection: React.FC<ServerAddonsSectionProps> = ({
             ) : (
                 /* GRID VIEW MODE */
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {[0, 1, 2, 3, 4, 5, 6].map((idx) => (
+                    {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((idx) => (
                         <div
                             key={idx}
                             className={`border border-gray-100 bg-white p-5 rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col justify-between min-h-[440px]`}

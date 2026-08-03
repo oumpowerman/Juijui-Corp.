@@ -180,10 +180,15 @@ const LeaveHistorySummary: React.FC<LeaveHistorySummaryProps> = ({ onBack, borde
                         const end = new Date(req.endDate);
                         if (!isValid(start) || !isValid(end) || start > end) return; 
                         
-                        const days = eachDayOfInterval({ start, end });
-                        const workingDaysCount = days.filter(d => 
-                            isWorkingDay(d, annualHolidays, calendarExceptions, currentUserProfile)
-                        ).length;
+                        let workingDaysCount = 0;
+                        if (req.isHalfDay || req.is_half_day) {
+                            workingDaysCount = 0.5;
+                        } else {
+                            const days = eachDayOfInterval({ start, end });
+                            workingDaysCount = days.filter(d => 
+                                isWorkingDay(d, annualHolidays, calendarExceptions, currentUserProfile)
+                            ).length;
+                        }
                         
                         // Map EMERGENCY to SICK or treat under its category
                         const key = req.type as keyof typeof stats;
@@ -476,8 +481,13 @@ const LeaveHistorySummary: React.FC<LeaveHistorySummaryProps> = ({ onBack, borde
                                                 <Icon className="w-4 h-4" />
                                             </span>
                                             <div className="min-w-0">
-                                                <span className="font-bold text-xs text-slate-800 block truncate">
-                                                    {theme.label} ({actualDates.length} วัน)
+                                                <span className="font-bold text-xs text-slate-800 flex items-center flex-wrap gap-1.5 truncate">
+                                                    <span>{theme.label} ({req.isHalfDay || req.is_half_day ? '0.5' : actualDates.length} วัน)</span>
+                                                    {(req.isHalfDay || req.is_half_day) && (
+                                                        <span className="text-[9px] text-indigo-600 font-bold px-1.5 py-0.5 bg-indigo-50 border border-indigo-100 rounded-md">
+                                                            ครึ่งวัน{req.halfDaySession === 'AM' ? 'เช้า' : 'บ่าย'}
+                                                        </span>
+                                                    )}
                                                 </span>
                                                 <span className="text-[10px] font-medium text-slate-400 block mt-0.5">
                                                     {formatThaiDate(new Date(req.startDate))} - {formatThaiDate(new Date(req.endDate))}
@@ -502,6 +512,7 @@ const LeaveHistorySummary: React.FC<LeaveHistorySummaryProps> = ({ onBack, borde
                                                         className="px-2 py-0.5 bg-white border border-slate-200/60 text-slate-600 text-[10px] font-medium rounded-lg"
                                                     >
                                                         {formatThaiDate(date)}
+                                                        {(req.isHalfDay || req.is_half_day) && ` (ครึ่งวัน${req.halfDaySession === 'AM' ? 'เช้า' : 'บ่าย'})`}
                                                     </span>
                                                 ))}
                                             </div>

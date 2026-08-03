@@ -215,6 +215,12 @@ export const ApprovalCardDetails: React.FC<ApprovalCardDetailsProps> = ({
                     </span>
                 )}
 
+                {(request.isHalfDay || (request as any).is_half_day) && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold border bg-indigo-50 text-indigo-700 border-indigo-200/60 flex items-center gap-1 shadow-sm">
+                        ⏱️ ลาครึ่งวัน{((request.halfDaySession || (request as any).half_day_session) === 'AM' ? 'เช้า' : 'บ่าย')} (0.5 วัน)
+                    </span>
+                )}
+
                 {/* Expiration Warning */}
                 {request.status === 'PENDING' && ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT', 'GPS_SPOOF_APPEAL'].includes(request.type) && (
                     getWorkingDaysDifference(request.createdAt, new Date(), annualHolidays, calendarExceptions) >= 2 && (

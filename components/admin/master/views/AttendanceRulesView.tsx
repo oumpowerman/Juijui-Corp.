@@ -57,8 +57,11 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
         checkoutAlertOffset: '5',
         checkoutAlertTargetRoles: 'BOTH',
         adminAbsentPenaltyEnabled: 'false',
+        absentPenaltyEnabled: 'false',
+        absentPenaltyTime: '19:00',
+        absentPenaltyTargetRoles: 'BOTH',
         forgotCheckInLimitHours: '12',
-        lineSubmissionAlertMode: 'ADMIN_PRIVATE'
+        lineSubmissionAlertMode: 'ADMIN_PRIVATE',
     });
     const [isStartTimeOpen, setIsStartTimeOpen] = useState(false);
     const [isEndTimeOpen, setIsEndTimeOpen] = useState(false);
@@ -96,10 +99,13 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
         const checkoutAlertOffsetOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'CHECKOUT_ALERT_OFFSET');
         const checkoutAlertTargetRolesOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'CHECKOUT_ALERT_TARGET_ROLES');
         const adminAbsentPenaltyEnabledOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'ADMIN_ABSENT_PENALTY_ENABLED');
+        const absentPenaltyEnabledOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'ABSENT_PENALTY_ENABLED');
+        const absentPenaltyTimeOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'ABSENT_PENALTY_TIME');
+        const absentPenaltyTargetRolesOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'ABSENT_PENALTY_TARGET_ROLES');
         const forgotCheckInLimitHoursOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'FORGOT_CHECKIN_LIMIT_HOURS');
         const lineSubmissionAlertModeOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'LINE_SUBMISSION_ALERT_MODE');
         
-        if (startOpt || endOpt || bufferOpt || minHoursOpt || otThresholdOpt || checkoutPenaltyTimeOpt || dailySummaryDelayHoursOpt || dailySummaryTimeOpt || lineSummaryDestinationOpt || enableRaceOpt || lateAlertModeOpt || lateAlertOffsetOpt || shiftsEnabledOpt || shiftsListOpt || lineApprovalModeOpt || lineHeaderTitleOpt || lateAlertTargetRolesOpt || checkoutPenaltyTargetRolesOpt || checkoutAlertEnabledOpt || checkoutAlertModeOpt || checkoutAlertOffsetOpt || checkoutAlertTargetRolesOpt || adminAbsentPenaltyEnabledOpt || forgotCheckInLimitHoursOpt || lineSubmissionAlertModeOpt) {
+        if (startOpt || endOpt || bufferOpt || minHoursOpt || otThresholdOpt || checkoutPenaltyTimeOpt || dailySummaryDelayHoursOpt || dailySummaryTimeOpt || lineSummaryDestinationOpt || enableRaceOpt || lateAlertModeOpt || lateAlertOffsetOpt || shiftsEnabledOpt || shiftsListOpt || lineApprovalModeOpt || lineHeaderTitleOpt || lateAlertTargetRolesOpt || checkoutPenaltyTargetRolesOpt || checkoutAlertEnabledOpt || checkoutAlertModeOpt || checkoutAlertOffsetOpt || checkoutAlertTargetRolesOpt || adminAbsentPenaltyEnabledOpt || absentPenaltyEnabledOpt || absentPenaltyTimeOpt || absentPenaltyTargetRolesOpt || forgotCheckInLimitHoursOpt || lineSubmissionAlertModeOpt ) {
             setTempTimeConfig({
                 start: startOpt?.label || '10:00',
                 end: endOpt?.label || '19:00',
@@ -124,8 +130,11 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
                 checkoutAlertOffset: checkoutAlertOffsetOpt?.label || '5',
                 checkoutAlertTargetRoles: checkoutAlertTargetRolesOpt?.label || 'BOTH',
                 adminAbsentPenaltyEnabled: adminAbsentPenaltyEnabledOpt?.label || 'false',
+                absentPenaltyEnabled: absentPenaltyEnabledOpt?.label || 'false',
+                absentPenaltyTime: absentPenaltyTimeOpt?.label || '19:00',
+                absentPenaltyTargetRoles: absentPenaltyTargetRolesOpt?.label || 'BOTH',
                 forgotCheckInLimitHours: forgotCheckInLimitHoursOpt?.label || '12',
-                lineSubmissionAlertMode: lineSubmissionAlertModeOpt?.label || 'ADMIN_PRIVATE'
+                lineSubmissionAlertMode: lineSubmissionAlertModeOpt?.label || 'ADMIN_PRIVATE',
             });
         }
 
@@ -187,6 +196,9 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
         prepareUpdateOrInsert('CHECKOUT_ALERT_OFFSET', tempTimeConfig.checkoutAlertOffset || '5');
         prepareUpdateOrInsert('CHECKOUT_ALERT_TARGET_ROLES', tempTimeConfig.checkoutAlertTargetRoles || 'BOTH');
         prepareUpdateOrInsert('ADMIN_ABSENT_PENALTY_ENABLED', tempTimeConfig.adminAbsentPenaltyEnabled || 'false');
+        prepareUpdateOrInsert('ABSENT_PENALTY_ENABLED', tempTimeConfig.absentPenaltyEnabled || 'false');
+        prepareUpdateOrInsert('ABSENT_PENALTY_TIME', tempTimeConfig.absentPenaltyTime || '19:00');
+        prepareUpdateOrInsert('ABSENT_PENALTY_TARGET_ROLES', tempTimeConfig.absentPenaltyTargetRoles || 'BOTH');
         prepareUpdateOrInsert('FORGOT_CHECKIN_LIMIT_HOURS', tempTimeConfig.forgotCheckInLimitHours || '12');
         prepareUpdateOrInsert('LINE_SUBMISSION_ALERT_MODE', tempTimeConfig.lineSubmissionAlertMode || 'ADMIN_PRIVATE');
         

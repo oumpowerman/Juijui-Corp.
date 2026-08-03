@@ -10,7 +10,16 @@ import { calculateShiftAndActualTime, formatCorrectionNote, calculateRequiredChe
 import { compressImage } from '../../../../lib/imageUtils';
 
 interface UseLeaveFormLogicProps {
-    onSubmit: (type: LeaveType, start: Date, end: Date, reason: string, file?: File, linkedRemoteType?: 'WFH' | 'ONSITE') => Promise<boolean>;
+    onSubmit: (
+        type: LeaveType, 
+        start: Date, 
+        end: Date, 
+        reason: string, 
+        file?: File, 
+        linkedRemoteType?: 'WFH' | 'ONSITE',
+        isHalfDay?: boolean,
+        halfDaySession?: string
+    ) => Promise<boolean>;
     onClose: () => void;
     initialDate?: Date;
     initialReason?: string;
@@ -48,6 +57,14 @@ export const useLeaveFormLogic = ({
     const [otType, setOtType] = useState<'HOURLY' | 'FIXED'>('HOURLY');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isReviewing, setIsReviewing] = useState(false);
+    const [isHalfDay, setIsHalfDay] = useState(false);
+    const [halfDaySession, setHalfDaySession] = useState<'AM' | 'PM'>('AM');
+
+    useEffect(() => {
+        if (startDate && endDate && startDate !== endDate) {
+            setIsHalfDay(false);
+        }
+    }, [startDate, endDate]);
 
     const initialDateStr = initialDate ? format(initialDate, 'yyyy-MM-dd') : '';
 
@@ -301,7 +318,9 @@ export const useLeaveFormLogic = ({
             finalEndDate,
             finalReason,
             finalFile || undefined,
-            linkedRemoteType
+            linkedRemoteType,
+            isHalfDay,
+            halfDaySession
         );
 
         setIsSubmitting(false);
@@ -320,6 +339,10 @@ export const useLeaveFormLogic = ({
         isSubmitting,
         isReviewing,
         setIsReviewing,
+        isHalfDay,
+        setIsHalfDay,
+        halfDaySession,
+        setHalfDaySession,
         handleReview,
         handleSubmit
     };

@@ -337,6 +337,7 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         try {
             const exists = options.some(o => 
                 o.type === option.type && 
+                (o.parentKey || null) === (option.parentKey || null) &&
                 (o.key === option.key || o.label.toLowerCase().trim() === option.label.toLowerCase().trim())
             );
 

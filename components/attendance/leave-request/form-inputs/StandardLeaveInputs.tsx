@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { differenceInDays } from 'date-fns';
 import { Calendar as CalendarIcon } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import DatePickerModal from '../../../ui/DatePickerModal';
 import MultiDatePickerModal from '../../../ui/MultiDatePickerModal';
 import { getRegistryItem } from '../../../../constants/attendanceRegistry';
@@ -16,9 +16,16 @@ interface Props {
     maxDate?: Date;
     workingDaysCount?: number;
     selectedType?: string;
+    isHalfDay?: boolean;
+    setIsHalfDay?: (val: boolean) => void;
+    halfDaySession?: string;
+    setHalfDaySession?: (val: 'AM' | 'PM') => void;
 }
 
-const StandardLeaveInputs: React.FC<Props> = ({ startDate, setStartDate, endDate, setEndDate, minDate, maxDate, workingDaysCount, selectedType }) => {
+const StandardLeaveInputs: React.FC<Props> = ({ 
+    startDate, setStartDate, endDate, setEndDate, minDate, maxDate, workingDaysCount, selectedType,
+    isHalfDay = false, setIsHalfDay, halfDaySession = 'AM', setHalfDaySession
+}) => {
     const [isStartOpen, setIsStartOpen] = useState(false);
     const [isMultiOpen, setIsMultiOpen] = useState(false);
     
@@ -26,6 +33,8 @@ const StandardLeaveInputs: React.FC<Props> = ({ startDate, setStartDate, endDate
     const isSingleDayOnly = registryItem?.rules?.isSingleDay || false;
     const forceTodayDate = registryItem?.rules?.forceTodayDate || false;
     
+    const isEligibleForHalfDay = selectedType && ['SICK', 'PERSONAL', 'VACATION', 'UNPAID'].includes(selectedType);
+
     const [leaveMode, setLeaveMode] = useState<'single' | 'multiple'>(() => {
         if (isSingleDayOnly) {
             return 'single';
@@ -122,7 +131,10 @@ const StandardLeaveInputs: React.FC<Props> = ({ startDate, setStartDate, endDate
                     </button>
                     <button
                         type="button"
-                        onClick={() => setLeaveMode('multiple')}
+                        onClick={() => {
+                            setLeaveMode('multiple');
+                            setIsHalfDay?.(false);
+                        }}
                         className={`flex-1 text-center py-2.5 text-xs font-bold rounded-xl transition-all relative z-10 ${
                             leaveMode === 'multiple' ? 'text-indigo-700 font-bold' : 'text-gray-500 hover:text-gray-700'
                         }`}
@@ -191,6 +203,86 @@ const StandardLeaveInputs: React.FC<Props> = ({ startDate, setStartDate, endDate
                     </div>
                     <CalendarIcon className="w-5 h-5 text-gray-400 shrink-0" />
                 </button>
+            )}
+
+            {/* Half-day selection toggle and session options */}
+            {isEligibleForHalfDay && startDate === endDate && (
+                <div className="overflow-hidden pt-2 flex flex-col">
+                    <div className="flex items-center justify-between p-4 bg-gray-50/80 rounded-2xl border border-gray-200/40">
+                        <div className="flex flex-col text-left font-kanit">
+                            <span className="text-sm font-bold text-gray-700">ลาครึ่งวัน (Half-day)</span>
+                            <span className="text-[11px] text-gray-400 font-sarabun mt-0.5">แจ้งลาเฉพาะช่วงเช้าหรือบ่ายของวันนี้</span>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setIsHalfDay?.(!isHalfDay)}
+                            className={`w-12 h-7 rounded-full transition-colors relative flex items-center p-1 cursor-pointer outline-none ${
+                                isHalfDay ? 'bg-indigo-600' : 'bg-gray-300'
+                            }`}
+                        >
+                            <motion.div
+                                layout
+                                className="w-5 h-5 bg-white rounded-full shadow-sm"
+                                animate={{ x: isHalfDay ? 20 : 0 }}
+                                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                            />
+                        </button>
+                    </div>
+
+                    <AnimatePresence initial={false}>
+                        {isHalfDay && (
+                            <motion.div
+                                initial={{ opacity: 0, height: 0 }}
+                                animate={{ opacity: 1, height: 'auto' }}
+                                exit={{ opacity: 0, height: 0 }}
+                                transition={{
+                                    duration: 0.25,
+                                    ease: 'easeInOut'
+                                }}
+                                className="overflow-hidden"
+                            >
+                                <div className="pt-3">
+                                    <div className="p-1 bg-gray-100/80 rounded-2xl border border-gray-200/40 flex relative overflow-hidden">
+                                        <button
+                                            type="button"
+                                            onClick={() => setHalfDaySession?.('AM')}
+                                            className={`flex-1 text-center py-2.5 text-xs font-bold rounded-xl transition-all relative z-10 flex flex-col items-center justify-center gap-0.5 cursor-pointer outline-none ${
+                                                halfDaySession === 'AM' ? 'text-indigo-700 font-bold' : 'text-gray-500 hover:text-gray-700'
+                                            }`}
+                                        >
+                                            {halfDaySession === 'AM' && (
+                                                <motion.div
+                                                    layoutId="active-halfday-pill"
+                                                    className="absolute inset-0 bg-white rounded-xl shadow-sm border border-gray-200/50 -z-10"
+                                                    transition={{ type: 'spring', duration: 0.4 }}
+                                                />
+                                            )}
+                                            <span className="font-kanit">ครึ่งวันเช้า (AM)</span>
+                                            <span className="text-[9px] font-normal text-gray-400 font-sarabun">เข้างานช่วงบ่าย (ก่อน 13:00 น.)</span>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setHalfDaySession?.('PM')}
+                                            className={`flex-1 text-center py-2.5 text-xs font-bold rounded-xl transition-all relative z-10 flex flex-col items-center justify-center gap-0.5 cursor-pointer outline-none ${
+                                                halfDaySession === 'PM' ? 'text-indigo-700 font-bold' : 'text-gray-500 hover:text-gray-700'
+                                            }`}
+                                        >
+                                            {halfDaySession === 'PM' && (
+                                                <motion.div
+                                                    layoutId="active-halfday-pill"
+                                                    className="absolute inset-0 bg-white rounded-xl shadow-sm border border-gray-200/50 -z-10"
+                                                    transition={{ type: 'spring', duration: 0.4 }}
+                                                />
+                                            )}
+                                            <span className="font-kanit">ครึ่งวันบ่าย (PM)</span>
+                                            <span className="text-[9px] font-normal text-gray-400 font-sarabun">ออกงานได้ตั้งแต่เที่ยงตรง</span>
+                                        </button>
+                                    </div>
+                                </div>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
             )}
 
             {/* DatePicker Modals */}

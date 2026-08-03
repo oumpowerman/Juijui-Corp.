@@ -31,6 +31,9 @@ interface StockTableRowProps {
     getPillarLabel: (key?: string) => string;
     getCategoryLabel: (key?: string) => string;
     onTagClick?: (tag: string) => void;
+    onUpdateLocalTask?: (task: Task, isDelete?: boolean) => void;
+    onUpdateSubChecklist?: (id: string, progress: Record<string, boolean>) => Promise<boolean>;
+    masterOptions?: MasterOption[];
 }
 
 const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTableRowProps>(({
@@ -54,7 +57,10 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
     getFormatLabel,
     getPillarLabel,
     getCategoryLabel,
-    onTagClick
+    onTagClick,
+    onUpdateLocalTask,
+    onUpdateSubChecklist,
+    masterOptions = []
 }, ref) => {
     const { showConfirm } = useGlobalDialog();
     const channelStyle = channel ? channel.color : 'bg-gray-100 text-gray-500 border-gray-200';
@@ -69,6 +75,24 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
         const daysSincePublish = differenceInDays(startOfToday(), endDateObj);
         return daysSincePublish >= 7;
     }, [task.type, task.status, task.endDate, task.isUnscheduled, task.analyticsStatus]);
+
+    const checklistSteps = useMemo(() => {
+        if (!task.status || !masterOptions) return [];
+        return masterOptions
+            .filter(o => o.type === 'STATUS_CHECKLIST' && o.parentKey === task.status && o.isActive)
+            .sort((a, b) => a.sortOrder - b.sortOrder);
+    }, [task.status, masterOptions]);
+
+    const handleToggleStep = async (e: React.MouseEvent, stepKey: string) => {
+        e.stopPropagation();
+        if (!onUpdateSubChecklist) return;
+        const currentProgress = task.subChecklistProgress || {};
+        const nextProgress = {
+            ...currentProgress,
+            [stepKey]: !currentProgress[stepKey]
+        };
+        await onUpdateSubChecklist(task.id, nextProgress);
+    };
 
     const handleDragStart = (e: React.DragEvent) => {
         setIsDragging(true);
@@ -252,6 +276,44 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
                                     </div>
                                 </div>
                             )}
+                        </div>
+                    )}
+
+                    {/* Sub-checklist steps */}
+                    {checklistSteps.length > 0 && (
+                        <div className="mt-3 pt-2.5 border-t border-dashed border-gray-150 flex flex-col gap-1.5" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 select-none">
+                                    <ClipboardList className="w-3 h-3 text-slate-400" />
+                                    ขั้นตอนย่อย ({checklistSteps.filter(s => !!(task.subChecklistProgress && task.subChecklistProgress[s.key])).length}/{checklistSteps.length})
+                                </span>
+                            </div>
+                            <div className="flex flex-wrap gap-1">
+                                {checklistSteps.map((step) => {
+                                    const isStepChecked = !!(task.subChecklistProgress && task.subChecklistProgress[step.key]);
+                                    return (
+                                        <button
+                                            key={step.key}
+                                            onClick={(e) => handleToggleStep(e, step.key)}
+                                            className={`
+                                                flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-bold border transition-all duration-200 active:scale-95 cursor-pointer
+                                                ${isStepChecked
+                                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100/70 shadow-[0_1px_2px_rgba(16,185,129,0.05)]'
+                                                    : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50 hover:text-gray-700 hover:border-gray-300'}
+                                            `}
+                                        >
+                                            <span className={`w-3 h-3 rounded-md flex items-center justify-center border transition-all ${
+                                                isStepChecked
+                                                    ? 'bg-emerald-500 border-emerald-500 text-white font-extrabold text-[8px]'
+                                                    : 'border-gray-300 text-transparent'
+                                            }`}>
+                                                ✓
+                                            </span>
+                                            <span className="whitespace-nowrap">{step.label}</span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
                         </div>
                     )}
                 </div>

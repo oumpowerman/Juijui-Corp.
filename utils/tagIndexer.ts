@@ -1,14 +1,14 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Access Environment variables for Supabase
-const supabaseUrl = process.env.VITE_SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL || 'https://ajkycqazreebczqjsfpv.supabase.co';
-const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY || process.env.REACT_APP_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFqa3ljcWF6cmVlYmN6cWpzZnB2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0OTM5MjMsImV4cCI6MjA4NDA2OTkyM30.VscG53hy5tT5_oT297RECiVzaCcCw51AYWQeme_PDRo';
-
-const isMock = !process.env.VITE_SUPABASE_URL && !process.env.REACT_APP_SUPABASE_URL && !process.env.SUPABASE_URL;
-
 let supabaseClient: any = null;
-if (!isMock) {
-    supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
+function getSupabaseClient() {
+    if (!supabaseClient) {
+        const url = process.env.VITE_SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL || process.env.SUPABASE_URL || 'https://ajkycqazreebczqjsfpv.supabase.co';
+        const key = process.env.VITE_SUPABASE_ANON_KEY || process.env.REACT_APP_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFqa3ljcWF6cmVlYmN6cWpzZnB2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0OTM5MjMsImV4cCI6MjA4NDA2OTkyM30.VscG53hy5tT5_oT297RECiVzaCcCw51AYWQeme_PDRo';
+        supabaseClient = createClient(url, key);
+    }
+    return supabaseClient;
 }
 
 // Enterprise Tag Struct for fast mapping
@@ -29,7 +29,8 @@ class EnterpriseTagIndex {
      */
     public async rebuildIndex(): Promise<void> {
         try {
-            if (isMock || !supabaseClient) {
+            const client = getSupabaseClient();
+            if (!client) {
                 this.cache = [];
                 this.lastRefreshed = Date.now();
                 return;
@@ -37,7 +38,7 @@ class EnterpriseTagIndex {
 
             console.log('[TagIndex] Querying Supabase for tag indexing...');
             // Fetch contents tags from Supabase for index processing (since tags are stored in contents)
-            const { data, error } = await supabaseClient
+            const { data, error } = await client
                 .from('contents')
                 .select('tags')
                 .limit(2000); // Index top latest contents for preview scalability
@@ -126,12 +127,13 @@ export async function getTopTags(
     },
     queryStr: string = ''
 ): Promise<Array<{ name: string; count: number }>> {
-    if (isMock || !supabaseClient) {
+    const client = getSupabaseClient();
+    if (!client) {
         return [];
     }
 
     try {
-        let query = supabaseClient.from('contents').select('tags, status, channel_id, pillar, category, content_formats, is_unscheduled');
+        let query = client.from('contents').select('tags, status, channel_id, pillar, category, content_formats, is_unscheduled');
 
         // Apply filters
         if (filters?.status) {

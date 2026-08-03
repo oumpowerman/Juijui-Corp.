@@ -48,13 +48,31 @@ export const useAttendanceActions = (userId: string) => {
             const isShiftsEnabled = shiftsEnabledOpt?.label === 'true';
 
             let matchedShift = null;
-            if (isShiftsEnabled) {
+            
+            // Query today's approved half-day leaves for this user
+            const { data: todayLeaves } = await supabase
+                .from('leave_requests')
+                .select('id, is_half_day, half_day_session, status')
+                .eq('user_id', userId)
+                .eq('status', 'APPROVED')
+                .eq('is_half_day', true)
+                .lte('start_date', todayDateStr)
+                .gte('end_date', todayDateStr);
+
+            const amHalfDayLeave = todayLeaves && todayLeaves.find(l => l.half_day_session === 'AM');
+
+            if (isShiftsEnabled && !amHalfDayLeave) {
                 const shiftsList = shiftsListOpt?.label ? shiftsListOpt.label.split(',').map(s => s.trim()) : ['08:00', '08:30', '09:00'];
                 matchedShift = getMatchedShiftSlot(now, shiftsList, buffer);
             }
 
-            const effectiveStartTime = approvedLateTime || (pendingLateTime && checkIsLate(now, pendingLateTime, buffer) ? pendingLateTime : (matchedShift ? matchedShift.targetStartTime : startTimeStr));
-            const isLate = matchedShift ? (matchedShift.isLate || matchedShift.isBlocked) : checkIsLate(now, effectiveStartTime, buffer);
+            const effectiveStartTime = amHalfDayLeave
+                ? '13:00'
+                : (approvedLateTime || (pendingLateTime && checkIsLate(now, pendingLateTime, buffer) ? pendingLateTime : (matchedShift ? matchedShift.targetStartTime : startTimeStr)));
+            
+            const isLate = amHalfDayLeave
+                ? checkIsLate(now, '13:00', buffer)
+                : (matchedShift ? (matchedShift.isLate || matchedShift.isBlocked) : checkIsLate(now, effectiveStartTime, buffer));
 
             let finalCheckInTime = now;
             let actualCheckInTag = '';
@@ -412,6 +430,23 @@ export const useAttendanceActions = (userId: string) => {
             const minHours = parseFloat(minHoursStr) || 9;
 
             const calcResult = calculateCheckOutStatus(todayLog.checkInTime, now, minHours);
+
+            // Check if there is an approved PM half-day leave today
+            const { data: todayLeavesCheckout } = await supabase
+                .from('leave_requests')
+                .select('id, is_half_day, half_day_session, status')
+                .eq('user_id', userId)
+                .eq('status', 'APPROVED')
+                .eq('is_half_day', true)
+                .lte('start_date', todayDateStr)
+                .gte('end_date', todayDateStr);
+
+            const pmHalfDayLeave = todayLeavesCheckout && todayLeavesCheckout.find(l => l.half_day_session === 'PM');
+
+            if (pmHalfDayLeave) {
+                calcResult.status = 'COMPLETED';
+                calcResult.missingMinutes = 0;
+            }
 
             // Fetch fresh log data to ensure we have the latest note (prevent overwriting)
             const { data: freshLog, error: fetchError } = await supabase

@@ -6,6 +6,15 @@ import { useMasterData } from '../../hooks/useMasterData';
 import { useUserSession } from '../../context/UserSessionContext';
 import { format, startOfDay, isBefore, isAfter, isSameDay } from 'date-fns';
 
+export interface ShootDateIndicator {
+    date: string; // 'yyyy-MM-dd'
+    title: string;
+    location?: string;
+    notes?: string;
+    timeStart?: string;
+    timeEnd?: string;
+}
+
 interface MultiDatePickerModalProps {
     isOpen: boolean;
     onClose: () => void;
@@ -14,6 +23,11 @@ interface MultiDatePickerModalProps {
     initialEndDate?: Date;
     minDate?: Date;
     maxDate?: Date;
+    title?: string;
+    subtitle?: string;
+    emptyText?: string;
+    showHolidays?: boolean;
+    shootDates?: ShootDateIndicator[];
 }
 
 const THAI_MONTHS = [
@@ -30,7 +44,12 @@ const MultiDatePickerModal: React.FC<MultiDatePickerModalProps> = ({
     initialStartDate,
     initialEndDate,
     minDate,
-    maxDate
+    maxDate,
+    title = 'เลือกช่วงเวลาที่ลา',
+    subtitle = 'กรุณาเลือกวันเริ่มต้นและวันสิ้นสุด',
+    emptyText,
+    showHolidays = true,
+    shootDates = []
 }) => {
     // Selection state
     const [rangeStart, setRangeStart] = useState<Date | null>(initialStartDate || null);
@@ -39,6 +58,7 @@ const MultiDatePickerModal: React.FC<MultiDatePickerModalProps> = ({
     // View state
     const [viewDate, setViewDate] = useState<Date>(() => initialStartDate || new Date());
     const [hoveredDay, setHoveredDay] = useState<Date | null>(null);
+    const [hoveredShootDate, setHoveredShootDate] = useState<string | null>(null);
 
     const { annualHolidays, calendarExceptions } = useMasterData();
     const { currentUserProfile } = useUserSession();
@@ -95,6 +115,21 @@ const MultiDatePickerModal: React.FC<MultiDatePickerModalProps> = ({
     // Evaluate date type and properties (for working days check & colors)
     const getDayInfo = (date: Date) => {
         const dateStr = format(date, 'yyyy-MM-dd');
+
+        // Level 0: Shoot Dates (Only if explicitly passed)
+        if (shootDates && shootDates.length > 0) {
+            const dayShoots = shootDates.filter(s => s.date === dateStr);
+            if (dayShoots.length > 0) {
+                return {
+                    type: 'shoot-day' as const,
+                    color: 'bg-sky-50 text-sky-850 ring-1 ring-sky-300/35 hover:bg-sky-100/90',
+                    badge: 'bg-sky-500',
+                    label: dayShoots.map(s => s.title).join(', '),
+                    isWorking: true,
+                    shoots: dayShoots
+                };
+            }
+        }
 
         // Level 1: Exceptions
         const exception = calendarExceptions?.find((e: any) => e.date === dateStr);
@@ -267,8 +302,8 @@ const MultiDatePickerModal: React.FC<MultiDatePickerModalProps> = ({
                                     <Calendar className="w-5 h-5" />
                                 </div>
                                 <div>
-                                    <h3 className="text-lg font-bold text-gray-800">เลือกช่วงเวลาที่ลา</h3>
-                                    <p className="text-xs text-gray-500">กรุณาเลือกวันเริ่มต้นและวันสิ้นสุด</p>
+                                    <h3 className="text-lg font-bold text-gray-800">{title}</h3>
+                                    <p className="text-xs text-gray-500">{subtitle}</p>
                                 </div>
                             </div>
                             <button
@@ -341,7 +376,7 @@ const MultiDatePickerModal: React.FC<MultiDatePickerModalProps> = ({
 
                             {/* Calendar Days */}
                             <div className="grid grid-cols-7 gap-y-1.5 gap-x-0">
-                                {daysArray.map((date, index) => {
+                                 {daysArray.map((date, index) => {
                                     if (!date) {
                                         return <div key={`empty-${index}`} className="aspect-square" />;
                                     }
@@ -362,6 +397,29 @@ const MultiDatePickerModal: React.FC<MultiDatePickerModalProps> = ({
                                     const isDisabled = isTooEarly || isTooLate;
 
                                     const dayInfo = getDayInfo(date);
+                                    const dateStr = format(startOfDate, 'yyyy-MM-dd');
+                                    const shoots = (dayInfo as any).shoots;
+
+                                    const colIndex = index % 7;
+                                    let tooltipPositionClass = "left-1/2 -translate-x-1/2";
+                                    let pointerPositionClass = "left-1/2 -translate-x-1/2";
+
+                                    if (colIndex === 0 || colIndex === 1) {
+                                        tooltipPositionClass = "left-0 translate-x-0";
+                                        pointerPositionClass = "left-5 -translate-x-0";
+                                    } else if (colIndex === 5 || colIndex === 6) {
+                                        tooltipPositionClass = "right-0 left-auto translate-x-0";
+                                        pointerPositionClass = "right-5 left-auto -translate-x-0";
+                                    }
+
+                                    const isUpperRow = index < 14;
+                                    const tooltipYClass = isUpperRow ? "top-full mt-2" : "bottom-full mb-2";
+                                    const pointerYClass = isUpperRow 
+                                        ? `absolute bottom-full -mb-1 border-4 border-transparent border-b-stone-50 ${pointerPositionClass}`
+                                        : `absolute top-full -mt-1 border-4 border-transparent border-t-stone-50 ${pointerPositionClass}`;
+                                    const bridgeClass = isUpperRow
+                                        ? "before:absolute before:bottom-full before:left-0 before:right-0 before:h-2 before:content-['']"
+                                        : "before:absolute before:top-full before:left-0 before:right-0 before:h-2 before:content-['']";
 
                                     // Rounding calculations for connected range
                                     let roundedClasses = "rounded-2xl";
@@ -389,6 +447,20 @@ const MultiDatePickerModal: React.FC<MultiDatePickerModalProps> = ({
                                     return (
                                         <div 
                                             key={`day-${date.getDate()}`}
+                                            onMouseEnter={() => {
+                                                if (isDisabled) return;
+                                                if (rangeStart && !rangeEnd) {
+                                                    setHoveredDay(startOfDate);
+                                                }
+                                                if (shoots) {
+                                                    setHoveredShootDate(dateStr);
+                                                }
+                                            }}
+                                            onMouseLeave={() => {
+                                                if (isDisabled) return;
+                                                setHoveredDay(null);
+                                                setHoveredShootDate(null);
+                                            }}
                                             className={`relative py-0.5 ${isInRange ? 'bg-indigo-50/50' : ''} ${isStart && activeEnd ? 'bg-indigo-50/20 rounded-l-2xl' : ''} ${isEnd && rangeStart ? 'bg-indigo-50/20 rounded-r-2xl' : ''}`}
                                         >
                                             <button
@@ -396,8 +468,6 @@ const MultiDatePickerModal: React.FC<MultiDatePickerModalProps> = ({
                                                 type="button"
                                                 disabled={isDisabled}
                                                 onClick={() => handleDayClick(date)}
-                                                onMouseEnter={() => rangeStart && !rangeEnd && setHoveredDay(startOfDate)}
-                                                onMouseLeave={() => setHoveredDay(null)}
                                                 className={`
                                                     relative w-full aspect-square flex flex-col items-center justify-center text-sm font-bold transition-all duration-150
                                                     ${isDisabled 
@@ -417,6 +487,48 @@ const MultiDatePickerModal: React.FC<MultiDatePickerModalProps> = ({
                                                     <div className={`w-1.5 h-1.5 rounded-full mt-0.5 ${dayInfo.badge}`} />
                                                 )}
                                             </button>
+
+                                            {/* Sophisticated Shoot Details Tooltip */}
+                                            {!isDisabled && hoveredShootDate === dateStr && shoots && (
+                                                <motion.div 
+                                                    initial={{ opacity: 0, y: isUpperRow ? -4 : 4, scale: 0.96 }}
+                                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                                    transition={{ duration: 0.15, ease: "easeOut" }}
+                                                    className={`absolute ${tooltipYClass} w-56 p-3 bg-stone-50 backdrop-blur-sm border border-stone-200/60 text-stone-800 rounded-2xl shadow-xl shadow-stone-200/40 z-[12000] pointer-events-auto text-left ${tooltipPositionClass} ${bridgeClass}`}
+                                                >
+                                                    <div className="text-[11px] font-extrabold text-emerald-800/90 mb-1.5 flex items-center gap-1">
+                                                         <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
+                                                         <span>คิวถ่ายทำ ({shoots.length} รายการ)</span>
+                                                    </div>
+                                                    <div className="space-y-2 max-h-[150px] overflow-y-auto pr-1 select-none">
+                                                         {shoots.map((shoot: any, idx: number) => (
+                                                             <div key={idx} className="border-t border-stone-200/60 pt-1.5 first:border-0 first:pt-0 hover:bg-amber-50/40 p-1 rounded-lg transition-colors">
+                                                                 <p className="text-xs font-medium line-clamp-2 text-stone-800 leading-tight">
+                                                                     {shoot.title}
+                                                                 </p>
+                                                                 {shoot.location && (
+                                                                     <p className="text-[10px] text-stone-600 mt-0.5 flex items-center gap-1 font-bold">
+                                                                         <span>📍</span>
+                                                                         <span className="truncate">{shoot.location}</span>
+                                                                     </p>
+                                                                 )}
+                                                                 {(shoot.timeStart || shoot.timeEnd) && (
+                                                                     <p className="text-[9px] text-stone-500 font-semibold mt-0.5">
+                                                                         🕒 {shoot.timeStart || ''} - {shoot.timeEnd || ''}
+                                                                     </p>
+                                                                 )}
+                                                                 {shoot.notes && (
+                                                                     <p className="text-[9px] text-stone-500 italic mt-0.5 line-clamp-1 border-l-2 border-emerald-600/50 pl-1">
+                                                                         {shoot.notes}
+                                                                     </p>
+                                                                 )}
+                                                             </div>
+                                                         ))}
+                                                    </div>
+                                                    {/* Triangle Pointer */}
+                                                    <div className={pointerYClass} />
+                                                </motion.div>
+                                            )}
                                         </div>
                                     );
                                 })}
@@ -424,55 +536,96 @@ const MultiDatePickerModal: React.FC<MultiDatePickerModalProps> = ({
 
                             {/* Live Working Days Panel */}
                             <div className="mt-5 p-4 bg-gray-50 rounded-3xl border border-gray-100 flex flex-col space-y-2 min-h-[5rem]">
-                                {rangeStart && rangeDetails ? (
-                                    <div>
-                                        <div className="flex items-center justify-between text-xs text-gray-400 font-bold uppercase tracking-wider mb-2">
-                                            <span>สรุปข้อมูลช่วงที่เลือก</span>
-                                            <span className="text-indigo-600 font-extrabold normal-case">
-                                                {rangeDetails.totalDaysCount} วันปฏิทิน
-                                            </span>
-                                        </div>
-                                        
-                                        <div className="flex items-baseline space-x-2 text-indigo-900">
-                                            <span className="text-[13px] font-bold">จำนวนวันทำงานจริง:</span>
-                                            <span className="text-xl font-black text-indigo-600 font-sans">
-                                                {rangeDetails.workingDaysCount}
-                                            </span>
-                                            <span className="text-[13px] font-bold">วัน</span>
-                                        </div>
+                                {showHolidays ? (
+                                    rangeStart && rangeDetails ? (
+                                        <div>
+                                            <div className="flex items-center justify-between text-xs text-gray-400 font-bold uppercase tracking-wider mb-2">
+                                                <span>สรุปข้อมูลช่วงที่เลือก</span>
+                                                <span className="text-indigo-600 font-extrabold normal-case">
+                                                    {rangeDetails.totalDaysCount} วันปฏิทิน
+                                                </span>
+                                            </div>
+                                            
+                                            <div className="flex items-baseline space-x-2 text-indigo-900">
+                                                <span className="text-[13px] font-bold">จำนวนวันทำงานจริง:</span>
+                                                <span className="text-xl font-black text-indigo-600 font-sans">
+                                                    {rangeDetails.workingDaysCount}
+                                                </span>
+                                                <span className="text-[13px] font-bold">วัน</span>
+                                            </div>
 
-                                        <div className="mt-2 text-[11px] text-gray-500 leading-relaxed space-y-1 bg-white p-2.5 rounded-2xl border border-gray-100 shadow-sm">
-                                            <p className="font-bold text-gray-700 flex items-center gap-1.5">
-                                                <Info className="w-3.5 h-3.5 text-indigo-500" />
-                                                <span>รายละเอียดวันหยุดในช่วงนี้:</span>
-                                            </p>
-                                            <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 pl-5 mt-1 text-gray-500">
-                                                <span>• วันหยุดสุดสัปดาห์:</span>
-                                                <span className="font-semibold text-right text-gray-700">{rangeDetails.weeklyOffsCount} วัน</span>
-                                                <span>• วันหยุดประจำปี:</span>
-                                                <span className="font-semibold text-right text-gray-700">{rangeDetails.annualHolidaysCount} วัน</span>
-                                                <span>• วันหยุดพิเศษ/อื่นๆ:</span>
-                                                <span className="font-semibold text-right text-gray-700">{rangeDetails.specialHolidaysCount} วัน</span>
+                                            <div className="mt-2 text-[11px] text-gray-500 leading-relaxed space-y-1 bg-white p-2.5 rounded-2xl border border-gray-100 shadow-sm">
+                                                <p className="font-bold text-gray-700 flex items-center gap-1.5">
+                                                    <Info className="w-3.5 h-3.5 text-indigo-500" />
+                                                    <span>รายละเอียดวันหยุดในช่วงนี้:</span>
+                                                </p>
+                                                <div className="grid grid-cols-2 gap-x-2 gap-y-0.5 pl-5 mt-1 text-gray-500">
+                                                    <span>• วันหยุดสุดสัปดาห์:</span>
+                                                    <span className="font-semibold text-right text-gray-700">{rangeDetails.weeklyOffsCount} วัน</span>
+                                                    <span>• วันหยุดประจำปี:</span>
+                                                    <span className="font-semibold text-right text-gray-700">{rangeDetails.annualHolidaysCount} วัน</span>
+                                                    <span>• วันหยุดพิเศษ/อื่นๆ:</span>
+                                                    <span className="font-semibold text-right text-gray-700">{rangeDetails.specialHolidaysCount} วัน</span>
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ) : rangeStart ? (
-                                    <div className="flex items-start space-x-2.5 py-1">
-                                        <Info className="w-5 h-5 text-indigo-500 shrink-0 mt-0.5 animate-pulse" />
-                                        <div className="text-xs text-gray-600 leading-relaxed">
-                                            <p className="font-bold text-gray-800">วันเริ่มต้นที่เลือก:</p>
-                                            <p className="mt-0.5 text-gray-700 font-semibold">{formatThaiDate(rangeStart)}</p>
-                                            <p className="mt-1 text-gray-400">กรุณาคลิกเลือก <span className="text-indigo-500 font-bold">"วันสิ้นสุด"</span> บนปฏิทิน</p>
+                                    ) : rangeStart ? (
+                                        <div className="flex items-start space-x-2.5 py-1">
+                                            <Info className="w-5 h-5 text-indigo-500 shrink-0 mt-0.5 animate-pulse" />
+                                            <div className="text-xs text-gray-600 leading-relaxed">
+                                                <p className="font-bold text-gray-800">วันเริ่มต้นที่เลือก:</p>
+                                                <p className="mt-0.5 text-gray-700 font-semibold">{formatThaiDate(rangeStart)}</p>
+                                                <p className="mt-1 text-gray-400">กรุณาคลิกเลือก <span className="text-indigo-500 font-bold">"วันสิ้นสุด"</span> บนปฏิทิน</p>
+                                            </div>
                                         </div>
-                                    </div>
+                                    ) : (
+                                        <div className="flex items-start space-x-2.5 py-1">
+                                            <Info className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" />
+                                            <div className="text-xs text-gray-400 leading-relaxed">
+                                                <p className="font-bold text-gray-500">ยังไม่ได้เลือกช่วงวัน</p>
+                                                <p className="mt-0.5">{emptyText || "กรุณาคลิกเลือกวันเริ่มต้น แล้วจึงเลือกวันสิ้นสุดที่ต้องการลา"}</p>
+                                            </div>
+                                        </div>
+                                    )
                                 ) : (
-                                    <div className="flex items-start space-x-2.5 py-1">
-                                        <Info className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" />
-                                        <div className="text-xs text-gray-400 leading-relaxed">
-                                            <p className="font-bold text-gray-500">ยังไม่ได้เลือกช่วงวัน</p>
-                                            <p className="mt-0.5">กรุณาคลิกเลือกวันเริ่มต้น แล้วจึงเลือกวันสิ้นสุดที่ต้องการลา</p>
+                                    rangeStart && rangeEnd && rangeDetails ? (
+                                        <div>
+                                            <div className="flex items-center justify-between text-xs text-gray-400 font-bold uppercase tracking-wider mb-2">
+                                                <span>สรุปช่วงวันที่เลือก</span>
+                                                <span className="text-indigo-600 font-extrabold normal-case font-sans">
+                                                    รวม {rangeDetails.totalDaysCount} วัน
+                                                </span>
+                                            </div>
+                                            
+                                            <div className="flex flex-col gap-1.5 text-[13px] text-gray-700 bg-white p-3 rounded-2xl border border-gray-100 shadow-sm font-semibold">
+                                                <p className="flex justify-between">
+                                                    <span className="text-gray-400 font-bold">เริ่มต้น:</span>
+                                                    <span className="text-gray-800">{formatThaiDate(rangeStart)}</span>
+                                                </p>
+                                                <p className="flex justify-between border-t border-gray-50 pt-1.5 mt-1">
+                                                    <span className="text-gray-400 font-bold">สิ้นสุด:</span>
+                                                    <span className="text-gray-800">{formatThaiDate(rangeEnd)}</span>
+                                                </p>
+                                            </div>
                                         </div>
-                                    </div>
+                                    ) : rangeStart ? (
+                                        <div className="flex items-start space-x-2.5 py-1">
+                                            <Info className="w-5 h-5 text-indigo-500 shrink-0 mt-0.5 animate-pulse" />
+                                            <div className="text-xs text-gray-600 leading-relaxed">
+                                                <p className="font-bold text-gray-800">วันเริ่มต้นที่เลือก:</p>
+                                                <p className="mt-0.5 text-gray-700 font-semibold">{formatThaiDate(rangeStart)}</p>
+                                                <p className="mt-1 text-gray-400">กรุณาคลิกเลือก <span className="text-indigo-500 font-bold">"วันสิ้นสุด"</span> บนปฏิทิน</p>
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex items-start space-x-2.5 py-1">
+                                            <Info className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" />
+                                            <div className="text-xs text-gray-400 leading-relaxed">
+                                                <p className="font-bold text-gray-500">ยังไม่ได้เลือกช่วงวัน</p>
+                                                <p className="mt-0.5">{emptyText || "กรุณาคลิกเลือกวันเริ่มต้น แล้วจึงเลือกวันสิ้นสุดที่ต้องการ"}</p>
+                                            </div>
+                                        </div>
+                                    )
                                 )}
                             </div>
                         </div>

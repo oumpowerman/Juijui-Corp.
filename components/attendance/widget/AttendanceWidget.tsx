@@ -92,8 +92,17 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user, onNavigateToH
     }, [todayActiveLeave]);
 
     // --- Handlers ---
-    const handleLeaveSubmit = useCallback(async (type: LeaveType, start: Date, end: Date, reason: string, file?: File, linkedRemoteType?: 'WFH' | 'ONSITE'): Promise<boolean> => {
-        const result = await submitRequest(type, start, end, reason, file, linkedRemoteType);
+    const handleLeaveSubmit = useCallback(async (
+        type: LeaveType, 
+        start: Date, 
+        end: Date, 
+        reason: string, 
+        file?: File, 
+        linkedRemoteType?: 'WFH' | 'ONSITE',
+        isHalfDay?: boolean,
+        halfDaySession?: string
+    ): Promise<boolean> => {
+        const result = await submitRequest(type, start, end, reason, file, linkedRemoteType, isHalfDay, halfDaySession);
         if (result) {
             setIsCheckInModalOpen(false);
         }

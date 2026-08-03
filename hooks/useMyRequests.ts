@@ -141,16 +141,20 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
         requests.forEach(req => {
             if (req.userId === currentUser.id && req.status === 'APPROVED') {
                 if (LEAVE_TYPES.includes(req.type)) {
-                    const start = new Date(req.startDate);
-                    const end = new Date(req.endDate);
-                    if (!isValid(start) || !isValid(end) || start > end) return; 
-                    
-                    const days = eachDayOfInterval({ start, end });
-                    const workingDaysCount = days.filter(d => 
-                        isWorkingDay(d, annualHolidays, calendarExceptions, currentUser)
-                    ).length;
-                    
-                    usage[req.type as keyof LeaveUsage] += workingDaysCount;
+                    if (req.isHalfDay || req.is_half_day) {
+                        usage[req.type as keyof LeaveUsage] += 0.5;
+                    } else {
+                        const start = new Date(req.startDate);
+                        const end = new Date(req.endDate);
+                        if (!isValid(start) || !isValid(end) || start > end) return; 
+                        
+                        const days = eachDayOfInterval({ start, end });
+                        const workingDaysCount = days.filter(d => 
+                            isWorkingDay(d, annualHolidays, calendarExceptions, currentUser)
+                        ).length;
+                        
+                        usage[req.type as keyof LeaveUsage] += workingDaysCount;
+                    }
                 } else {
                     usage[req.type as keyof LeaveUsage] += 1;
                 }
@@ -175,16 +179,20 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
         requests.forEach(req => {
             if (req.userId === currentUser.id && req.status === 'PENDING') {
                 if (LEAVE_TYPES.includes(req.type)) {
-                    const start = new Date(req.startDate);
-                    const end = new Date(req.endDate);
-                    if (!isValid(start) || !isValid(end) || start > end) return; 
-                    
-                    const days = eachDayOfInterval({ start, end });
-                    const workingDaysCount = days.filter(d => 
-                        isWorkingDay(d, annualHolidays, calendarExceptions, currentUser)
-                    ).length;
-                    
-                    usage[req.type as keyof LeaveUsage] += workingDaysCount;
+                    if (req.isHalfDay || req.is_half_day) {
+                        usage[req.type as keyof LeaveUsage] += 0.5;
+                    } else {
+                        const start = new Date(req.startDate);
+                        const end = new Date(req.endDate);
+                        if (!isValid(start) || !isValid(end) || start > end) return; 
+                        
+                        const days = eachDayOfInterval({ start, end });
+                        const workingDaysCount = days.filter(d => 
+                            isWorkingDay(d, annualHolidays, calendarExceptions, currentUser)
+                        ).length;
+                        
+                        usage[req.type as keyof LeaveUsage] += workingDaysCount;
+                    }
                 } else {
                     usage[req.type as keyof LeaveUsage] += 1;
                 }
@@ -200,7 +208,9 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
         endDate: Date, 
         reason: string, 
         file?: File,
-        linkedRemoteType?: 'WFH' | 'ONSITE'
+        linkedRemoteType?: 'WFH' | 'ONSITE',
+        isHalfDay?: boolean,
+        halfDaySession?: string
     ): Promise<boolean> => {
         if (!currentUser?.id) return false;
         showLoading('กำลังอัปโหลดไฟล์และส่งคำขอเข้าระบบ...');
@@ -372,45 +382,73 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
             if (isNewLeave) {
                 const { data: existingLeaves } = await supabase
                     .from('leave_requests')
-                    .select('id, type, status')
+                    .select('id, type, status, is_half_day, half_day_session')
                     .eq('user_id', currentUser.id)
                     .in('type', LEAVE_TYPES)
                     .eq('start_date', startDateStr)
                     .in('status', ['PENDING', 'APPROVED']);
 
+                let conflictingApprovedLeave = null;
+                let conflictingPendingLeave = null;
+
                 if (existingLeaves && existingLeaves.length > 0) {
-                    const approvedLeave = existingLeaves.find(l => l.status === 'APPROVED');
-                    if (approvedLeave) {
-                        showToast('คุณมีวันลาที่ได้รับการอนุมัติแล้วในวันนี้ครับ ✅', 'warning');
-                        return false;
-                    }
+                    for (const leave of existingLeaves) {
+                        const isExistingHalfDay = !!(leave.is_half_day || (leave as any).isHalfDay);
+                        const existingSession = leave.half_day_session || (leave as any).halfDaySession;
 
-                    const pendingLeave = existingLeaves.find(l => l.status === 'PENDING');
-                    if (pendingLeave) {
-                        const originalTypeName = ATTENDANCE_REGISTRY[pendingLeave.type as LeaveType]?.label || pendingLeave.type;
-                        const newTypeName = ATTENDANCE_REGISTRY[type]?.label || type;
-                        
-                        // Hide loading overlay so the user can interact with the confirmation dialog
-                        hideLoading();
+                        const isNewHalfDay = !!isHalfDay;
+                        const newSession = halfDaySession;
 
-                        const confirmReplace = await showConfirm(
-                            `ในระบบมีคำขอลา [${originalTypeName}] ที่อยู่ระหว่างรออนุมัติอยู่แล้วในวันนี้\nคุณต้องการ ยกเลิกคำขอเดิม แล้วยื่นคำขอ [${newTypeName}] นี้เข้าไปแทนที่หรือไม่?`,
-                            'ตรวจพบคำขอลาซ้ำซ้อน'
-                        );
-
-                        if (confirmReplace) {
-                            // Re-show loading as the process resumes
-                            showLoading('กำลังอัปโหลดไฟล์และส่งคำขอเข้าระบบ...');
-                            await supabase
-                                .from('leave_requests')
-                                .update({ 
-                                    status: 'REJECTED',
-                                    reason: `[REJECTED_FOR_REPLACEMENT] ${newTypeName}`
-                                })
-                                .eq('id', pendingLeave.id);
+                        let hasConflict = false;
+                        if (!isExistingHalfDay || !isNewHalfDay) {
+                            // If either is a full day leave, they conflict on the same day
+                            hasConflict = true;
                         } else {
-                            return false;
+                            // Both are half days. They conflict only if they share the same session (e.g., both AM or both PM)
+                            if (existingSession === newSession) {
+                                hasConflict = true;
+                            }
                         }
+
+                        if (hasConflict) {
+                            if (leave.status === 'APPROVED') {
+                                conflictingApprovedLeave = leave;
+                            } else if (leave.status === 'PENDING') {
+                                conflictingPendingLeave = leave;
+                            }
+                        }
+                    }
+                }
+
+                if (conflictingApprovedLeave) {
+                    showToast('คุณมีวันลาที่ได้รับการอนุมัติแล้วในวันนี้ครับ ✅', 'warning');
+                    return false;
+                }
+
+                if (conflictingPendingLeave) {
+                    const originalTypeName = ATTENDANCE_REGISTRY[conflictingPendingLeave.type as LeaveType]?.label || conflictingPendingLeave.type;
+                    const newTypeName = ATTENDANCE_REGISTRY[type]?.label || type;
+                    
+                    // Hide loading overlay so the user can interact with the confirmation dialog
+                    hideLoading();
+
+                    const confirmReplace = await showConfirm(
+                        `ในระบบมีคำขอลา [${originalTypeName}] ที่อยู่ระหว่างรออนุมัติอยู่แล้วในวันนี้\nคุณต้องการ ยกเลิกคำขอเดิม แล้วยื่นคำขอ [${newTypeName}] นี้เข้าไปแทนที่หรือไม่?`,
+                        'ตรวจพบคำขอลาซ้ำซ้อน'
+                    );
+
+                    if (confirmReplace) {
+                        // Re-show loading as the process resumes
+                        showLoading('กำลังอัปโหลดไฟล์และส่งคำขอเข้าระบบ...');
+                        await supabase
+                            .from('leave_requests')
+                            .update({ 
+                                status: 'REJECTED',
+                                reason: `[REJECTED_FOR_REPLACEMENT] ${newTypeName}`
+                            })
+                            .eq('id', conflictingPendingLeave.id);
+                    } else {
+                        return false;
                     }
                 }
             } else {
@@ -477,7 +515,9 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                 end_date: format(endDate, 'yyyy-MM-dd'),
                 reason: isLateSubmission ? `[LATE_SUBMISSION] ${finalReasonWithLink}` : finalReasonWithLink,
                 attachment_url: attachmentUrl,
-                status: 'PENDING'
+                status: 'PENDING',
+                is_half_day: isHalfDay,
+                half_day_session: halfDaySession
             });
 
             // Insert secondary request (e.g. WFH or ONSITE) linked with same LINKID if not already exists
@@ -667,8 +707,9 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                 }
             }
 
+            const halfDayStr = isHalfDay ? ` (ลาครึ่งวัน${halfDaySession === 'AM' ? 'เช้า' : 'บ่าย'})` : '';
             const displayType = linkedRemoteType ? `${type} + ${linkedRemoteType}` : type;
-            const msg = `📢 **${currentUser.name}** ส่งคำขอ (${displayType}) \n📅 ${format(startDate, 'd MMM')} \n📝: ${reason}`;
+            const msg = `📢 **${currentUser.name}** ส่งคำขอ (${displayType}${halfDayStr}) \n📅 ${format(startDate, 'd MMM')} \n📝: ${reason}`;
             await supabase.from('team_messages').insert({
                 content: msg,
                 is_bot: true,
@@ -681,7 +722,7 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                 if (admins && admins.length > 0) {
                     const labelPrimary = ATTENDANCE_REGISTRY[type]?.label || type;
                     const labelSecondary = linkedRemoteType ? ` + ${ATTENDANCE_REGISTRY[linkedRemoteType]?.label || linkedRemoteType}` : '';
-                    const labelCombine = `${labelPrimary}${labelSecondary}`;
+                    const labelCombine = `${labelPrimary}${labelSecondary}${halfDayStr}`;
 
                     const generalNotifs = admins.map(admin => ({
                         user_id: admin.id,

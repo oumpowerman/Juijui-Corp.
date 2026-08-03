@@ -22,9 +22,15 @@ import { Check, X } from 'lucide-react';
 import { BRAND_CONFIG } from '../../../config/brand';
 
 // --- Main Dashboard ---
-const AdminWeeklyTimesheet: React.FC<{ users: User[] }> = ({ users }) => {
+const AdminWeeklyTimesheet: React.FC<{ 
+    users: User[];
+    onApproveMember?: (id: string) => void;
+    onRemoveMember?: (id: string) => void;
+}> = ({ users, onApproveMember, onRemoveMember }) => {
     const { masterOptions } = useMasterDataContext();
     const shouldHideAdmins = BRAND_CONFIG.hideAdminFromAttendanceDashboardMode === 2;
+    const showPendingInTimesheet = BRAND_CONFIG.showPendingMembersInTimesheetMode === 2;
+    const pendingMembers = useMemo(() => users.filter(u => !u.isApproved && u.isActive), [users]);
     
     // Toast state
     const [exportToast, setExportToast] = useState<{ filename: string; id: string } | null>(null);
@@ -273,6 +279,35 @@ const AdminWeeklyTimesheet: React.FC<{ users: User[] }> = ({ users }) => {
 
     return (
         <div className="space-y-6 animate-in fade-in duration-700">
+            {showPendingInTimesheet && pendingMembers.length > 0 && (
+                <div className="bg-orange-50 border border-orange-100 rounded-2xl p-4 animate-in slide-in-from-top-2">
+                    <h3 className="font-bold text-orange-800 mb-3 flex items-center text-sm">
+                        <span className="bg-orange-200 text-orange-800 px-2 py-0.5 rounded-lg mr-2 text-xs">Waiting</span>
+                        รออนุมัติเข้าทีม ({pendingMembers.length})
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                        {pendingMembers.map(member => (
+                            <div key={member.id} className="bg-white p-3 rounded-xl shadow-sm border border-orange-100 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    {member.avatarUrl ? (
+                                        <img src={member.avatarUrl} className="w-10 h-10 rounded-full object-cover bg-gray-200" referrerPolicy="no-referrer" />
+                                    ) : (
+                                        <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center text-gray-500 font-bold">{member.name.charAt(0)}</div>
+                                    )}
+                                    <div>
+                                        <p className="font-bold text-sm text-gray-800">{member.name}</p>
+                                        <p className="text-xs text-gray-500">{member.position || 'No Position'}</p>
+                                    </div>
+                                </div>
+                                <div className="flex gap-1">
+                                    <button onClick={() => onApproveMember?.(member.id)} className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors cursor-pointer"><Check className="w-4 h-4" /></button>
+                                    <button onClick={() => onRemoveMember?.(member.id)} className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors cursor-pointer"><X className="w-4 h-4" /></button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
             
             <TimesheetHeader 
                 viewMode={viewMode}

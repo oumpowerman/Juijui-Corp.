@@ -1,9 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { LayoutTemplate, X, Check, Plus, ChevronDown, Sparkles, Layers, Tag } from 'lucide-react';
+import { LayoutTemplate, X, ChevronDown, Sparkles, Layers, Tag, Pencil, ArrowRight, Plus } from 'lucide-react';
 import { Channel } from '../../types';
 import { useMasterData } from '../../hooks/useMasterData';
 import { supabase } from '../../lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useToast } from '../../context/ToastContext';
+import { PillarCategoryDetailModal } from './PillarCategoryDetailModal';
 
 // Curated default recommendations to ensure excellent fallback options
 const DEFAULT_POPULAR_PILLARS = [
@@ -41,10 +43,11 @@ export const ChannelPillarsCategoriesManager: React.FC<ChannelPillarsCategoriesM
   setTempOptions
 }) => {
   const { masterOptions, addMasterOption, deleteMasterOption, fetchMasterOptions } = useMasterData();
+  const { showToast } = useToast();
 
   // Input states
   const [newPillarLabel, setNewPillarLabel] = useState('');
-  const [newCategoryLabels, setNewCategoryLabels] = useState<Record<string, string>>({});
+  const [selectedPillarForModal, setSelectedPillarForModal] = useState<any | null>(null);
 
   // Dropdown states for Pillar
   const [isPillarDropdownOpen, setIsPillarDropdownOpen] = useState(false);
@@ -106,6 +109,7 @@ export const ChannelPillarsCategoriesManager: React.FC<ChannelPillarsCategoriesM
       tempOptions.some(o => o.type === 'PILLAR' && o.label.toLowerCase() === trimmedValue.toLowerCase());
 
     if (hasDuplicate) {
+      showToast(`มีแกนเนื้อหา "${trimmedValue}" อยู่แล้วในรายการประจำช่อง`, 'warning');
       setNewPillarLabel('');
       setIsPillarDropdownOpen(false);
       return;
@@ -123,6 +127,7 @@ export const ChannelPillarsCategoriesManager: React.FC<ChannelPillarsCategoriesM
         isDefault: false,
         parentKey: targetId
       });
+      await fetchMasterOptions();
     } else {
       // Store temp options for later commit in create mode
       setTempOptions(prev => [
@@ -138,52 +143,11 @@ export const ChannelPillarsCategoriesManager: React.FC<ChannelPillarsCategoriesM
 
     setNewPillarLabel('');
     setIsPillarDropdownOpen(false);
+    showToast(`เพิ่มแกนเนื้อหา "${trimmedValue}" สำเร็จ!`, 'success');
   };
 
   const handleAddPillarClick = () => {
     handleAddPillarWithValue(newPillarLabel);
-  };
-
-  const handleAddCategoryClick = async (pillarKey: string) => {
-    const trimmed = (newCategoryLabels[pillarKey] || '').trim();
-    if (!trimmed) return;
-
-    const key = `CAT_${trimmed.toUpperCase().replace(/[^A-Z0-9]/g, '_')}_${Date.now().toString().slice(-4)}`;
-
-    const pillarCategories = currentCategories.filter(o => o.parentKey === pillarKey);
-    const hasDuplicate =
-      pillarCategories.some((cat: any) => cat.label.toLowerCase() === trimmed.toLowerCase()) ||
-      tempOptions.some(o => o.type === 'CATEGORY' && o.parentKey === pillarKey && o.label.toLowerCase() === trimmed.toLowerCase());
-
-    if (hasDuplicate) {
-      setNewCategoryLabels(prev => ({ ...prev, [pillarKey]: '' }));
-      return;
-    }
-
-    if (channel) {
-      await addMasterOption({
-        type: 'CATEGORY',
-        key,
-        label: trimmed,
-        color: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-        sortOrder: 10,
-        isActive: true,
-        isDefault: false,
-        parentKey: pillarKey // Now maps to the parent Pillar's key
-      });
-    } else {
-      setTempOptions(prev => [
-        ...prev,
-        {
-          id: crypto.randomUUID(),
-          type: 'CATEGORY',
-          key,
-          label: trimmed,
-          parentKey: pillarKey // Now maps to the parent Pillar's key
-        }
-      ]);
-    }
-    setNewCategoryLabels(prev => ({ ...prev, [pillarKey]: '' }));
   };
 
   const handleRemovePillarClick = async (pillarId: string, pillarKey: string, isTemp: boolean) => {
@@ -203,14 +167,7 @@ export const ChannelPillarsCategoriesManager: React.FC<ChannelPillarsCategoriesM
         await fetchMasterOptions();
       }
     }
-  };
-
-  const handleRemoveCategoryClick = async (catId: string, isTemp: boolean) => {
-    if (isTemp) {
-      setTempOptions(prev => prev.filter(o => o.id !== catId));
-    } else {
-      await deleteMasterOption(catId);
-    }
+    showToast('ลบแกนเนื้อหาและหมวดหมู่ย่อยทั้งหมดเรียบร้อย', 'info');
   };
 
   return (
@@ -246,7 +203,7 @@ export const ChannelPillarsCategoriesManager: React.FC<ChannelPillarsCategoriesM
                   }}
                   onFocus={() => setIsPillarDropdownOpen(true)}
                   placeholder="เช่น รีวิวสินค้า, สปอนเซอร์, กินโชว์"
-                  className="w-full pr-10 px-3.5 py-2 bg-white border border-slate-200 text-sm rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-300"
+                  className="w-full pr-10 px-3.5 py-2 bg-white border border-slate-200 text-sm rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-300 font-kanit"
                 />
                 <button
                   type="button"
@@ -259,7 +216,7 @@ export const ChannelPillarsCategoriesManager: React.FC<ChannelPillarsCategoriesM
               <button
                 type="button"
                 onClick={handleAddPillarClick}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all active:scale-95 shrink-0 shadow-sm"
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl transition-all active:scale-95 shrink-0 shadow-sm font-kanit"
               >
                 เพิ่มแกนหลัก
               </button>
@@ -298,7 +255,7 @@ export const ChannelPillarsCategoriesManager: React.FC<ChannelPillarsCategoriesM
                               : 'cursor-pointer hover:bg-indigo-50/70 focus:bg-indigo-50/70 outline-none'
                           }`}
                         >
-                          <span>{pillarVal}</span>
+                          <span className="font-kanit">{pillarVal}</span>
                           {isAdded ? (
                             <span className="text-[10px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded-md font-bold">
                               เพิ่มแล้ว
@@ -340,85 +297,68 @@ export const ChannelPillarsCategoriesManager: React.FC<ChannelPillarsCategoriesM
               return (
                 <div
                   key={p.id || p.key}
-                  className="bg-white border border-slate-200/60 rounded-2xl p-4 shadow-2xs hover:shadow-xs transition-all relative flex flex-col justify-between"
+                  className="bg-white border border-slate-200/60 rounded-2xl p-4 shadow-2xs hover:shadow-sm hover:border-slate-300/80 transition-all relative flex flex-col justify-between group"
                 >
-                  {/* Pillar Card Header */}
-                  <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-3 mb-3">
-                    <div className="flex items-center gap-2">
-                      <div className="p-1.5 bg-indigo-50 rounded-lg text-indigo-600">
-                        <Layers className="w-4 h-4" />
+                  <div>
+                    {/* Pillar Card Header */}
+                    <div className="flex items-start justify-between gap-2 border-b border-slate-100 pb-3 mb-3">
+                      <div className="flex items-center gap-2">
+                        <div className="p-1.5 bg-indigo-50 rounded-lg text-indigo-600">
+                          <Layers className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <span className="font-bold text-slate-800 text-sm font-kanit block leading-tight">{p.label}</span>
+                          <span className="text-[10px] font-semibold text-indigo-600 font-kanit">
+                            {pCats.length} หมวดหมู่ย่อย
+                          </span>
+                        </div>
                       </div>
-                      <span className="font-bold text-slate-800 text-sm font-kanit">{p.label}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePillarClick(p.id, p.key, isPillarTemp)}
+                        className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 p-1.5 rounded-xl transition-all"
+                        title="ลบแกนและหมวดหมู่ย่อยทั้งหมด"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => handleRemovePillarClick(p.id, p.key, isPillarTemp)}
-                      className="text-slate-400 hover:text-rose-500 hover:bg-rose-50 p-1.5 rounded-xl transition-all"
-                      title="ลบแกนและหมวดหมู่ย่อยทั้งหมด"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
 
-                  {/* Sub-Categories Section */}
-                  <div className="space-y-3 flex-1 flex flex-col justify-between">
-                    <div>
-                      {/* Sub-Category Tags */}
-                      <div className="flex flex-wrap gap-1.5 min-h-[32px]">
-                        {pCats.map((cat: any) => {
-                          const isCatTemp = !cat.id || tempOptions.some(to => to.id === cat.id);
-                          return (
-                            <div
-                              key={cat.id || cat.key}
-                              className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 border border-emerald-100 text-emerald-700 text-xs font-semibold rounded-lg shadow-2xs"
-                            >
-                              <Tag className="w-3 h-3 text-emerald-500 shrink-0" />
-                              <span>{cat.label}</span>
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveCategoryClick(cat.id, isCatTemp)}
-                                className="text-emerald-400 hover:text-rose-500 transition-colors ml-1 p-0.5 rounded-full hover:bg-rose-50"
-                              >
-                                <X className="w-2.5 h-2.5" />
-                              </button>
-                            </div>
-                          );
-                        })}
+                    {/* Sub-Categories Preview Section (Phase A) */}
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap gap-1.5 min-h-[32px] items-center">
+                        {pCats.slice(0, 4).map((cat: any) => (
+                          <div
+                            key={cat.id || cat.key}
+                            className="flex items-center gap-1 px-2 py-0.5 bg-emerald-50/60 border border-emerald-100/50 text-emerald-700 text-[11px] font-semibold rounded-md shadow-3xs"
+                          >
+                            <Tag className="w-2.5 h-2.5 text-emerald-500 shrink-0" />
+                            <span className="font-kanit">{cat.label}</span>
+                          </div>
+                        ))}
+                        {pCats.length > 4 && (
+                          <span className="text-[10px] font-bold text-slate-400 font-kanit px-1.5 py-0.5 bg-slate-100 rounded-md">
+                            +{pCats.length - 4} เพิ่มเติม
+                          </span>
+                        )}
                         {pCats.length === 0 && (
-                          <p className="text-slate-400 text-xs italic font-kanit self-center py-1">
-                            ยังไม่มีหมวดหมู่ย่อย (ระบุด้านล่างเพื่อเพิ่ม)
+                          <p className="text-slate-300 text-xs italic font-kanit">
+                            ไม่มีหมวดหมู่ย่อย
                           </p>
                         )}
                       </div>
                     </div>
-
-                    {/* Add Sub-Category Input */}
-                    <div className="flex gap-2 pt-2 border-t border-slate-50 mt-2">
-                      <input
-                        type="text"
-                        value={newCategoryLabels[p.key] || ''}
-                        onChange={e => {
-                          const val = e.target.value;
-                          setNewCategoryLabels(prev => ({ ...prev, [p.key]: val }));
-                        }}
-                        onKeyDown={e => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleAddCategoryClick(p.key);
-                          }
-                        }}
-                        placeholder="พิมพ์เพิ่มหมวดหมู่ย่อย... (เช่น shorts)"
-                        className="flex-1 px-3 py-1.5 bg-slate-50/50 hover:bg-white focus:bg-white border border-slate-200 text-xs rounded-xl focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 outline-none transition-all placeholder:text-slate-400"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleAddCategoryClick(p.key)}
-                        className="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white text-[11px] font-bold rounded-xl transition-all active:scale-95 shrink-0 shadow-sm"
-                      >
-                        เพิ่มย่อย
-                      </button>
-                    </div>
                   </div>
+
+                  {/* Focused Editor Launcher Button (Phase B & C) */}
+                  <button
+                    type="button"
+                    onClick={() => setSelectedPillarForModal(p)}
+                    className="w-full mt-4 py-2 bg-indigo-50 hover:bg-indigo-600 hover:text-white text-indigo-600 text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 font-kanit cursor-pointer"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                    <span>จัดการหมวดหมู่ย่อย ({pCats.length})</span>
+                    <ArrowRight className="w-3 h-3 shrink-0 ml-0.5 transition-transform group-hover:translate-x-1" />
+                  </button>
                 </div>
               );
             })}
@@ -433,6 +373,16 @@ export const ChannelPillarsCategoriesManager: React.FC<ChannelPillarsCategoriesM
         </div>
 
       </div>
+
+      {/* Focus Category Manager Modal */}
+      <PillarCategoryDetailModal
+        isOpen={!!selectedPillarForModal}
+        onClose={() => setSelectedPillarForModal(null)}
+        pillar={selectedPillarForModal}
+        channel={channel}
+        tempOptions={tempOptions}
+        setTempOptions={setTempOptions}
+      />
     </div>
   );
 };

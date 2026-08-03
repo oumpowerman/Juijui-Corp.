@@ -24,7 +24,16 @@ import { TimeCorrectionWarning } from './TimeCorrectionWarning';
 interface Props {
     selectedType: string;
     onBack: () => void;
-    onSubmit: (type: LeaveType, start: Date, end: Date, reason: string, file?: File, linkedRemoteType?: 'WFH' | 'ONSITE') => Promise<boolean>;
+    onSubmit: (
+        type: LeaveType, 
+        start: Date, 
+        end: Date, 
+        reason: string, 
+        file?: File, 
+        linkedRemoteType?: 'WFH' | 'ONSITE',
+        isHalfDay?: boolean,
+        halfDaySession?: string
+    ) => Promise<boolean>;
     onClose: () => void;
     masterOptions: MasterOption[];
     leaveUsage?: LeaveUsage;
@@ -122,7 +131,8 @@ const LeaveFormContainer: React.FC<Props> = ({
         reason, setReason, file, setFile, 
         targetTime, setTargetTime, endTime, setEndTime, otHours, setOtHours, 
         otType, setOtType,
-        isSubmitting, isReviewing, setIsReviewing, handleReview, handleSubmit 
+        isSubmitting, isReviewing, setIsReviewing, handleReview, handleSubmit,
+        isHalfDay, setIsHalfDay, halfDaySession, setHalfDaySession
     } = useLeaveFormLogic({ 
         onSubmit, 
         onClose, 
@@ -190,6 +200,7 @@ const LeaveFormContainer: React.FC<Props> = ({
     const headerLabel = selectedType === 'OUT_OF_RANGE_CHECKOUT' ? 'ลงเวลานอกพื้นที่' : ((isTimeSpecific && selectedType !== 'OVERTIME') ? 'แก้ไขเวลา' : thaiLabel);
 
     const daysRequested = useMemo(() => {
+        if (isHalfDay) return 0.5;
         return calculateWorkingDays(
             startDate,
             endDate,
@@ -198,7 +209,7 @@ const LeaveFormContainer: React.FC<Props> = ({
             calendarExceptions || [],
             currentUserProfile
         );
-    }, [startDate, endDate, isTimeSpecific, selectedType, annualHolidays, calendarExceptions, currentUserProfile]);
+    }, [startDate, endDate, isTimeSpecific, selectedType, annualHolidays, calendarExceptions, currentUserProfile, isHalfDay]);
 
     const quotaInfo = useMemo(() => {
         const limit = metadata.defaultQuota || 999;
@@ -524,6 +535,10 @@ const LeaveFormContainer: React.FC<Props> = ({
                                         maxDate={maxDate}
                                         workingDaysCount={daysRequested}
                                         selectedType={selectedType}
+                                        isHalfDay={isHalfDay}
+                                        setIsHalfDay={setIsHalfDay}
+                                        halfDaySession={halfDaySession}
+                                        setHalfDaySession={setHalfDaySession}
                                     />
                                 )}
                             </div>

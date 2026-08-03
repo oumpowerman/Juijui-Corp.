@@ -274,6 +274,7 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
             local_path: taskToSave.localPath || null,
             drive_label: taskToSave.driveLabel || null,
             scheduled_time: taskToSave.scheduledTime,
+            sub_checklist_progress: taskToSave.subChecklistProgress || {},
         } : {};
 
         const nowStr = format(new Date(), 'yyyy-MM-dd');

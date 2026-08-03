@@ -28,6 +28,9 @@ export interface WorkTimeConfig {
     checkoutAlertOffset?: string;
     checkoutAlertTargetRoles?: string;
     adminAbsentPenaltyEnabled?: string;
+    absentPenaltyEnabled?: string;
+    absentPenaltyTime?: string;
+    absentPenaltyTargetRoles?: string;
     forgotCheckInLimitHours?: string;
     lineSubmissionAlertMode?: string;
 }

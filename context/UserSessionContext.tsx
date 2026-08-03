@@ -146,7 +146,13 @@ const mapLeaveRequest = (data: any) => ({
     status: data.status,
     approverId: data.approver_id,
     createdAt: new Date(data.created_at),
-    rejectionReason: data.rejection_reason
+    rejectionReason: data.rejection_reason,
+    is_half_day: data.is_half_day,
+    isHalfDay: data.is_half_day,
+    half_day_session: data.half_day_session,
+    halfDaySession: data.half_day_session,
+    is_fixed: data.is_fixed,
+    isFixed: data.is_fixed
 });
 
 const mapOtRequest = (data: any) => ({

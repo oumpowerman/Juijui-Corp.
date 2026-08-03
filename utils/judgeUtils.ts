@@ -108,7 +108,7 @@ export const countWorkingDaysLate = (dutyDate: Date, today: Date, holidays: Annu
  * 🛠️ HELPER: เช็คว่าผู้ใช้อยู่ระหว่างลาหรือไม่ในวันที่ระบุ
  */
 export const isUserOnLeave = (dateStr: string, userLeaves: any[]) => {
-    if (!userLeaves || userLeaves.length === 0) return { onLeave: false, status: null };
+    if (!userLeaves || userLeaves.length === 0) return { onLeave: false, status: null, isHalfDay: false, halfDaySession: null };
     const checkDate = new Date(dateStr); 
     checkDate.setHours(12, 0, 0, 0); // เที่ยงวันป้องกันเรื่อง timezone
 
@@ -128,5 +128,10 @@ export const isUserOnLeave = (dateStr: string, userLeaves: any[]) => {
         return checkDate >= start && checkDate <= end;
     });
 
-    return leave ? { onLeave: true, status: leave.status } : { onLeave: false, status: null };
+    return leave ? { 
+        onLeave: true, 
+        status: leave.status,
+        isHalfDay: leave.isHalfDay || leave.is_half_day || false,
+        halfDaySession: leave.halfDaySession || leave.half_day_session || null
+    } : { onLeave: false, status: null, isHalfDay: false, halfDaySession: null };
 };

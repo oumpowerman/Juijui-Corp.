@@ -1,757 +1,295 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { supabase } from '../lib/supabase';
-import { LeaveRequest, LeaveType, LeaveUsage, RequestStatus } from '../types/attendance';
-import { ATTENDANCE_REGISTRY } from '../constants/attendanceRegistry';
-import { useToast } from '../context/ToastContext';
-import { useGlobalDialog } from '../context/GlobalDialogContext';
-import { eachDayOfInterval, format, isValid } from 'date-fns';
-import { useGoogleDrive } from './useGoogleDrive';
-import { useUserSession } from '../context/UserSessionContext';
-import { useMasterData } from './useMasterData';
-import { isWorkingDay, countWorkingDaysBetween } from '../utils/judgeUtils';
-import { calculateOtMultiplier, calculateEstimatedPayout } from '../utils/otCalculator';
-import { attendanceService } from '../services/attendanceService';
 
-export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } = {}) => {
-    const { enabled = true } = options;
-    const { 
-        leaveRequests: contextLeaveRequests, 
-        otRequests: contextOtRequests, 
-        allUsers, 
-        isReady: isContextReady, 
-        refreshOTRequests,
-        refreshAttendance,
-        refreshLeaves
-    } = useUserSession();
+import React, { useMemo, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { LeaveUsage, LeaveType } from '../../../types/attendance';
+import { Palmtree, HeartPulse, Briefcase, ChevronRight, Sparkles, Star, Cloud, FileText } from 'lucide-react';
+import { useMasterData } from '../../../hooks/useMasterData';
+import LeaveHistorySummary from './LeaveHistorySummary';
+
+// Simple, elegant React local component to animate and count up numbers smoothly when mounting
+const AnimatedCounter: React.FC<{ value: number }> = ({ value }) => {
+    const [count, setCount] = React.useState(0);
+
+    React.useEffect(() => {
+        let start = 0;
+        const end = value;
+        if (end === 0) {
+            setCount(0);
+            return;
+        }
+        const duration = 1000; // ms
+        const startTime = performance.now();
+
+        const animate = (now: number) => {
+            const elapsed = now - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            // Ease out quad formula for pleasant deceleration
+            const easeProgress = progress * (2 - progress);
+            
+            const currentRaw = easeProgress * (end - start) + start;
+            const hasDecimal = end % 1 !== 0;
+            const current = hasDecimal 
+                ? Number(currentRaw.toFixed(1))
+                : Math.round(currentRaw);
+            setCount(current);
+
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            } else {
+                setCount(end);
+            }
+        };
+
+        requestAnimationFrame(animate);
+    }, [value]);
+
+    const hasDecimal = value % 1 !== 0;
+    return <span>{hasDecimal ? count.toFixed(1) : count}</span>;
+};
+
+interface LeaveQuotaWidgetProps {
+    leaveUsage: LeaveUsage;
+    onHistoryClick?: () => void;
+}
+
+const PASTEL_THEMES: Record<string, any> = {
+    'VACATION': { 
+        bg: 'bg-[#E0F7FA]', 
+        text: 'text-[#00ACC1]', 
+        bar: 'bg-gradient-to-r from-[#4DD0E1] to-[#00BCD4]', 
+        glow: 'shadow-[0_0_15px_rgba(0,188,212,0.4)]',
+        icon: Palmtree,
+        label: 'พักร้อน',
+        accent: 'text-[#80DEEA]'
+    },
+    'SICK': { 
+        bg: 'bg-[#FCE4EC]', 
+        text: 'text-[#D81B60]', 
+        bar: 'bg-gradient-to-r from-[#F06292] to-[#E91E63]', 
+        glow: 'shadow-[0_0_15px_rgba(233,30,99,0.4)]',
+        icon: HeartPulse,
+        label: 'ลาป่วย',
+        accent: 'text-[#F8BBD0]'
+    },
+    'PERSONAL': { 
+        bg: 'bg-[#F3E5F5]', 
+        text: 'text-[#8E24AA]', 
+        bar: 'bg-gradient-to-r from-[#BA68C8] to-[#9C27B0]', 
+        glow: 'shadow-[0_0_15px_rgba(156,39,176,0.4)]',
+        icon: Briefcase,
+        label: 'ลากิจ',
+        accent: 'text-[#E1BEE7]'
+    },
+    'DEFAULT': {
+        bg: 'bg-slate-50',
+        text: 'text-slate-600',
+        bar: 'bg-gradient-to-r from-slate-400 to-slate-600',
+        glow: 'shadow-[0_0_15px_rgba(71,85,105,0.4)]',
+        icon: FileText,
+        label: 'อื่นๆ',
+        accent: 'text-slate-300'
+    }
+};
+
+const LeaveQuotaWidget: React.FC<LeaveQuotaWidgetProps> = ({ leaveUsage, onHistoryClick }) => {
+    const { masterOptions } = useMasterData();
+    const [view, setView] = useState<'quota' | 'history'>('quota');
+    const [initialFilter, setInitialFilter] = useState<string | null>(null);
     
-    const { annualHolidays, calendarExceptions } = useMasterData();
-    const [rawRequests, setRawRequests] = useState<LeaveRequest[]>([]);
-    const [isLoading, setIsLoading] = useState(enabled);
-    const [isLoadingHistorical, setIsLoadingHistorical] = useState(false);
-    const { showToast } = useToast();
-    const { showConfirm, showLoading, hideLoading } = useGlobalDialog();
-    const { uploadFileToDrive, isReady: isDriveReady } = useGoogleDrive();
-
-    const checkLateSubmissionRule = (
-        requestDate: Date,
-        submittedDate: Date,
-        annualHolidays: any,
-        calendarExceptions: any,
-        user: any
-    ): boolean => {
-        if (!isValid(requestDate) || !isValid(submittedDate)) return false;
-        const requestDay = new Date(requestDate.getFullYear(), requestDate.getMonth(), requestDate.getDate());
-        const submittedDay = new Date(submittedDate.getFullYear(), submittedDate.getMonth(), submittedDate.getDate());
-        
-        if (requestDay >= submittedDay) return false;
-
-        const workingDaysCount = countWorkingDaysBetween(
-            requestDay,
-            submittedDay,
-            annualHolidays || [],
-            calendarExceptions || [],
-            user
-        );
-
-        return workingDaysCount > 2;
-    };
-
-    const fetchMyRequests = useCallback(async () => {
-        if (!enabled || !currentUser?.id) return;
-        setIsLoading(true);
-        try {
-            const data = await attendanceService.fetchCombinedRequests(currentUser.id, { all: false });
-            setRawRequests(data);
-        } catch (err: any) {
-            console.error("Fetch my requests failed", err);
-        } finally {
-            setIsLoading(false);
-        }
-    }, [enabled, currentUser?.id]);
-
-    useEffect(() => {
-        if (!enabled) {
-            setIsLoading(false);
-            return;
-        }
-        if (!currentUser?.id) return;
-
-        if (!isContextReady) {
-            fetchMyRequests();
-            return;
-        }
-
-        // Merge and filter personal requests from context
-        const personalLeaves = contextLeaveRequests.filter(r => r.userId === currentUser.id && r.type !== 'OVERTIME');
-        const personalOts: LeaveRequest[] = (contextOtRequests || [])
-            .filter(r => r.userId === currentUser.id)
-            .map(r => ({
-                id: r.id,
-                userId: r.userId,
-                type: 'OVERTIME' as LeaveType,
-                startDate: new Date(r.date + 'T' + r.startTime),
-                endDate: new Date(r.date + 'T' + r.endTime),
-                reason: `[OT:${r.durationHours}hr] ${r.reason}`,
-                status: r.status as RequestStatus,
-                createdAt: new Date(r.createdAt),
-                rejectionReason: r.rejectionReason,
-                user: currentUser ? {
-                    id: currentUser.id,
-                    name: currentUser.name,
-                    avatarUrl: currentUser.avatarUrl,
-                    position: currentUser.position
-                } : undefined
-            }));
-
-        const combined = [...personalLeaves, ...personalOts];
-        combined.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-        setRawRequests(combined);
-        setIsLoading(false);
-    }, [currentUser?.id, contextLeaveRequests, contextOtRequests, isContextReady, enabled]);
-
-    const requests = useMemo(() => {
-        if (!enabled) return [];
-        return rawRequests.map(req => {
-            if (req.user) return req;
-            const user = allUsers.find(u => u.id === req.userId);
-            return {
-                ...req,
-                user: user ? {
-                    id: user.id,
-                    name: user.name,
-                    avatarUrl: user.avatarUrl,
-                    position: user.position
-                } : undefined
-            };
-        });
-    }, [rawRequests, allUsers, enabled]);
-
-    const leaveUsage: LeaveUsage = useMemo(() => {
-        const usage = {} as LeaveUsage;
-        Object.keys(ATTENDANCE_REGISTRY).forEach(k => {
-            usage[k as LeaveType] = 0;
-        });
-
-        if (!enabled || !currentUser?.id) return usage;
-
-        const LEAVE_TYPES = Object.values(ATTENDANCE_REGISTRY)
-            .filter(item => item.category === 'LEAVE')
-            .map(item => item.id);
-
-        requests.forEach(req => {
-            if (req.userId === currentUser.id && req.status === 'APPROVED') {
-                if (LEAVE_TYPES.includes(req.type)) {
-                    if (req.isHalfDay || req.is_half_day) {
-                        usage[req.type as keyof LeaveUsage] += 0.5;
-                    } else {
-                        const start = new Date(req.startDate);
-                        const end = new Date(req.endDate);
-                        if (!isValid(start) || !isValid(end) || start > end) return; 
-                        
-                        const days = eachDayOfInterval({ start, end });
-                        const workingDaysCount = days.filter(d => 
-                            isWorkingDay(d, annualHolidays, calendarExceptions, currentUser)
-                        ).length;
-                        
-                        usage[req.type as keyof LeaveUsage] += workingDaysCount;
-                    }
-                } else {
-                    usage[req.type as keyof LeaveUsage] += 1;
-                }
-            }
-        });
-
-        return usage;
-    }, [requests, currentUser?.id, annualHolidays, calendarExceptions, enabled]);
-
-    const pendingUsage: LeaveUsage = useMemo(() => {
-        const usage = {} as LeaveUsage;
-        Object.keys(ATTENDANCE_REGISTRY).forEach(k => {
-            usage[k as LeaveType] = 0;
-        });
-
-        if (!enabled || !currentUser?.id) return usage;
-
-        const LEAVE_TYPES = Object.values(ATTENDANCE_REGISTRY)
-            .filter(item => item.category === 'LEAVE')
-            .map(item => item.id);
-
-        requests.forEach(req => {
-            if (req.userId === currentUser.id && req.status === 'PENDING') {
-                if (LEAVE_TYPES.includes(req.type)) {
-                    if (req.isHalfDay || req.is_half_day) {
-                        usage[req.type as keyof LeaveUsage] += 0.5;
-                    } else {
-                        const start = new Date(req.startDate);
-                        const end = new Date(req.endDate);
-                        if (!isValid(start) || !isValid(end) || start > end) return; 
-                        
-                        const days = eachDayOfInterval({ start, end });
-                        const workingDaysCount = days.filter(d => 
-                            isWorkingDay(d, annualHolidays, calendarExceptions, currentUser)
-                        ).length;
-                        
-                        usage[req.type as keyof LeaveUsage] += workingDaysCount;
-                    }
-                } else {
-                    usage[req.type as keyof LeaveUsage] += 1;
-                }
-            }
-        });
-
-        return usage;
-    }, [requests, currentUser?.id, annualHolidays, calendarExceptions, enabled]);
-
-    const submitRequest = async (
-        type: LeaveType, 
-        startDate: Date, 
-        endDate: Date, 
-        reason: string, 
-        file?: File,
-        linkedRemoteType?: 'WFH' | 'ONSITE',
-        isHalfDay?: boolean,
-        halfDaySession?: string
-    ): Promise<boolean> => {
-        if (!currentUser?.id) return false;
-        showLoading('กำลังอัปโหลดไฟล์และส่งคำขอเข้าระบบ...');
-        try {
-            const startDateStr = format(startDate, 'yyyy-MM-dd');
-            const timestamp = Date.now();
-            const linkId = linkedRemoteType ? `LINK_FORGOT_${currentUser.id}_${startDateStr}_${timestamp}` : null;
-            let finalReasonWithLink = linkId ? `[LINKID:${linkId}] ${reason}` : reason;
-
-            if (linkedRemoteType && !finalReasonWithLink.includes('[REMOTE:')) {
-                finalReasonWithLink = `[REMOTE:${linkedRemoteType}] ${finalReasonWithLink}`;
-            }
-
-            if (type === 'FORGOT_CHECKOUT' || type === 'OUT_OF_RANGE_CHECKOUT') {
-                if (!finalReasonWithLink.includes('[PROVISIONAL_CHECKOUT]')) {
-                    finalReasonWithLink = `[PROVISIONAL_CHECKOUT] ${finalReasonWithLink}`;
-                }
-            }
-
-            // --- OT Request Handling ---
-            if (type === 'OVERTIME') {
-                const isFixedOt = reason.includes('[OT:FIXED]');
-
-                // Try matching new format: [OT:18:30-20:30] (2hr) Reason
-                const otTimeMatch = reason.match(/\[OT:(\d{2}:\d{2})-(\d{2}:\d{2})\]/);
-                const startTime = otTimeMatch ? otTimeMatch[1] : '18:30';
-                const endTime = otTimeMatch ? otTimeMatch[2] : '20:30';
-
-                // Match hours from new format "(Xhr)" or old format "[OT:Xhr]"
-                const otHoursMatch = reason.match(/\(([\d\.]+)hr\)/) || reason.match(/\[OT:([\d\.]+)hr\]/);
-                const otHours = otHoursMatch ? parseFloat(otHoursMatch[1]) : 2.0;
-
-                // Clean the reason prefix
-                let cleanReason = reason
-                    .replace(/\[OT:\d{2}:\d{2}-\d{2}:\d{2}\]\s*\([\d\.]+hr\)\s*/, '')
-                    .replace(/\[OT:[\d\.]+hr\]\s*/, '')
-                    .trim();
-
-                if (isFixedOt) {
-                    cleanReason = `[OT:FIXED] ${cleanReason.replace(/\[OT:FIXED\]/g, '').trim()}`;
-                }
-
-                const { data: existing = null } = await supabase
-                    .from('ot_requests')
-                    .select('id, status')
-                    .eq('user_id', currentUser.id)
-                    .eq('date', startDateStr)
-                    .in('status', ['PENDING', 'APPROVED'])
-                    .maybeSingle();
-
-                if (existing) {
-                    if (existing.status === 'PENDING') {
-                        showToast('คุณได้ส่งคำขอ OT ของวันนี้ไปแล้ว และกำลังรออนุมัติอยู่ ⏳', 'warning');
-                    } else {
-                        showToast('คำขอ OT ของวันนี้ได้รับการอนุมัติเรียบร้อยแล้วครับ ✅', 'info');
-                    }
+    const displayOptions = useMemo(() => {
+        return masterOptions
+            .filter(o => o.type === 'LEAVE_TYPE' && o.isActive)
+            .filter(o => {
+                try {
+                    const meta = o.description ? JSON.parse(o.description) : {};
+                    return meta.category === 'STANDARD';
+                } catch (e) {
                     return false;
                 }
+            })
+            .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
+    }, [masterOptions]);
 
-                // Upload attachment specifically for OT if provided
-                let otAttachmentUrl: string | null = null;
-                if (file) {
-                    let driveSuccess = false;
-                    if (isDriveReady) {
-                        try {
-                            showToast('กำลังอัปโหลดไปที่ Google Drive...', 'info');
-                            const currentYear = format(new Date(), 'yyyy');
-                            const currentMonth = format(new Date(), 'MM');
-                            const driveResult = await uploadFileToDrive(file, ['Juijui_Assets', 'Attendance', 'Leaves', currentYear, currentMonth, currentUser.name || 'Unknown']);
-                            otAttachmentUrl = driveResult.thumbnailUrl || driveResult.url;
-                            driveSuccess = true;
-                        } catch (driveErr: any) {
-                            console.warn("Drive upload failed, falling back to Supabase", driveErr);
-                        }
-                    }
+    return (
+        <div className="bg-white rounded-none sm:rounded-[3rem] border-0 sm:border-4 border-[#F8F9FA] shadow-none sm:shadow-[0_20px_50px_rgba(0,0,0,0.05)] p-5 sm:p-8 relative overflow-hidden group h-full sm:h-[75vh] sm:max-h-[780px] sm:min-h-[580px] flex flex-col justify-between" id="leave-quota-widget-container">
+            <AnimatePresence mode="wait">
+                {view === 'history' ? (
+                    <motion.div
+                        key="history"
+                        initial={{ opacity: 0, x: 15 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -15 }}
+                        transition={{ duration: 0.22, ease: "easeInOut" }}
+                        className="h-full flex flex-col justify-between w-full"
+                    >
+                        <LeaveHistorySummary 
+                            onBack={() => {
+                                setView('quota');
+                                setInitialFilter(null);
+                            }} 
+                            borderless={true} 
+                            initialFilterType={initialFilter || undefined}
+                        />
+                    </motion.div>
+                ) : (
+                    <motion.div
+                        key="quota"
+                        initial={{ opacity: 0, x: -15 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: 15 }}
+                        transition={{ duration: 0.22, ease: "easeInOut" }}
+                        className="h-full flex flex-col justify-between w-full relative"
+                    >
+                        {/* Background Decor - Cute Floating Elements */}
+                        <motion.div 
+                            animate={{ y: [0, -10, 0], rotate: [0, 5, 0] }}
+                            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+                            className="absolute top-4 right-10 text-[#FFD54F] opacity-20"
+                        >
+                            <Star className="w-8 h-8 fill-current" />
+                        </motion.div>
+                        <motion.div 
+                            animate={{ x: [0, 10, 0], y: [0, 5, 0] }}
+                            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut", delay: 1 }}
+                            className="absolute bottom-10 left-4 text-[#B2EBF2] opacity-30"
+                        >
+                            <Cloud className="w-12 h-12 fill-current" />
+                        </motion.div>
 
-                    if (!driveSuccess) {
-                        try {
-                            showToast('กำลังอัปโหลดไปที่ Storage สำรอง...', 'info');
-                            const fileExt = file.name.split('.').pop();
-                            const fileName = `${currentUser.id}_${Date.now()}.${fileExt}`;
-                            const { error: uploadErr } = await supabase.storage
-                                .from('chat-files')
-                                .upload(`proofs/${fileName}`, file);
+                        {/* Header */}
+                        <div className="flex justify-between items-center mb-4 sm:mb-6 relative z-10 pr-10 sm:pr-0">
+                            <div className="flex flex-col">
+                                <h3 className="text-lg sm:text-xl font-bold text-slate-800 flex items-center gap-2 sm:gap-3">
+                                    <motion.div 
+                                        whileHover={{ rotate: 360, scale: 1.2 }}
+                                        transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                                        className="p-2.5 sm:p-3 bg-gradient-to-br from-indigo-500 to-purple-500 text-white rounded-xl sm:rounded-2xl shadow-lg shadow-indigo-200"
+                                    >
+                                        <Sparkles className="w-4 sm:w-5 h-4 sm:h-5" />
+                                    </motion.div>
+                                    <span className="tracking-tight">โควตาวันลา</span>
+                                </h3>
+                                <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1 ml-11 sm:ml-14">My Leave Quota</p>
+                            </div>
+                            
+                            <motion.button 
+                                whileHover={{ x: 5 }}
+                                onClick={() => {
+                                    setInitialFilter(null);
+                                    setView('history');
+                                }}
+                                className="px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-50 hover:bg-indigo-50 text-slate-400 hover:text-indigo-600 rounded-xl sm:rounded-2xl text-[11px] sm:text-xs font-bold transition-all flex items-center gap-1 border border-slate-100 cursor-pointer"
+                            >
+                                ประวัติ <ChevronRight className="w-3 h-3 sm:w-4 sm:h-4" />
+                            </motion.button>
+                        </div>
 
-                            if (uploadErr) throw uploadErr;
+                        {/* Quota Bars mapped to interactive Cards */}
+                        <div className="space-y-4 sm:space-y-5 relative z-10 flex-1 overflow-y-auto min-h-0 px-0.5 py-2 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                            {displayOptions.map((option, index) => {
+                                const type = option.key;
+                                let limit = 0;
+                                try {
+                                    const meta = option.description ? JSON.parse(option.description) : {};
+                                    limit = meta.defaultQuota || 0;
+                                } catch (e) {}
 
-                            const { data } = supabase.storage.from('chat-files').getPublicUrl(`proofs/${fileName}`);
-                            otAttachmentUrl = data.publicUrl;
-                        } catch (supabaseErr: any) {
-                            console.error("Supabase upload failed", supabaseErr);
-                            throw new Error("ไม่สามารถอัปโหลดไฟล์ได้ทั้ง Google Drive และ Supabase");
-                        }
-                    }
-                }
+                                const used = leaveUsage[type as LeaveType] || 0;
+                                const remaining = Math.max(0, limit - used);
+                                const percentUsed = limit > 0 ? Math.min(100, (used / limit) * 100) : 0;
+                                
+                                const theme = PASTEL_THEMES[type] || PASTEL_THEMES['DEFAULT'];
+                                const Icon = theme.icon;
 
-                const baseSalary = currentUser.baseSalary || 0;
-                const { type: otType, multiplier } = calculateOtMultiplier(startDate, annualHolidays, calendarExceptions);
-                const estimatedPayout = isFixedOt ? 0 : calculateEstimatedPayout(baseSalary, otHours, multiplier);
+                                return (
+                                    <motion.div 
+                                        key={type}
+                                        initial={{ opacity: 0, y: 35, scale: 0.93 }}
+                                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                                        transition={{ 
+                                            type: "spring",
+                                            damping: 15,
+                                            stiffness: 100,
+                                            delay: index * 0.12 
+                                        }}
+                                        whileHover={{ scale: 1.025, y: -2 }}
+                                        whileTap={{ scale: 0.985 }}
+                                        onClick={() => {
+                                            setInitialFilter(type);
+                                            setView('history');
+                                        }}
+                                        className="relative cursor-pointer p-3.5 sm:p-4 bg-slate-50/40 hover:bg-slate-50 border border-transparent hover:border-slate-100 hover:shadow-md hover:shadow-slate-100/50 rounded-2xl sm:rounded-[1.5rem] transition-all duration-200 select-none group/card"
+                                    >
+                                        <div className="flex justify-between items-end mb-2 sm:mb-3 px-1">
+                                            <div className="flex items-center gap-2 sm:gap-3">
+                                                <motion.div 
+                                                    animate={{ 
+                                                        rotate: [0, -10, 10, -10, 0],
+                                                        scale: [1, 1.1, 1]
+                                                    }}
+                                                    transition={{ 
+                                                        duration: 2, 
+                                                        repeat: Infinity, 
+                                                        repeatDelay: 3 + index,
+                                                        ease: "easeInOut" 
+                                                    }}
+                                                    className={`p-2 sm:p-2.5 ${theme.bg} ${theme.text} rounded-xl sm:rounded-2xl shadow-sm border border-white`}
+                                                >
+                                                    <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
+                                                </motion.div>
+                                                <div>
+                                                    <span className="text-xs sm:text-sm font-bold text-slate-700 block leading-none group-hover/card:text-indigo-600 transition-colors">{option.label}</span>
+                                                    <span className={`text-[9px] sm:text-[10px] font-bold ${theme.accent} uppercase tracking-widest block mt-1`}>{type}</span>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-[9px] sm:text-[10px] font-bold text-slate-400 uppercase tracking-tighter mb-0.5">Remaining</p>
+                                                <div className="flex items-baseline gap-0.5 sm:gap-1">
+                                                    <span className={`text-xl sm:text-2xl font-bold tracking-tighter ${remaining === 0 ? 'text-rose-500' : 'text-slate-800'}`}>
+                                                        <AnimatedCounter value={remaining} />
+                                                    </span>
+                                                    <span className="text-[10px] sm:text-xs font-bold text-slate-400">/ {limit} วัน</span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Progress Track - 3D Style */}
+                                        <div className="h-3.5 sm:h-4.5 w-full bg-slate-100 rounded-full p-1 border border-slate-200/50 shadow-inner relative group/bar overflow-hidden">
+                                            {/* Bar with Glow and Gradient */}
+                                            <motion.div 
+                                                initial={{ width: 0 }}
+                                                animate={{ width: `${percentUsed}%` }}
+                                                transition={{ 
+                                                    duration: 1.2, 
+                                                    ease: "circOut",
+                                                    delay: index * 0.12 
+                                                }}
+                                                className={`h-full rounded-full relative ${theme.bar} ${theme.glow} border border-white/30`}
+                                            >
+                                                {/* Glass Shine Effect */}
+                                                <div className="absolute inset-0 bg-gradient-to-b from-white/40 to-transparent h-1/2 rounded-full"></div>
+                                                
+                                                {/* Animated Shimmer */}
+                                                <motion.div 
+                                                    animate={{ x: ['-100%', '200%'] }}
+                                                    transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+                                                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent w-1/2 h-full skew-x-[-20deg]"
+                                                />
+                                            </motion.div>
+                                        </div>
+                                    </motion.div>
+                                );
+                            })}
+                        </div>
 
-                const insertedOt = await attendanceService.insertOtRequest({
-                    user_id: currentUser.id,
-                    date: startDateStr,
-                    start_time: startTime,
-                    end_time: endTime,
-                    duration_hours: otHours,
-                    reason: cleanReason,
-                    type: otType,
-                    status: 'PENDING',
-                    base_salary_at_time: baseSalary,
-                    computed_payout: estimatedPayout,
-                    attachment_url: otAttachmentUrl,
-                    is_fixed: isFixedOt
-                });
-
-                const displayReason = isFixedOt ? cleanReason.replace(/\[OT:FIXED\]/g, '').trim() : cleanReason;
-                const otDisplayStr = isFixedOt ? 'เหมาจ่าย' : `${otHours} ชม.`;
-                const msg = `📢 **${currentUser.name}** ส่งคำขอ OT (${otDisplayStr}) \n📅 ${format(startDate, 'd MMM')} \n📝: ${displayReason}`;
-                await supabase.from('team_messages').insert({
-                    content: msg,
-                    is_bot: true,
-                    message_type: 'TEXT',
-                    user_id: null
-                });
-
-                try {
-                    const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'ADMIN');
-                    if (admins && admins.length > 0) {
-                        const otNotifs = admins.map(admin => ({
-                            user_id: admin.id,
-                            type: 'APPROVAL_REQ',
-                            title: '⏰ คำขอ OT ใหม่',
-                            message: `คุณ ${currentUser.name || 'พนักงาน'} ส่งคำขอ OT (${otDisplayStr}) วันที่ ${format(startDate, 'd MMM')}: "${displayReason}"`,
-                            is_read: false,
-                            link_path: 'ATTENDANCE',
-                            related_id: insertedOt?.id || null,
-                            metadata: { request_type: 'OT' }
-                        }));
-                        await supabase.from('notifications').insert(otNotifs);
-                    }
-                } catch (notiErr) {
-                    console.error("Failed to insert admin OT notifications:", notiErr);
-                }
-
-                showToast('ส่งคำขอ OT เรียบร้อย รออนุมัติครับ 📨', 'success');
-                if (refreshLeaves) await refreshLeaves();
-                if (refreshAttendance) await refreshAttendance();
-                if (refreshOTRequests) {
-                    await refreshOTRequests();
-                }
-                fetchMyRequests();
-                return true;
-            }
-
-            // --- Late Submission Rule check ---
-            const CORRECTION_TYPES = ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT'];
-            let isLateSubmission = false;
-            if (CORRECTION_TYPES.includes(type)) {
-                isLateSubmission = checkLateSubmissionRule(startDate, new Date(), annualHolidays, calendarExceptions, currentUser);
-            }
-
-            // Check duplicate leave request
-            const LEAVE_TYPES = Object.values(ATTENDANCE_REGISTRY)
-                .filter(item => item.category === 'LEAVE')
-                .map(item => item.id);
-
-            const isNewLeave = LEAVE_TYPES.includes(type);
-
-            if (isNewLeave) {
-                const { data: existingLeaves } = await supabase
-                    .from('leave_requests')
-                    .select('id, type, status')
-                    .eq('user_id', currentUser.id)
-                    .in('type', LEAVE_TYPES)
-                    .eq('start_date', startDateStr)
-                    .in('status', ['PENDING', 'APPROVED']);
-
-                if (existingLeaves && existingLeaves.length > 0) {
-                    const approvedLeave = existingLeaves.find(l => l.status === 'APPROVED');
-                    if (approvedLeave) {
-                        showToast('คุณมีวันลาที่ได้รับการอนุมัติแล้วในวันนี้ครับ ✅', 'warning');
-                        return false;
-                    }
-
-                    const pendingLeave = existingLeaves.find(l => l.status === 'PENDING');
-                    if (pendingLeave) {
-                        const originalTypeName = ATTENDANCE_REGISTRY[pendingLeave.type as LeaveType]?.label || pendingLeave.type;
-                        const newTypeName = ATTENDANCE_REGISTRY[type]?.label || type;
-                        
-                        // Hide loading overlay so the user can interact with the confirmation dialog
-                        hideLoading();
-
-                        const confirmReplace = await showConfirm(
-                            `ในระบบมีคำขอลา [${originalTypeName}] ที่อยู่ระหว่างรออนุมัติอยู่แล้วในวันนี้\nคุณต้องการ ยกเลิกคำขอเดิม แล้วยื่นคำขอ [${newTypeName}] นี้เข้าไปแทนที่หรือไม่?`,
-                            'ตรวจพบคำขอลาซ้ำซ้อน'
-                        );
-
-                        if (confirmReplace) {
-                            // Re-show loading as the process resumes
-                            showLoading('กำลังอัปโหลดไฟล์และส่งคำขอเข้าระบบ...');
-                            await supabase
-                                .from('leave_requests')
-                                .update({ 
-                                    status: 'REJECTED',
-                                    reason: `[REJECTED_FOR_REPLACEMENT] ${newTypeName}`
-                                })
-                                .eq('id', pendingLeave.id);
-                        } else {
-                            return false;
-                        }
-                    }
-                }
-            } else {
-                const { data: existingRequest } = await supabase
-                    .from('leave_requests')
-                    .select('id, status')
-                    .eq('user_id', currentUser.id)
-                    .eq('type', type)
-                    .eq('start_date', startDateStr)
-                    .in('status', ['PENDING', 'APPROVED']) 
-                    .maybeSingle();
-
-                if (existingRequest) {
-                    if (existingRequest.status === 'PENDING') {
-                        showToast('คำขอนี้ส่งไปแล้ว รออนุมัติครับ ⏳', 'warning');
-                    } else {
-                        showToast('คำขอนี้อนุมัติแล้วครับ ✅', 'info');
-                    }
-                    return false; 
-                }
-            }
-
-            let attachmentUrl: string | null = null;
-            if (file) {
-                let driveSuccess = false;
-                if (isDriveReady) {
-                    try {
-                        showToast('กำลังอัปโหลดไปที่ Google Drive...', 'info');
-                        const currentYear = format(new Date(), 'yyyy');
-                        const currentMonth = format(new Date(), 'MM');
-                        const driveResult = await uploadFileToDrive(file, ['Juijui_Assets', 'Attendance', 'Leaves', currentYear, currentMonth, currentUser.name || 'Unknown']);
-                        attachmentUrl = driveResult.thumbnailUrl || driveResult.url;
-                        driveSuccess = true;
-                    } catch (driveErr: any) {
-                        console.warn("Drive upload failed, falling back to Supabase", driveErr);
-                    }
-                }
-
-                if (!driveSuccess) {
-                    try {
-                        showToast('กำลังอัปโหลดไปที่ Storage สำรอง...', 'info');
-                        const fileExt = file.name.split('.').pop();
-                        const fileName = `${currentUser.id}_${Date.now()}.${fileExt}`;
-                        const { error: uploadErr } = await supabase.storage
-                            .from('chat-files')
-                            .upload(`proofs/${fileName}`, file);
-
-                        if (uploadErr) throw uploadErr;
-
-                        const { data } = supabase.storage.from('chat-files').getPublicUrl(`proofs/${fileName}`);
-                        attachmentUrl = data.publicUrl;
-                    } catch (supabaseErr: any) {
-                        console.error("Supabase upload failed", supabaseErr);
-                        throw new Error("ไม่สามารถอัปโหลดไฟล์ได้ทั้ง Google Drive และ Supabase");
-                    }
-                }
-            }
-
-            // Insert primary request (e.g. FORGOT_CHECKIN)
-            const insertedLeaveReq = await attendanceService.insertLeaveRequest({
-                user_id: currentUser.id,
-                type,
-                start_date: startDateStr,
-                end_date: format(endDate, 'yyyy-MM-dd'),
-                reason: isLateSubmission ? `[LATE_SUBMISSION] ${finalReasonWithLink}` : finalReasonWithLink,
-                attachment_url: attachmentUrl,
-                status: 'PENDING',
-                is_half_day: isHalfDay,
-                half_day_session: halfDaySession
-            });
-
-            // Insert secondary request (e.g. WFH or ONSITE) linked with same LINKID if not already exists
-            if (linkedRemoteType && linkId) {
-                const { data: existingRemote } = await supabase
-                    .from('leave_requests')
-                    .select('id')
-                    .eq('user_id', currentUser.id)
-                    .eq('type', linkedRemoteType)
-                    .eq('start_date', startDateStr)
-                    .in('status', ['PENDING', 'APPROVED'])
-                    .maybeSingle();
-
-                if (!existingRemote) {
-                    const dualReason = `[LINKID:${linkId}] ขออนุมัติปฏิบัติงานรีโมทโดยไม่ได้ขออนุญาตล่วงหน้า (เนื่องจากอยู่นอกพิกัดหลัก)`;
-                    await attendanceService.insertLeaveRequest({
-                        user_id: currentUser.id,
-                        type: linkedRemoteType,
-                        start_date: startDateStr,
-                        end_date: startDateStr,
-                        reason: dualReason,
-                        attachment_url: null,
-                        status: 'PENDING'
-                    });
-                }
-            }
-
-            if (type === 'FORGOT_CHECKIN') {
-                const { data: existingLog } = await supabase
-                    .from('attendance_logs')
-                    .select('*')
-                    .eq('user_id', currentUser.id)
-                    .eq('date', startDateStr)
-                    .maybeSingle();
-
-                let finalNote = '[PROVISIONAL_FORGOT_CHECKIN]';
-                if (linkedRemoteType) {
-                    finalNote = `[PROVISIONAL_FORGOT_CHECKIN] [PROVISIONAL_${linkedRemoteType}]`;
-                }
-                if (existingLog?.note) {
-                    if (!existingLog.note.includes('[PROVISIONAL_FORGOT_CHECKIN]')) {
-                        finalNote = `${existingLog.note} ${finalNote}`.trim();
-                    } else {
-                        finalNote = existingLog.note;
-                    }
-                }
-
-                const payload: any = {
-                    user_id: currentUser.id,
-                    date: startDateStr,
-                    check_in_time: startDate.toISOString(),
-                    status: 'WORKING',
-                    note: finalNote,
-                    work_type: linkedRemoteType || existingLog?.work_type || 'OFFICE'
-                };
-
-                await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
-                
-                if (startDateStr === format(new Date(), 'yyyy-MM-dd')) {
-                    await supabase.from('profiles').update({ work_status: 'ONLINE' }).eq('id', currentUser.id);
-                }
-            }
-
-            if (type === 'FORGOT_BOTH') {
-                const { data: existingLog } = await supabase
-                    .from('attendance_logs')
-                    .select('*')
-                    .eq('user_id', currentUser.id)
-                    .eq('date', startDateStr)
-                    .maybeSingle();
-
-                let finalNote = '[FORGOT_BOTH_PENDING]';
-                if (linkedRemoteType) {
-                    finalNote = `[FORGOT_BOTH_PENDING] [PROVISIONAL_${linkedRemoteType}]`;
-                }
-
-                const wasAbsent = existingLog?.status === 'ABSENT' || existingLog?.note?.includes('[ORIGINALLY: ABSENT]');
-
-                if (existingLog?.note) {
-                    if (!existingLog.note.includes('[FORGOT_BOTH_PENDING]')) {
-                        finalNote = `${existingLog.note} ${finalNote}`.trim();
-                    } else {
-                        finalNote = existingLog.note;
-                    }
-                }
-
-                if (wasAbsent && !finalNote.includes('[ORIGINALLY: ABSENT]')) {
-                    finalNote = `[ORIGINALLY: ABSENT] ${finalNote}`;
-                }
-                
-                const payload: any = {
-                    user_id: currentUser.id,
-                    date: startDateStr,
-                    check_in_time: startDate.toISOString(), // บันทึกเวลาเข้าจำลองชั่วคราว
-                    check_out_time: endDate.toISOString(), // บันทึกเวลาออกจำลองชั่วคราวตามที่ส่งขอ
-                    status: 'PENDING_VERIFY', // ตั้งเป็น PENDING_VERIFY เพื่อรออนุมัติ
-                    note: finalNote,
-                    work_type: linkedRemoteType || existingLog?.work_type || 'OFFICE'
-                };
-
-                await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
-
-                if (startDateStr === format(new Date(), 'yyyy-MM-dd')) {
-                    await supabase.from('profiles').update({ work_status: 'ONLINE' }).eq('id', currentUser.id);
-                }
-            }
-
-            if (type === 'LATE_ENTRY') {
-                const { data: existingLog } = await supabase
-                    .from('attendance_logs')
-                    .select('*')
-                    .eq('user_id', currentUser.id)
-                    .eq('date', startDateStr)
-                    .maybeSingle();
-
-                let finalNote = '[PROVISIONAL_LATE_ENTRY]';
-                if (linkedRemoteType) {
-                    finalNote = `[PROVISIONAL_LATE_ENTRY] [PROVISIONAL_${linkedRemoteType}]`;
-                }
-                if (existingLog?.note) {
-                    if (!existingLog.note.includes('[PROVISIONAL_LATE_ENTRY]')) {
-                        finalNote = `${existingLog.note} ${finalNote}`.trim();
-                    } else {
-                        finalNote = existingLog.note;
-                    }
-                }
-
-                const payload: any = {
-                    user_id: currentUser.id,
-                    date: startDateStr,
-                    check_in_time: startDate.toISOString(),
-                    status: 'WORKING',
-                    note: finalNote,
-                    work_type: linkedRemoteType || existingLog?.work_type || 'OFFICE'
-                };
-
-                await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
-                
-                if (startDateStr === format(new Date(), 'yyyy-MM-dd')) {
-                    await supabase.from('profiles').update({ work_status: 'ONLINE' }).eq('id', currentUser.id);
-                }
-            }
-
-            if (type === 'FORGOT_CHECKOUT' || type === 'OUT_OF_RANGE_CHECKOUT') {
-                const { data: existingLog } = await supabase
-                    .from('attendance_logs')
-                    .select('*')
-                    .eq('user_id', currentUser.id)
-                    .eq('date', startDateStr)
-                    .maybeSingle();
-
-                let finalNote = '[PROVISIONAL_CHECKOUT]';
-                if (existingLog?.note) {
-                    if (!existingLog.note.includes('[PROVISIONAL_CHECKOUT]')) {
-                        finalNote = `${existingLog.note} ${finalNote}`.trim();
-                    } else {
-                        finalNote = existingLog.note;
-                    }
-                }
-
-                const payload: any = {
-                    status: 'PENDING_VERIFY',
-                    note: finalNote,
-                    check_out_time: endDate.toISOString()
-                };
-
-                await supabase
-                    .from('attendance_logs')
-                    .update(payload)
-                    .eq('user_id', currentUser.id)
-                    .eq('date', startDateStr);
-            }
-
-            if (type === 'WFH' || type === 'ONSITE') {
-                const { data: existingLog } = await supabase
-                    .from('attendance_logs')
-                    .select('*')
-                    .eq('user_id', currentUser.id)
-                    .eq('date', startDateStr)
-                    .maybeSingle();
-
-                if (existingLog) {
-                    await supabase
-                        .from('attendance_logs')
-                        .update({ status: 'PENDING_VERIFY' })
-                        .eq('id', existingLog.id);
-                }
-            }
-
-            const halfDayStr = isHalfDay ? ` (ลาครึ่งวัน${halfDaySession === 'AM' ? 'เช้า' : 'บ่าย'})` : '';
-            const displayType = linkedRemoteType ? `${type} + ${linkedRemoteType}` : type;
-            const msg = `📢 **${currentUser.name}** ส่งคำขอ (${displayType}${halfDayStr}) \n📅 ${format(startDate, 'd MMM')} \n📝: ${reason}`;
-            await supabase.from('team_messages').insert({
-                content: msg,
-                is_bot: true,
-                message_type: 'TEXT',
-                user_id: null
-            });
-
-            try {
-                const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'ADMIN');
-                if (admins && admins.length > 0) {
-                    const labelPrimary = ATTENDANCE_REGISTRY[type]?.label || type;
-                    const labelSecondary = linkedRemoteType ? ` + ${ATTENDANCE_REGISTRY[linkedRemoteType]?.label || linkedRemoteType}` : '';
-                    const labelCombine = `${labelPrimary}${labelSecondary}${halfDayStr}`;
-
-                    const generalNotifs = admins.map(admin => ({
-                        user_id: admin.id,
-                        type: 'APPROVAL_REQ',
-                        title: `📋 คำขออนุมัติ [${labelCombine}]`,
-                        message: `คุณ ${currentUser.name || 'พนักงาน'} ส่งคำขอ [${labelCombine}] วันที่ ${format(startDate, 'd MMM')}: "${reason}"`,
-                        is_read: false,
-                        link_path: 'ATTENDANCE',
-                        related_id: insertedLeaveReq?.id || null,
-                        metadata: { request_type: type }
-                    }));
-                    await supabase.from('notifications').insert(generalNotifs);
-                }
-            } catch (notiErr) {
-                console.error("Failed to insert admin general notifications:", notiErr);
-            }
-
-            showToast('ส่งคำขอเรียบร้อย รออนุมัติครับ 📨', 'success');
-            if (refreshLeaves) await refreshLeaves();
-            if (refreshAttendance) await refreshAttendance();
-            if (refreshOTRequests) await refreshOTRequests();
-            fetchMyRequests();
-            return true;
-        } catch (err: any) {
-            showToast('ส่งคำขอไม่สำเร็จ: ' + err.message, 'error');
-            return false;
-        } finally {
-            hideLoading();
-        }
-    };
-
-    const fetchRequestsForRange = useCallback(async (start?: Date, end?: Date): Promise<LeaveRequest[]> => {
-        if (!currentUser?.id) return [];
-        setIsLoadingHistorical(true);
-        try {
-            const options: any = { all: false };
-            if (start) options.startDate = format(start, 'yyyy-MM-dd');
-            if (end) options.endDate = format(end, 'yyyy-MM-dd');
-            const data = await attendanceService.fetchCombinedRequests(currentUser.id, options);
-            return data;
-        } catch (err) {
-            console.error("Fetch requests for range failed", err);
-            showToast('ดึงข้อมูลประวัติย้อนหลังล้มเหลว', 'error');
-            return [];
-        } finally {
-            setIsLoadingHistorical(false);
-        }
-    }, [currentUser?.id]);
-
-    return {
-        requests,
-        leaveUsage,
-        pendingUsage,
-        isLoading,
-        isLoadingHistorical,
-        submitRequest,
-        fetchMyRequests,
-        fetchRequestsForRange
-    };
+                        {/* Bottom Decor */}
+                        <div className="absolute -bottom-12 -left-12 w-48 h-48 bg-indigo-50 rounded-full blur-[80px] opacity-60 pointer-events-none"></div>
+                        <div className="absolute -top-12 -right-12 w-48 h-48 bg-purple-50 rounded-full blur-[80px] opacity-60 pointer-events-none"></div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
 };
+
+export default LeaveQuotaWidget;

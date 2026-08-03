@@ -45,6 +45,7 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
       filterStatuses, setFilterStatuses,
       filterOnlyOverdue, setFilterOnlyOverdue,
       filterOnlyMissingStorage, setFilterOnlyMissingStorage,
+      filterChecklistProgress, setFilterChecklistProgress,
       filterHasShootDate, setFilterHasShootDate,
       filterShootDateStart, setFilterShootDateStart,
       filterShootDateEnd, setFilterShootDateEnd,
@@ -70,7 +71,8 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
       isLoading,
       setSearchParams,
       updateLocalItem,
-      toggleShootQueue
+      toggleShootQueue,
+      updateSubChecklistProgress
   } = useContentStockController({ globalTasks, channels, users, masterOptions });
 
   const { queueItems } = useShootQueueContext();
@@ -176,6 +178,8 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
                     setFilterCategory={setFilterCategory}
                     filterStatuses={filterStatuses}
                     setFilterStatuses={setFilterStatuses}
+                    filterChecklistProgress={filterChecklistProgress}
+                    setFilterChecklistProgress={setFilterChecklistProgress}
                     contentSubTab={contentSubTab}
                     
                     filterHasShootDate={filterHasShootDate}
@@ -187,6 +191,8 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
                     
                     showStockOnly={showStockOnly}
                     setShowStockOnly={setShowStockOnly}
+                    onlyOverdue={filterOnlyOverdue}
+                    onlyMissingStorage={filterOnlyMissingStorage}
                     clearFilters={clearFilters}
                     channels={channels}
                     masterOptions={masterOptions}
@@ -222,6 +228,8 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
                         onEditScript={onEditScript}
                         onOpenAnalytics={(content) => setSelectedContentForAnalytics(content)}
                         onTagClick={(tag) => setSearchQuery(`#${tag} `)}
+                        onUpdateLocalTask={updateLocalItem}
+                        onUpdateSubChecklist={updateSubChecklistProgress}
                     />
 
                     {/* Scanning Ray effect during transitions */}

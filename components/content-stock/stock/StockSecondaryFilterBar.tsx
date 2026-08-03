@@ -119,7 +119,32 @@ export const StockSecondaryFilterBar: React.FC<StockSecondaryFilterBarProps> = R
                             label="Category"
                             values={filterCategory}
                             options={categoryOptions}
-                            onChange={setFilterCategory}
+                            onChange={(newCategories) => {
+                                setFilterCategory(newCategories);
+                                
+                                // Find parent Pillars for newly selected categories and add them to filterPillar
+                                const newPillarsToAdd = new Set<string>();
+                                newCategories.forEach(catKey => {
+                                    const catOpt = categoryOptions.find(o => o.key === catKey);
+                                    if (catOpt && catOpt.parentKey) {
+                                        newPillarsToAdd.add(catOpt.parentKey);
+                                    }
+                                });
+
+                                if (newPillarsToAdd.size > 0) {
+                                    setFilterPillar((prevPillars) => {
+                                        const updated = [...prevPillars];
+                                        let changed = false;
+                                        newPillarsToAdd.forEach(pKey => {
+                                            if (!updated.includes(pKey)) {
+                                                updated.push(pKey);
+                                                changed = true;
+                                            }
+                                        });
+                                        return changed ? updated : prevPillars;
+                                    });
+                                }
+                            }}
                             icon={<BarChart3 className="w-3.5 h-3.5" />}
                             activeColorClass="bg-emerald-50 border-emerald-200 text-emerald-700 shadow-sm ring-2 ring-emerald-100 ring-offset-1 font-extrabold"
                         />

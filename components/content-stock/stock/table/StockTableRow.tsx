@@ -90,6 +90,71 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
     const lastAttemptedProgressRef = React.useRef<Record<string, boolean>>(localProgress);
     const debounceTimerRef = React.useRef<NodeJS.Timeout | null>(null);
 
+    const checkedStepsCount = useMemo(() => {
+        return checklistSteps.filter(s => !!(localProgress && localProgress[s.key])).length;
+    }, [checklistSteps, localProgress]);
+
+    const checklistPercentage = useMemo(() => {
+        const totalCount = checklistSteps.length;
+        if (totalCount === 0) return 0;
+
+        // Parse weights for each step
+        let definedWeightSum = 0;
+        let definedWeightCount = 0;
+        
+        const stepsData = checklistSteps.map(step => {
+            let weight: number | null = null;
+            if (typeof step.progressValue === 'number' && step.progressValue > 0) {
+                weight = step.progressValue;
+            } else {
+                try {
+                    const desc = JSON.parse(step.description || '{}');
+                    if (typeof desc.weight === 'number') {
+                        weight = desc.weight;
+                    }
+                } catch (e) {}
+            }
+
+            if (weight !== null) {
+                definedWeightSum += weight;
+                definedWeightCount++;
+            }
+
+            return {
+                key: step.key,
+                weight,
+                isChecked: !!(localProgress && localProgress[step.key])
+            };
+        });
+
+        // If all steps have defined weights, use them
+        if (definedWeightCount === totalCount) {
+            if (definedWeightSum === 0) return 0;
+            const checkedWeightSum = stepsData
+                .filter(s => s.isChecked)
+                .reduce((sum, s) => sum + (s.weight || 0), 0);
+            return Math.round((checkedWeightSum / definedWeightSum) * 100);
+        }
+
+        // If only some or none have weights, distribute the remaining of 100% evenly to the undefined ones
+        const undefinedCount = totalCount - definedWeightCount;
+        const remainingWeight = Math.max(0, 100 - definedWeightSum);
+        const defaultWeightPerUndefined = undefinedCount > 0 ? remainingWeight / undefinedCount : 0;
+
+        let totalPercentage = 0;
+        stepsData.forEach(s => {
+            if (s.isChecked) {
+                if (s.weight !== null) {
+                    totalPercentage += s.weight;
+                } else {
+                    totalPercentage += defaultWeightPerUndefined;
+                }
+            }
+        });
+
+        return Math.min(100, Math.round(totalPercentage));
+    }, [checklistSteps, localProgress]);
+
     // Sync with prop when task.id or task.subChecklistProgress changes, unless actively pending/saved
     const progressStr = JSON.stringify(task.subChecklistProgress || {});
     React.useEffect(() => {
@@ -454,7 +519,7 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
                             <div className="flex items-center justify-between">
                                 <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1 select-none">
                                     <ClipboardList className="w-3 h-3 text-slate-400" />
-                                    ขั้นตอนย่อย ({checklistSteps.filter(s => !!(localProgress && localProgress[s.key])).length}/{checklistSteps.length})
+                                    ขั้นตอนย่อย ({checkedStepsCount}/{checklistSteps.length} — {checklistPercentage}%)
                                 </span>
 
                                 {/* Sub-checklist Sync Status Indicators */}

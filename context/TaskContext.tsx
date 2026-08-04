@@ -147,6 +147,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
             driveLabel: data.drive_label || undefined,
             isInShootQueue: data.is_in_shoot_queue || data.isInShootQueue || false,
             isSoftFinished: data.is_soft_finished || data.isSoftFinished || false,
+            subChecklistProgress: data.sub_checklist_progress || data.subChecklistProgress || {},
             contentId: data.content_id,
             showOnBoard: data.show_on_board,
             parentContentTitle: data.contents?.title,

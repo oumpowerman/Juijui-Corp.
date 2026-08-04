@@ -22,7 +22,7 @@ interface UseContentStockProps {
         shootDateStart?: string; // Changed to Start
         shootDateEnd?: string;   // Changed to End
         contentSubTab?: 'ACTIVE' | 'ARCHIVE';
-        checklistProgress?: string;
+        checklistProgress?: string[];
     };
     sortConfig: { key: string; direction: 'asc' | 'desc' } | null;
     masterOptions?: MasterOption[];
@@ -115,6 +115,7 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
         localPath: data.local_path,
         driveLabel: data.drive_label,
         isInShootQueue: data.is_in_shoot_queue || false,
+        isSoftFinished: data.is_soft_finished || false,
         hasAnalytics: !!data.content_analytics && (Array.isArray(data.content_analytics) ? data.content_analytics.length > 0 : !!data.content_analytics.id),
         analyticsStatus: (() => {
             if (!data.content_analytics) return 'NONE';
@@ -242,44 +243,42 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
         }
 
         // Checklist Progress Filter Match
-        if (activeFilters.checklistProgress && activeFilters.checklistProgress !== 'ALL') {
+        if (activeFilters.checklistProgress && activeFilters.checklistProgress.length > 0) {
             const statusSteps = masterOptions
                 .filter(o => o.type === 'STATUS_CHECKLIST' && o.parentKey === task.status && o.isActive)
                 .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
                 
-            if (statusSteps.length === 0) {
-                // If there are no sub-steps defined for this status, it shouldn't match any filter except INCOMPLETE
-                if (activeFilters.checklistProgress !== 'INCOMPLETE') {
-                    return false;
+            // Task matches if it satisfies AT LEAST ONE of the selected filters (OR-logic)
+            const matchedAny = activeFilters.checklistProgress.some((filterKey: string) => {
+                if (statusSteps.length === 0) {
+                    // If there are no sub-steps defined for this status, it shouldn't match any filter except INCOMPLETE
+                    return filterKey === 'INCOMPLETE';
                 }
-            } else {
+                
                 const progress = task.subChecklistProgress || {};
                 
-                if (activeFilters.checklistProgress === 'STEPS_1_3') {
+                if (filterKey === 'STEPS_1_3') {
                     // First 3 steps must be completed
                     const stepsToVerify = statusSteps.slice(0, 3);
-                    const allDone = stepsToVerify.every(s => !!progress[s.key]);
-                    if (!allDone) return false;
-                } else if (activeFilters.checklistProgress === 'STEPS_4_5') {
+                    return stepsToVerify.length > 0 && stepsToVerify.every(s => !!progress[s.key]);
+                } else if (filterKey === 'STEPS_4_5') {
                     // Steps 4-5 (index 3 and onwards) must be completed
                     if (statusSteps.length <= 3) return false; // No steps 4-5 exist
                     const stepsToVerify = statusSteps.slice(3);
-                    const allDone = stepsToVerify.every(s => !!progress[s.key]);
-                    if (!allDone) return false;
-                } else if (activeFilters.checklistProgress === 'COMPLETED') {
+                    return stepsToVerify.every(s => !!progress[s.key]);
+                } else if (filterKey === 'COMPLETED') {
                     // All active steps must be completed
-                    const allDone = statusSteps.every(s => !!progress[s.key]);
-                    if (!allDone) return false;
-                } else if (activeFilters.checklistProgress === 'INCOMPLETE') {
+                    return statusSteps.every(s => !!progress[s.key]);
+                } else if (filterKey === 'INCOMPLETE') {
                     // At least one active step is NOT completed
-                    const anyIncomplete = statusSteps.some(s => !progress[s.key]);
-                    if (!anyIncomplete) return false;
+                    return statusSteps.some(s => !progress[s.key]);
                 } else {
                     // It must be a specific step key!
-                    const isStepDone = !!progress[activeFilters.checklistProgress];
-                    if (!isStepDone) return false;
+                    return !!progress[filterKey];
                 }
-            }
+            });
+
+            if (!matchedAny) return false;
         }
 
         return true;
@@ -431,7 +430,7 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
             }
 
             // 4. Pagination
-            const isUsingMemoryFilter = filters.checklistProgress && filters.checklistProgress !== 'ALL';
+            const isUsingMemoryFilter = filters.checklistProgress && filters.checklistProgress.length > 0;
             if (!isUsingMemoryFilter) {
                 const from = (page - 1) * pageSize;
                 const to = from + pageSize - 1;

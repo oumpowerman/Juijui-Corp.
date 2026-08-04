@@ -23,8 +23,8 @@ interface StockFilterBarProps {
     setFilterCategory: React.Dispatch<React.SetStateAction<string[]>>;
     filterStatuses: string[];
     setFilterStatuses: React.Dispatch<React.SetStateAction<string[]>>;
-    filterChecklistProgress?: string;
-    setFilterChecklistProgress?: (val: string) => void;
+    filterChecklistProgress?: string[];
+    setFilterChecklistProgress?: (val: string[]) => void;
     contentSubTab?: 'ACTIVE' | 'ARCHIVE';
     
     // Updated for Range
@@ -54,7 +54,7 @@ const StockFilterBar: React.FC<StockFilterBarProps> = React.memo(({
     filterPillar, setFilterPillar,
     filterCategory, setFilterCategory,
     filterStatuses, setFilterStatuses,
-    filterChecklistProgress = 'ALL',
+    filterChecklistProgress = [],
     setFilterChecklistProgress = () => {},
     contentSubTab = 'ACTIVE',
     
@@ -140,7 +140,7 @@ const StockFilterBar: React.FC<StockFilterBarProps> = React.memo(({
                filterHasShootDate || 
                filterShootDateStart || 
                filterShootDateEnd ||
-               filterChecklistProgress !== 'ALL';
+               filterChecklistProgress.length > 0;
     }, [
         searchQuery, filterChannel, filterFormat, filterPillar, 
         filterCategory, filterStatuses, filterHasShootDate, 
@@ -155,7 +155,7 @@ const StockFilterBar: React.FC<StockFilterBarProps> = React.memo(({
         if (filterCategory.length > 0) count++;
         if (filterStatuses.length > 0) count++;
         if (filterHasShootDate) count++;
-        if (filterChecklistProgress !== 'ALL') count++;
+        if (filterChecklistProgress.length > 0) count++;
         return count;
     }, [filterFormat, filterPillar, filterCategory, filterStatuses, filterHasShootDate, filterChecklistProgress]);
 
@@ -215,18 +215,18 @@ const StockFilterBar: React.FC<StockFilterBarProps> = React.memo(({
                         layout
                         onClick={() => setIsAdvancedOpen(!isAdvancedOpen)}
                         className={`
-                            px-4 py-3 rounded-2xl text-xs sm:text-sm font-bold transition-all border flex items-center gap-2 active:scale-95 min-h-[50px] relative
+                            px-4 py-3 rounded-2xl text-xs sm:text-sm font-bold transition-all border flex items-center gap-2 active:scale-95 min-h-[50px] relative shadow-sm
                             ${isAdvancedOpen
-                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-100 ring-2 ring-indigo-100 ring-offset-1'
-                                : 'bg-gray-50/50 text-gray-600 border-gray-200 hover:bg-gray-50 hover:text-gray-700'}
+                                ? 'bg-amber-50 text-amber-900 border-amber-200/90 ring-2 ring-amber-100/50 font-extrabold'
+                                : 'bg-stone-50/60 text-stone-600 border-stone-200/80 hover:bg-stone-100/80 hover:text-stone-800'}
                         `}
                     >
-                        <SlidersHorizontal className="w-4 h-4" />
-                        <span>ตัวกรองละเอียด</span>
+                        <SlidersHorizontal className="w-4 h-4 transition-colors" />
+                        <span>ตัวกรอง</span>
                         
                         {/* Filter Badge counter */}
                         {activeAdvancedFiltersCount > 0 && (
-                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-black text-white ring-2 ring-white">
+                            <span className="flex h-5 w-5 items-center justify-center rounded-full bg-amber-700 text-[10px] font-black text-amber-50 ring-2 ring-amber-50">
                                 {activeAdvancedFiltersCount}
                             </span>
                         )}

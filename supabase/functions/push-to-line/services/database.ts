@@ -51,7 +51,7 @@ export async function getTargetDestination(
   let targetDestination: string | null = null;
   let targetName = '';
 
-  if (record.type === 'DAILY_SUMMARY' || record.type === 'APPROVAL_SUMMARY') {
+  if (record.type === 'DAILY_SUMMARY' || record.type === 'APPROVAL_SUMMARY' || record.type === 'MONTHLY_BONUS_SUMMARY') {
     const { data: destOpt } = await supabaseAdmin
       .from('master_options')
       .select('label')

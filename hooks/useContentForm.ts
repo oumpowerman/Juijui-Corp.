@@ -345,6 +345,7 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
                 shootTimeEnd: initialData?.shootTimeEnd,
                 shootNotes: initialData?.shootNotes,
                 isSoftFinished: initialData?.isSoftFinished,
+                subChecklistProgress: initialData?.subChecklistProgress || {},
             };
 
             await onSave(newTask as Task); // Wait for save (usually async in parent wrapper)

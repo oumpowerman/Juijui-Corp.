@@ -30,7 +30,7 @@ export const useContentStockController = ({ globalTasks, channels, users, master
     const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
     const [filterOnlyOverdue, setFilterOnlyOverdue] = useState(false);
     const [filterOnlyMissingStorage, setFilterOnlyMissingStorage] = useState(false);
-    const [filterChecklistProgress, setFilterChecklistProgress] = useState<string>('ALL');
+    const [filterChecklistProgress, setFilterChecklistProgress] = useState<string[]>([]);
     
     // Range Filter
     const [filterHasShootDate, setFilterHasShootDate] = useState(false);
@@ -131,22 +131,26 @@ export const useContentStockController = ({ globalTasks, channels, users, master
         const isSingleStatus = filterStatuses.length === 1;
         if (!isSingleStatus) {
             // If not single status, specific step filters are not valid.
-            // Reset to 'ALL' if it's not one of the standard metrics ('ALL', 'COMPLETED', 'INCOMPLETE')
-            if (filterChecklistProgress !== 'ALL' && filterChecklistProgress !== 'COMPLETED' && filterChecklistProgress !== 'INCOMPLETE') {
-                setFilterChecklistProgress('ALL');
+            // Reset to keep only standard metrics ('COMPLETED', 'INCOMPLETE')
+            const validFilters = filterChecklistProgress.filter(
+                f => f === 'COMPLETED' || f === 'INCOMPLETE'
+            );
+            if (validFilters.length !== filterChecklistProgress.length) {
+                setFilterChecklistProgress(validFilters);
             }
         } else {
-            // If it is single status, check if the currently selected specific step still belongs to the selected status
+            // If it is single status, check if the currently selected specific steps still belong to the selected status
             const selectedStatus = filterStatuses[0];
             const activeSteps = masterOptions.filter(
                 o => o.type === 'STATUS_CHECKLIST' && o.parentKey === selectedStatus && o.isActive
             );
             const stepKeys = activeSteps.map(s => s.key);
             
-            if (filterChecklistProgress !== 'ALL' && filterChecklistProgress !== 'COMPLETED' && filterChecklistProgress !== 'INCOMPLETE') {
-                if (!stepKeys.includes(filterChecklistProgress)) {
-                    setFilterChecklistProgress('ALL');
-                }
+            const validFilters = filterChecklistProgress.filter(
+                f => f === 'COMPLETED' || f === 'INCOMPLETE' || stepKeys.includes(f)
+            );
+            if (validFilters.length !== filterChecklistProgress.length) {
+                setFilterChecklistProgress(validFilters);
             }
         }
     }, [filterStatuses, filterChecklistProgress, masterOptions]);
@@ -182,7 +186,7 @@ export const useContentStockController = ({ globalTasks, channels, users, master
         setFilterStatuses([]);
         setFilterOnlyOverdue(false);
         setFilterOnlyMissingStorage(false);
-        setFilterChecklistProgress('ALL');
+        setFilterChecklistProgress([]);
     }, []);
 
     const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {

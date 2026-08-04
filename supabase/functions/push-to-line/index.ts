@@ -18,6 +18,7 @@ import { sendLineMessages } from './services/lineService.ts';
 import { buildFlexHeader } from './templates/flexBase.ts';
 import {
   buildDailySummaryPayload,
+  buildMonthlyBonusSummaryPayload,
   buildSingleBodyContents,
   buildBatchBodyContents
 } from './templates/attendanceFlex.ts';
@@ -140,6 +141,8 @@ Deno.serve(async (req: any) => {
 
         if (record.type === 'DAILY_SUMMARY') {
           lineMessagePayload = buildDailySummaryPayload(targetDestination, record);
+        } else if (record.type === 'MONTHLY_BONUS_SUMMARY') {
+          lineMessagePayload = buildMonthlyBonusSummaryPayload(targetDestination, record);
         } else {
           const isBatch = claimedRecords.length > 1;
           

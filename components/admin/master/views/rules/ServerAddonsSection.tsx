@@ -9,6 +9,7 @@ import LineApprovalModeCard from './addons/LineApprovalModeCard';
 import CheckoutReminderCard from './addons/CheckoutReminderCard';
 import SubmissionAlertCard from './addons/SubmissionAlertCard';
 import AbsentCheckCard from './addons/AbsentCheckCard';
+import MonthlyBonusCard from './addons/MonthlyBonusCard';
 
 
 interface WorkTimeConfig {
@@ -37,6 +38,8 @@ interface WorkTimeConfig {
     absentPenaltyTime?: string;
     absentPenaltyTargetRoles?: string;
     lineSubmissionAlertMode?: string;
+    monthlySummaryTime?: string;
+    monthlySummaryDay?: string;
 }
 
 interface ServerAddonsSectionProps {
@@ -61,7 +64,7 @@ const ServerAddonsSection: React.FC<ServerAddonsSectionProps> = ({
         return () => media.removeEventListener('change', listener);
     }, []);
 
-    const totalSlides = 8;
+    const totalSlides = 9;
 
     const handleNext = () => {
         setActiveSlide((prev) => (prev + 1) % totalSlides);
@@ -130,6 +133,13 @@ const ServerAddonsSection: React.FC<ServerAddonsSectionProps> = ({
                         setTempTimeConfig={setTempTimeConfig}
                     />
                 );
+            case 8:
+                return (
+                    <MonthlyBonusCard
+                        tempTimeConfig={tempTimeConfig}
+                        setTempTimeConfig={setTempTimeConfig}
+                    />
+                );
             default:
                 return null;
         }
@@ -145,7 +155,7 @@ const ServerAddonsSection: React.FC<ServerAddonsSectionProps> = ({
         { title: 'Checkout Reminder', color: 'bg-indigo-500', glow: 'shadow-indigo-500/30' },
         { title: 'Submission Alert Policy', color: 'bg-emerald-500', glow: 'shadow-emerald-500/30' },
         { title: 'Daily Absent Check', color: 'bg-rose-500', glow: 'shadow-rose-500/30' },
-        { title: 'OT Summary Notification', color: 'bg-indigo-500', glow: 'shadow-indigo-500/30' },
+        { title: 'Monthly Perfect Attendance Summary', color: 'bg-amber-500', glow: 'shadow-amber-500/30' },
     ];
 
     return (

@@ -15,8 +15,8 @@ interface StockSecondaryFilterBarProps {
     setFilterCategory: React.Dispatch<React.SetStateAction<string[]>>;
     filterStatuses: string[];
     setFilterStatuses: React.Dispatch<React.SetStateAction<string[]>>;
-    filterChecklistProgress?: string;
-    setFilterChecklistProgress?: (val: string) => void;
+    filterChecklistProgress?: string[];
+    setFilterChecklistProgress?: (val: string[]) => void;
     contentSubTab?: 'ACTIVE' | 'ARCHIVE';
     
     // Date Range
@@ -43,7 +43,7 @@ export const StockSecondaryFilterBar: React.FC<StockSecondaryFilterBarProps> = R
     filterPillar, setFilterPillar,
     filterCategory, setFilterCategory,
     filterStatuses, setFilterStatuses,
-    filterChecklistProgress = 'ALL',
+    filterChecklistProgress = [],
     setFilterChecklistProgress = () => {},
     contentSubTab = 'ACTIVE',
     
@@ -65,7 +65,6 @@ export const StockSecondaryFilterBar: React.FC<StockSecondaryFilterBarProps> = R
         const isSingleStatus = filterStatuses.length === 1;
         if (!isSingleStatus) {
             return [
-                { key: 'ALL', label: 'ขั้นตอนย่อย: ทั้งหมด' },
                 { key: 'COMPLETED', label: 'เสร็จสมบูรณ์ 100%' },
                 { key: 'INCOMPLETE', label: 'ยังไม่เสร็จสิ้น' },
             ];
@@ -83,17 +82,11 @@ export const StockSecondaryFilterBar: React.FC<StockSecondaryFilterBarProps> = R
         }));
 
         return [
-            { key: 'ALL', label: 'ขั้นตอนย่อย: ทั้งหมด' },
-            ...stepOptions,
             { key: 'COMPLETED', label: 'เสร็จสมบูรณ์ 100%' },
+            ...stepOptions,
             { key: 'INCOMPLETE', label: 'ยังไม่เสร็จสิ้น' },
         ];
     }, [filterStatuses, masterOptions]);
-
-    const checklistDropdownLabel = React.useMemo(() => {
-        const currentOpt = checklistDropdownOptions.find(opt => opt.key === filterChecklistProgress);
-        return currentOpt ? currentOpt.label : 'ขั้นตอนย่อย: ทั้งหมด';
-    }, [filterChecklistProgress, checklistDropdownOptions]);
 
     return (
         <motion.div
@@ -204,15 +197,13 @@ export const StockSecondaryFilterBar: React.FC<StockSecondaryFilterBarProps> = R
                     {/* Checklist Progress Selection Dropdown */}
                     {contentSubTab === 'ACTIVE' && (
                         <div className="shrink-0">
-                            <FilterDropdown
-                                label={checklistDropdownLabel}
-                                value={filterChecklistProgress}
+                            <MultiSelectFilter 
+                                label="ขั้นตอนย่อย"
+                                values={filterChecklistProgress}
                                 options={checklistDropdownOptions}
-                                onChange={(val) => setFilterChecklistProgress(val)}
+                                onChange={setFilterChecklistProgress}
                                 icon={<ListFilter className="w-3.5 h-3.5" />}
                                 activeColorClass="bg-indigo-50 border-indigo-200 text-indigo-700 shadow-sm ring-2 ring-indigo-100 ring-offset-1 font-extrabold"
-                                showAllOption={false}
-                                clearable={false}
                             />
                         </div>
                     )}

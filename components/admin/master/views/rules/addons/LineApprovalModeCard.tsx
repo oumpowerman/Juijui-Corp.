@@ -2,23 +2,7 @@ import React, { useState } from 'react';
 import { Smartphone, Sparkles, MessageSquare, Check, X, Bell, ShieldCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-interface WorkTimeConfig {
-    start: string;
-    end: string;
-    buffer: string;
-    minHours: string;
-    otThreshold: string;
-    checkoutPenaltyTime: string;
-    dailySummaryDelayHours: string;
-    lineSummaryDestination: string;
-    enableAttendanceRace: string;
-    lateAlertMode?: string;
-    lateAlertOffset?: string;
-    multipleShiftsEnabled?: string;
-    multipleShiftsList?: string;
-    lineApprovalMode?: string;
-    lineHeaderTitle?: string;
-}
+import { WorkTimeConfig } from '../WorkTimeCard';
 
 interface LineApprovalModeCardProps {
     tempTimeConfig: WorkTimeConfig;

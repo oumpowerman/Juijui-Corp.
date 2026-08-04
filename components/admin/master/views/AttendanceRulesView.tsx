@@ -62,6 +62,8 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
         absentPenaltyTargetRoles: 'BOTH',
         forgotCheckInLimitHours: '12',
         lineSubmissionAlertMode: 'ADMIN_PRIVATE',
+        monthlySummaryTime: '08:00',
+        monthlySummaryDay: '1',
     });
     const [isStartTimeOpen, setIsStartTimeOpen] = useState(false);
     const [isEndTimeOpen, setIsEndTimeOpen] = useState(false);
@@ -104,8 +106,10 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
         const absentPenaltyTargetRolesOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'ABSENT_PENALTY_TARGET_ROLES');
         const forgotCheckInLimitHoursOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'FORGOT_CHECKIN_LIMIT_HOURS');
         const lineSubmissionAlertModeOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'LINE_SUBMISSION_ALERT_MODE');
+        const monthlySummaryTimeOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'MONTHLY_SUMMARY_TIME');
+        const monthlySummaryDayOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'MONTHLY_SUMMARY_DAY');
         
-        if (startOpt || endOpt || bufferOpt || minHoursOpt || otThresholdOpt || checkoutPenaltyTimeOpt || dailySummaryDelayHoursOpt || dailySummaryTimeOpt || lineSummaryDestinationOpt || enableRaceOpt || lateAlertModeOpt || lateAlertOffsetOpt || shiftsEnabledOpt || shiftsListOpt || lineApprovalModeOpt || lineHeaderTitleOpt || lateAlertTargetRolesOpt || checkoutPenaltyTargetRolesOpt || checkoutAlertEnabledOpt || checkoutAlertModeOpt || checkoutAlertOffsetOpt || checkoutAlertTargetRolesOpt || adminAbsentPenaltyEnabledOpt || absentPenaltyEnabledOpt || absentPenaltyTimeOpt || absentPenaltyTargetRolesOpt || forgotCheckInLimitHoursOpt || lineSubmissionAlertModeOpt ) {
+        if (startOpt || endOpt || bufferOpt || minHoursOpt || otThresholdOpt || checkoutPenaltyTimeOpt || dailySummaryDelayHoursOpt || dailySummaryTimeOpt || lineSummaryDestinationOpt || enableRaceOpt || lateAlertModeOpt || lateAlertOffsetOpt || shiftsEnabledOpt || shiftsListOpt || lineApprovalModeOpt || lineHeaderTitleOpt || lateAlertTargetRolesOpt || checkoutPenaltyTargetRolesOpt || checkoutAlertEnabledOpt || checkoutAlertModeOpt || checkoutAlertOffsetOpt || checkoutAlertTargetRolesOpt || adminAbsentPenaltyEnabledOpt || absentPenaltyEnabledOpt || absentPenaltyTimeOpt || absentPenaltyTargetRolesOpt || forgotCheckInLimitHoursOpt || lineSubmissionAlertModeOpt || monthlySummaryTimeOpt || monthlySummaryDayOpt ) {
             setTempTimeConfig({
                 start: startOpt?.label || '10:00',
                 end: endOpt?.label || '19:00',
@@ -135,6 +139,8 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
                 absentPenaltyTargetRoles: absentPenaltyTargetRolesOpt?.label || 'BOTH',
                 forgotCheckInLimitHours: forgotCheckInLimitHoursOpt?.label || '12',
                 lineSubmissionAlertMode: lineSubmissionAlertModeOpt?.label || 'ADMIN_PRIVATE',
+                monthlySummaryTime: monthlySummaryTimeOpt?.label || '08:00',
+                monthlySummaryDay: monthlySummaryDayOpt?.label || '1',
             });
         }
 
@@ -201,6 +207,8 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
         prepareUpdateOrInsert('ABSENT_PENALTY_TARGET_ROLES', tempTimeConfig.absentPenaltyTargetRoles || 'BOTH');
         prepareUpdateOrInsert('FORGOT_CHECKIN_LIMIT_HOURS', tempTimeConfig.forgotCheckInLimitHours || '12');
         prepareUpdateOrInsert('LINE_SUBMISSION_ALERT_MODE', tempTimeConfig.lineSubmissionAlertMode || 'ADMIN_PRIVATE');
+        prepareUpdateOrInsert('MONTHLY_SUMMARY_TIME', tempTimeConfig.monthlySummaryTime || '08:00');
+        prepareUpdateOrInsert('MONTHLY_SUMMARY_DAY', tempTimeConfig.monthlySummaryDay || '1');
         
         if (optionsToSave.length > 0) {
             if (saveMasterOptionsBulk) {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { Task, Channel, User, MasterOption, ScriptSummary, Script } from '../../types';
 import { useContentForm } from '../../hooks/useContentForm';
 import { AlertTriangle, Trash2, Send, Loader2, Lock, Eye, Search, FileText, Check, X, Tag } from 'lucide-react';
@@ -83,6 +83,7 @@ const ContentForm: React.FC<ContentFormProps> = ({
         editorIds, setEditorIds,
         assigneeIds, setAssigneeIds,
         assets, addAsset, removeAsset,
+        subChecklistProgress, setSubChecklistProgress,
         error,
         formatOptions, pillarOptions, categoryOptions, statusOptions,
         handleSubmit: originalHandleSubmit, togglePlatform, toggleUserSelection,
@@ -367,6 +368,13 @@ const ContentForm: React.FC<ContentFormProps> = ({
         }
     };
 
+    const checklistSteps = useMemo(() => {
+        if (!status || !masterOptions) return [];
+        return masterOptions
+            .filter(o => o.type === 'STATUS_CHECKLIST' && o.parentKey === status && o.isActive)
+            .sort((a, b) => a.sortOrder - b.sortOrder);
+    }, [status, masterOptions]);
+
     const isEditorOpen = scriptToEdit && currentUser;
 
     // --- Determine Permission ---
@@ -398,6 +406,43 @@ const ContentForm: React.FC<ContentFormProps> = ({
                                 channelId={channelId} setChannelId={setChannelId}
                                 statusOptions={statusOptions} channels={channels}
                             />
+
+                            {/* Steps Checklist / ขั้นตอนย่อย */}
+                            {checklistSteps.length > 0 && (
+                                <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4 sm:p-5 space-y-3">
+                                    <div className="flex items-center space-x-2 text-slate-800 font-semibold text-sm">
+                                        <div className="w-1.5 h-4 bg-indigo-500 rounded-full" />
+                                        <span>ขั้นตอนย่อยสำหรับสถานะนี้ ({checklistSteps.filter(s => !!subChecklistProgress[s.key]).length}/{checklistSteps.length})</span>
+                                    </div>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                                        {checklistSteps.map((step) => {
+                                            const isChecked = !!subChecklistProgress[step.key];
+                                            return (
+                                                <label 
+                                                    key={step.key}
+                                                    className={`flex items-center space-x-3 p-3 rounded-xl border transition-all duration-200 cursor-pointer text-sm select-none
+                                                        ${isChecked 
+                                                            ? 'bg-indigo-50/50 border-indigo-100 text-slate-800 font-medium' 
+                                                            : 'bg-white border-slate-100 text-slate-600 hover:bg-slate-50 hover:border-slate-200'}`}
+                                                >
+                                                    <input 
+                                                        type="checkbox"
+                                                        checked={isChecked}
+                                                        onChange={(e) => {
+                                                            setSubChecklistProgress(prev => ({
+                                                                ...prev,
+                                                                [step.key]: e.target.checked
+                                                            }));
+                                                        }}
+                                                        className="h-4 w-4 rounded text-indigo-600 focus:ring-indigo-500 border-slate-300 transition-colors"
+                                                    />
+                                                    <span className="flex-1 line-clamp-1">{step.label}</span>
+                                                </label>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* MOVED: 10. File Storage Path */}
                             <CFStoragePath 

@@ -48,6 +48,7 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
     
     // Other
     const [assets, setAssets] = useState<TaskAsset[]>([]);
+    const [subChecklistProgress, setSubChecklistProgress] = useState<Record<string, boolean>>({});
         
     // Script Integration
     const [scriptId, setScriptId] = useState<string | undefined>(undefined);
@@ -208,8 +209,10 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
             
             setAssets(initialData.assets || []);
             setScriptId(initialData.scriptId); // Link script
+            setSubChecklistProgress(initialData.subChecklistProgress || {});
         } else {
             // Defaults for New Content
+            setSubChecklistProgress({});
             setTitle(sourceScript?.title || '');
             setDescription(sourceScript ? `Script Link: ${sourceScript.title}` : '');
             setRemark('');
@@ -345,7 +348,7 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
                 shootTimeEnd: initialData?.shootTimeEnd,
                 shootNotes: initialData?.shootNotes,
                 isSoftFinished: initialData?.isSoftFinished,
-                subChecklistProgress: initialData?.subChecklistProgress || {},
+                subChecklistProgress: subChecklistProgress || {},
             };
 
             await onSave(newTask as Task); // Wait for save (usually async in parent wrapper)
@@ -401,6 +404,7 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
         assigneeIds, setAssigneeIds,
         assets, 
         scriptId, setScriptId,
+        subChecklistProgress, setSubChecklistProgress,
 
         error,
         isSaving, // EXPORTED

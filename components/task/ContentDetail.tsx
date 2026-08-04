@@ -209,7 +209,7 @@ const ContentDetail: React.FC<ContentDetailProps> = ({
                                             animate={{ opacity: 1, y: 0 }}
                                             exit={{ opacity: 0, y: -10 }}
                                         >
-                                            <ContentInfoView task={task} users={users} />
+                                            <ContentInfoView task={task} users={users} masterOptions={masterOptions} onSave={onSave} />
                                         </motion.div>
                                     ) : (
                                         <motion.div

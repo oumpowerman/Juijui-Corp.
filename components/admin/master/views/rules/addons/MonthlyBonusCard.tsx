@@ -25,6 +25,7 @@ const MonthlyBonusCard: React.FC<MonthlyBonusCardProps> = ({
 
     const targetTimeDisplay = tempTimeConfig.monthlySummaryTime || '08:00';
     const targetDayDisplay = tempTimeConfig.monthlySummaryDay || '1';
+    const targetModeDisplay = tempTimeConfig.monthlySummaryMode || 'PREV_MONTH';
 
     return (
         <div id="sim-card-monthly-bonus" className="h-full flex flex-col justify-between space-y-3">
@@ -43,10 +44,31 @@ const MonthlyBonusCard: React.FC<MonthlyBonusCardProps> = ({
                     รายงานสรุปสิทธิ์เบี้ยขยันรายเดือน
                 </h4>
                 <p className="text-[11px] text-gray-500 leading-normal font-medium">
-                    ระบบประมวลผลสิ้นเดือน ค้นหาและคัดเลือกพนักงานที่ไม่ขาดงาน ไม่สาย ไม่ลากิจ/ลาป่วยเลย (ยกเว้นลาพักร้อน) ตลอดทั้งเดือนแบบอัตโนมัติ 100% เพื่อสรุปผลงานระดับเหรียญทองเกียรติยศส่งตรงให้ผู้บริหารและ HR ทราบทันที
+                    ระบบประมวลผลค้นหาและคัดเลือกพนักงานที่ไม่ขาดงาน ไม่สาย ไม่ลากิจ/ลาป่วยเลย (ยกเว้นลาพักร้อน) ตลอดช่วงเวลาที่เลือกแบบอัตโนมัติ 100% เพื่อสรุปผลงานระดับเหรียญทองเกียรติยศส่งตรงให้ผู้บริหารและ HR ทราบทันที
                 </p>
                 
-                <div className="mt-3 p-3 bg-gradient-to-r from-amber-50/40 to-amber-100/10 rounded-2xl border border-amber-100/60 space-y-2.5 shadow-sm">
+                <div className="mt-3 p-3 bg-gradient-to-r from-amber-50/40 to-amber-100/10 rounded-2xl border border-amber-100/60 space-y-3 shadow-sm">
+                    {/* Mode Selector Option */}
+                    <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-black text-amber-800 uppercase tracking-wider">📊 โหมดการคำนวณและสรุปยอด:</span>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setTempTimeConfig(prev => ({ ...prev, monthlySummaryMode: 'PREV_MONTH' }))}
+                                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold text-center transition-all border shadow-xs ${targetModeDisplay === 'PREV_MONTH' ? 'bg-amber-600 text-white border-amber-600 font-black shadow-md shadow-amber-600/10' : 'bg-white text-amber-800 border-amber-200/80 hover:bg-amber-50/20'}`}
+                            >
+                                สรุปถัดไป (เดือนที่แล้ว)
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setTempTimeConfig(prev => ({ ...prev, monthlySummaryMode: 'CURRENT_MONTH' }))}
+                                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold text-center transition-all border shadow-xs ${targetModeDisplay === 'CURRENT_MONTH' ? 'bg-amber-600 text-white border-amber-600 font-black shadow-md shadow-amber-600/10' : 'bg-white text-amber-800 border-amber-200/80 hover:bg-amber-50/20'}`}
+                            >
+                                สะสมตรง (ภายในเดือนนี้)
+                            </button>
+                        </div>
+                    </div>
+
                     <div className="grid grid-cols-2 gap-3">
                         <div className="flex flex-col gap-1">
                             <span className="text-[10px] font-extrabold text-amber-800">⏰ วันที่ส่งรายงานของทุกเดือน:</span>
@@ -58,7 +80,10 @@ const MonthlyBonusCard: React.FC<MonthlyBonusCardProps> = ({
                             >
                                 {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
                                     <option key={day} value={day.toString()}>
-                                        วันที่ {day} ของเดือนถัดไป
+                                        {targetModeDisplay === 'CURRENT_MONTH' 
+                                            ? `วันที่ ${day} (สะสม 1 ถึง ${day})` 
+                                            : `วันที่ ${day} ของเดือนถัดไป`
+                                        }
                                     </option>
                                 ))}
                             </select>
@@ -87,10 +112,13 @@ const MonthlyBonusCard: React.FC<MonthlyBonusCardProps> = ({
                         <div className="flex flex-col justify-end text-[11px] font-extrabold text-amber-950/80 col-span-2">
                             <div className="flex justify-between items-center bg-white px-2.5 py-1.5 rounded-lg border border-amber-100/80 shadow-sm min-h-[32px]">
                                 <span className="flex items-center gap-1 text-[10px] text-amber-700">
-                                    <CalendarDays className="w-3.5 h-3.5" /> ตั้งเวลารันอัตโนมัติ:
+                                    <CalendarDays className="w-3.5 h-3.5" /> รายงานสรุปตั้งเวลา:
                                 </span>
-                                <span className="text-amber-800 tracking-wide font-black">
-                                    ทุกวันที่ {targetDayDisplay} เวลา {targetTimeDisplay} น.
+                                <span className="text-amber-800 tracking-wide font-black text-right text-[11px]">
+                                    {targetModeDisplay === 'CURRENT_MONTH'
+                                        ? `สะสมวันที่ 1 ถึง ${targetDayDisplay} ของเดือนนี้`
+                                        : `ทุกวันที่ ${targetDayDisplay} (ข้อมูลของเดือนที่ผ่านมา)`
+                                    } {targetTimeDisplay} น.
                                 </span>
                             </div>
                         </div>
@@ -118,7 +146,7 @@ const MonthlyBonusCard: React.FC<MonthlyBonusCardProps> = ({
                     </motion.button>
                 </div>
 
-                <div className="relative h-[230px] bg-gradient-to-b from-amber-50 to-amber-100/20 rounded-xl p-3 text-slate-800 border border-amber-100/60 shadow-inner flex flex-col justify-center overflow-y-auto">
+                <div className="relative h-[240px] bg-gradient-to-b from-amber-50 to-amber-100/20 rounded-xl p-3 text-slate-800 border border-amber-100/60 shadow-inner flex flex-col justify-center overflow-y-auto">
                     <AnimatePresence mode="wait">
                         {simM.showPreview ? (
                             <motion.div 
@@ -129,16 +157,24 @@ const MonthlyBonusCard: React.FC<MonthlyBonusCardProps> = ({
                                 transition={{ type: "spring", stiffness: 260, damping: 20 }}
                                 className="space-y-2 bg-[#0f172a] text-slate-100 p-3.5 rounded-xl border border-slate-700/80 font-sans shadow-xl text-left"
                             >
-                                <div className="font-extrabold text-amber-400 border-b border-slate-700 pb-1.5 flex items-center gap-1.5 text-[11px] justify-center">
-                                    🏆 สรุปรายชื่อพนักงานได้รับเบี้ยขยัน (ประจำเดือนกรกฎาคม 2569)
+                                <div className="font-extrabold text-amber-400 border-b border-slate-700 pb-1.5 flex items-center gap-1.5 text-[11px] justify-center text-center">
+                                    {targetModeDisplay === 'CURRENT_MONTH'
+                                        ? `🏆 สรุปรายชื่อพนักงานได้รับเบี้ยขยันสะสม (ช่วงวันที่ 1 ถึง ${targetDayDisplay} กรกฎาคม 2569)`
+                                        : `🏆 สรุปรายชื่อพนักงานได้รับเบี้ยขยัน (ประจำเดือนกรกฎาคม 2569)`
+                                    }
                                 </div>
                                 <div className="text-[10px] space-y-1.5 leading-normal text-slate-300">
                                     <p className="font-extrabold text-amber-300">👑 สรุปผลงานระดับเหรียญทองเกียรติยศ (Perfect Attendance)</p>
-                                    <p className="text-[9px] text-slate-400">พนักงานที่มีวินัยดีเยี่ยม ไม่ขาด ไม่สาย ไม่ลากิจ/ลาป่วย ตลอดทั้งเดือน</p>
+                                    <p className="text-[9px] text-slate-400">
+                                        {targetModeDisplay === 'CURRENT_MONTH'
+                                            ? `พนักงานที่มีวินัยดีเยี่ยม ไม่ขาด ไม่สาย ไม่ลากิจ/ลาป่วย ตั้งแต่วันที่ 1 ถึง ${targetDayDisplay}`
+                                            : `พนักงานที่มีวินัยดีเยี่ยม ไม่ขาด ไม่สาย ไม่ลากิจ/ลาป่วย ตลอดทั้งเดือน`
+                                        }
+                                    </p>
                                     
                                     <div className="bg-slate-800/80 p-2 rounded-lg border border-slate-700 text-slate-200 text-[9px] space-y-1">
                                         <p className="flex justify-between font-bold">
-                                            <span>📊 ภาพรวมเดือนนี้:</span>
+                                            <span>📊 ภาพรวมช่วงเวลานี้:</span>
                                         </p>
                                         <p>• พนักงานทั้งหมด: 12 คน</p>
                                         <p>• ผ่านเกณฑ์เบี้ยขยัน: <span className="text-emerald-400 font-extrabold">2 คน (17%)</span></p>
@@ -146,12 +182,18 @@ const MonthlyBonusCard: React.FC<MonthlyBonusCardProps> = ({
 
                                     <div className="text-[9px] text-amber-200">
                                         🥇 นายสมหมาย มุ่งมั่น (ฝ่ายผลิต)<br />
-                                        &nbsp;&nbsp;&nbsp;[ ตรงเวลา: 22 วัน | ลาพักร้อน: 1 วัน | สาย: 0 | ขาด: 0 ]<br />
+                                        &nbsp;&nbsp;&nbsp;{targetModeDisplay === 'CURRENT_MONTH' 
+                                            ? `[ ตรงเวลา: 8 วัน | ลาพักร้อน: 0 วัน | สาย: 0 | ขาด: 0 ]` 
+                                            : `[ ตรงเวลา: 22 วัน | ลาพักร้อน: 1 วัน | สาย: 0 | ขาด: 0 ]`
+                                        }<br />
                                         🥇 นางสาวสมศรี มีวินัย (ฝ่ายบัญชี)<br />
-                                        &nbsp;&nbsp;&nbsp;[ ตรงเวลา: 23 วัน | ลาพักร้อน: 0 วัน | สาย: 0 | ขาด: 0 ]
+                                        &nbsp;&nbsp;&nbsp;{targetModeDisplay === 'CURRENT_MONTH' 
+                                            ? `[ ตรงเวลา: 8 วัน | ลาพักร้อน: 0 วัน | สาย: 0 | ขาด: 0 ]` 
+                                            : `[ ตรงเวลา: 23 วัน | ลาพักร้อน: 0 วัน | สาย: 0 | ขาด: 0 ]`
+                                        }
                                     </div>
                                     <p className="text-[8px] text-slate-500 text-center italic mt-1 pt-1 border-t border-slate-800">
-                                        ระบบประมวลผลข้อมูลอัตโนมัติ ณ วันที่ 01/08/2026
+                                        ระบบประมวลผลข้อมูลอัตโนมัติ ณ วันที่ {targetDayDisplay.padStart(2, '0')}/07/2026
                                     </p>
                                 </div>
                             </motion.div>

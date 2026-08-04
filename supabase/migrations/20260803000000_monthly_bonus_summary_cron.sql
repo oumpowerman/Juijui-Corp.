@@ -6,8 +6,9 @@
 CREATE OR REPLACE FUNCTION public.generate_monthly_bonus_summary()
 RETURNS void AS $$
 DECLARE
-    prev_month_start DATE;
-    prev_month_end DATE;
+    summary_mode TEXT := 'PREV_MONTH';
+    summary_start_date DATE;
+    summary_end_date DATE;
     cur_day DATE;
     profile_rec RECORD;
     total_employees INT := 0;
@@ -49,14 +50,25 @@ DECLARE
     eligible_list_text TEXT := '';
     metadata_val JSONB;
 BEGIN
-    -- Determine current date's previous month start and end dates in Thailand time
-    prev_month_start := (date_trunc('month', timezone('Asia/Bangkok', now()) - interval '1 month'))::date;
-    prev_month_end := (date_trunc('month', timezone('Asia/Bangkok', now())) - interval '1 day')::date;
-
     -- Fetch config values from master_options
     SELECT label INTO start_time_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'START_TIME' LIMIT 1;
     SELECT label INTO late_buffer_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'LATE_BUFFER' LIMIT 1;
     SELECT label INTO destination_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'LINE_SUMMARY_DESTINATION' LIMIT 1;
+    SELECT label INTO summary_mode FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'MONTHLY_SUMMARY_MODE' LIMIT 1;
+
+    -- Fallbacks
+    IF summary_mode IS NULL OR summary_mode = '' THEN
+        summary_mode := 'PREV_MONTH';
+    END IF;
+
+    -- Determine start and end dates based on summary_mode
+    IF summary_mode = 'CURRENT_MONTH' THEN
+        summary_start_date := (date_trunc('month', timezone('Asia/Bangkok', now())))::date;
+        summary_end_date := (timezone('Asia/Bangkok', now()))::date;
+    ELSE
+        summary_start_date := (date_trunc('month', timezone('Asia/Bangkok', now()) - interval '1 month'))::date;
+        summary_end_date := (date_trunc('month', timezone('Asia/Bangkok', now())) - interval '1 day')::date;
+    END IF;
 
     -- If destination is empty, do not run to avoid spam or unnecessary processing
     IF destination_val IS NULL OR destination_val = '' THEN
@@ -111,7 +123,7 @@ BEGIN
     END IF;
 
     -- Calculate Thai month and year names
-    month_name_val := CASE EXTRACT(MONTH FROM prev_month_start)
+    month_name_val := CASE EXTRACT(MONTH FROM summary_start_date)
         WHEN 1 THEN 'มกราคม'
         WHEN 2 THEN 'กุมภาพันธ์'
         WHEN 3 THEN 'มีนาคม'
@@ -125,7 +137,7 @@ BEGIN
         WHEN 11 THEN 'พฤศจิกายน'
         WHEN 12 THEN 'ธันวาคม'
     END;
-    year_name_val := EXTRACT(YEAR FROM prev_month_start) + 543;
+    year_name_val := EXTRACT(YEAR FROM summary_start_date) + 543;
 
     -- Loop through active users (exclude ADMIN from attendance tracking)
     FOR profile_rec IN 
@@ -142,9 +154,9 @@ BEGIN
         user_other_leave_days := 0;
         user_absent_days := 0;
 
-        -- Loop day-by-day from prev_month_start to prev_month_end
-        cur_day := prev_month_start;
-        WHILE cur_day <= prev_month_end LOOP
+        -- Loop day-by-day from summary_start_date to summary_end_date
+        cur_day := summary_start_date;
+        WHILE cur_day <= summary_end_date LOOP
             IF public.is_working_day_db(cur_day, profile_rec.id) THEN
                 -- Check approved leave request on cur_day
                 SELECT leave_type INTO leave_type_val
@@ -214,19 +226,35 @@ BEGIN
         eligible_list_text := E'\n  (ไม่มีพนักงานผ่านเกณฑ์สำหรับเดือนนี้)\n';
     END IF;
 
-    message_text := '🏆 สรุปรายชื่อพนักงานได้รับเบี้ยขยัน (ประจำเดือน' || month_name_val || ' ' || year_name_val::TEXT || ')' || E'\n\n' ||
-                    '👑 สรุปผลงานระดับเหรียญทองเกียรติยศ (Perfect Attendance)' || E'\n' ||
-                    'พนักงานที่มีวินัยดีเยี่ยม ไม่ขาด ไม่สาย ไม่ลากิจ/ลาป่วย ตลอดทั้งเดือน' || E'\n\n' ||
-                    '📊 ภาพรวมเดือนนี้:' || E'\n' ||
-                    '- พนักงานทั้งหมด: ' || total_employees || ' คน' || E'\n' ||
-                    '- ผ่านเกณฑ์ได้รับเบี้ยขยัน: ' || eligible_count || ' คน (' || 
-                    CASE WHEN total_employees > 0 THEN ROUND((eligible_count::NUMERIC / total_employees::NUMERIC) * 100)::TEXT ELSE '0' END || '%)' || E'\n\n' ||
-                    '---------------------------------------------------------' || E'\n' ||
-                    '📋 รายชื่อพนักงานที่ได้รับสิทธิ์:' || E'\n' ||
-                    eligible_list_text || E'\n' ||
-                    '---------------------------------------------------------' || E'\n' ||
-                    '💡 หมายเหตุ: ระบบประมวลผลข้อมูลอัตโนมัติ ณ วันที่ ' || to_char(timezone('Asia/Bangkok'::text, now()), 'DD/MM/YYYY') || E'\n\n' ||
-                    'แอปพลิเคชัน ' || app_name_val;
+    IF summary_mode = 'CURRENT_MONTH' THEN
+        message_text := '🏆 สรุปรายชื่อพนักงานได้รับเบี้ยขยัน (ช่วงวันที่ 1 ถึง ' || EXTRACT(DAY FROM summary_end_date)::TEXT || ' ' || month_name_val || ' ' || year_name_val::TEXT || ')' || E'\n\n' ||
+                        '👑 สรุปผลงานระดับเหรียญทองเกียรติยศ (Perfect Attendance)' || E'\n' ||
+                        'พนักงานที่มีวินัยดีเยี่ยม ไม่ขาด ไม่สาย ไม่ลากิจ/ลาป่วย ตั้งแต่วันที่ 1 ถึง ' || EXTRACT(DAY FROM summary_end_date)::TEXT || E'\n\n' ||
+                        '📊 ภาพรวมช่วงเวลานี้:' || E'\n' ||
+                        '- พนักงานทั้งหมด: ' || total_employees || ' คน' || E'\n' ||
+                        '- ผ่านเกณฑ์ได้รับเบี้ยขยัน: ' || eligible_count || ' คน (' || 
+                        CASE WHEN total_employees > 0 THEN ROUND((eligible_count::NUMERIC / total_employees::NUMERIC) * 100)::TEXT ELSE '0' END || '%)' || E'\n\n' ||
+                        '---------------------------------------------------------' || E'\n' ||
+                        '📋 รายชื่อพนักงานที่ได้รับสิทธิ์:' || E'\n' ||
+                        eligible_list_text || E'\n' ||
+                        '---------------------------------------------------------' || E'\n' ||
+                        '💡 หมายเหตุ: ระบบประมวลผลข้อมูลอัตโนมัติ ณ วันที่ ' || to_char(timezone('Asia/Bangkok'::text, now()), 'DD/MM/YYYY') || E'\n\n' ||
+                        'แอปพลิเคชัน ' || app_name_val;
+    ELSE
+        message_text := '🏆 สรุปรายชื่อพนักงานได้รับเบี้ยขยัน (ประจำเดือน' || month_name_val || ' ' || year_name_val::TEXT || ')' || E'\n\n' ||
+                        '👑 สรุปผลงานระดับเหรียญทองเกียรติยศ (Perfect Attendance)' || E'\n' ||
+                        'พนักงานที่มีวินัยดีเยี่ยม ไม่ขาด ไม่สาย ไม่ลากิจ/ลาป่วย ตลอดทั้งเดือน' || E'\n\n' ||
+                        '📊 ภาพรวมเดือนนี้:' || E'\n' ||
+                        '- พนักงานทั้งหมด: ' || total_employees || ' คน' || E'\n' ||
+                        '- ผ่านเกณฑ์ได้รับเบี้ยขยัน: ' || eligible_count || ' คน (' || 
+                        CASE WHEN total_employees > 0 THEN ROUND((eligible_count::NUMERIC / total_employees::NUMERIC) * 100)::TEXT ELSE '0' END || '%)' || E'\n\n' ||
+                        '---------------------------------------------------------' || E'\n' ||
+                        '📋 รายชื่อพนักงานที่ได้รับสิทธิ์:' || E'\n' ||
+                        eligible_list_text || E'\n' ||
+                        '---------------------------------------------------------' || E'\n' ||
+                        '💡 หมายเหตุ: ระบบประมวลผลข้อมูลอัตโนมัติ ณ วันที่ ' || to_char(timezone('Asia/Bangkok'::text, now()), 'DD/MM/YYYY') || E'\n\n' ||
+                        'แอปพลิเคชัน ' || app_name_val;
+    END IF;
 
     -- Build metadata json
     metadata_val := jsonb_build_object(
@@ -235,7 +263,10 @@ BEGIN
         'total_employees', total_employees,
         'eligible_count', eligible_count,
         'eligible_percentage', CASE WHEN total_employees > 0 THEN ROUND((eligible_count::NUMERIC / total_employees::NUMERIC) * 100) ELSE 0 END,
-        'eligible_users', eligible_users_json
+        'eligible_users', eligible_users_json,
+        'summary_mode', summary_mode,
+        'summary_start_date', summary_start_date::TEXT,
+        'summary_end_date', summary_end_date::TEXT
     );
 
     -- Insert into notifications with type = 'MONTHLY_BONUS_SUMMARY'
@@ -252,7 +283,7 @@ BEGIN
     ) VALUES (
         admin_user_id,
         'MONTHLY_BONUS_SUMMARY',
-        '🏆 สรุปสิทธิ์เบี้ยขยันประจำเดือน' || month_name_val || ' ' || year_name_val::TEXT,
+        CASE WHEN summary_mode = 'CURRENT_MONTH' THEN '🏆 สรุปสิทธิ์เบี้ยขยันสะสมตั้งแต่วันที่ 1 ถึง ' || EXTRACT(DAY FROM summary_end_date)::TEXT || ' ' || month_name_val || ' ' || year_name_val::TEXT ELSE '🏆 สรุปสิทธิ์เบี้ยขยันประจำเดือน' || month_name_val || ' ' || year_name_val::TEXT END,
         message_text,
         FALSE,
         'ATTENDANCE',
@@ -273,6 +304,11 @@ VALUES
     ('WORK_CONFIG', 'MONTHLY_SUMMARY_DAY', '1', '', true, 10)
 ON CONFLICT (type, key) DO UPDATE SET label = EXCLUDED.label;
 
+INSERT INTO public.master_options (type, key, label, color, is_active, sort_order)
+VALUES 
+    ('WORK_CONFIG', 'MONTHLY_SUMMARY_MODE', 'PREV_MONTH', '', true, 11)
+ON CONFLICT (type, key) DO UPDATE SET label = EXCLUDED.label;
+
 -- 3. Create the Trigger Function that recalculates local clock and reschedules pg_cron
 CREATE OR REPLACE FUNCTION public.recalculate_and_reschedule_monthly_bonus_cron()
 RETURNS trigger AS $$
@@ -286,8 +322,8 @@ DECLARE
     utc_minute INT;
     cron_expr TEXT;
 BEGIN
-    -- Check if we are updating MONTHLY_SUMMARY_TIME or MONTHLY_SUMMARY_DAY under WORK_CONFIG type
-    IF (NEW.type = 'WORK_CONFIG' AND (NEW.key = 'MONTHLY_SUMMARY_TIME' OR NEW.key = 'MONTHLY_SUMMARY_DAY')) THEN
+    -- Check if we are updating MONTHLY_SUMMARY_TIME, MONTHLY_SUMMARY_DAY or MONTHLY_SUMMARY_MODE under WORK_CONFIG type
+    IF (NEW.type = 'WORK_CONFIG' AND (NEW.key = 'MONTHLY_SUMMARY_TIME' OR NEW.key = 'MONTHLY_SUMMARY_DAY' OR NEW.key = 'MONTHLY_SUMMARY_MODE')) THEN
         -- Fetch MONTHLY_SUMMARY_TIME from database
         SELECT label INTO summary_time_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'MONTHLY_SUMMARY_TIME' LIMIT 1;
         -- Fetch MONTHLY_SUMMARY_DAY from database

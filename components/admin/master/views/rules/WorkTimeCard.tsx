@@ -35,6 +35,7 @@ export interface WorkTimeConfig {
     lineSubmissionAlertMode?: string;
     monthlySummaryTime?: string;
     monthlySummaryDay?: string;
+    monthlySummaryMode?: string;
 }
 
 interface WorkTimeCardProps {

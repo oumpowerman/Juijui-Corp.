@@ -5,7 +5,7 @@ import { WorkLocation, AttendanceLog } from '../../types/attendance';
 import { useToast } from '../../context/ToastContext';
 import { format } from 'date-fns';
 import { useGamification } from '../useGamification';
-import { calculateCheckOutStatus, checkIsLate, getLateMinutes, mergeAttendanceNotes, getMatchedShiftSlot, resolveAttendanceLogStatus } from '../../lib/attendanceUtils';
+import { calculateCheckOutStatus, checkIsLate, getLateMinutes, mergeAttendanceNotes, getMatchedShiftSlot, resolveAttendanceLogStatus, getEffectiveStartTime } from '../../lib/attendanceUtils';
 import { useMasterData } from '../useMasterData';
 import { attendanceService } from '../../services/attendanceService';
 import { useUserSession } from '../../context/UserSessionContext';
@@ -81,7 +81,8 @@ export const useAttendanceActions = (userId: string) => {
                 const [sh, sm] = matchedShift.targetStartTime.split(':').map(Number);
                 const normalizedDate = new Date(now);
                 normalizedDate.setHours(sh, sm, 0, 0);
-                finalCheckInTime = normalizedDate;
+                // Keep the actual check-in time to log the real check-in time, do not normalize
+                // finalCheckInTime = normalizedDate;
 
                 const actH = String(now.getHours()).padStart(2, '0');
                 const actM = String(now.getMinutes()).padStart(2, '0');
@@ -429,7 +430,20 @@ export const useAttendanceActions = (userId: string) => {
             const minHoursStr = configData?.find(c => c.key === 'MIN_HOURS')?.label || '9';
             const minHours = parseFloat(minHoursStr) || 9;
 
-            const calcResult = calculateCheckOutStatus(todayLog.checkInTime, now, minHours);
+            const startTimeStr = configData?.find(c => c.key === 'START_TIME')?.label || '10:00';
+            const shiftsEnabledOpt = configData?.find(o => o.key === 'MULTIPLE_SHIFTS_ENABLED');
+            const shiftsListOpt = configData?.find(o => o.key === 'MULTIPLE_SHIFTS_LIST');
+            const isShiftsEnabled = shiftsEnabledOpt?.label === 'true';
+            const shiftsList = shiftsListOpt?.label || '';
+
+            const effectiveStartTimeStr = getEffectiveStartTime(
+                todayLog.checkInTime,
+                startTimeStr,
+                todayLog.note,
+                { enabled: isShiftsEnabled, shiftsList }
+            );
+
+            const calcResult = calculateCheckOutStatus(todayLog.checkInTime, now, minHours, effectiveStartTimeStr);
 
             // Check if there is an approved PM half-day leave today
             const { data: todayLeavesCheckout } = await supabase

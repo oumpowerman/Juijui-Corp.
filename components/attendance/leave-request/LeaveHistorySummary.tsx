@@ -146,8 +146,10 @@ const LeaveHistorySummary: React.FC<LeaveHistorySummaryProps> = ({ onBack, borde
     // Filter requests belonging to the current user, selected year and leave type
     const filteredRequests = useMemo(() => {
         if (!currentUserProfile) return [];
+        const LEAVE_TYPES = ['VACATION', 'SICK', 'PERSONAL', 'EMERGENCY', 'UNPAID'];
         let r = requests
             .filter(req => req.userId === currentUserProfile.id)
+            .filter(req => LEAVE_TYPES.includes(req.type))
             .filter(req => {
                 const startDate = new Date(req.startDate);
                 return startDate.getFullYear() === selectedYear;

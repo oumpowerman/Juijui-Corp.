@@ -421,7 +421,18 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const saveMasterOptionsBulk = async (optionsToSave: any[]) => {
         try {
             const payloads = optionsToSave.map(option => {
+                const generatedId = option.id || (
+                    typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+                        ? crypto.randomUUID()
+                        : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+                            const r = Math.random() * 16 | 0;
+                            const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                            return v.toString(16);
+                        })
+                );
+
                 const p: any = {
+                    id: generatedId,
                     type: option.type,
                     key: option.key,
                     label: option.label,
@@ -433,9 +444,6 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                     description: option.description || null,
                     progress_value: option.progressValue !== undefined ? option.progressValue : (option.progress_value || 0)
                 };
-                if (option.id) {
-                    p.id = option.id;
-                }
                 return p;
             });
 

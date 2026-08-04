@@ -9,7 +9,7 @@ import { useGoogleDrive } from '../../../hooks/useGoogleDrive';
 import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 import { format } from 'date-fns';
 import { Info, AlertTriangle, HelpCircle } from 'lucide-react';
-import { checkIsLate, calculateCheckOutStatus, getMatchedShiftSlot } from '../../../lib/attendanceUtils';
+import { checkIsLate, calculateCheckOutStatus, getMatchedShiftSlot, getEffectiveStartTime } from '../../../lib/attendanceUtils';
 import StatusCard from '../widget/StatusCard';
 import CheckInModal from '../widget/CheckInModal';
 import LiveClock from '../widget/LiveClock';
@@ -239,7 +239,21 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({
         const configData = masterOptions.filter(o => o.type === 'WORK_CONFIG');
         const minHoursStr = configData?.find(c => c.key === 'MIN_HOURS')?.label || '9';
         const minHours = parseFloat(minHoursStr) || 9;
-        const calcResult = calculateCheckOutStatus(new Date(todayLog.checkInTime), now, minHours);
+
+        const startTimeStr = configData?.find(c => c.key === 'START_TIME')?.label || '10:00';
+        const shiftsEnabledOpt = configData?.find(o => o.key === 'MULTIPLE_SHIFTS_ENABLED');
+        const shiftsListOpt = configData?.find(o => o.key === 'MULTIPLE_SHIFTS_LIST');
+        const isShiftsEnabled = shiftsEnabledOpt?.label === 'true';
+        const shiftsList = shiftsListOpt?.label || '';
+
+        const effectiveStartTimeStr = getEffectiveStartTime(
+            new Date(todayLog.checkInTime),
+            startTimeStr,
+            todayLog.note,
+            { enabled: isShiftsEnabled, shiftsList }
+        );
+
+        const calcResult = calculateCheckOutStatus(new Date(todayLog.checkInTime), now, minHours, effectiveStartTimeStr);
         const isEarlyLeave = calcResult.status === 'EARLY_LEAVE';
 
         const success = await checkOut(todayLog, location, locationName, reason);

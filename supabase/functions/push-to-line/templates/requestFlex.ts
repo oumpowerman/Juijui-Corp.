@@ -41,7 +41,9 @@ export function buildFooterButtons(
 
   const targetDeepLink = record.related_id
     ? `${baseAppUrl}/?openExternalBrowser=1&view=ATTENDANCE&tab=${tab}&highlightReqId=${record.related_id}`
-    : `${baseAppUrl}/?openExternalBrowser=1&view=ATTENDANCE&tab=${tab}`;
+    : isAttendanceAlert
+      ? `${baseAppUrl}/?openExternalBrowser=1&view=ATTENDANCE&tab=${tab}&action=checkin`
+      : `${baseAppUrl}/?openExternalBrowser=1&view=ATTENDANCE&tab=${tab}`;
 
   // If this is an attendance alert reminder, provide direct deep link button
   if (isAttendanceAlert) {

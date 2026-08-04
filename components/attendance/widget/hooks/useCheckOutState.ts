@@ -4,7 +4,7 @@ import { useMasterData } from '../../../../hooks/useMasterData';
 import { useGlobalDialog } from '../../../../context/GlobalDialogContext';
 import { useGameConfig } from '../../../../context/GameConfigContext';
 import { useCheckInLocation } from '../../../../hooks/attendance/useCheckInLocation';
-import { calculateCheckOutStatus } from '../../../../lib/attendanceUtils';
+import { calculateCheckOutStatus, getEffectiveStartTime } from '../../../../lib/attendanceUtils';
 import { format } from 'date-fns';
 import { compressImage } from '../../../../lib/imageUtils';
 import { googleDriveService } from '../../../../services/googleDriveService';
@@ -20,6 +20,7 @@ interface UseCheckOutStateProps {
     checkInTime: Date;
     onOvertimeSubmit?: (otMinutes: number, reason: string) => Promise<boolean>;
     workType?: string;
+    note?: string | null;
 }
 
 export const useCheckOutState = ({
@@ -31,6 +32,7 @@ export const useCheckOutState = ({
     checkInTime,
     onOvertimeSubmit,
     workType = 'OFFICE',
+    note = null,
 }: UseCheckOutStateProps) => {
     const { showAlert } = useGlobalDialog();
     const { masterOptions } = useMasterData();
@@ -190,7 +192,21 @@ export const useCheckOutState = ({
             // Calculate Status Logic (Strict Duration)
             const minHours = parseFloat(masterOptions.find(o => o.key === 'MIN_HOURS')?.label || '9');
             
-            const result = calculateCheckOutStatus(checkInTime, new Date(), minHours);
+            const configData = masterOptions.filter(o => o.type === 'WORK_CONFIG');
+            const startTimeStr = configData?.find(c => c.key === 'START_TIME')?.label || '10:00';
+            const shiftsEnabledOpt = configData?.find(o => o.key === 'MULTIPLE_SHIFTS_ENABLED');
+            const shiftsListOpt = configData?.find(o => o.key === 'MULTIPLE_SHIFTS_LIST');
+            const isShiftsEnabled = shiftsEnabledOpt?.label === 'true';
+            const shiftsList = shiftsListOpt?.label || '';
+
+            const effectiveStartTimeStr = getEffectiveStartTime(
+                checkInTime,
+                startTimeStr,
+                note,
+                { enabled: isShiftsEnabled, shiftsList }
+            );
+
+            const result = calculateCheckOutStatus(checkInTime, new Date(), minHours, effectiveStartTimeStr);
             setCheckOutStatus(result.status);
             setStatusDetails(result);
 

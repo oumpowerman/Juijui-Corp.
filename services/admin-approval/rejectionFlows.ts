@@ -1,5 +1,5 @@
 import { supabase } from '../../lib/supabase';
-import { checkIsLate, getLateMinutes, mergeAttendanceNotes, calculateCheckOutStatus, getMatchedShiftSlot, getICTTime, resolveAttendanceLogStatus } from '../../lib/attendanceUtils';
+import { checkIsLate, getLateMinutes, mergeAttendanceNotes, calculateCheckOutStatus, getMatchedShiftSlot, getICTTime, resolveAttendanceLogStatus, getEffectiveStartTime } from '../../lib/attendanceUtils';
 import { parseWorkConfig } from '../../utils/adminApprovalHelpers';
 
 /**
@@ -337,7 +337,20 @@ export async function rejectForgotCheckOutRequest({
                 const minHoursStr = configData?.find(c => c.key === 'MIN_HOURS')?.label || '9';
                 const minHours = parseFloat(minHoursStr) || 9;
 
-                const calcResult = calculateCheckOutStatus(checkInDate, checkOutDate, minHours);
+                const startTimeStr = configData?.find(c => c.key === 'START_TIME')?.label || '10:00';
+                const shiftsEnabledOpt = configData?.find(o => o.key === 'MULTIPLE_SHIFTS_ENABLED');
+                const shiftsListOpt = configData?.find(o => o.key === 'MULTIPLE_SHIFTS_LIST');
+                const isShiftsEnabled = shiftsEnabledOpt?.label === 'true';
+                const shiftsList = shiftsListOpt?.label || '';
+
+                const effectiveStartTimeStr = getEffectiveStartTime(
+                    checkInDate,
+                    startTimeStr,
+                    noteText,
+                    { enabled: isShiftsEnabled, shiftsList }
+                );
+
+                const calcResult = calculateCheckOutStatus(checkInDate, checkOutDate, minHours, effectiveStartTimeStr);
                 missingMinutes = Math.round(calcResult.missingMinutes || 0);
             }
 

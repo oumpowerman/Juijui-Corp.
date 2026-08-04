@@ -15,8 +15,10 @@ export const getWorkingDaysDifference = (
     holidays: AnnualHoliday[] = [], 
     exceptions: any[] = [],
     user?: User | null,
-    inclusive: boolean = false
+    inclusive: boolean = false,
+    isHalfDay?: boolean
 ): number => {
+    if (isHalfDay) return 0.5;
     let count = 0;
     let current = new Date(startDate);
     current.setHours(0, 0, 0, 0);
@@ -82,15 +84,34 @@ export interface CheckOutCalculationResult {
 export const calculateCheckOutStatus = (
     checkInTime: Date,
     currentTime: Date,
-    minHours: number = 9
+    minHours: number = 9,
+    effectiveStartTimeStr?: string
 ): CheckOutCalculationResult => {
-    // 1. Duration Check
+    // Determine the base time for required checkout time calculation.
+    // If checkInTime is earlier than the shift start time, use the shift start time.
+    // If checkInTime is later (late check-in), use the actual checkInTime.
+    let baseTime = checkInTime;
+    if (effectiveStartTimeStr) {
+        try {
+            const [sh, sm] = effectiveStartTimeStr.split(':').map(Number);
+            const shiftStartTime = new Date(checkInTime);
+            shiftStartTime.setHours(sh, sm, 0, 0);
+
+            if (isBefore(checkInTime, shiftStartTime)) {
+                baseTime = shiftStartTime;
+            }
+        } catch (e) {
+            console.error("Error parsing effectiveStartTimeStr in calculateCheckOutStatus", e);
+        }
+    }
+
+    // 1. Duration Check relative to actual check-in time
     const durationMinutes = differenceInMinutes(currentTime, checkInTime);
     const hoursWorked = durationMinutes / 60;
     
-    // Calculate exact target end time based on check-in
+    // Calculate exact target end time based on baseTime
     const requiredMinutes = minHours * 60;
-    const requiredEndTime = addMinutes(checkInTime, requiredMinutes);
+    const requiredEndTime = addMinutes(baseTime, requiredMinutes);
     
     // Check if current time is NOT before required end time (meaning we met or passed it)
     const isDurationMet = !isBefore(currentTime, requiredEndTime);
@@ -195,6 +216,17 @@ export const getICTTime = (date: Date | string): ICTTimeResult => {
         second,
         totalMinutes: hNum * 60 + parseInt(minute, 10)
     };
+};
+
+/**
+ * Adds minutes to a HH:mm time string.
+ */
+export const addMinutesToTimeString = (timeStr: string, minutesToAdd: number): string => {
+    const [h, m] = (timeStr || '08:00').split(':').map(Number);
+    const totalMinutes = h * 60 + m + minutesToAdd;
+    const endH = Math.floor(totalMinutes / 60) % 24;
+    const endM = totalMinutes % 60;
+    return `${String(endH).padStart(2, '0')}:${String(endM).padStart(2, '0')}`;
 };
 
 export interface MultipleShiftsConfig {
@@ -333,6 +365,8 @@ export interface AttendanceSummaryConfig {
     minHours: number;
     note?: string | null;
     multipleShifts?: MultipleShiftsConfig;
+    isHalfDay?: boolean;
+    halfDaySession?: 'AM' | 'PM' | null;
 }
 
 /**
@@ -346,14 +380,75 @@ export const getAttendanceSummary = (
     const checkIn = checkInTime ? (typeof checkInTime === 'string' ? new Date(checkInTime) : checkInTime) : null;
     const checkOut = checkOutTime ? (typeof checkOutTime === 'string' ? new Date(checkOutTime) : checkOutTime) : null;
 
-    const isLate = checkIn ? checkIsLate(checkIn, config.startTime, config.buffer, config.note, config.multipleShifts) : false;
+    let isHalfDay = config.isHalfDay;
+    let halfDaySession = config.halfDaySession;
+
+    if (!isHalfDay && config.note) {
+        const halfDayMatch = config.note.match(/\[HALF_DAY:(AM|PM)\]/i);
+        if (halfDayMatch) {
+            isHalfDay = true;
+            halfDaySession = halfDayMatch[1].toUpperCase() as 'AM' | 'PM';
+        }
+    }
+
+    let startTime = config.startTime;
+    let minHours = config.minHours;
+
+    if (isHalfDay) {
+        minHours = 4; // ปรับลดเกณฑ์ชั่วโมงการทำงานลงครึ่งหนึ่งเหลือ 4 ชั่วโมง
+        if (halfDaySession === 'AM') {
+            // ปรับเวลาเข้างานบ่ายแบบ Dynamic ตามเวลาเริ่มกะจริงของพนักงาน
+            startTime = addMinutesToTimeString(config.startTime, 300); // บวก 5 ชั่วโมง (ทำงาน 4 ชม. + พัก 1 ชม.)
+        }
+    }
+
+    const isLate = checkIn 
+        ? checkIsLate(
+            checkIn, 
+            startTime, 
+            config.buffer, 
+            isHalfDay ? null : config.note, 
+            isHalfDay ? undefined : config.multipleShifts
+          ) 
+        : false;
     const workHours = calculateWorkHours(checkIn, checkOut);
     
     let requiredEndTime = null;
     let isEarlyLeave = false;
 
     if (checkIn) {
-        requiredEndTime = addMinutes(checkIn, config.minHours * 60);
+        let baseTime = checkIn;
+        if (!isHalfDay) {
+            const effectiveStartTimeStr = getEffectiveStartTime(
+                checkIn,
+                config.startTime,
+                config.note,
+                config.multipleShifts
+            );
+            try {
+                const [sh, sm] = effectiveStartTimeStr.split(':').map(Number);
+                const shiftStartTime = new Date(checkIn);
+                shiftStartTime.setHours(sh, sm, 0, 0);
+
+                if (isBefore(checkIn, shiftStartTime)) {
+                    baseTime = shiftStartTime;
+                }
+            } catch (e) {
+                console.error("Error parsing baseTime in getAttendanceSummary", e);
+            }
+        }
+        requiredEndTime = addMinutes(baseTime, minHours * 60);
+
+        if (isHalfDay && halfDaySession === 'PM') {
+            // คำนวณเวลาที่อนุญาตให้ออกงานได้จริงตามกะของวันนั้น ๆ
+            const [sh, sm] = (config.startTime || '08:00').split(':').map(Number);
+            const amWorkDurationMinutes = 240; // 4 ชั่วโมงสำหรับการทำงานกะเช้า
+            
+            const checkoutTime = new Date(checkIn);
+            checkoutTime.setHours(sh, sm, 0, 0); // ตั้งต้นเวลาที่เวลาเริ่มกะจริง
+            requiredEndTime = addMinutes(checkoutTime, amWorkDurationMinutes); // บวกเวลาทำงาน 4 ชั่วโมง
+        }
+
         if (checkOut) {
             isEarlyLeave = isBefore(checkOut, requiredEndTime);
         } else {

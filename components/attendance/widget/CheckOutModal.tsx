@@ -21,10 +21,11 @@ interface CheckOutModalProps {
     checkInTime: Date;
     onOvertimeSubmit?: (otMinutes: number, reason: string) => Promise<boolean>;
     workType?: string;
+    note?: string | null;
 }
 
 export const CheckOutModal: React.FC<CheckOutModalProps> = ({ 
-    isOpen, onClose, onConfirm, onRequest, availableLocations, checkInTime, onOvertimeSubmit, workType = 'OFFICE'
+    isOpen, onClose, onConfirm, onRequest, availableLocations, checkInTime, onOvertimeSubmit, workType = 'OFFICE', note = null
 }) => {
     const state = useCheckOutState({
         isOpen,
@@ -35,6 +36,7 @@ export const CheckOutModal: React.FC<CheckOutModalProps> = ({
         checkInTime,
         onOvertimeSubmit,
         workType,
+        note,
     });
 
     const {

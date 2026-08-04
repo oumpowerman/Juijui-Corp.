@@ -231,6 +231,7 @@ export const WorkingNowDisplay: React.FC<WorkingNowDisplayProps> = ({
                 checkInTime={todayLog.checkInTime ? new Date(todayLog.checkInTime) : new Date()} 
                 onOvertimeSubmit={handleOvertimeSubmit}
                 workType={todayLog?.workType}
+                note={todayLog?.note}
             />
         </div>
     );

@@ -6,7 +6,7 @@ import { isStockTerminalStatus } from '../../../config/status';
 import { isStorageRequiredStatus } from '../../../hooks/useContentStock';
 
 // Import our modular components
-import { SearchWithSuggestions } from './SearchWithSuggestions';
+import { SearchWithSuggestions } from './search';
 import { ActiveFilterChipsRow } from './ActiveFilterChipsRow';
 import { StockSecondaryFilterBar } from './StockSecondaryFilterBar';
 

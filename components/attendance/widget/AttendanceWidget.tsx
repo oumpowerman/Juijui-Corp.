@@ -1,5 +1,6 @@
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMasterData } from '../../../hooks/useMasterData';
 import { useLeaveRequests } from '../../../hooks/useLeaveRequests';
 import { User } from '../../../types';
@@ -18,6 +19,8 @@ interface AttendanceWidgetProps {
 }
 
 const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user, onNavigateToHistory }) => {
+    const [searchParams, setSearchParams] = useSearchParams();
+
     // Hooks
     const { masterOptions } = useMasterData(); 
     const { submitRequest, leaveUsage, pendingUsage, requests } = useLeaveRequests(user);
@@ -27,6 +30,22 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user, onNavigateToH
     const [leaveModalType, setLeaveModalType] = useState<LeaveType | undefined>(undefined);
     const [linkedRemoteType, setLinkedRemoteType] = useState<'WFH' | 'ONSITE' | undefined>(undefined);
     const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
+
+    // Auto-trigger Check-in Modal if action=checkin or triggerCheckIn=true query param exists
+    useEffect(() => {
+        const action = searchParams.get('action');
+        const trigger = searchParams.get('triggerCheckIn');
+        if (action === 'checkin' || trigger === 'true') {
+            setIsCheckInModalOpen(true);
+            // Clean up the URL parameters so it doesn't trigger again on manual page refresh
+            setSearchParams(prev => {
+                const next = new URLSearchParams(prev);
+                next.delete('action');
+                next.delete('triggerCheckIn');
+                return next;
+            }, { replace: true });
+        }
+    }, [searchParams, setSearchParams]);
 
     // --- TIME-SCOPED LOGIC V12 (The Fix) ---
     const today = new Date();

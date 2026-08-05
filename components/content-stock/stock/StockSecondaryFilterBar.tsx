@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Film, Landmark, BarChart3, ChevronDown, ListFilter, CalendarRange } from 'lucide-react';
-import { MasterOption, Task } from '../../../types';
+import { MasterOption, Task, getChecklistGroupKey } from '../../../types';
 import MultiSelectFilter from '../../common/MultiSelectFilter';
 import { ShootDatePicker } from './ShootDatePicker';
 import FilterDropdown from '../../common/FilterDropdown';
@@ -71,9 +71,10 @@ export const StockSecondaryFilterBar: React.FC<StockSecondaryFilterBarProps> = R
         }
 
         const selectedStatus = filterStatuses[0];
+        const groupKey = getChecklistGroupKey(selectedStatus, masterOptions);
         // Fetch checklist items for the selected status from masterOptions
         const statusSteps = masterOptions
-            .filter(o => o.type === 'STATUS_CHECKLIST' && o.parentKey === selectedStatus && o.isActive)
+            .filter(o => o.type === 'STATUS_CHECKLIST' && o.parentKey === groupKey && o.isActive)
             .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
         const stepOptions = statusSteps.map(step => ({

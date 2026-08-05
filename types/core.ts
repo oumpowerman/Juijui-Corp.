@@ -70,4 +70,7 @@ export interface User {
     // Policy terms tracking
     acceptedTermsVersion?: number;
     acceptedTermsAt?: Date | null;
+    
+    // PWA App Version Tracking
+    appVersion?: string;
 }

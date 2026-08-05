@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { ClipboardList, Loader2, Check, AlertTriangle } from 'lucide-react';
-import { Task, MasterOption } from '../../../../../types';
+import { Task, MasterOption, getChecklistGroupKey } from '../../../../../types';
 
 interface StockSubChecklistProps {
     taskId: string;
@@ -24,8 +24,9 @@ export const StockSubChecklist: React.FC<StockSubChecklistProps> = ({
 }) => {
     const checklistSteps = useMemo(() => {
         if (!currentStatus || !masterOptions) return [];
+        const groupKey = getChecklistGroupKey(currentStatus, masterOptions);
         return masterOptions
-            .filter(o => o.type === 'STATUS_CHECKLIST' && o.parentKey === currentStatus && o.isActive)
+            .filter(o => o.type === 'STATUS_CHECKLIST' && o.parentKey === groupKey && o.isActive)
             .sort((a, b) => a.sortOrder - b.sortOrder);
     }, [currentStatus, masterOptions]);
 

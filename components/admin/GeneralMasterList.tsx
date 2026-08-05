@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { MasterOption } from '../../types';
+import { MasterOption, getChecklistGroupKey } from '../../types';
 import { 
     Edit2, Trash2, Database, Plus, Loader2, 
     ArrowUp, ArrowDown, Check, X, ClipboardCheck, 
@@ -247,10 +247,11 @@ const GeneralMasterList: React.FC<GeneralMasterListProps> = ({ typeLabel, option
                         const relatedChannel = option.parentKey ? channels.find(c => c.id === option.parentKey) : null;
                         const isPillarOrCategory = option.type === 'PILLAR' || option.type === 'CATEGORY' || option.type === 'SCRIPT_CATEGORY';
                         const isExpanded = expandedStatusId === option.id;
+                        const groupKey = getChecklistGroupKey(option.key, masterOptions);
 
                         // Retrieve checklists under this status
                         const subSteps = masterOptions
-                            .filter(s => s.type === 'STATUS_CHECKLIST' && s.parentKey === option.key)
+                            .filter(s => s.type === 'STATUS_CHECKLIST' && s.parentKey === groupKey)
                             .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
 
                         const weightSum = calculateWeightSummary(subSteps);
@@ -336,8 +337,13 @@ const GeneralMasterList: React.FC<GeneralMasterListProps> = ({ typeLabel, option
                                             <div className="px-6 py-5 bg-indigo-50/20 border-t border-b border-indigo-100/40 space-y-4">
                                                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 border-b border-indigo-100/50 pb-3">
                                                     <div>
-                                                        <h4 className="text-sm font-black text-gray-800 flex items-center gap-2">
+                                                        <h4 className="text-sm font-black text-gray-800 flex items-center gap-2 flex-wrap">
                                                             📋 จัดการขั้นตอนย่อยสำหรับสถานะ: <span className="text-indigo-600">{option.label}</span>
+                                                            {groupKey !== option.key && (
+                                                                <span className="text-[10px] px-2 py-0.5 font-bold rounded-full bg-amber-50 text-amber-600 border border-amber-100 flex items-center gap-1">
+                                                                    🔗 ใช้กลุ่มเช็คลิสต์ร่วม: {groupKey}
+                                                                </span>
+                                                            )}
                                                         </h4>
                                                         <p className="text-xs text-gray-500 mt-0.5">กำหนดเช็คลิสต์ขั้นตอนย่อยเพื่อให้คนทำงานติ๊กความคืบหน้าได้ละเอียดขึ้น</p>
                                                     </div>
@@ -530,7 +536,7 @@ const GeneralMasterList: React.FC<GeneralMasterListProps> = ({ typeLabel, option
                                                                     <span className="absolute right-2.5 top-2.5 text-[10px] font-bold text-gray-400">%</span>
                                                                 </div>
                                                                 <button 
-                                                                    onClick={() => handleAddSubStep(option.key, subSteps)}
+                                                                    onClick={() => handleAddSubStep(groupKey, subSteps)}
                                                                     disabled={isSubmittingSubStep || !newStepLabel.trim() || !newStepKey.trim()}
                                                                     className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 text-white text-xs font-bold px-4 rounded-lg transition-colors flex items-center justify-center gap-1"
                                                                 >

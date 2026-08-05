@@ -3,12 +3,28 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { BRAND_CONFIG } from './config/brand.ts';
+import fs from 'fs';
+import path from 'path';
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   // Load env file based on `mode` in the current working directory.
   // Fix: Cast process to any to resolve TS error about cwd missing on Process type
   const env = loadEnv(mode, (process as any).cwd(), '');
+  
+  // Read package.json version dynamically and combine with build date
+  let appVersion = '1.0.0';
+  try {
+    const pkgPath = path.join((process as any).cwd(), 'package.json');
+    const pkg = JSON.parse(fs.readFileSync(pkgPath, 'utf-8'));
+    const baseVersion = pkg.version || '1.0.0';
+    const buildDate = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    appVersion = `v${baseVersion}-${buildDate}`;
+  } catch (err) {
+    console.warn('Failed to read package.json version:', err);
+    const buildDate = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+    appVersion = `v1.0.0-${buildDate}`;
+  }
 
   return {
     plugins: [
@@ -66,6 +82,8 @@ export default defineConfig(({ mode }) => {
     define: {
       // Polyfill process.env for libraries that expect it
       'process.env': {},
+      // App Version Tracking
+      '__APP_VERSION__': JSON.stringify(appVersion),
       // Expose environment variables to the client
       'import.meta.env.VITE_GOOGLE_CLIENT_ID': JSON.stringify(env.VITE_GOOGLE_CLIENT_ID || env.GOOGLE_CLIENT_ID || ''),
       'import.meta.env.VITE_GOOGLE_PICKER_API_KEY': JSON.stringify(env.VITE_GOOGLE_PICKER_API_KEY || env.GOOGLE_PICKER_API_KEY || env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY || ''),

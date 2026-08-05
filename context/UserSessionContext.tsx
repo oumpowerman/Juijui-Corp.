@@ -85,7 +85,8 @@ const mapProfileToUser = (data: any): User => ({
     nickname: data.nickname || '',
     username: data.username || '',
     acceptedTermsVersion: data.accepted_terms_version || 0,
-    acceptedTermsAt: data.accepted_terms_at ? new Date(data.accepted_terms_at) : null
+    acceptedTermsAt: data.accepted_terms_at ? new Date(data.accepted_terms_at) : null,
+    appVersion: data.app_version || '1.0.0'
 });
 
 const mapDBToUserUpdates = (u: any): Partial<User> => {
@@ -132,6 +133,7 @@ const mapDBToUserUpdates = (u: any): Partial<User> => {
     if ('employment_type' in u) updates.employmentType = u.employment_type;
     if ('last_read_chat_at' in u) updates.lastReadChatAt = u.last_read_chat_at ? new Date(u.last_read_chat_at) : new Date(0);
     if ('last_read_notification_at' in u) updates.lastReadNotificationAt = u.last_read_notification_at ? new Date(u.last_read_notification_at) : new Date(0);
+    if ('app_version' in u) updates.appVersion = u.app_version;
     return updates;
 };
 
@@ -231,6 +233,22 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
                 const current = mappedUsers.find(u => u.id === sessionUser.id);
                 if (current) {
                     setCurrentUserProfile(current);
+                    
+                    // Auto-sync app version to database if different
+                    if (current.appVersion !== __APP_VERSION__) {
+                        supabase.from('profiles')
+                            .update({ app_version: __APP_VERSION__ })
+                            .eq('id', sessionUser.id)
+                            .then(({ error }) => {
+                                if (error) {
+                                    console.error('Failed to auto-update app version:', error);
+                                } else {
+                                    console.log(`App version auto-synced to: ${__APP_VERSION__}`);
+                                    setCurrentUserProfile(prev => prev ? { ...prev, appVersion: __APP_VERSION__ } : null);
+                                    setAllUsers(prev => prev.map(u => u.id === sessionUser.id ? { ...u, appVersion: __APP_VERSION__ } : u));
+                                }
+                            });
+                    }
                     
                     // 2. Fetch attendance and leaves based on role
                     const isAdmin = current.role === 'ADMIN';

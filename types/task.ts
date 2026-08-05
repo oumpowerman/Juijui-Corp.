@@ -242,3 +242,9 @@ export interface StorageConfig {
     description?: string;
     updatedAt: Date;
 }
+
+export const getChecklistGroupKey = (statusKey: string, masterOptions: MasterOption[]): string => {
+    if (!statusKey || !masterOptions) return statusKey || '';
+    const statusOption = masterOptions.find(o => o.type === 'STATUS' && o.key === statusKey);
+    return statusOption?.parentKey || statusKey;
+};

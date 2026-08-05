@@ -10,6 +10,7 @@ import CheckoutReminderCard from './addons/CheckoutReminderCard';
 import SubmissionAlertCard from './addons/SubmissionAlertCard';
 import AbsentCheckCard from './addons/AbsentCheckCard';
 import MonthlyBonusCard from './addons/MonthlyBonusCard';
+import MonthlyOTCard from './addons/MonthlyOTCard';
 
 
 interface WorkTimeConfig {
@@ -41,6 +42,9 @@ interface WorkTimeConfig {
     monthlySummaryTime?: string;
     monthlySummaryDay?: string;
     monthlySummaryMode?: string;
+    monthlyOTSummaryTime?: string;
+    monthlyOTSummaryDay?: string;
+    monthlyOTSummaryMode?: string;
 }
 
 interface ServerAddonsSectionProps {
@@ -141,6 +145,13 @@ const ServerAddonsSection: React.FC<ServerAddonsSectionProps> = ({
                         setTempTimeConfig={setTempTimeConfig}
                     />
                 );
+            case 9:
+                return (
+                    <MonthlyOTCard
+                        tempTimeConfig={tempTimeConfig}
+                        setTempTimeConfig={setTempTimeConfig}
+                    />
+                );
             default:
                 return null;
         }
@@ -157,6 +168,7 @@ const ServerAddonsSection: React.FC<ServerAddonsSectionProps> = ({
         { title: 'Submission Alert Policy', color: 'bg-emerald-500', glow: 'shadow-emerald-500/30' },
         { title: 'Daily Absent Check', color: 'bg-rose-500', glow: 'shadow-rose-500/30' },
         { title: 'Monthly Perfect Attendance Summary', color: 'bg-amber-500', glow: 'shadow-amber-500/30' },
+        { title: 'Monthly OT Summary', color: 'bg-indigo-500', glow: 'shadow-indigo-500/30' },
     ];
 
     return (
@@ -236,7 +248,7 @@ const ServerAddonsSection: React.FC<ServerAddonsSectionProps> = ({
                             }}
                             transition={{ type: "spring", stiffness: 220, damping: 26 }}
                         >
-                            {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((idx) => {
+                            {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((idx) => {
                                 const isActive = idx === activeSlide;
                                 return (
                                     <motion.div
@@ -289,7 +301,7 @@ const ServerAddonsSection: React.FC<ServerAddonsSectionProps> = ({
             ) : (
                 /* GRID VIEW MODE */
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((idx) => (
+                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((idx) => (
                         <div
                             key={idx}
                             className={`border border-gray-100 bg-white p-5 rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col justify-between min-h-[440px]`}

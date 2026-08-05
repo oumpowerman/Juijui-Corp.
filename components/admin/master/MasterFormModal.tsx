@@ -1,7 +1,7 @@
 
 import React, { useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Save, Check, Loader2, Gift, Tag, Type, Palette, AlignLeft, Hash, Percent, ShieldCheck, Calendar } from 'lucide-react';
+import { X, Save, Check, Loader2, Gift, Tag, Type, Palette, AlignLeft, Hash, Percent, ShieldCheck, Calendar, ClipboardCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useChannels } from '../../../hooks/useChannels';
 import FilterDropdown from '../../common/FilterDropdown';
@@ -437,15 +437,32 @@ const MasterFormModal: React.FC<MasterFormModalProps> = ({
 
                                     {/* Progress Value for Status */}
                                     {activeTab === 'STATUS' && (
-                                        <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-100 space-y-3">
-                                            <div className="flex justify-between items-center">
+                                        <>
+                                            <div className="space-y-2">
                                                 <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
-                                                    <Percent className="w-3 h-3" /> Progress Value
+                                                    <ClipboardCheck className="w-3.5 h-3.5 text-indigo-500" /> กลุ่มเช็คลิสต์ (Checklist Group Key)
                                                 </label>
-                                                <span className="text-sm font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100">
-                                                    {formData.progressValue || 0}%
-                                                </span>
+                                                <input 
+                                                    type="text" 
+                                                    value={formData.parentKey || ''} 
+                                                    onChange={e => setFormData({...formData, parentKey: e.target.value.trim().toUpperCase()})} 
+                                                    className="w-full px-4 py-3 bg-white/50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all font-mono text-sm uppercase tracking-wider text-slate-700 placeholder:text-slate-300" 
+                                                    placeholder="เช่น EDITING_FLOW (ปล่อยว่างหากต้องการใช้ของตัวเอง)"
+                                                />
+                                                <p className="text-[10px] font-medium text-slate-400">
+                                                    * ใส่รหัสเดียวกันเพื่อแชร์ขั้นตอนย่อยและประวัติการติ๊กร่วมกัน เช่น ใส่ 04_EDIT_CLIP_✂️ หรือตั้งชื่อใหม่ เช่น EDITING_FLOW
+                                                </p>
                                             </div>
+
+                                            <div className="p-4 bg-slate-50/80 rounded-2xl border border-slate-100 space-y-3">
+                                                <div className="flex justify-between items-center">
+                                                    <label className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-wider">
+                                                        <Percent className="w-3 h-3" /> Progress Value
+                                                    </label>
+                                                    <span className="text-sm font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100">
+                                                        {formData.progressValue || 0}%
+                                                    </span>
+                                                </div>
                                             <input 
                                                 type="range" 
                                                 min="0" 
@@ -457,6 +474,7 @@ const MasterFormModal: React.FC<MasterFormModalProps> = ({
                                             />
                                             <p className="text-[10px] text-slate-400 italic text-right">* Shows on progress bar</p>
                                         </div>
+                                    </>
                                     )}
                                     
                                     <div className="space-y-3 pt-2">

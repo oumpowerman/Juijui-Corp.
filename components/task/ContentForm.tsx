@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Task, Channel, User, MasterOption, ScriptSummary, Script } from '../../types';
+import { Task, Channel, User, MasterOption, ScriptSummary, Script, getChecklistGroupKey } from '../../types';
 import { useContentForm } from '../../hooks/useContentForm';
 import { AlertTriangle, Trash2, Send, Loader2, Lock, Eye, Search, FileText, Check, X, Tag } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
@@ -370,8 +370,9 @@ const ContentForm: React.FC<ContentFormProps> = ({
 
     const checklistSteps = useMemo(() => {
         if (!status || !masterOptions) return [];
+        const groupKey = getChecklistGroupKey(status, masterOptions);
         return masterOptions
-            .filter(o => o.type === 'STATUS_CHECKLIST' && o.parentKey === status && o.isActive)
+            .filter(o => o.type === 'STATUS_CHECKLIST' && o.parentKey === groupKey && o.isActive)
             .sort((a, b) => a.sortOrder - b.sortOrder);
     }, [status, masterOptions]);
 

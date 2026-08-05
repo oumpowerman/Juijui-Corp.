@@ -65,6 +65,9 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
         monthlySummaryTime: '08:00',
         monthlySummaryDay: '1',
         monthlySummaryMode: 'PREV_MONTH',
+        monthlyOTSummaryTime: '08:00',
+        monthlyOTSummaryDay: '1',
+        monthlyOTSummaryMode: 'PREV_MONTH',
     });
     const [isStartTimeOpen, setIsStartTimeOpen] = useState(false);
     const [isEndTimeOpen, setIsEndTimeOpen] = useState(false);
@@ -110,8 +113,11 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
         const monthlySummaryTimeOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'MONTHLY_SUMMARY_TIME');
         const monthlySummaryDayOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'MONTHLY_SUMMARY_DAY');
         const monthlySummaryModeOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'MONTHLY_SUMMARY_MODE');
+        const monthlyOTSummaryTimeOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'MONTHLY_OT_SUMMARY_TIME');
+        const monthlyOTSummaryDayOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'MONTHLY_OT_SUMMARY_DAY');
+        const monthlyOTSummaryModeOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'MONTHLY_OT_SUMMARY_MODE');
         
-        if (startOpt || endOpt || bufferOpt || minHoursOpt || otThresholdOpt || checkoutPenaltyTimeOpt || dailySummaryDelayHoursOpt || dailySummaryTimeOpt || lineSummaryDestinationOpt || enableRaceOpt || lateAlertModeOpt || lateAlertOffsetOpt || shiftsEnabledOpt || shiftsListOpt || lineApprovalModeOpt || lineHeaderTitleOpt || lateAlertTargetRolesOpt || checkoutPenaltyTargetRolesOpt || checkoutAlertEnabledOpt || checkoutAlertModeOpt || checkoutAlertOffsetOpt || checkoutAlertTargetRolesOpt || adminAbsentPenaltyEnabledOpt || absentPenaltyEnabledOpt || absentPenaltyTimeOpt || absentPenaltyTargetRolesOpt || forgotCheckInLimitHoursOpt || lineSubmissionAlertModeOpt || monthlySummaryTimeOpt || monthlySummaryDayOpt || monthlySummaryModeOpt) {
+        if (startOpt || endOpt || bufferOpt || minHoursOpt || otThresholdOpt || checkoutPenaltyTimeOpt || dailySummaryDelayHoursOpt || dailySummaryTimeOpt || lineSummaryDestinationOpt || enableRaceOpt || lateAlertModeOpt || lateAlertOffsetOpt || shiftsEnabledOpt || shiftsListOpt || lineApprovalModeOpt || lineHeaderTitleOpt || lateAlertTargetRolesOpt || checkoutPenaltyTargetRolesOpt || checkoutAlertEnabledOpt || checkoutAlertModeOpt || checkoutAlertOffsetOpt || checkoutAlertTargetRolesOpt || adminAbsentPenaltyEnabledOpt || absentPenaltyEnabledOpt || absentPenaltyTimeOpt || absentPenaltyTargetRolesOpt || forgotCheckInLimitHoursOpt || lineSubmissionAlertModeOpt || monthlySummaryTimeOpt || monthlySummaryDayOpt || monthlySummaryModeOpt || monthlyOTSummaryTimeOpt || monthlyOTSummaryDayOpt || monthlyOTSummaryModeOpt) {
             setTempTimeConfig({
                 start: startOpt?.label || '10:00',
                 end: endOpt?.label || '19:00',
@@ -144,6 +150,9 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
                 monthlySummaryTime: monthlySummaryTimeOpt?.label || '08:00',
                 monthlySummaryDay: monthlySummaryDayOpt?.label || '1',
                 monthlySummaryMode: monthlySummaryModeOpt?.label || 'PREV_MONTH',
+                monthlyOTSummaryTime: monthlyOTSummaryTimeOpt?.label || '08:00',
+                monthlyOTSummaryDay: monthlyOTSummaryDayOpt?.label || '1',
+                monthlyOTSummaryMode: monthlyOTSummaryModeOpt?.label || 'PREV_MONTH',
             });
         }
 
@@ -213,6 +222,9 @@ const AttendanceRulesView: React.FC<AttendanceRulesViewProps> = ({
         prepareUpdateOrInsert('MONTHLY_SUMMARY_TIME', tempTimeConfig.monthlySummaryTime || '08:00');
         prepareUpdateOrInsert('MONTHLY_SUMMARY_DAY', tempTimeConfig.monthlySummaryDay || '1');
         prepareUpdateOrInsert('MONTHLY_SUMMARY_MODE', tempTimeConfig.monthlySummaryMode || 'PREV_MONTH');
+        prepareUpdateOrInsert('MONTHLY_OT_SUMMARY_TIME', tempTimeConfig.monthlyOTSummaryTime || '08:00');
+        prepareUpdateOrInsert('MONTHLY_OT_SUMMARY_DAY', tempTimeConfig.monthlyOTSummaryDay || '1');
+        prepareUpdateOrInsert('MONTHLY_OT_SUMMARY_MODE', tempTimeConfig.monthlyOTSummaryMode || 'PREV_MONTH');
         
         if (optionsToSave.length > 0) {
             if (saveMasterOptionsBulk) {

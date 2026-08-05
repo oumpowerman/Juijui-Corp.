@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Task, User, MasterOption } from '../../../types';
+import { Task, User, MasterOption, getChecklistGroupKey } from '../../../types';
 import { ListTodo, Check } from 'lucide-react';
 import StorageSection from './sections/StorageSection';
 import StrategySection from './sections/StrategySection';
@@ -20,8 +20,9 @@ interface ContentInfoViewProps {
 const ContentInfoView: React.FC<ContentInfoViewProps> = ({ task, users, masterOptions = [], onSave }) => {
     const checklistSteps = React.useMemo(() => {
         if (!task.status || !masterOptions) return [];
+        const groupKey = getChecklistGroupKey(task.status, masterOptions);
         return masterOptions
-            .filter(o => o.type === 'STATUS_CHECKLIST' && o.parentKey === task.status && o.isActive)
+            .filter(o => o.type === 'STATUS_CHECKLIST' && o.parentKey === groupKey && o.isActive)
             .sort((a, b) => a.sortOrder - b.sortOrder);
     }, [task.status, masterOptions]);
 

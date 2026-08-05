@@ -238,6 +238,18 @@ const MemberDetailModal: React.FC<MemberDetailModalProps> = ({ isOpen, onClose, 
                                             </div>
                                             <span className="font-medium">{user.phoneNumber || '-'}</span>
                                         </div>
+                                        <div className="w-full h-px bg-gray-200/50"></div>
+                                        <div className="flex items-center text-sm text-gray-600">
+                                            <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center mr-3 shadow-sm text-gray-400">
+                                                <Sparkles className="w-5 h-5" />
+                                            </div>
+                                            <div className="flex flex-col">
+                                                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">App Version</span>
+                                                <span className="font-semibold text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md border border-indigo-100 self-start mt-0.5">
+                                                    v{user.appVersion || '1.0.0'}
+                                                </span>
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 

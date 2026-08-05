@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Task, Channel, User, MasterOption } from '../types';
+import { Task, Channel, User, MasterOption, getChecklistGroupKey } from '../types';
 import { useToast } from '../context/ToastContext';
 import { useContentStock } from './useContentStock';
 import { parseContentStockCSV } from '../services/csvService';
@@ -141,8 +141,9 @@ export const useContentStockController = ({ globalTasks, channels, users, master
         } else {
             // If it is single status, check if the currently selected specific steps still belong to the selected status
             const selectedStatus = filterStatuses[0];
+            const groupKey = getChecklistGroupKey(selectedStatus, masterOptions);
             const activeSteps = masterOptions.filter(
-                o => o.type === 'STATUS_CHECKLIST' && o.parentKey === selectedStatus && o.isActive
+                o => o.type === 'STATUS_CHECKLIST' && o.parentKey === groupKey && o.isActive
             );
             const stepKeys = activeSteps.map(s => s.key);
             

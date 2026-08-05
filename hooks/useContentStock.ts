@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { format, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { supabase } from '../lib/supabase';
-import { Task, MasterOption } from '../types';
+import { Task, MasterOption, getChecklistGroupKey } from '../types';
 import { isStockTerminalStatus } from '../config/status';
 
 interface UseContentStockProps {
@@ -244,8 +244,9 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
 
         // Checklist Progress Filter Match
         if (activeFilters.checklistProgress && activeFilters.checklistProgress.length > 0) {
+            const groupKey = getChecklistGroupKey(task.status, masterOptions);
             const statusSteps = masterOptions
-                .filter(o => o.type === 'STATUS_CHECKLIST' && o.parentKey === task.status && o.isActive)
+                .filter(o => o.type === 'STATUS_CHECKLIST' && o.parentKey === groupKey && o.isActive)
                 .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
                 
             // Task matches if it satisfies AT LEAST ONE of the selected filters (OR-logic)

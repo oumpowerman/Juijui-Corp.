@@ -30,7 +30,7 @@ const DailyReportCard: React.FC<DailyReportCardProps> = ({
             <div>
                 <div className="flex items-center justify-between">
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-emerald-50 text-emerald-600 border border-emerald-100">
-                        <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500 animate-pulse" /> 📊 แผน D (Daily Summary)
+                        <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-500 animate-pulse" /> 📊 แผน C (Daily Summary)
                     </span>
                     <span className="flex items-center gap-2 text-xs text-emerald-600 font-bold bg-emerald-50/60 px-3 py-1 rounded-xl border border-emerald-100/40">
                         <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>

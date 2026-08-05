@@ -28,6 +28,7 @@ export interface AttendanceRegistryItem {
         defaultTargetTime?: string;
         defaultEndTime?: string;
         forceTodayDate?: boolean;
+        isHalfDayAllowed?: boolean;
     };
     tags: {
         provisional?: string;
@@ -46,7 +47,7 @@ export const ATTENDANCE_REGISTRY: Record<LeaveType, AttendanceRegistryItem> = {
         label: 'ลาป่วย',
         category: 'LEAVE',
         colors: { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-100', accent: 'bg-rose-500' },
-        rules: { isTimeSpecific: false, isSingleDay: false, requireAttachment: true },
+        rules: { isTimeSpecific: false, isSingleDay: false, requireAttachment: true, isHalfDayAllowed: true },
         tags: {
             pending: '[SICK_LEAVE_PENDING]',
             approved: '[APPROVED SICK_LEAVE]',
@@ -59,7 +60,7 @@ export const ATTENDANCE_REGISTRY: Record<LeaveType, AttendanceRegistryItem> = {
         label: 'ลาพักร้อน',
         category: 'LEAVE',
         colors: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-100', accent: 'bg-emerald-500' },
-        rules: { isTimeSpecific: false, isSingleDay: false },
+        rules: { isTimeSpecific: false, isSingleDay: false, isHalfDayAllowed: true },
         tags: {
             pending: '[VACATION_LEAVE_PENDING]',
             approved: '[APPROVED VACATION_LEAVE]',
@@ -72,7 +73,7 @@ export const ATTENDANCE_REGISTRY: Record<LeaveType, AttendanceRegistryItem> = {
         label: 'ลากิจ',
         category: 'LEAVE',
         colors: { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-100', accent: 'bg-slate-500' },
-        rules: { isTimeSpecific: false, isSingleDay: false },
+        rules: { isTimeSpecific: false, isSingleDay: false, isHalfDayAllowed: true },
         tags: {
             pending: '[PERSONAL_LEAVE_PENDING]',
             approved: '[APPROVED PERSONAL_LEAVE]',
@@ -98,7 +99,7 @@ export const ATTENDANCE_REGISTRY: Record<LeaveType, AttendanceRegistryItem> = {
         label: 'ลากิจไม่รับค่าจ้าง (Unpaid Leave)',
         category: 'LEAVE',
         colors: { bg: 'bg-slate-50', text: 'text-slate-700', border: 'border-slate-100', accent: 'bg-slate-500' },
-        rules: { isTimeSpecific: false, isSingleDay: false },
+        rules: { isTimeSpecific: false, isSingleDay: false, isHalfDayAllowed: true },
         tags: {
             pending: '[UNPAID_LEAVE_PENDING]',
             approved: '[APPROVED UNPAID_LEAVE]',

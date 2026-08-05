@@ -199,7 +199,15 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                         checkOutTime: l.check_out_time ? new Date(l.check_out_time) : null,
                         workType: l.work_type,
                         status: l.status,
-                        note: l.note
+                        note: l.note,
+                        locationName: l.location_name,
+                        checkOutLocationName: l.check_out_location_name,
+                        latitude: l.location_lat,
+                        longitude: l.location_lng,
+                        checkOutLat: l.check_out_lat,
+                        checkOutLng: l.check_out_lng,
+                        photoUrl: l.photo_url,
+                        checkOutPhotoUrl: l.check_out_photo_url
                     })));
                 }
             } catch (err) {

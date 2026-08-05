@@ -169,3 +169,129 @@ export const parseContentStockCSV = async (
         reader.readAsText(file);
     });
 };
+
+const formatToYYYYMMDD = (d: Date): string => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+export const parseHistoricalLeaveCSV = async (
+    file: File,
+    users: User[]
+): Promise<any[]> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        
+        reader.onload = (e) => {
+            try {
+                const text = e.target?.result as string;
+                const rows = text.split(/\r\n|\n/);
+                
+                if (rows.length < 2) {
+                    reject(new Error('ไฟล์ว่างเปล่าหรือรูปแบบไม่ถูกต้อง'));
+                    return;
+                }
+
+                const headers = parseCSVLine(rows[0]).map(h => h.trim().toLowerCase());
+                
+                const colMap = {
+                    email: headers.findIndex(h => h === 'email' || h === 'อีเมล' || h === 'username' || h === 'ชื่อผู้ใช้'),
+                    leaveType: headers.findIndex(h => h === 'leave_type' || h === 'leave type' || h === 'ประเภทการลา' || h === 'type'),
+                    startDate: headers.findIndex(h => h === 'start_date' || h === 'start date' || h === 'วันที่เริ่มต้น' || h === 'เริ่ม'),
+                    endDate: headers.findIndex(h => h === 'end_date' || h === 'end date' || h === 'วันที่สิ้นสุด' || h === 'สิ้นสุด'),
+                    reason: headers.findIndex(h => h === 'reason' || h === 'เหตุผล' || h === 'เหตุผลการลา'),
+                    isHalfDay: headers.findIndex(h => h === 'is_half_day' || h === 'is half day' || h === 'ครึ่งวัน' || h === 'ลาครึ่งวัน'),
+                    halfDaySession: headers.findIndex(h => h === 'half_day_session' || h === 'session' || h === 'ช่วงเวลา')
+                };
+
+                // Validate essential headers
+                if (colMap.email === -1 || colMap.leaveType === -1 || colMap.startDate === -1 || colMap.endDate === -1) {
+                    reject(new Error('ไม่พบหัวคอลัมน์ที่จำเป็น (อีเมล/ชื่อผู้ใช้, ประเภทการลา, วันที่เริ่มต้น, วันที่สิ้นสุด)'));
+                    return;
+                }
+
+                const parsedLeaves: any[] = [];
+
+                for (let i = 1; i < rows.length; i++) {
+                    const rowStr = rows[i].trim();
+                    if (!rowStr) continue;
+                    
+                    const cols = parseCSVLine(rowStr);
+                    const rawEmail = cols[colMap.email]?.trim();
+                    if (!rawEmail) continue;
+
+                    // Find user by email or fallback to username/name if match not found exactly
+                    const matchedUser = users.find(u => u.email?.trim().toLowerCase() === rawEmail.toLowerCase()) ||
+                                        users.find(u => u.name?.trim().toLowerCase() === rawEmail.toLowerCase()) ||
+                                        users.find(u => u.username?.trim().toLowerCase() === rawEmail.toLowerCase());
+                    
+                    if (!matchedUser) {
+                        console.warn(`Could not find user for email/name/username: ${rawEmail}`);
+                        continue; // Skip or let caller handle unmapped users
+                    }
+
+                    let rawType = cols[colMap.leaveType]?.trim().toUpperCase() || 'SICK';
+                    // Map Thai or raw types to LeaveType
+                    let type: string = 'SICK';
+                    if (rawType.includes('ป่วย') || rawType === 'SICK') type = 'SICK';
+                    else if (rawType.includes('พักร้อน') || rawType.includes('ประจำปี') || rawType === 'VACATION') type = 'VACATION';
+                    else if (rawType.includes('กิจ') || rawType === 'PERSONAL') type = 'PERSONAL';
+                    else if (rawType.includes('ฉุกเฉิน') || rawType === 'EMERGENCY') type = 'EMERGENCY';
+                    else if (rawType.includes('สาย') || rawType === 'LATE_ENTRY') type = 'LATE_ENTRY';
+                    else if (rawType.includes('ทำงานนอกสถานที่') || rawType === 'ONSITE') type = 'ONSITE';
+                    else if (rawType.includes('รีโมท') || rawType === 'WFH') type = 'WFH';
+                    else if (rawType.includes('ไม่รับค่าจ้าง') || rawType === 'UNPAID') type = 'UNPAID';
+
+                    const rawStart = cols[colMap.startDate]?.trim();
+                    const rawEnd = cols[colMap.endDate]?.trim();
+
+                    // Parse start and end date with support for slash and dash
+                    const parseFlexDate = (dateStr: string): Date | null => {
+                        if (!dateStr) return null;
+                        const cleanStr = dateStr.trim().replace(/-/g, '/');
+                        return parseTHDate(cleanStr);
+                    };
+
+                    const startDateObj = parseFlexDate(rawStart);
+                    const endDateObj = parseFlexDate(rawEnd);
+
+                    if (!startDateObj || !endDateObj) {
+                        console.warn(`Invalid date format for row ${i}: ${rawStart} / ${rawEnd}`);
+                        continue;
+                    }
+
+                    const reasonText = colMap.reason > -1 ? cols[colMap.reason]?.trim() : '';
+                    const finalReason = `[MIGRATED] ประวัติการลาย้อนหลัง: ${reasonText || 'ไม่มีระบุเหตุผล'}`;
+
+                    const rawIsHalfDay = colMap.isHalfDay > -1 ? cols[colMap.isHalfDay]?.trim().toLowerCase() : '';
+                    const isHalfDay = rawIsHalfDay === 'true' || rawIsHalfDay === 'yes' || rawIsHalfDay === '1' || rawIsHalfDay === 'ใช่';
+
+                    const rawSession = colMap.halfDaySession > -1 ? cols[colMap.halfDaySession]?.trim().toUpperCase() : null;
+                    const halfDaySession = rawSession === 'AM' || rawSession === 'PM' ? rawSession : null;
+
+                    parsedLeaves.push({
+                        user_id: matchedUser.id,
+                        type,
+                        start_date: formatToYYYYMMDD(startDateObj),
+                        end_date: formatToYYYYMMDD(endDateObj),
+                        reason: finalReason,
+                        status: 'APPROVED',
+                        is_half_day: isHalfDay,
+                        half_day_session: halfDaySession,
+                        is_fixed: true, // critical field so no alerts/HP deductions are triggered
+                        created_at: new Date().toISOString()
+                    });
+                }
+                
+                resolve(parsedLeaves);
+            } catch (err) {
+                reject(err);
+            }
+        };
+        
+        reader.onerror = (error) => reject(error);
+        reader.readAsText(file);
+    });
+};

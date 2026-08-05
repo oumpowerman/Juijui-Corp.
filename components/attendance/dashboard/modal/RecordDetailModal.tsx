@@ -256,7 +256,8 @@ export const RecordDetailModal: React.FC<RecordDetailModalProps> = ({ record, on
                                 status = 'APPROVED';
                             }
 
-                            const attachment = data.attachment_url || data.attachmentUrl;
+                            const attachments: string[] = (data.attachment_urls || data.attachmentUrls || [])
+                                .filter(Boolean);
 
                             return (
                                 <>
@@ -282,20 +283,25 @@ export const RecordDetailModal: React.FC<RecordDetailModalProps> = ({ record, on
                                         </p>
                                     </div>
 
-                                    {attachment && (
+                                    {attachments.length > 0 && (
                                         <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl space-y-2">
                                             <p className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
                                                 <ImageIcon className="w-3.5 h-3.5 text-slate-400" /> เอกสาร/หลักฐานแนบ
                                             </p>
-                                            <a 
-                                                href={attachment} 
-                                                target="_blank" 
-                                                rel="noopener noreferrer"
-                                                className="p-3 bg-white border border-slate-200 rounded-xl flex items-center justify-between text-xs font-semibold text-indigo-600 hover:bg-indigo-50 transition-colors"
-                                            >
-                                                <span>เปิดดูเอกสารแนบ</span>
-                                                <ExternalLink className="w-4 h-4" />
-                                            </a>
+                                            <div className="grid gap-2">
+                                                {attachments.map((url, idx) => (
+                                                    <a 
+                                                        key={idx}
+                                                        href={url} 
+                                                        target="_blank" 
+                                                        rel="noopener noreferrer"
+                                                        className="p-3 bg-white border border-slate-200 rounded-xl flex items-center justify-between text-xs font-semibold text-indigo-600 hover:bg-indigo-50 transition-colors"
+                                                    >
+                                                        <span>เปิดดูเอกสารแนบ {attachments.length > 1 ? `(${idx + 1})` : ''}</span>
+                                                        <ExternalLink className="w-4 h-4" />
+                                                    </a>
+                                                ))}
+                                            </div>
                                         </div>
                                     )}
                                 </>

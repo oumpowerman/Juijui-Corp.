@@ -147,9 +147,9 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
     // Calculate duration details
     let durationText = '';
     if (isLeave) {
-        const days = request.isHalfDay || (request as any).is_half_day ? 0.5 : getWorkingDaysDifference(request.startDate, request.endDate, annualHolidays, calendarExceptions, null, true);
-        const sessionSuffix = request.isHalfDay || (request as any).is_half_day 
-            ? ` (ครึ่งวัน${(request.halfDaySession || (request as any).half_day_session) === 'AM' ? 'เช้า' : 'บ่าย'})`
+        const days = request.isHalfDay ? 0.5 : getWorkingDaysDifference(request.startDate, request.endDate, annualHolidays, calendarExceptions, null, true);
+        const sessionSuffix = request.isHalfDay 
+            ? ` (ครึ่งวัน${request.halfDaySession === 'AM' ? 'เช้า' : 'บ่าย'})`
             : '';
         durationText = `รวมเป็นเวลา ${days} วันทำการ${sessionSuffix}`;
     }

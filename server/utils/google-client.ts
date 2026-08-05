@@ -12,9 +12,6 @@ export const getRedirectUri = (req?: express.Request) => {
     if (process.env.APP_URL && process.env.APP_URL.trim() !== '') {
         return `${process.env.APP_URL.trim().replace(/\/$/, '')}/auth/google/callback`;
     }
-    if (process.env.CLIENT_URL && process.env.CLIENT_URL.trim() !== '') {
-        return `${process.env.CLIENT_URL.trim().replace(/\/$/, '')}/auth/google/callback`;
-    }
     
     // 3. Dynamic Request Host (Production Cloud Run & Vercel Previews)
     if (req) {

@@ -418,8 +418,8 @@ export const useAttendanceHistoryEngine = (userId: string, highlightedDate?: str
         setIsResubmitOpen(true);
     }, []);
     
-    const handleResubmitSubmit = useCallback(async (type: LeaveType, start: Date, end: Date, reason: string, file?: File) => {
-        const success = await submitRequest(type, start, end, reason, file);
+    const handleResubmitSubmit = useCallback(async (type: LeaveType, start: Date, end: Date, reason: string, files?: File[]) => {
+        const success = await submitRequest(type, start, end, reason, files);
         if (success) {
             fetchData(); 
         }

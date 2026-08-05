@@ -74,4 +74,9 @@ export const BRAND_CONFIG = {
   // 1 = ไม่แสดง (แสดงเฉพาะในหน้า TeamView ปกติ)
   // 2 = แสดง (เพิ่มกล่องรออนุมัติก่อนถึง TimesheetHeader)
   showPendingMembersInTimesheetMode: 2,
+
+  // โหมดการทำงานการลงเวลาสำหรับคอมพิวเตอร์ (Computer / PC Lock Mode)
+  // 1 = อนุญาตให้เข้างาน/ลงเวลาผ่านคอมพิวเตอร์ได้ (ปลดล็อก)
+  // 2 = ล็อกการลงเวลาผ่านคอมพิวเตอร์ (ล็อกให้ลงผ่านมือถือ/แท็บเล็ตเท่านั้น)
+  allowDesktopCheckInMode: 1,
 };

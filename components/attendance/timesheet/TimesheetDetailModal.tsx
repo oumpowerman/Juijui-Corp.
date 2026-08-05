@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { format } from 'date-fns';
 import th from 'date-fns/locale/th';
-import { X, ImageIcon, Download, Clock, MapPin, Info, ArrowRight, ZoomIn, ExternalLink, AlertTriangle } from 'lucide-react';
+import { X, ImageIcon, Download, Clock, MapPin, Info, ArrowRight, ZoomIn, ExternalLink, AlertTriangle, ChevronLeft, ChevronRight } from 'lucide-react';
 import { AttendanceLog } from '../../../types/attendance';
 import { getDirectDriveUrl } from '../../../lib/imageUtils';
 import { createPortal } from 'react-dom';
@@ -38,10 +38,28 @@ const lightboxImageVariants = {
 };
 
 // --- SUB-COMPONENT: Lightbox Modal (Consistent with TeamChat) ---
-const Lightbox: React.FC<{ url: string; onClose: () => void }> = ({ url, onClose }) => {
+const Lightbox: React.FC<{ urls: string[]; initialIndex: number; onClose: () => void }> = ({ urls, initialIndex, onClose }) => {
+    const [currentIndex, setCurrentIndex] = useState(initialIndex);
+
+    const handleNext = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (urls.length > 1) {
+            setCurrentIndex((prev) => (prev + 1) % urls.length);
+        }
+    };
+
+    const handlePrev = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (urls.length > 1) {
+            setCurrentIndex((prev) => (prev - 1 + urls.length) % urls.length);
+        }
+    };
+
+    const currentUrl = urls[currentIndex];
+
     return createPortal(
         <motion.div 
-            className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-sm flex flex-col items-center justify-center p-4"
+            className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-sm flex flex-col items-center justify-center p-4 cursor-zoom-out"
             initial="hidden"
             animate="visible"
             exit="exit"
@@ -53,18 +71,19 @@ const Lightbox: React.FC<{ url: string; onClose: () => void }> = ({ url, onClose
             }}
         >
             <motion.div 
-                className="absolute top-6 right-6 flex items-center gap-3 z-10"
+                className="absolute top-6 right-6 flex items-center gap-3 z-50"
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
                 transition={{ duration: 0.2 }}
             >
                 <a 
-                    href={url} 
+                    href={currentUrl} 
                     target="_blank" 
                     rel="noopener noreferrer" 
-                    className="p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
+                    className="p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors cursor-pointer"
                     onClick={(e) => e.stopPropagation()}
+                    title="เปิดในแท็บใหม่"
                 >
                     <ExternalLink className="w-5 h-5" />
                 </a>
@@ -73,23 +92,51 @@ const Lightbox: React.FC<{ url: string; onClose: () => void }> = ({ url, onClose
                         e.stopPropagation();
                         onClose();
                     }}
-                    className="p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors"
+                    className="p-2.5 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors cursor-pointer"
+                    title="ปิด"
                 >
                     <X className="w-6 h-6" />
                 </button>
             </motion.div>
 
+            {/* Left / Right Nav buttons inside Lightbox */}
+            {urls.length > 1 && (
+                <>
+                    <button
+                        onClick={handlePrev}
+                        className="absolute left-4 sm:left-8 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all border border-white/10 z-50 shadow-2xl active:scale-90 cursor-pointer"
+                        title="รูปก่อนหน้า"
+                    >
+                        <ChevronLeft className="w-6 h-6 sm:w-8 sm:h-8" />
+                    </button>
+                    <button
+                        onClick={handleNext}
+                        className="absolute right-4 sm:right-8 top-1/2 -translate-y-1/2 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-all border border-white/10 z-50 shadow-2xl active:scale-90 cursor-pointer"
+                        title="รูปถัดไป"
+                    >
+                        <ChevronRight className="w-6 h-6 sm:w-8 sm:h-8" />
+                    </button>
+                </>
+            )}
+
             <motion.div 
-                className="relative max-w-5xl w-full h-full flex items-center justify-center" 
+                className="relative max-w-5xl w-full h-[75vh] flex flex-col items-center justify-center cursor-default" 
                 onClick={(e) => e.stopPropagation()}
                 variants={lightboxImageVariants}
             >
                 <img 
-                    src={getDirectDriveUrl(url)} 
+                    src={getDirectDriveUrl(currentUrl)} 
                     alt="Full Preview" 
-                    className="max-w-full max-h-full object-contain rounded-lg shadow-2xl"
+                    className="max-w-full max-h-full object-contain rounded-lg shadow-2xl select-none"
                     referrerPolicy="no-referrer"
                 />
+                
+                {/* Image counter and details under lightbox */}
+                <div className="mt-4 text-center text-white/80">
+                    <p className="text-xs sm:text-sm font-kanit">
+                        รูปภาพที่ {currentIndex + 1} จากทั้งหมด {urls.length} รูป
+                    </p>
+                </div>
             </motion.div>
             
             <motion.div 
@@ -99,7 +146,7 @@ const Lightbox: React.FC<{ url: string; onClose: () => void }> = ({ url, onClose
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.2 }}
             >
-                Click anywhere to close
+                คลิกตรงไหนก็ได้เพื่อปิดหน้านี้
             </motion.div>
         </motion.div>,
         document.body
@@ -154,7 +201,8 @@ const modalVariants = {
 
 const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveRequest, otRequest, onClose }) => {
     const [showLightbox, setShowLightbox] = useState(false);
-    const [lightboxUrl, setLightboxUrl] = useState('');
+    const [lightboxIndex, setLightboxIndex] = useState(0);
+    const [activeIndex, setActiveIndex] = useState(0);
     const isMobile = useIsMobile();
 
     const displayDate = log 
@@ -199,12 +247,38 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
     const earlyLeaveMissingMins = logParsed.earlyLeaveMissingMinutes || requestParsed.earlyLeaveMissingMinutes;
 
     const userReason = requestParsed.cleanReason;
-    const adminRejection = leaveRequest?.rejectionReason || leaveRequest?.rejection_reason || '';
+    const adminRejection = leaveRequest?.rejectionReason || '';
     const systemLogNote = logParsed.cleanReason;
 
     const proofMatch = note.match(/\[PROOF:(.*?)\]/);
-    const url = proofMatch ? proofMatch[1] : (leaveRequest?.attachment_url || null);
-    const hasImage = !!url;
+    
+    // Gather all valid attachment/proof URLs
+    const attachmentUrls: string[] = [];
+    
+    // 1. Check leaveRequest attachmentUrls
+    if (leaveRequest?.attachmentUrls && leaveRequest.attachmentUrls.length > 0) {
+        attachmentUrls.push(...leaveRequest.attachmentUrls);
+    }
+
+    // 2. Extract [PROOF:...] from note
+    if (note) {
+        const globalProofMatches = [...note.matchAll(/\[PROOF:(.*?)\]/g)];
+        if (globalProofMatches.length > 0) {
+            globalProofMatches.forEach(m => {
+                if (m[1] && !attachmentUrls.includes(m[1])) {
+                    attachmentUrls.push(m[1]);
+                }
+            });
+        } else {
+            const match = note.match(/\[PROOF:(.*?)\]/);
+            if (match && match[1] && !attachmentUrls.includes(match[1])) {
+                attachmentUrls.push(match[1]);
+            }
+        }
+    }
+
+    const uniqueAttachmentUrls = Array.from(new Set(attachmentUrls.filter(Boolean)));
+    const hasImage = uniqueAttachmentUrls.length > 0;
     
     return createPortal(
         <motion.div 
@@ -263,18 +337,51 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                                 className="absolute top-[calc(env(safe-area-inset-top,16px)+6px)] left-1/2 -translate-x-1/2 w-12 h-1 bg-white/30 rounded-full z-20 md:hidden" 
                             />
                             
-                            <img 
-                                src={getDirectDriveUrl(url)} 
-                                className="w-full h-full object-cover opacity-90 group-hover/img:scale-105 transition-transform duration-700 cursor-pointer" 
-                                alt="Proof"
-                                referrerPolicy="no-referrer"
-                                onClick={() => {
-                                    setLightboxUrl(url);
-                                    setShowLightbox(true);
-                                }}
-                            />
+                            <AnimatePresence mode="wait">
+                                <motion.img 
+                                    key={activeIndex}
+                                    src={getDirectDriveUrl(uniqueAttachmentUrls[activeIndex])} 
+                                    className="w-full h-full object-cover opacity-90 transition-transform duration-700 cursor-pointer" 
+                                    alt={`Proof ${activeIndex + 1}`}
+                                    referrerPolicy="no-referrer"
+                                    initial={{ opacity: 0, x: 20 }}
+                                    animate={{ opacity: 1, x: 0 }}
+                                    exit={{ opacity: 0, x: -20 }}
+                                    onClick={() => {
+                                        setLightboxIndex(activeIndex);
+                                        setShowLightbox(true);
+                                    }}
+                                />
+                            </AnimatePresence>
+
                             <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-transparent pointer-events-none"></div>
                             
+                            {/* Left/Right Controls inside team sheet */}
+                            {uniqueAttachmentUrls.length > 1 && (
+                                <>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setActiveIndex((prev) => (prev - 1 + uniqueAttachmentUrls.length) % uniqueAttachmentUrls.length);
+                                        }}
+                                        className="absolute left-3 top-1/2 -translate-y-1/2 p-2 bg-black/45 hover:bg-black/60 text-white rounded-full shadow-lg z-25 border border-white/10 active:scale-95 cursor-pointer transition-colors"
+                                        title="รูปก่อนหน้า"
+                                    >
+                                        <ChevronLeft className="w-5 h-5" />
+                                    </button>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            setActiveIndex((prev) => (prev + 1) % uniqueAttachmentUrls.length);
+                                        }}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-black/45 hover:bg-black/60 text-white rounded-full shadow-lg z-25 border border-white/10 active:scale-95 cursor-pointer transition-colors"
+                                        title="รูปถัดไป"
+                                    >
+                                        <ChevronRight className="w-5 h-5" />
+                                    </button>
+                                </>
+                            )}
+
                             {/* Zoom Indicator */}
                             <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity pointer-events-none">
                                 <div className="bg-white/20 backdrop-blur-md p-4 rounded-full border border-white/30 text-white">
@@ -282,14 +389,42 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                                 </div>
                             </div>
 
+                            {/* Bullet Dots indicators */}
+                            {uniqueAttachmentUrls.length > 1 && (
+                                <div className="absolute bottom-4 right-6 flex items-center gap-1.5 bg-black/50 backdrop-blur-md px-3 py-1.5 rounded-full z-20 border border-white/10 shadow-sm">
+                                    {uniqueAttachmentUrls.map((_, idx) => (
+                                        <button
+                                            key={idx}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setActiveIndex(idx);
+                                            }}
+                                            className={`w-1.5 h-1.5 rounded-full transition-all duration-300 ${
+                                                idx === activeIndex 
+                                                    ? 'bg-amber-400 scale-125' 
+                                                    : 'bg-white/40 hover:bg-white/85'
+                                            }`}
+                                        />
+                                    ))}
+                                </div>
+                            )}
+
                             <div 
                                 className="absolute bottom-4 left-6 flex items-center gap-3 transition-all duration-100"
                             >
                                 <div className="bg-white/20 backdrop-blur-md px-3 py-1.5 rounded-xl border border-white/20 text-white flex items-center gap-2">
                                     <ImageIcon className="w-4 h-4" />
-                                    <span className="text-xs font-bold uppercase tracking-widest">Visual Evidence</span>
+                                    <span className="text-xs font-bold uppercase tracking-widest">
+                                        Evidence {uniqueAttachmentUrls.length > 1 ? `(${activeIndex + 1}/${uniqueAttachmentUrls.length})` : ''}
+                                    </span>
                                 </div>
-                                <a href={url} target="_blank" rel="noreferrer" className="p-2 bg-indigo-600 rounded-xl text-white shadow-lg shadow-indigo-900/50 hover:bg-indigo-500 transition-all">
+                                <a 
+                                    href={uniqueAttachmentUrls[activeIndex]} 
+                                    target="_blank" 
+                                    rel="noreferrer" 
+                                    className="p-2 bg-indigo-600 rounded-xl text-white shadow-lg shadow-indigo-900/50 hover:bg-indigo-500 transition-all cursor-pointer"
+                                    onClick={(e) => e.stopPropagation()}
+                                >
                                     <Download className="w-4 h-4" />
                                 </a>
                             </div>
@@ -521,7 +656,8 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
             <AnimatePresence>
                 {showLightbox && (
                     <Lightbox 
-                        url={lightboxUrl} 
+                        urls={uniqueAttachmentUrls} 
+                        initialIndex={lightboxIndex}
                         onClose={() => setShowLightbox(false)} 
                     />
                 )}

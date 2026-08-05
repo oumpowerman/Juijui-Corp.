@@ -68,6 +68,7 @@ export const AttendanceConditionBadges: React.FC<AttendanceConditionBadgesProps>
         parsed.isLocationMismatch ||
         parsed.isLateSubmission ||
         parsed.forgotCheckoutPenalty ||
+        parsed.isHalfDay ||
         isEarlyLeave;
 
     if (!hasAnyBadge) return null;
@@ -77,6 +78,11 @@ export const AttendanceConditionBadges: React.FC<AttendanceConditionBadgesProps>
 
     return (
         <div className="flex flex-wrap gap-1.5">
+            {parsed.isHalfDay && (
+                <span className={`${pad} bg-amber-50 text-amber-800 border border-amber-200 font-bold flex items-center gap-1 shrink-0`}>
+                    🍂 {isSm ? `ลาครึ่งวัน${parsed.halfDaySession === 'AM' ? 'เช้า' : 'บ่าย'}` : `ลาครึ่งวัน${parsed.halfDaySession === 'AM' ? 'เช้า (AM)' : 'บ่าย (PM)'}`}
+                </span>
+            )}
             {isEarlyLeave && (
                 <span className={`${pad} bg-amber-100 text-amber-900 border border-amber-200/90 font-bold flex items-center gap-1.5 shrink-0`}>
                     <span>🚪</span>

@@ -15,7 +15,7 @@ interface UseLeaveFormLogicProps {
         start: Date, 
         end: Date, 
         reason: string, 
-        file?: File, 
+        files?: File[], 
         linkedRemoteType?: 'WFH' | 'ONSITE',
         isHalfDay?: boolean,
         halfDaySession?: string
@@ -50,7 +50,7 @@ export const useLeaveFormLogic = ({
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [reason, setReason] = useState(initialReason || ''); // Use initialReason
-    const [file, setFile] = useState<File | null>(null);
+    const [files, setFiles] = useState<File[]>([]);
     const [targetTime, setTargetTime] = useState('09:00');
     const [endTime, setEndTime] = useState('18:00'); // New state for FORGOT_BOTH
     const [otHours, setOtHours] = useState(2);
@@ -105,7 +105,7 @@ export const useLeaveFormLogic = ({
         setStartDate(d);
         setEndDate(d);
         setReason(initialReason || '');
-        setFile(null);
+        setFiles([]);
         setIsReviewing(false);
         setOtType('HOURLY');
         
@@ -251,12 +251,20 @@ export const useLeaveFormLogic = ({
         
         setIsSubmitting(true);
 
-        let finalFile = file;
-        if (file && file.type.startsWith('image/')) {
-            try {
-                finalFile = await compressImage(file);
-            } catch (err) {
-                console.error('Compression failed', err);
+        const finalFiles: File[] = [];
+        if (files && files.length > 0) {
+            for (const singleFile of files) {
+                if (singleFile.type && singleFile.type.startsWith('image/')) {
+                    try {
+                        const compressed = await compressImage(singleFile);
+                        finalFiles.push(compressed);
+                    } catch (err) {
+                        console.error('Compression failed', err);
+                        finalFiles.push(singleFile);
+                    }
+                } else {
+                    finalFiles.push(singleFile);
+                }
             }
         }
 
@@ -317,7 +325,7 @@ export const useLeaveFormLogic = ({
             finalStartDate,
             finalEndDate,
             finalReason,
-            finalFile || undefined,
+            finalFiles.length > 0 ? finalFiles : undefined,
             linkedRemoteType,
             isHalfDay,
             halfDaySession
@@ -331,7 +339,7 @@ export const useLeaveFormLogic = ({
         startDate, setStartDate,
         endDate, setEndDate,
         reason, setReason,
-        file, setFile,
+        files, setFiles,
         targetTime, setTargetTime,
         endTime, setEndTime,
         otHours, setOtHours,

@@ -145,9 +145,14 @@ export const RequestInfoSection: React.FC<RequestInfoSectionProps> = ({
             </div>
 
             {/* Attachment Preview (if any) */}
-            {(request.attachmentUrl || parsed.proofUrl) && (
+            {((request.attachmentUrls && request.attachmentUrls.length > 0) || parsed.proofUrl) && (
                 <div className="pt-2">
-                    <AttachmentPreview attachmentUrl={request.attachmentUrl || parsed.proofUrl || ''} />
+                    <AttachmentPreview 
+                        attachmentUrls={
+                            (request.attachmentUrls && request.attachmentUrls.length > 0) ? request.attachmentUrls :
+                            [parsed.proofUrl || ''].filter(Boolean)
+                        } 
+                    />
                 </div>
             )}
         </div>

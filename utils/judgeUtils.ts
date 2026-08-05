@@ -131,7 +131,7 @@ export const isUserOnLeave = (dateStr: string, userLeaves: any[]) => {
     return leave ? { 
         onLeave: true, 
         status: leave.status,
-        isHalfDay: leave.isHalfDay || leave.is_half_day || false,
-        halfDaySession: leave.halfDaySession || leave.half_day_session || null
+        isHalfDay: leave.isHalfDay || false,
+        halfDaySession: leave.halfDaySession || null
     } : { onLeave: false, status: null, isHalfDay: false, halfDaySession: null };
 };

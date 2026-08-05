@@ -32,7 +32,7 @@ const MonthlyBonusCard: React.FC<MonthlyBonusCardProps> = ({
             <div>
                 <div className="flex items-center justify-between">
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-50 text-amber-700 border border-amber-100">
-                        <Gift className="w-3.5 h-3.5 text-amber-500 animate-pulse" /> 🏆 แผน M (Monthly Perfect Attendance)
+                        <Gift className="w-3.5 h-3.5 text-amber-500 animate-pulse" /> 🏆 แผน G (Monthly Perfect Attendance)
                     </span>
                     <span className="flex items-center gap-2 text-xs text-amber-700 font-bold bg-amber-50/60 px-3 py-1 rounded-xl border border-amber-100/40">
                         <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>

@@ -113,7 +113,7 @@ export const useAdminApprovals = (currentUser?: any, options: { enabled?: boolea
             createdAt: new Date(r.createdAt),
             rejectionReason: r.rejectionReason,
             user: r.user,
-            attachmentUrl: r.attachmentUrl
+            attachmentUrls: r.attachmentUrls || []
         }));
 
         combinedRequests = [...combinedRequests, ...mappedOtRequests];

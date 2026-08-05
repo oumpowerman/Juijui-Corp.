@@ -215,9 +215,9 @@ export const ApprovalCardDetails: React.FC<ApprovalCardDetailsProps> = ({
                     </span>
                 )}
 
-                {(request.isHalfDay || (request as any).is_half_day) && (
+                {request.isHalfDay && (
                     <span className="text-[10px] px-2 py-0.5 rounded-lg font-bold border bg-indigo-50 text-indigo-700 border-indigo-200/60 flex items-center gap-1 shadow-sm">
-                        ⏱️ ลาครึ่งวัน{((request.halfDaySession || (request as any).half_day_session) === 'AM' ? 'เช้า' : 'บ่าย')} (0.5 วัน)
+                        ⏱️ ลาครึ่งวัน{(request.halfDaySession === 'AM' ? 'เช้า' : 'บ่าย')} (0.5 วัน)
                     </span>
                 )}
 
@@ -248,18 +248,37 @@ export const ApprovalCardDetails: React.FC<ApprovalCardDetailsProps> = ({
                     {new Date(request.startDate).getTime() !== new Date(request.endDate).getTime() && ` - ${format(new Date(request.endDate), 'd MMM yyyy')}`}
                 </div>
 
-                {(request.attachmentUrl || parsed.proofUrl) && (
-                    <a 
-                        href={request.attachmentUrl || parsed.proofUrl || '#'} 
-                        target="_blank" 
-                        rel="noreferrer" 
-                        onClick={(e) => e.stopPropagation()}
-                        className="inline-flex items-center gap-1.5 text-[10px] bg-blue-100 text-blue-700 border border-blue-200/50 px-3 py-1.5 rounded-full font-bold hover:bg-blue-200 transition-colors cursor-pointer"
-                        id={`evidence-link-${request.id}`}
-                    >
-                        <ExternalLink className="w-3 h-3" /> ดูหลักฐาน
-                    </a>
-                )}
+                {(() => {
+                    const attachments: string[] = [];
+                    if (request.attachmentUrls && request.attachmentUrls.length > 0) {
+                        attachments.push(...request.attachmentUrls);
+                    }
+                    if (parsed.proofUrl && !attachments.includes(parsed.proofUrl)) {
+                        attachments.push(parsed.proofUrl);
+                    }
+                    const validAttachments = attachments.filter(Boolean);
+
+                    if (validAttachments.length === 0) return null;
+
+                    return (
+                        <div className="flex flex-wrap gap-1.5">
+                            {validAttachments.map((url, idx) => (
+                                <a 
+                                    key={idx}
+                                    href={url} 
+                                    target="_blank" 
+                                    rel="noreferrer" 
+                                    onClick={(e) => e.stopPropagation()}
+                                    className="inline-flex items-center gap-1.5 text-[10px] bg-blue-100 text-blue-700 border border-blue-200/50 px-3 py-1.5 rounded-full font-bold hover:bg-blue-200 transition-colors cursor-pointer"
+                                    id={`evidence-link-${request.id}-${idx}`}
+                                >
+                                    <ExternalLink className="w-3 h-3" /> 
+                                    ดูหลักฐาน {validAttachments.length > 1 ? `(${idx + 1})` : ''}
+                                </a>
+                            ))}
+                        </div>
+                    );
+                })()}
             </div>
 
             {renderReason(parsed)}

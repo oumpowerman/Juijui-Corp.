@@ -13,6 +13,8 @@ import { parseReason } from './request-detail/utils';
 import { RequestDetailModal } from './RequestDetailModal';
 import MultiDatePickerModal from '../../ui/MultiDatePickerModal';
 import TimePickerModal from '../../ui/TimePickerModal';
+import { useUserSession } from '../../../context/UserSessionContext';
+import { AdminLeaveMigrator } from './admin/AdminLeaveMigrator';
 
 // Modularized Components
 import { ApprovalFilterBar } from './approval/ApprovalFilterBar';
@@ -41,6 +43,10 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
     onReject 
 }) => {
     const { showAlert, showConfirm } = useGlobalDialog();
+    const { allUsers, refreshLeaves, refreshAttendance, currentUserProfile } = useUserSession();
+
+    const isAdmin = currentUserProfile?.role === 'ADMIN';
+
     const { annualHolidays, calendarExceptions, masterOptions } = useMasterData();
     const [searchParams, setSearchParams] = useSearchParams();
     const highlightReqId = searchParams.get('highlightReqId') || searchParams.get('id');
@@ -375,6 +381,14 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
 
     return (
         <div className="space-y-4">
+            {isAdmin && (
+                <AdminLeaveMigrator 
+                    allUsers={allUsers}
+                    refreshLeaves={refreshLeaves}
+                    refreshAttendance={refreshAttendance}
+                />
+            )}
+
             {/* Modular filter bar */}
             <ApprovalFilterBar 
                 filterStatus={filterStatus}

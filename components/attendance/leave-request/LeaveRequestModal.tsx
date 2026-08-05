@@ -22,7 +22,7 @@ interface LeaveRequestModalProps {
         start: Date, 
         end: Date, 
         reason: string, 
-        file?: File, 
+        files?: File[], 
         linkedRemoteType?: 'WFH' | 'ONSITE',
         isHalfDay?: boolean,
         halfDaySession?: string

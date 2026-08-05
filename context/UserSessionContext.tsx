@@ -144,14 +144,12 @@ const mapLeaveRequest = (data: any) => ({
     startDate: new Date(data.start_date),
     endDate: new Date(data.end_date),
     reason: data.reason,
-    attachmentUrl: data.attachment_url,
+    attachmentUrls: data.attachment_urls || [],
     status: data.status,
     approverId: data.approver_id,
     createdAt: new Date(data.created_at),
     rejectionReason: data.rejection_reason,
-    is_half_day: data.is_half_day,
     isHalfDay: data.is_half_day,
-    half_day_session: data.half_day_session,
     halfDaySession: data.half_day_session,
     is_fixed: data.is_fixed,
     isFixed: data.is_fixed
@@ -173,7 +171,7 @@ const mapOtRequest = (data: any) => ({
     baseSalaryAtTime: data.base_salary_at_time ? Number(data.base_salary_at_time) : undefined,
     computedPayout: Number(data.computed_payout || 0),
     createdAt: new Date(data.created_at),
-    attachmentUrl: data.attachment_url,
+    attachmentUrls: data.attachment_urls || [],
     isFixed: !!data.is_fixed
 });
 

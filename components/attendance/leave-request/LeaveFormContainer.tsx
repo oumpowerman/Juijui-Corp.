@@ -29,7 +29,7 @@ interface Props {
         start: Date, 
         end: Date, 
         reason: string, 
-        file?: File, 
+        files?: File[], 
         linkedRemoteType?: 'WFH' | 'ONSITE',
         isHalfDay?: boolean,
         halfDaySession?: string
@@ -128,7 +128,7 @@ const LeaveFormContainer: React.FC<Props> = ({
     
     const { 
         startDate, setStartDate, endDate, setEndDate, 
-        reason, setReason, file, setFile, 
+        reason, setReason, files, setFiles, 
         targetTime, setTargetTime, endTime, setEndTime, otHours, setOtHours, 
         otType, setOtType,
         isSubmitting, isReviewing, setIsReviewing, handleReview, handleSubmit,
@@ -145,23 +145,24 @@ const LeaveFormContainer: React.FC<Props> = ({
         linkedRemoteType
     });
 
-    const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
+    const [filePreviewUrls, setFilePreviewUrls] = useState<string[]>([]);
 
     useEffect(() => {
-        if (!file) {
-            setFilePreviewUrl(null);
+        if (files.length === 0) {
+            setFilePreviewUrls([]);
             return;
         }
-        if (file.type && file.type.startsWith('image/')) {
-            const url = URL.createObjectURL(file);
-            setFilePreviewUrl(url);
-            return () => {
-                URL.revokeObjectURL(url);
-            };
-        } else {
-            setFilePreviewUrl(null);
-        }
-    }, [file]);
+        const urls = files.map(f => {
+            if (f.type && f.type.startsWith('image/')) {
+                return URL.createObjectURL(f);
+            }
+            return '';
+        }).filter(Boolean);
+        setFilePreviewUrls(urls);
+        return () => {
+            urls.forEach(url => URL.revokeObjectURL(url));
+        };
+    }, [files]);
 
     const bodyRef = useRef<HTMLDivElement>(null);
     const [isScrolled, setIsScrolled] = useState(false);
@@ -228,7 +229,7 @@ const LeaveFormContainer: React.FC<Props> = ({
             updateScrollState();
         }, 150);
         return () => clearTimeout(timer);
-    }, [isReviewing, selectedType, isOverQuota, startDate, endDate, reason, file]);
+    }, [isReviewing, selectedType, isOverQuota, startDate, endDate, reason, files]);
 
     useEffect(() => {
         updateScrollState();
@@ -410,8 +411,8 @@ const LeaveFormContainer: React.FC<Props> = ({
                             isTimeSpecific={isTimeSpecific}
                             linkedRemoteType={linkedRemoteType}
                             isInOffice={isInOffice}
-                            file={file}
-                            filePreviewUrl={filePreviewUrl}
+                            files={files}
+                            filePreviewUrls={filePreviewUrls}
                             isSubmitting={isSubmitting}
                             onBack={() => setIsReviewing(false)}
                             onSubmit={handleSubmit}
@@ -559,8 +560,8 @@ const LeaveFormContainer: React.FC<Props> = ({
                                 </div>
                                 
                                 <FileAttachmentZone 
-                                    file={file} 
-                                    setFile={setFile} 
+                                    files={files} 
+                                    setFiles={setFiles} 
                                     selectedType={selectedType} 
                                 />
                             </div>

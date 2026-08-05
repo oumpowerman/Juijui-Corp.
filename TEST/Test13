@@ -3,6 +3,7 @@ import { LogIn, Palmtree, Hourglass, ShieldCheck, AlertCircle, ArrowRight, Flame
 import { LeaveType, LocationDef, AttendanceStats, LeaveRequest, AttendanceLog } from '../../../../../types/attendance';
 import ForgotCheckInControl from '../../ForgotCheckInControl';
 import { parseReason } from '../../../leave-request/request-detail/utils';
+import { addMinutesToTimeString } from '../../../../../lib/attendanceUtils';
 
 interface NotCheckedInDisplayProps {
     dayStatus: { mode: string; name: string };
@@ -15,7 +16,7 @@ interface NotCheckedInDisplayProps {
     // Props สำหรับสลอตตอกย้อนหลัง
     startTime: string;
     lateBuffer: number;
-    onCheckOutRequest: (type: LeaveType, start: Date, end: Date, reason: string, files?: File[]) => Promise<boolean>;
+    onCheckOutRequest: (type: LeaveType, start: Date, end: Date, reason: string, file?: File) => Promise<boolean>;
     leaveUsage: any;
     availableLocations: LocationDef[];
     onNavigateToHistory?: () => void;
@@ -45,6 +46,13 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
     isDesktop = false
 }) => {
     const isActualLeaveToday = isLeaveLog || (isApprovedLeaveToday && todayActiveLeave && !['WFH', 'ONSITE', 'LATE_ENTRY', 'OVERTIME', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT', 'GPS_SPOOF_APPEAL'].includes(todayActiveLeave.type));
+
+    const isHalfDay = todayActiveLeave ? (todayActiveLeave.isHalfDay || todayActiveLeave.is_half_day || false) : false;
+    const halfDaySession = todayActiveLeave ? (todayActiveLeave.halfDaySession || todayActiveLeave.half_day_session || null) : null;
+
+    const currentStartTime = startTime || '08:00';
+    const expectedAmEndTime = addMinutesToTimeString(currentStartTime, 240); // 4 hours for AM work (PM Leave)
+    const expectedPmStartTime = addMinutesToTimeString(currentStartTime, 300); // 5 hours for PM work (AM Leave)
 
     const formatDateString = (d: any) => {
         if (!d) return '';
@@ -150,9 +158,9 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
                     </div>
 
                     <div className="bg-white/90 backdrop-blur-sm rounded-xl p-3.5 border border-emerald-200/80 space-y-2 text-xs">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-bold text-emerald-900 shrink-0">ประเภทการลา:</span>
-                            <span className="font-semibold text-slate-800">
+                            <span className="font-semibold text-slate-800 flex items-center gap-1.5 flex-wrap">
                                 {todayActiveLeave ? (
                                     todayActiveLeave.type === 'SICK' ? 'ลาป่วย (Sick Leave) 🤒' :
                                     todayActiveLeave.type === 'VACATION' ? 'ลาพักร้อน (Vacation Leave) 🏖️' :
@@ -161,6 +169,11 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
                                     todayActiveLeave.type === 'UNPAID' ? 'ลาไม่รับค่าจ้าง (Unpaid Leave) 🪵' :
                                     `ลาประเภท ${todayActiveLeave.type}`
                                 ) : 'ลางาน (Leave)'}
+                                {isHalfDay && (
+                                    <span className="inline-flex items-center gap-1 text-[10px] font-bold text-sky-700 bg-sky-50 border border-sky-200 px-2 py-0.5 rounded-full shadow-2xs">
+                                        ⏱️ ลาครึ่งวัน ({halfDaySession === 'PM' ? 'บ่าย - PM' : 'เช้า - AM'})
+                                    </span>
+                                )}
                             </span>
                         </div>
                         {todayActiveLeave && (
@@ -187,9 +200,27 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
                         </div>
                     </div>
 
-                    <p className="text-[10px] text-slate-500 font-medium italic text-center">
-                        * หมายเหตุ: หากคุณต้องการเข้ามาปฏิบัติงานจริงเพิ่มเติมในวันนี้ สามารถกดลงเวลาเริ่มงาน (Check-in) ด้านล่างได้ปกติครับ
-                    </p>
+                    {isHalfDay ? (
+                        <div className="bg-sky-50/80 border border-sky-200 rounded-xl p-3 text-left space-y-1.5 animate-in slide-in-from-bottom-2">
+                            <div className="flex items-center gap-1.5 text-sky-800 font-bold text-[11px] sm:text-xs">
+                                <AlertTriangle className="w-4 h-4 text-sky-600 shrink-0 animate-pulse" />
+                                <span>📋 คำแนะนำในการเข้างานประจำวัน</span>
+                            </div>
+                            {halfDaySession === 'PM' ? (
+                                <p className="text-[11px] text-sky-700 font-medium leading-relaxed">
+                                    ⚠️ <strong>คุณมีคิวเข้าปฏิบัติงานช่วงเช้า:</strong> กรุณากดลงเวลาเริ่มงาน (Check-in) ตามกะของคุณ และสามารถกด Check-out ออกได้หลังจากทำงานครบ 4 ชั่วโมงเป็นต้นไป (เช่น หากเป็นกะ {currentStartTime} น. จะกดออกได้ตั้งแต่ {expectedAmEndTime} น.) โดยไม่แสดงสถานะกลับก่อนเวลา
+                                </p>
+                            ) : (
+                                <p className="text-[11px] text-sky-700 font-medium leading-relaxed">
+                                    ⚠️ <strong>คุณมีคิวเข้าปฏิบัติงานช่วงบ่าย:</strong> กรุณากดลงเวลาเริ่มงาน (Check-in) ก่อนเวลาเริ่มงานครึ่งวันบ่าย (เช่น หากกะปกติคือ {currentStartTime} น. จะต้องลงเวลาเข้างานบ่ายก่อน {expectedPmStartTime} น.) โดยมีระยะยืดหยุ่นสาย ตามที่กำหนด
+                                </p>
+                            )}
+                        </div>
+                    ) : (
+                        <p className="text-[10px] text-slate-500 font-medium italic text-center">
+                            * หมายเหตุ: หากคุณต้องการเข้ามาปฏิบัติงานจริงเพิ่มเติมในวันนี้ สามารถกดลงเวลาเริ่มงาน (Check-in) ด้านล่างได้ปกติครับ
+                        </p>
+                    )}
                 </div>
             )}
 
@@ -376,7 +407,11 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
                         }
                     `}>
                         {isActualLeaveToday 
-                            ? '🔔 วันนี้มีประวัติการลาที่อนุมัติแล้ว หากต้องการมาเข้างานเพิ่มเติม:' 
+                            ? isHalfDay
+                                ? halfDaySession === 'AM'
+                                    ? '🔔 วันนี้คุณมีอนุมัติลาครึ่งวันเช้า กรุณาลงเวลาเพื่อเข้าปฏิบัติงานช่วงบ่าย:'
+                                    : '🔔 วันนี้คุณมีอนุมัติลาครึ่งวันบ่าย กรุณาลงเวลาเพื่อปฏิบัติงานช่วงเช้าก่อน:'
+                                : '🔔 วันนี้มีประวัติการลาที่อนุมัติแล้ว หากต้องการมาเข้างานเพิ่มเติม:' 
                             : dayStatus.mode === 'HOLIDAY' 
                                 ? 'ถ้าจะทำงาน กดยื่นคำขออนุมัติก่อนนะ!' 
                                 : 'พร้อมเริ่มงานรึยัง?'
@@ -384,14 +419,19 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
                     </p>
                     <div className="flex flex-col gap-3">
                         <div className="relative group w-full">
+                            {isHalfDay && (
+                                <div className="absolute -inset-1 bg-gradient-to-r from-sky-500 to-indigo-500 rounded-2xl blur-md opacity-75 animate-pulse group-hover:opacity-100 transition duration-1000 group-hover:duration-200" />
+                            )}
                             <button 
                                 disabled={isBlockedByHoliday || isDesktop}
                                 onClick={() => onOpenCheckIn(dayStatus.mode === 'HOLIDAY')}
-                                className={`w-full py-3.5 rounded-xl font-semibold transition-all flex items-center justify-center gap-2
+                                className={`relative w-full py-3.5 rounded-xl font-semibold transition-all flex items-center justify-center gap-2
                                     ${isBlockedByHoliday || isDesktop
                                         ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300 shadow-none' 
                                         : isActualLeaveToday
-                                            ? 'bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 hover:text-slate-800 active:scale-95 shadow-none'
+                                            ? isHalfDay
+                                                ? 'bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-700 hover:to-indigo-700 text-white shadow-sky-200 shadow-lg active:scale-95 font-bold border border-sky-400/30'
+                                                : 'bg-slate-100 hover:bg-slate-200 text-slate-600 border border-slate-200 hover:text-slate-800 active:scale-95 shadow-none'
                                             : 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white shadow-indigo-200 shadow-lg active:scale-95'
                                     }
                                 `}
@@ -401,10 +441,17 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
                                 ) : isApprovedLeaveToday && todayActiveLeave?.type === 'ONSITE' ? (
                                     <>🚗 กดลงเวลาทำงานนอกสถานที่ (On-site)</>
                                 ) : isActualLeaveToday ? (
-                                    <>
-                                        <LogIn className="w-4 h-4 text-slate-500" />
-                                        <span>กดลงเวลากรณีปฏิบัติงานเพิ่ม (Check-in)</span>
-                                    </>
+                                    isHalfDay ? (
+                                        <>
+                                            <LogIn className="w-5 h-5 text-white animate-bounce" />
+                                            <span>ลงเวลาเข้างานครึ่งวัน (Check-in)</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <LogIn className="w-4 h-4 text-slate-500" />
+                                            <span>กดลงเวลากรณีปฏิบัติงานเพิ่ม (Check-in)</span>
+                                        </>
+                                    )
                                 ) : (
                                     <>
                                         <LogIn className="w-5 h-5" /> 

@@ -167,11 +167,11 @@ const MasterFormModal: React.FC<MasterFormModalProps> = ({
                         animate={{ opacity: 1, scale: 1, y: 0, rotateX: 0 }}
                         exit={{ opacity: 0, scale: 0.9, y: 20 }}
                         transition={{ type: "spring", bounce: 0.3, duration: 0.5 }}
-                        className="relative w-full max-w-lg bg-white/80 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/40 overflow-hidden"
+                        className="relative w-full max-w-lg bg-white/80 backdrop-blur-2xl rounded-3xl shadow-2xl border border-white/40 overflow-hidden flex flex-col max-h-[calc(100vh-4rem)]"
                         style={{ boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.5) inset' }}
                     >
                         {/* Header */}
-                        <div className="px-6 py-5 border-b border-white/20 flex justify-between items-center bg-gradient-to-r from-white/50 to-transparent">
+                        <div className="px-6 py-5 border-b border-white/20 flex justify-between items-center bg-gradient-to-r from-white/50 to-transparent shrink-0">
                             <div className="flex items-center gap-3">
                                 <div className={`p-2.5 rounded-xl ${isEditing ? 'bg-amber-100 text-amber-600' : 'bg-indigo-100 text-indigo-600'} shadow-sm`}>
                                     {isRewardMode ? <Gift className="w-5 h-5" /> : <Tag className="w-5 h-5" />}
@@ -194,7 +194,8 @@ const MasterFormModal: React.FC<MasterFormModalProps> = ({
                         </div>
                         
                         {/* Form Content */}
-                        <form onSubmit={onSubmit} className="p-6 space-y-5">
+                        <form onSubmit={onSubmit} className="flex-1 flex flex-col overflow-hidden">
+                            <div className="flex-1 overflow-y-auto p-6 space-y-5">
                             {isRewardMode ? (
                                 // --- REWARD FORM ---
                                 <div className="space-y-4">
@@ -511,7 +512,9 @@ const MasterFormModal: React.FC<MasterFormModalProps> = ({
                                 </div>
                             )}
                             
-                            <div className="pt-4">
+                            </div> {/* End overflow-y-auto */}
+                            
+                            <div className="p-6 border-t border-slate-100 bg-slate-50/50 shrink-0">
                                 <motion.button 
                                     whileHover={{ scale: 1.02 }}
                                     whileTap={{ scale: 0.98 }}

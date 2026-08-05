@@ -40,14 +40,12 @@ export const attendanceService = {
                 startDate: new Date(r.start_date),
                 endDate: new Date(r.end_date),
                 reason: r.reason,
-                attachmentUrl: r.attachment_url,
+                attachmentUrls: r.attachment_urls || [],
                 status: r.status as RequestStatus,
                 approverId: r.approver_id,
                 createdAt: new Date(r.created_at),
                 rejectionReason: r.rejection_reason,
-                is_half_day: r.is_half_day,
                 isHalfDay: r.is_half_day,
-                half_day_session: r.half_day_session,
                 halfDaySession: r.half_day_session,
             user: r.profiles ? {
                 id: r.profiles.id,
@@ -87,12 +85,11 @@ export const attendanceService = {
                     startDate: new Date(r.date + 'T' + r.start_time),
                     endDate: new Date(r.date + 'T' + r.end_time),
                     reason: `[OT:${r.duration_hours}hr] ${r.reason}`,
-                    attachmentUrl: r.attachment_url,
+                    attachmentUrls: r.attachment_urls || [],
                     status: r.status as RequestStatus,
                     createdAt: new Date(r.created_at),
                     rejectionReason: r.rejection_reason,
                     isFixed: r.is_fixed,
-                    is_fixed: r.is_fixed,
                     user: r.profiles ? {
                         id: r.profiles.id,
                         name: r.profiles.full_name,
@@ -127,12 +124,11 @@ export const attendanceService = {
                     startDate: new Date(r.date + 'T' + r.start_time),
                     endDate: new Date(r.date + 'T' + r.end_time),
                     reason: `[OT:${r.duration_hours}hr] ${r.reason}`,
-                    attachmentUrl: r.attachment_url,
+                    attachmentUrls: r.attachment_urls || [],
                     status: r.status as RequestStatus,
                     createdAt: new Date(r.created_at),
                     rejectionReason: r.rejection_reason,
                     isFixed: r.is_fixed,
-                    is_fixed: r.is_fixed,
                     user: undefined // Will be matched with current user at hooks layer if needed
                 }));
             }
@@ -153,7 +149,7 @@ export const attendanceService = {
         start_date: string;
         end_date: string;
         reason: string;
-        attachment_url: string | null;
+        attachment_urls?: string[] | null;
         status: string;
         is_half_day?: boolean;
         half_day_session?: string | null;
@@ -181,7 +177,7 @@ export const attendanceService = {
         computed_payout: number;
         base_salary_at_time: number;
         status: string;
-        attachment_url?: string | null;
+        attachment_urls?: string[] | null;
         is_fixed?: boolean;
     }) {
         const { data, error } = await supabase
@@ -288,14 +284,12 @@ export const attendanceService = {
             startDate: new Date(r.start_date),
             endDate: new Date(r.end_date),
             reason: r.reason,
-            attachmentUrl: r.attachment_url,
+            attachmentUrls: r.attachment_urls || [],
             status: r.status as RequestStatus,
             approverId: r.approver_id,
             createdAt: new Date(r.created_at),
             rejectionReason: r.rejection_reason,
-            is_half_day: r.is_half_day,
             isHalfDay: r.is_half_day,
-            half_day_session: r.half_day_session,
             halfDaySession: r.half_day_session
         }));
     }

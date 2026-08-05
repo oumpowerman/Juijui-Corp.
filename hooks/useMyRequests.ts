@@ -141,7 +141,7 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
         requests.forEach(req => {
             if (req.userId === currentUser.id && req.status === 'APPROVED') {
                 if (LEAVE_TYPES.includes(req.type)) {
-                    if (req.isHalfDay || req.is_half_day) {
+                    if (req.isHalfDay) {
                         usage[req.type as keyof LeaveUsage] += 0.5;
                     } else {
                         const start = new Date(req.startDate);
@@ -179,7 +179,7 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
         requests.forEach(req => {
             if (req.userId === currentUser.id && req.status === 'PENDING') {
                 if (LEAVE_TYPES.includes(req.type)) {
-                    if (req.isHalfDay || req.is_half_day) {
+                    if (req.isHalfDay) {
                         usage[req.type as keyof LeaveUsage] += 0.5;
                     } else {
                         const start = new Date(req.startDate);
@@ -207,7 +207,7 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
         startDate: Date, 
         endDate: Date, 
         reason: string, 
-        file?: File,
+        file?: File | File[],
         linkedRemoteType?: 'WFH' | 'ONSITE',
         isHalfDay?: boolean,
         halfDaySession?: string
@@ -218,6 +218,51 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
             const startDateStr = format(startDate, 'yyyy-MM-dd');
             const timestamp = Date.now();
             const linkId = linkedRemoteType ? `LINK_FORGOT_${currentUser.id}_${startDateStr}_${timestamp}` : null;
+
+            // Pre-process and upload all files (up to 3)
+            const filesArray = file ? (Array.isArray(file) ? file : [file]) : [];
+            const uploadedUrls: string[] = [];
+
+            if (filesArray.length > 0) {
+                for (const singleFile of filesArray) {
+                    let fileUrl: string | null = null;
+                    let driveSuccess = false;
+                    if (isDriveReady) {
+                        try {
+                            showToast('กำลังอัปโหลดไปที่ Google Drive...', 'info');
+                            const currentYear = format(new Date(), 'yyyy');
+                            const currentMonth = format(new Date(), 'MM');
+                            const driveResult = await uploadFileToDrive(singleFile, ['Juijui_Assets', 'Attendance', 'Leaves', currentYear, currentMonth, currentUser.name || 'Unknown']);
+                            fileUrl = driveResult.thumbnailUrl || driveResult.url;
+                            driveSuccess = true;
+                        } catch (driveErr: any) {
+                            console.warn("Drive upload failed, falling back to Supabase", driveErr);
+                        }
+                    }
+
+                    if (!driveSuccess) {
+                        try {
+                            showToast('กำลังอัปโหลดไปที่ Storage สำรอง...', 'info');
+                            const fileExt = singleFile.name.split('.').pop();
+                            const fileName = `${currentUser.id}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
+                            const { error: uploadErr } = await supabase.storage
+                                .from('chat-files')
+                                .upload(`proofs/${fileName}`, singleFile);
+
+                            if (uploadErr) throw uploadErr;
+
+                            const { data } = supabase.storage.from('chat-files').getPublicUrl(`proofs/${fileName}`);
+                            fileUrl = data.publicUrl;
+                        } catch (supabaseErr: any) {
+                            console.error("Supabase upload failed", supabaseErr);
+                            throw new Error("ไม่สามารถอัปโหลดไฟล์ได้ทั้ง Google Drive และ Supabase");
+                        }
+                    }
+                    if (fileUrl) {
+                        uploadedUrls.push(fileUrl);
+                    }
+                }
+            }
             let finalReasonWithLink = linkId ? `[LINKID:${linkId}] ${reason}` : reason;
 
             if (linkedRemoteType && !finalReasonWithLink.includes('[REMOTE:')) {
@@ -270,43 +315,6 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                     return false;
                 }
 
-                // Upload attachment specifically for OT if provided
-                let otAttachmentUrl: string | null = null;
-                if (file) {
-                    let driveSuccess = false;
-                    if (isDriveReady) {
-                        try {
-                            showToast('กำลังอัปโหลดไปที่ Google Drive...', 'info');
-                            const currentYear = format(new Date(), 'yyyy');
-                            const currentMonth = format(new Date(), 'MM');
-                            const driveResult = await uploadFileToDrive(file, ['Juijui_Assets', 'Attendance', 'Leaves', currentYear, currentMonth, currentUser.name || 'Unknown']);
-                            otAttachmentUrl = driveResult.thumbnailUrl || driveResult.url;
-                            driveSuccess = true;
-                        } catch (driveErr: any) {
-                            console.warn("Drive upload failed, falling back to Supabase", driveErr);
-                        }
-                    }
-
-                    if (!driveSuccess) {
-                        try {
-                            showToast('กำลังอัปโหลดไปที่ Storage สำรอง...', 'info');
-                            const fileExt = file.name.split('.').pop();
-                            const fileName = `${currentUser.id}_${Date.now()}.${fileExt}`;
-                            const { error: uploadErr } = await supabase.storage
-                                .from('chat-files')
-                                .upload(`proofs/${fileName}`, file);
-
-                            if (uploadErr) throw uploadErr;
-
-                            const { data } = supabase.storage.from('chat-files').getPublicUrl(`proofs/${fileName}`);
-                            otAttachmentUrl = data.publicUrl;
-                        } catch (supabaseErr: any) {
-                            console.error("Supabase upload failed", supabaseErr);
-                            throw new Error("ไม่สามารถอัปโหลดไฟล์ได้ทั้ง Google Drive และ Supabase");
-                        }
-                    }
-                }
-
                 const baseSalary = currentUser.baseSalary || 0;
                 const { type: otType, multiplier } = calculateOtMultiplier(startDate, annualHolidays, calendarExceptions);
                 const estimatedPayout = isFixedOt ? 0 : calculateEstimatedPayout(baseSalary, otHours, multiplier);
@@ -322,7 +330,7 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                     status: 'PENDING',
                     base_salary_at_time: baseSalary,
                     computed_payout: estimatedPayout,
-                    attachment_url: otAttachmentUrl,
+                    attachment_urls: uploadedUrls,
                     is_fixed: isFixedOt
                 });
 
@@ -393,8 +401,8 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
 
                 if (existingLeaves && existingLeaves.length > 0) {
                     for (const leave of existingLeaves) {
-                        const isExistingHalfDay = !!(leave.is_half_day || (leave as any).isHalfDay);
-                        const existingSession = leave.half_day_session || (leave as any).halfDaySession;
+                        const isExistingHalfDay = !!leave.is_half_day;
+                        const existingSession = leave.half_day_session;
 
                         const isNewHalfDay = !!isHalfDay;
                         const newSession = halfDaySession;
@@ -471,42 +479,6 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                 }
             }
 
-            let attachmentUrl: string | null = null;
-            if (file) {
-                let driveSuccess = false;
-                if (isDriveReady) {
-                    try {
-                        showToast('กำลังอัปโหลดไปที่ Google Drive...', 'info');
-                        const currentYear = format(new Date(), 'yyyy');
-                        const currentMonth = format(new Date(), 'MM');
-                        const driveResult = await uploadFileToDrive(file, ['Juijui_Assets', 'Attendance', 'Leaves', currentYear, currentMonth, currentUser.name || 'Unknown']);
-                        attachmentUrl = driveResult.thumbnailUrl || driveResult.url;
-                        driveSuccess = true;
-                    } catch (driveErr: any) {
-                        console.warn("Drive upload failed, falling back to Supabase", driveErr);
-                    }
-                }
-
-                if (!driveSuccess) {
-                    try {
-                        showToast('กำลังอัปโหลดไปที่ Storage สำรอง...', 'info');
-                        const fileExt = file.name.split('.').pop();
-                        const fileName = `${currentUser.id}_${Date.now()}.${fileExt}`;
-                        const { error: uploadErr } = await supabase.storage
-                            .from('chat-files')
-                            .upload(`proofs/${fileName}`, file);
-
-                        if (uploadErr) throw uploadErr;
-
-                        const { data } = supabase.storage.from('chat-files').getPublicUrl(`proofs/${fileName}`);
-                        attachmentUrl = data.publicUrl;
-                    } catch (supabaseErr: any) {
-                        console.error("Supabase upload failed", supabaseErr);
-                        throw new Error("ไม่สามารถอัปโหลดไฟล์ได้ทั้ง Google Drive และ Supabase");
-                    }
-                }
-            }
-
             // Insert primary request (e.g. FORGOT_CHECKIN)
             const insertedLeaveReq = await attendanceService.insertLeaveRequest({
                 user_id: currentUser.id,
@@ -514,7 +486,7 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                 start_date: startDateStr,
                 end_date: format(endDate, 'yyyy-MM-dd'),
                 reason: isLateSubmission ? `[LATE_SUBMISSION] ${finalReasonWithLink}` : finalReasonWithLink,
-                attachment_url: attachmentUrl,
+                attachment_urls: uploadedUrls,
                 status: 'PENDING',
                 is_half_day: isHalfDay,
                 half_day_session: halfDaySession
@@ -539,7 +511,6 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                         start_date: startDateStr,
                         end_date: startDateStr,
                         reason: dualReason,
-                        attachment_url: null,
                         status: 'PENDING'
                     });
                 }

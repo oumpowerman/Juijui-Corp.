@@ -65,7 +65,7 @@ const AbsentCheckCard: React.FC<AbsentCheckCardProps> = ({
             <div>
                 <div className="flex items-center justify-between">
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-rose-50 text-rose-600 border border-rose-100">
-                        <UserMinus className="w-3.5 h-3.5 text-rose-500 animate-pulse" /> 📋 แผน D (Absent Check)
+                        <UserMinus className="w-3.5 h-3.5 text-rose-500 animate-pulse" /> 📋 แผน F (Absent Check)
                     </span>
                     <span className="flex items-center gap-2 text-xs text-rose-600 font-bold bg-rose-50/60 px-3 py-1 rounded-xl border border-rose-100/40">
                         <span className={`w-2 h-2 rounded-full ${isEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-gray-400'}`}></span>

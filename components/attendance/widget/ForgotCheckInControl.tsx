@@ -13,7 +13,7 @@ interface ForgotCheckInControlProps {
     startTime: string; // "HH:mm" from MasterData
     lateBuffer: number; // Minutes
     isCheckedIn: boolean;
-    onSubmit: (type: LeaveType, start: Date, end: Date, reason: string, file?: File, linkedRemoteType?: 'WFH' | 'ONSITE') => Promise<boolean>;
+    onSubmit: (type: LeaveType, start: Date, end: Date, reason: string, files?: File[], linkedRemoteType?: 'WFH' | 'ONSITE') => Promise<boolean>;
     leaveUsage?: LeaveUsage;
     todayActiveLeave?: LeaveRequest | null;
     availableLocations?: LocationDef[];
@@ -219,7 +219,7 @@ const ForgotCheckInControl: React.FC<ForgotCheckInControlProps> = ({
         );
     };
 
-    const handleSubmit = async (type: LeaveType, start: Date, end: Date, reason: string, file?: File) => {
+    const handleSubmit = async (type: LeaveType, start: Date, end: Date, reason: string, files?: File[]) => {
         let finalReason = reason;
         if (distanceFromOffice !== null && distanceFromOffice > 0) {
             const distanceKm = (distanceFromOffice / 1000).toFixed(2);
@@ -236,7 +236,7 @@ const ForgotCheckInControl: React.FC<ForgotCheckInControlProps> = ({
             finalReason = `[REMOTE:${effectiveRemoteType}] ${finalReason}`;
         }
 
-        const success = await onSubmit(type, start, end, finalReason, file, effectiveRemoteType);
+        const success = await onSubmit(type, start, end, finalReason, files, effectiveRemoteType);
         if (success) {
             setIsModalOpen(false);
             setGpsCheckStatus('IDLE');

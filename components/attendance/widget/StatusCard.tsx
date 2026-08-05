@@ -28,7 +28,7 @@ interface StatusCardProps {
     stats: AttendanceStats;
     todayActiveLeave: LeaveRequest | null;
     onCheckOut: (location?: { lat: number, lng: number }, locationName?: string, reason?: string) => Promise<void>; 
-    onCheckOutRequest: (type: LeaveType, start: Date, end: Date, reason: string, file?: File) => Promise<boolean>; 
+    onCheckOutRequest: (type: LeaveType, start: Date, end: Date, reason: string, files?: File[]) => Promise<boolean>; 
     onOpenCheckIn: (isHoliday?: boolean) => void;
     onOpenLeave: (type?: any) => void;
     isDriveReady: boolean;
@@ -199,7 +199,7 @@ const StatusCard: React.FC<StatusCardProps> = ({
 
     const { leaveUsage, pendingUsage } = useLeaveRequests(user); 
 
-    const handleRecoverySubmit = async (type: LeaveType, start: Date, end: Date, reason: string, file?: File) => {
+    const handleRecoverySubmit = async (type: LeaveType, start: Date, end: Date, reason: string, files?: File[]) => {
         const targetLog = outdatedLogs.find(l => l.date === recoveryLogDate);
         if (isAdmin && targetLog) {
             try {
@@ -233,7 +233,7 @@ const StatusCard: React.FC<StatusCardProps> = ({
                 return false;
             }
         } else {
-            const success = await onCheckOutRequest('FORGOT_CHECKOUT', start, end, reason, file);
+            const success = await onCheckOutRequest('FORGOT_CHECKOUT', start, end, reason, files);
             if (success) {
                 setRecoveryLogDate(null); 
                 await showAlert(

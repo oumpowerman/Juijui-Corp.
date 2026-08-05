@@ -14,6 +14,7 @@ import StatusCard from '../widget/StatusCard';
 import CheckInModal from '../widget/CheckInModal';
 import LiveClock from '../widget/LiveClock';
 import AttendanceRulesModal from '../widget/AttendanceRulesModal';
+import { BRAND_CONFIG } from '../../../config/brand';
 
 interface AttendanceControlProps {
     user: User;
@@ -50,6 +51,10 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({
             setIsDesktop(!isMobileOrTablet);
         }
     }, []);
+
+    const effectiveIsDesktop = useMemo(() => {
+        return isDesktop && BRAND_CONFIG.allowDesktopCheckInMode !== 1;
+    }, [isDesktop]);
 
     const availableLocations = useMemo(() => {
         const locs = masterOptions.filter(o => o.type === 'WORK_LOCATION' || o.type === 'SHOOT_LOCATION');
@@ -318,7 +323,7 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({
                 </button>
             </div>
 
-            {isDesktop && (
+            {effectiveIsDesktop && (
                 <div className="mb-4 bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-3 text-left relative z-10 shadow-sm">
                     <div className="bg-red-100 p-2 rounded-xl text-red-600 shrink-0">
                         <AlertTriangle className="w-5 h-5" />
@@ -343,7 +348,7 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({
                 onCheckOut={handleCheckOut}
                 onCheckOutRequest={onLeaveSubmit}
                 onOpenCheckIn={async (isHoliday) => {
-                    if (isDesktop) return;
+                    if (effectiveIsDesktop) return;
                     if (isHoliday) {
                         const confirm = await showConfirm(
                             "โปรดยืนยันว่าการลงเวลาในวันหยุดครั้งนี้ ได้รับการอนุมัติหรือเห็นชอบจากหัวหน้างานของคุณแล้ว\nกดตกลงเพื่อเริ่มต้นขั้นตอนตรวจสอบสถานที่และเข้าสู่ระบบบันทึกเวลา",
@@ -362,7 +367,7 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({
                 availableLocations={availableLocations}
                 startTime={startTime}
                 lateBuffer={lateBuffer}
-                isDesktop={isDesktop}
+                isDesktop={effectiveIsDesktop}
             />
 
             <CheckInModal 

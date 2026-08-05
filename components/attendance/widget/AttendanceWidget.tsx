@@ -116,12 +116,12 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user, onNavigateToH
         start: Date, 
         end: Date, 
         reason: string, 
-        file?: File, 
+        files?: File[], 
         linkedRemoteType?: 'WFH' | 'ONSITE',
         isHalfDay?: boolean,
         halfDaySession?: string
     ): Promise<boolean> => {
-        const result = await submitRequest(type, start, end, reason, file, linkedRemoteType, isHalfDay, halfDaySession);
+        const result = await submitRequest(type, start, end, reason, files, linkedRemoteType, isHalfDay, halfDaySession);
         if (result) {
             setIsCheckInModalOpen(false);
         }

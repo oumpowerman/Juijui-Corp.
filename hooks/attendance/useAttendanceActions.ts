@@ -238,7 +238,7 @@ export const useAttendanceActions = (userId: string) => {
                             start_date: todayDateStr,
                             end_date: todayDateStr,
                             reason: reasonWithTag,
-                            attachment_url: proofUrl || null,
+                            attachment_urls: proofUrl ? [proofUrl] : [],
                             status: 'PENDING'
                         });
 

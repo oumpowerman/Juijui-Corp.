@@ -64,7 +64,7 @@ export interface LeaveRequest {
     startDate: Date;
     endDate: Date;
     reason: string;
-    attachmentUrl?: string;
+    attachmentUrls?: string[];
     status: RequestStatus;
     approverId?: string;
     createdAt: Date;
@@ -72,9 +72,7 @@ export interface LeaveRequest {
     user?: Partial<User>;
     isFixed?: boolean;
     is_fixed?: boolean;
-    is_half_day?: boolean;
     isHalfDay?: boolean;
-    half_day_session?: 'AM' | 'PM' | null;
     halfDaySession?: 'AM' | 'PM' | null;
 }
 
@@ -103,5 +101,6 @@ export interface OtRequest {
     createdAt: Date;
     isFixed?: boolean;
     user?: Partial<User>;
+    attachmentUrls?: string[];
 }
 

@@ -52,7 +52,7 @@ const AttendanceRaceCard: React.FC<AttendanceRaceCardProps> = ({
             <div>
                 <div className="flex items-center justify-between">
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-purple-50 text-purple-600 border border-purple-100">
-                        <Trophy className="w-3.5 h-3.5 text-purple-500 animate-pulse" /> 🏆 แผน E (Attendance Race)
+                        <Trophy className="w-3.5 h-3.5 text-purple-500 animate-pulse" /> 🏆 Attendance Race
                     </span>
                     <span className="flex items-center gap-2 text-xs text-purple-600 font-bold bg-purple-50/60 px-3 py-1 rounded-xl border border-purple-100/40">
                         {tempTimeConfig.enableAttendanceRace === 'true' ? (

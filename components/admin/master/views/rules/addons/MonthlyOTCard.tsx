@@ -32,7 +32,7 @@ const MonthlyOTCard: React.FC<MonthlyOTCardProps> = ({
             <div>
                 <div className="flex items-center justify-between">
                     <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-indigo-50 text-indigo-700 border border-indigo-100">
-                        <BarChart3 className="w-3.5 h-3.5 text-indigo-500 animate-pulse" /> 📊 แผน OT (Overtime Monthly Summary)
+                        <BarChart3 className="w-3.5 h-3.5 text-indigo-500 animate-pulse" /> 📊 แผน H OT (Overtime Monthly Summary)
                     </span>
                     <span className="flex items-center gap-2 text-xs text-indigo-700 font-bold bg-indigo-50/60 px-3 py-1 rounded-xl border border-indigo-100/40">
                         <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>

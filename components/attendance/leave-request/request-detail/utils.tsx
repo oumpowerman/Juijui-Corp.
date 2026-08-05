@@ -33,6 +33,8 @@ export interface ParsedReason {
     okFormatted: string | null;
     isEarlyLeave: boolean;
     approvedTime: string | null;
+    isHalfDay?: boolean;
+    halfDaySession?: 'AM' | 'PM' | null;
 }
 
 export const parseReason = (
@@ -41,6 +43,16 @@ export const parseReason = (
     checkOutTime?: string | Date | null
 ): ParsedReason => {
     let text = reason || '';
+
+    // Extract [HALF_DAY:AM] or [HALF_DAY:PM]
+    const halfDayMatch = text.match(/\[HALF_DAY:(AM|PM)\]/i);
+    let isHalfDay = false;
+    let halfDaySession: 'AM' | 'PM' | null = null;
+    if (halfDayMatch) {
+        isHalfDay = true;
+        halfDaySession = halfDayMatch[1].toUpperCase() as 'AM' | 'PM';
+        text = text.replace(/\[HALF_DAY:[^\]]+\]/gi, '');
+    }
 
     // Extract [PROOF:url]
     const proofMatch = text.match(/\[PROOF:([^\]]+)\]/);
@@ -327,7 +339,9 @@ export const parseReason = (
         okHoursWorked,
         okFormatted,
         isEarlyLeave: isEarlyLeaveDetected,
-        approvedTime
+        approvedTime,
+        isHalfDay,
+        halfDaySession
     };
 };
 
@@ -337,21 +351,29 @@ export const getTypeName = (type: string) => {
 };
 
 // Friendly Work / Request Type Name Formatter
-export const formatSpecialTypeName = (typeStr: string | undefined): string => {
+export const formatSpecialTypeName = (typeStr: string | undefined, isHalfDay?: boolean, halfDaySession?: 'AM' | 'PM' | null): string => {
     if (!typeStr) return 'ทำงาน ณ สถานที่ตั้ง';
     const upper = typeStr.trim().toUpperCase();
-    if (upper === 'WFH') return 'ขอทำงานที่บ้าน (WFH)';
-    if (upper === 'ONSITE' || upper === 'SITE') return 'ทำงานนอกสถานที่ (On-site)';
-    if (upper === 'UNAUTHORIZED_WFH') return 'ทำงานที่บ้านไม่ได้รับอนุญาต (Unauthorized WFH)';
-    if (upper === 'UNAUTHORIZED_ONSITE') return 'ทำงานนอกสถานที่ไม่ได้รับอนุญาต (Unauthorized On-site)';
-    if (upper === 'OFFICE' || upper === 'ACTUAL_TIME' || upper === 'ACTUAL_TIME_CHECKIN' || upper === 'ACTUAL_TIME_CHECKOUT' || upper === 'REGULAR' || upper === 'NORMAL') return 'ทำงาน ณ สำนักงานใหญ่';
-    if (upper === 'LATE_ENTRY') return 'คำขอเข้าสาย (Late Entry)';
-    if (upper === 'EARLY_LEAVE') return 'คำขอกลับก่อนเวลา (Early Leave)';
-    if (upper === 'FORGOT_CHECKIN') return 'คำขอลืมลงเวลาเข้างาน (Forgot Check-in)';
-    if (upper === 'FORGOT_CHECKOUT') return 'คำขอลืมลงเวลาออกงาน (Forgot Check-out)';
-    if (upper === 'FORGOT_BOTH') return 'คำขอลืมบันทึกเวลาทั้งเข้าและออก';
-    if (upper === 'OUT_OF_RANGE_CHECKOUT') return 'ลงเวลานอกพื้นที่ (Out of Range)';
-    return getTypeName(typeStr) || typeStr;
+    
+    let baseName = '';
+    if (upper === 'WFH') baseName = 'ขอทำงานที่บ้าน (WFH)';
+    else if (upper === 'ONSITE' || upper === 'SITE') baseName = 'ทำงานนอกสถานที่ (On-site)';
+    else if (upper === 'UNAUTHORIZED_WFH') baseName = 'ทำงานที่บ้านไม่ได้รับอนุญาต (Unauthorized WFH)';
+    else if (upper === 'UNAUTHORIZED_ONSITE') baseName = 'ทำงานนอกสถานที่ไม่ได้รับอนุญาต (Unauthorized On-site)';
+    else if (upper === 'OFFICE' || upper === 'ACTUAL_TIME' || upper === 'ACTUAL_TIME_CHECKIN' || upper === 'ACTUAL_TIME_CHECKOUT' || upper === 'REGULAR' || upper === 'NORMAL') baseName = 'ทำงาน ณ สำนักงานใหญ่';
+    else if (upper === 'LATE_ENTRY') baseName = 'คำขอเข้าสาย (Late Entry)';
+    else if (upper === 'EARLY_LEAVE') baseName = 'คำขอกลับก่อนเวลา (Early Leave)';
+    else if (upper === 'FORGOT_CHECKIN') baseName = 'คำขอลืมลงเวลาเข้างาน (Forgot Check-in)';
+    else if (upper === 'FORGOT_CHECKOUT') baseName = 'คำขอลืมลงเวลาออกงาน (Forgot Check-out)';
+    else if (upper === 'FORGOT_BOTH') baseName = 'คำขอลืมบันทึกเวลาทั้งเข้าและออก';
+    else if (upper === 'OUT_OF_RANGE_CHECKOUT') baseName = 'ลงเวลานอกพื้นที่ (Out of Range)';
+    else baseName = getTypeName(typeStr) || typeStr;
+
+    if (isHalfDay) {
+        const sessionName = halfDaySession === 'AM' ? 'ครึ่งวันเช้า' : halfDaySession === 'PM' ? 'ครึ่งวันบ่าย' : 'ครึ่งวัน';
+        return `${baseName} (${sessionName})`;
+    }
+    return baseName;
 };
 
 export const getTypeColorClass = (type: string) => {

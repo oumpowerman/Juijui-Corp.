@@ -99,6 +99,7 @@ const AttendanceHistory: React.FC<AttendanceHistoryProps> = ({ userId, highlight
                     pageSize={PAGE_SIZE}
                     highlightedDate={highlightedDate}
                     onClearHighlight={onClearHighlight}
+                    requests={myRequests}
                 />
 
                 {/* Proof Modal */}

@@ -1,9 +1,10 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { MasterOption, Task, Channel } from '../../../../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, PieChart, Pie } from 'recharts';
 import StatCard from './StatCard';
-import { Package, TrendingUp, AlertCircle, CheckCircle2, Target, ArrowRight } from 'lucide-react';
+import { Package, TrendingUp, AlertCircle, CheckCircle2, Target, ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface InventoryDashboardProps {
     tasks: Task[];
@@ -15,15 +16,26 @@ interface InventoryDashboardProps {
 const COLORS = ['#6366f1', '#ec4899', '#10b981', '#f59e0b', '#8b5cf6', '#06b6d4', '#ef4444'];
 
 const InventoryDashboard: React.FC<InventoryDashboardProps> = ({ tasks, masterOptions, selectedChannel = 'ALL', channels = [] }) => {
+    const [isExpanded, setIsExpanded] = useState(false);
     const channel = channels.find(c => c.id === selectedChannel);
     const strategy = channel?.content_strategy;
 
-    const pillarOptions = masterOptions.filter(o => 
-        o.type === 'CONTENT_PILLAR' && o.isActive
-    );
-    const categoryOptions = masterOptions.filter(o => 
-        o.type === 'CONTENT_CATEGORY' && o.isActive
-    );
+    const pillarOptions = useMemo(() => {
+        return masterOptions.filter(o => 
+            o.type === 'PILLAR' && 
+            o.isActive &&
+            (selectedChannel === 'ALL' || o.parentKey === selectedChannel)
+        );
+    }, [masterOptions, selectedChannel]);
+
+    const categoryOptions = useMemo(() => {
+        const pillarKeys = pillarOptions.map(p => p.key);
+        return masterOptions.filter(o => 
+            o.type === 'CATEGORY' && 
+            o.isActive &&
+            (selectedChannel === 'ALL' || (o.parentKey && pillarKeys.includes(o.parentKey)))
+        );
+    }, [masterOptions, selectedChannel, pillarOptions]);
 
     // Data for Pillar Bar Chart
     const pillarData = pillarOptions.map(p => ({
@@ -93,6 +105,59 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({ tasks, masterOp
 
     return (
         <div className="space-y-6">
+            {/* Info Notice Badge */}
+            <motion.div 
+                layout
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="bg-indigo-50/40 border border-indigo-100 rounded-[1.5rem] p-4 flex items-start gap-3.5 cursor-pointer hover:bg-indigo-50/60 transition-colors select-none"
+                id="stock-analytics-scope-info"
+            >
+                <div className="p-2 bg-indigo-50 text-indigo-600 rounded-xl shrink-0 mt-0.5">
+                    <AlertCircle className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0 space-y-1">
+                    <div className="flex items-center justify-between gap-2">
+                        <h4 className="text-xs font-black text-indigo-900 uppercase tracking-widest flex flex-wrap items-center gap-2">
+                            <span>ขอบเขตการวิเคราะห์คลังคอนเทนต์ (Stock Analytics Scope)</span>
+                            <span className="text-[9px] font-black text-indigo-500 bg-indigo-50/80 px-2 py-0.5 rounded-full border border-indigo-100/40">
+                                {isExpanded ? 'ย่อข้อมูล' : 'คลิกเพื่อดูทำไมตัวเลขไม่ตรงกัน'}
+                            </span>
+                        </h4>
+                        <div className="text-indigo-500 shrink-0">
+                            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        </div>
+                    </div>
+                    
+                    <div className="relative overflow-hidden">
+                        <AnimatePresence initial={false} mode="wait">
+                            {!isExpanded ? (
+                                <motion.p 
+                                    key="collapsed"
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: "auto", opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                                    className="text-xs text-gray-500 font-medium truncate"
+                                >
+                                    แดชบอร์ดนี้วิเคราะห์เฉพาะ "งานในคลังที่ยังไม่ได้จัดลงปฏิทิน" (is_unscheduled = true) และ "ยังทำไม่เสร็จ"...
+                                </motion.p>
+                            ) : (
+                                <motion.p 
+                                    key="expanded"
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: "auto", opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                                    className="text-xs text-gray-600 leading-relaxed font-medium pt-1"
+                                >
+                                    แดชบอร์ดนี้วิเคราะห์เฉพาะ <strong className="text-indigo-600 font-bold">"งานในคลังที่ยังไม่ได้จัดลงปฏิทิน" (is_unscheduled = true)</strong> และ <strong className="text-indigo-600 font-bold">"ยังทำไม่เสร็จ" (Active Only)</strong> เท่านั้น โดยคัดแยกงานที่เป็นของแคมเปญหลัก, งานที่เสร็จสมบูรณ์แล้ว (Done / Approve) และงานที่ผูกลงวันที่เรียบร้อยออกไป เพื่อให้คุณจัดหมวดหมู่เนื้อหาหมุนเวียนได้แม่นยำที่สุด จำนวนจึงแตกต่างกับจำนวนงานทั้งหมดในระบบด้านนอก
+                                </motion.p>
+                            )}
+                        </AnimatePresence>
+                    </div>
+                </div>
+            </motion.div>
+
             {/* Quick Stats */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <StatCard 
@@ -100,7 +165,7 @@ const InventoryDashboard: React.FC<InventoryDashboardProps> = ({ tasks, masterOp
                     value={totalStock} 
                     icon={Package} 
                     colorClass="bg-indigo-500" 
-                    subtitle="Items"
+                    subtitle="Active Stock Only"
                 />
                 <StatCard 
                     title="Top Pillar" 

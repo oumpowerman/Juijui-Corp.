@@ -39,8 +39,7 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
   const [color, setColor] = useState(BRAND_COLORS[0].class);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Allocate an ID that stays stable during creation
-  const targetId = useRef(channel?.id || crypto.randomUUID()).current;
+  const [targetId, setTargetId] = useState('');
 
   // Local state for temp options only when creating a new channel
   const [tempOptions, setTempOptions] = useState<{ id: string; type: 'PILLAR' | 'CATEGORY'; key: string; label: string; parentKey?: string }[]>([]);
@@ -54,6 +53,7 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
     if (isOpen) {
       setTempOptions([]);
       if (channel) {
+        setTargetId(channel.id);
         setName(channel.name);
         setDescription(channel.description || '');
         setSelectedPlatforms(channel.platforms || []);
@@ -62,6 +62,7 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
         setLogoFile(null);
       } else {
         // Clear fields for a brand new channel
+        setTargetId(crypto.randomUUID());
         setName('');
         setDescription('');
         setSelectedPlatforms(['YOUTUBE']);

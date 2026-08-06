@@ -1,812 +1,228 @@
-
-import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
+import React, { useState } from 'react';
+import { Landmark, Monitor, Play, Sparkles, Clock, CalendarDays, BarChart3, HelpCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { User } from '../../../types';
-import { supabase } from '../../../lib/supabase';
-import { format } from 'date-fns';
-import { Download } from 'lucide-react';
-import { AttendanceLog } from '../../../types/attendance';
-import { checkIsLate, getAttendanceSummary, getLateMinutes } from '../../../lib/attendanceUtils';
-import { parseReason } from '../leave-request/request-detail/utils';
-import { useGameConfig } from '../../../context/GameConfigContext';
-import { useUserSession } from '../../../context/UserSessionContext';
-import { useAnnualHolidays } from '../../../hooks/useAnnualHolidays';
-import { useCalendarExceptions } from '../../../hooks/useCalendarExceptions';
-import { eachDayOfInterval, startOfMonth, endOfMonth, isWeekend } from 'date-fns';
+import { WorkTimeConfig } from '../WorkTimeCard';
+import TimePickerModal from '../../../../../ui/TimePickerModal';
 
-// Import Separated Components
-import DashboardHeader from './DashboardHeader';
-import DashboardStats from './DashboardStats';
-import DashboardTable from './DashboardTable';
-import DashboardUserDetailModal from './DashboardUserDetailModal';
-import { ExportControlCenterModal } from './modal/ExportControlCenterModal';
-
-// Lazy Loaded Analytics Component
-const AttendanceAnalytics = lazy(() => import('./analytics/AttendanceAnalytics'));
-
-const AnalyticsSkeleton = () => (
-    <div className="space-y-6 animate-pulse">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-4 bg-gray-100 h-[440px] rounded-3xl" />
-            <div className="lg:col-span-8 bg-gray-100 h-[440px] rounded-3xl" />
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-5 bg-gray-100 h-[380px] rounded-3xl" />
-            <div className="lg:col-span-7 bg-gray-100 h-[380px] rounded-3xl" />
-        </div>
-    </div>
-);
-
-interface AdminAttendanceDashboardProps {
-    users: User[];
+interface MonthlyOTCardProps {
+    tempTimeConfig: WorkTimeConfig;
+    setTempTimeConfig: React.Dispatch<React.SetStateAction<WorkTimeConfig>>;
 }
 
-interface UserStat {
-    userId: string;
-    present: number;
-    late: number;
-    leaves: number;
-    absent: number;
-    totalHours: number;
-    avgCheckIn: string;
-    logs: AttendanceLog[];
-    totalLateMinutes?: number;
-    totalOtHours?: number;
-    totalOtPayout?: number;
-    totalFixedOtDays?: number;
-    hasProvisionalForgot?: boolean;
-    provisionalForgotCount?: number;
-}
+const MonthlyOTCard: React.FC<MonthlyOTCardProps> = ({
+    tempTimeConfig,
+    setTempTimeConfig,
+}) => {
+    const [simM, setSimM] = useState({ active: false, showPreview: false });
+    const [isSummaryTimeOpen, setIsSummaryTimeOpen] = useState(false);
 
-import { useMasterData } from '../../../hooks/useMasterData';
-import { BRAND_CONFIG } from '../../../config/brand';
-
-const getLocalDateString = (dateInput: Date | string) => {
-    const d = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-    if (d instanceof Date && !isNaN(d.getTime())) {
-        return d.toISOString().split('T')[0]; // ดึงเฉพาะ YYYY-MM-DD แบบ UTC ดั้งเดิม ปราศจาก Timezone Shift
-    }
-    return '';
-};
-
-const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ users }) => {
-    const { masterOptions } = useMasterData();
-    const shouldHideAdmins = BRAND_CONFIG.hideAdminFromAttendanceDashboardMode === 2;
-    const { otRequests, leaveRequests } = useUserSession();
-    const [currentMonth, setCurrentMonth] = useState(new Date());
-    const [dateFilterMode, setDateFilterMode] = useState<'MONTH' | 'CUSTOM'>('MONTH');
-    const [customStartDate, setCustomStartDate] = useState<Date>(startOfMonth(new Date()));
-    const [customEndDate, setCustomEndDate] = useState<Date>(endOfMonth(new Date()));
-    const [logs, setLogs] = useState<AttendanceLog[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [searchTerm, setSearchTerm] = useState('');
-    const [selectedEmploymentType, setSelectedEmploymentType] = useState('ALL');
-    const [selectedPosition, setSelectedPosition] = useState('ALL');
-    const [viewMode, setViewMode] = useState<'TABLE' | 'ANALYTICS'>('TABLE');
-    const [lateViewMode, setLateViewMode] = useState<'DAYS' | 'HOURS'>('DAYS');
-    const [otViewMode, setOtViewMode] = useState<'HOURS' | 'LUMP_SUM' | 'BOTH' | 'PAYOUT'>('HOURS');
-    const [activeStatFilter, setActiveStatFilter] = useState<'ALL' | 'PRESENT' | 'LATE' | 'ABSENT' | 'LEAVE'>('ALL');
-    const [sortDirection, setSortDirection] = useState<'ASC' | 'DESC'>('DESC');
-    const [isToolsExpanded, setIsToolsExpanded] = useState(false);
-    const [hpViewMode, setHpViewMode] = useState<'MONTHLY' | 'YEARLY'>('MONTHLY');
-    const [snapshots, setSnapshots] = useState<any[]>([]);
-
-    useEffect(() => {
-        const fetchSnapshots = async () => {
-            try {
-                const { data, error } = await supabase
-                    .from('hp_snapshots')
-                    .select('*');
-                if (error) {
-                    console.warn("hp_snapshots might not exist yet:", error);
-                } else if (data) {
-                    setSnapshots(data);
-                }
-            } catch (e) {
-                console.warn("Error loading hp_snapshots:", e);
-            }
-        };
-        fetchSnapshots();
-
-        const hpChannel = supabase.channel('hp-snapshots-dashboard')
-            .on('postgres_changes', {
-                event: '*',
-                schema: 'public',
-                table: 'hp_snapshots'
-            }, () => {
-                fetchSnapshots();
-            })
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(hpChannel);
-        };
-    }, []);
-
-    useEffect(() => {
-        setSortDirection('DESC');
-    }, [activeStatFilter]);
-    
-    // Modal State
-    const [selectedUser, setSelectedUser] = useState<{ user: User, stat: UserStat } | null>(null);
-    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-    
-    // Config State
-    const [startTime, setStartTime] = useState('10:00');
-    const [lateBuffer, setLateBuffer] = useState(0);
-
-    const { config } = useGameConfig(); // Hook for dynamic grading
-    const { annualHolidays } = useAnnualHolidays();
-    const { exceptions } = useCalendarExceptions();
-
-    // Helper: Get Effective Status for a Day
-    const getEffectiveDayStatus = (date: Date) => {
-        const dateStr = format(date, 'yyyy-MM-dd');
-        const exception = exceptions.find(e => e.date === dateStr);
-        if (exception) return { status: exception.type, source: 'EXCEPTION' };
-        const holiday = annualHolidays.find(h => h.day === date.getDate() && h.month === date.getMonth() + 1 && h.isActive);
-        if (holiday) return { status: 'HOLIDAY' as const, source: 'ANNUAL' };
-        if (isWeekend(date)) return { status: 'HOLIDAY' as const, source: 'WEEKEND' };
-        return { status: 'WORK_DAY' as const, source: 'DEFAULT' };
+    const triggerSimulator = () => {
+        setSimM(prev => ({
+            active: true,
+            showPreview: !prev.showPreview
+        }));
     };
 
-    // Calculate Working Days in current month or range
-    const monthDays = useMemo(() => {
-        const start = dateFilterMode === 'MONTH' ? startOfMonth(currentMonth) : customStartDate;
-        const end = dateFilterMode === 'MONTH' ? endOfMonth(currentMonth) : customEndDate;
-        if (start > end) {
-            return [];
-        }
-        return eachDayOfInterval({
-            start,
-            end
-        });
-    }, [currentMonth, dateFilterMode, customStartDate, customEndDate]);
-
-    const workingDaysInMonth = useMemo(() => {
-        return monthDays.filter(day => getEffectiveDayStatus(day).status === 'WORK_DAY');
-    }, [monthDays, annualHolidays, exceptions]);
-
-    // Load Config
-    useEffect(() => {
-        const workConfig = masterOptions.filter(opt => opt.type === 'WORK_CONFIG');
-        const start = workConfig.find(c => c.key === 'START_TIME')?.label || '10:00';
-        const buffer = parseInt(workConfig.find(c => c.key === 'LATE_BUFFER')?.label || '0');
-        setStartTime(start);
-        setLateBuffer(buffer);
-    }, [masterOptions]);
-
-    const multipleShifts = useMemo(() => {
-        const workConfig = masterOptions.filter(opt => opt.type === 'WORK_CONFIG');
-        const enabled = workConfig.find(c => c.key === 'MULTIPLE_SHIFTS_ENABLED')?.label === 'true';
-        const shiftsList = workConfig.find(c => c.key === 'MULTIPLE_SHIFTS_LIST')?.label || '';
-        return { enabled, shiftsList };
-    }, [masterOptions]);
-
-    // Fetch Logs for the selected month or range
-    useEffect(() => {
-        const start = format(dateFilterMode === 'MONTH' ? startOfMonth(currentMonth) : customStartDate, 'yyyy-MM-dd');
-        const end = format(dateFilterMode === 'MONTH' ? endOfMonth(currentMonth) : customEndDate, 'yyyy-MM-dd');
-
-        const fetchMonthLogs = async () => {
-            setIsLoading(true);
-            try {
-                const { data, error } = await supabase
-                    .from('attendance_logs')
-                    .select('*')
-                    .gte('date', start)
-                    .lte('date', end);
-
-                if (error) throw error;
-                
-                if (data) {
-                    setLogs(data.map((l: any) => ({
-                        id: l.id,
-                        userId: l.user_id,
-                        date: l.date,
-                        checkInTime: l.check_in_time ? new Date(l.check_in_time) : null,
-                        checkOutTime: l.check_out_time ? new Date(l.check_out_time) : null,
-                        workType: l.work_type,
-                        status: l.status,
-                        note: l.note,
-                        locationName: l.location_name,
-                        checkOutLocationName: l.check_out_location_name,
-                        latitude: l.location_lat,
-                        longitude: l.location_lng,
-                        checkOutLat: l.check_out_lat,
-                        checkOutLng: l.check_out_lng,
-                        photoUrl: l.photo_url,
-                        checkOutPhotoUrl: l.check_out_photo_url
-                    })));
-                }
-            } catch (err) {
-                console.error("Fetch admin logs error", err);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchMonthLogs();
-
-        // Real-time Subscriptions
-        const logsChannel = supabase.channel('admin-dashboard-logs')
-            .on('postgres_changes', { 
-                event: '*', 
-                schema: 'public', 
-                table: 'attendance_logs',
-                filter: `date=gte.${start}&date=lte.${end}`
-            }, () => fetchMonthLogs())
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(logsChannel);
-        };
-    }, [currentMonth, dateFilterMode, customStartDate, customEndDate]);
-
-    // Calculate Stats per User
-    const userStats = useMemo(() => {
-        const statsMap: Record<string, UserStat> = {};
-        const today = new Date();
-
-        // Initialize for all active users
-        users.filter(u => u.isActive && !(shouldHideAdmins && u.role === 'ADMIN')).forEach(u => {
-            statsMap[u.id] = {
-                userId: u.id,
-                present: 0,
-                late: 0,
-                leaves: 0,
-                absent: 0,
-                totalHours: 0,
-                avgCheckIn: '-',
-                logs: [],
-                totalLateMinutes: 0,
-                hasProvisionalForgot: false,
-                provisionalForgotCount: 0
-            };
-        });
-
-        // Process Logs
-        logs.forEach(log => {
-            if (statsMap[log.userId]) {
-                const stat = statsMap[log.userId];
-                stat.logs.push(log);
-
-                const isProvisional = !!log.note?.includes('[PROVISIONAL_FORGOT_CHECKIN]') || 
-                                      !!log.note?.includes('[PROVISIONAL_LATE_ENTRY]') || 
-                                      !!log.note?.includes('[PROVISIONAL_WFH]') || 
-                                      !!log.note?.includes('[PROVISIONAL_ONSITE]') ||
-                                      !!log.note?.includes('[PROVISIONAL_CHECKOUT]') ||
-                                      !!log.note?.includes('[PROVISIONAL_GPS_SPOOF_APPEAL]') ||
-                                      !!log.note?.includes('[GPS_SPOOF_APPEAL_PENDING]') ||
-                                      !!log.note?.includes('[FORGOT_BOTH_PENDING]') ||
-                                      !!log.note?.includes('[APPEAL_PENDING]');
-                if (isProvisional) {
-                    stat.provisionalForgotCount = (stat.provisionalForgotCount || 0) + 1;
-                    stat.hasProvisionalForgot = true;
-                }
-
-                const isGpsRejected = !!log.note?.includes('[REJECTED GPS_SPOOF_APPEAL]') || 
-                                      !!log.note?.includes('[REJECTED_GPS_SPOOF_APPEAL]');
-
-                if (log.status === 'LEAVE' || log.workType === 'LEAVE') {
-                    // Do not calculate leaves or absent here, we will do it comprehensively in workingDaysInMonth loop
-                } else if (log.status === 'ABSENT' || log.workType === 'ABSENT') {
-                    // Do not calculate absent here, we will do it comprehensively in workingDaysInMonth loop
-                } else {
-                    const parsed = parseReason(log.note || '');
-                    const logDateStr = typeof log.date === 'string' ? log.date : format(new Date(log.date), 'yyyy-MM-dd');
-                    const matchLeave = leaveRequests?.find(r => 
-                        r.userId === log.userId && 
-                        r.status === 'APPROVED' &&
-                        getLocalDateString(r.startDate) <= logDateStr && 
-                        getLocalDateString(r.endDate) >= logDateStr
-                    );
-                    const isHalfDay = parsed.isHalfDay || (matchLeave ? (matchLeave.isHalfDay || matchLeave.is_half_day || false) : false);
-                    const halfDaySession = parsed.halfDaySession || (matchLeave ? (matchLeave.halfDaySession || matchLeave.half_day_session || null) : null);
-
-                    const summary = getAttendanceSummary(
-                        log.checkInTime,
-                        log.checkOutTime,
-                        { 
-                            startTime, 
-                            buffer: lateBuffer, 
-                            minHours: 9, 
-                            note: log.note, 
-                            multipleShifts,
-                            isHalfDay: isHalfDay,
-                            halfDaySession: halfDaySession
-                        }
-                    );
-
-                    if (isHalfDay) {
-                        if (!isProvisional && !isGpsRejected) {
-                            stat.present += 0.5;
-                        }
-                        if (summary.isLate) {
-                            stat.late += 0.5;
-                        }
-                    } else {
-                        if (!isProvisional && !isGpsRejected) {
-                            stat.present += 1;
-                        }
-                        if (summary.isLate) {
-                            stat.late += 1;
-                        }
-                    }
-                    let logStartTime = startTime;
-                    if (isHalfDay && halfDaySession === 'AM') {
-                        logStartTime = '13:00';
-                    }
-                    const lateMins = getLateMinutes(log.checkInTime, logStartTime, lateBuffer, log.note, multipleShifts);
-                    stat.totalLateMinutes = (stat.totalLateMinutes || 0) + lateMins;
-                    stat.totalHours += summary.workHours;
-                }
-            }
-        });
-
-        // Calculate Absents and Leaves comprehensively
-        Object.values(statsMap).forEach(stat => {
-            const user = users.find(u => u.id === stat.userId);
-            const userStartDate = user?.startDate ? new Date(user.startDate) : (user?.createdAt ? new Date(user.createdAt) : null);
-
-            workingDaysInMonth.forEach(day => {
-                const dateStr = format(day, 'yyyy-MM-dd');
-                const matchLeave = leaveRequests?.find(r => 
-                    r.userId === stat.userId && 
-                    r.status === 'APPROVED' &&
-                    getLocalDateString(r.startDate) <= dateStr && 
-                    getLocalDateString(r.endDate) >= dateStr
-                );
-
-                if (userStartDate) {
-                    const startStr = format(userStartDate, 'yyyy-MM-dd');
-                    // หากวันทำงานนั้นๆ เกิดขึ้นก่อนวันที่พนักงานเริ่มงานจริง ให้ข้ามไป ไม่นับเป็นวันขาดงาน
-                    if (dateStr < startStr) {
-                        return;
-                    }
-                }
-                // Check if this day is in the future
-                const isFutureDay = (day.getFullYear() > today.getFullYear()) ||
-                                    (day.getFullYear() === today.getFullYear() && day.getMonth() > today.getMonth()) ||
-                                    (day.getFullYear() === today.getFullYear() && day.getMonth() === today.getMonth() && day.getDate() > today.getDate());
-                if (isFutureDay) {
-                    if (matchLeave) {
-                        const isHalfDay = matchLeave.isHalfDay || matchLeave.is_half_day || false;
-                        stat.leaves += isHalfDay ? 0.5 : 1.0;
-                    }
-                    return;
-                }
-
-                const isToday = day.getDate() === today.getDate() &&
-                                day.getMonth() === today.getMonth() &&
-                                day.getFullYear() === today.getFullYear();
-
-                if (isToday) {
-                    // 1. กำหนดเวลาเริ่มงานหลักเป็นตัวแปรตั้งต้นก่อน (เช่น 10:00)
-                    let targetStartTime = startTime; 
-
-                    // 2. ถ้าเปิดใช้งาน MULTIPLE_SHIFTS ให้ดึงกะที่สายที่สุดมาใช้งานแทน
-                    if (multipleShifts.enabled && multipleShifts.shiftsList) {
-                        const shifts = multipleShifts.shiftsList
-                            .split(',')
-                            .map(s => s.trim())
-                            .filter(Boolean);
-                        
-                        if (shifts.length > 0) {
-                            shifts.sort(); // เรียงลำดับเวลาจากเช้าสุดไปสายสุด (เช่น "08:00" -> "08:30" -> "09:00")
-                            targetStartTime = shifts[shifts.length - 1]; // เลือกเวลาที่สายที่สุด (เช่น "09:00")
-                        }
-                    }
-
-                    // 3. นำเวลาที่เลือกได้ (targetStartTime) มาแปลงเป็นชั่วโมงและนาทีเพื่อเปรียบเทียบตามเดิม
-                    let [startHour, startMin] = [10, 0];
-                    if (targetStartTime && targetStartTime.includes(':')) {
-                        const parts = targetStartTime.split(':');
-                        startHour = parseInt(parts[0], 10) || 10;
-                        startMin = parseInt(parts[1], 10) || 0;
-                    }
-                    const currentHour = today.getHours();
-                    const currentMin = today.getMinutes();
-
-                    // If it is today and we haven't reached the official work start time yet, 
-                    // do not mark as absent yet (safeguard for early morning checks e.g. 03:00)
-                    if (currentHour < startHour || (currentHour === startHour && currentMin < startMin)) {
-                        return;
-                    }
-                }
-                
-                const dayLogs = stat.logs.filter(l => l.date === dateStr);
-
-                if (dayLogs.length > 0) {
-                    const hasAbsentLog = dayLogs.some(l => l.status === 'ABSENT' || l.workType === 'ABSENT');
-                    if (hasAbsentLog) {
-                        stat.absent += 1.0;
-                        return;
-                    }
-
-                    const leaveLog = dayLogs.find(l => l.status === 'LEAVE' || l.workType === 'LEAVE');
-                    if (leaveLog) {
-                        const parsed = parseReason(leaveLog.note || '');
-                        const isHalfDay = parsed.isHalfDay || (matchLeave ? (matchLeave.isHalfDay || matchLeave.is_half_day || false) : false);
-                        stat.leaves += isHalfDay ? 0.5 : 1.0;
-                        if (isHalfDay) {
-                            const hasWorkingLog = dayLogs.some(l => 
-                                l.id !== leaveLog.id && 
-                                l.status !== 'LEAVE' && 
-                                l.workType !== 'LEAVE' && 
-                                l.status !== 'ABSENT' && 
-                                l.workType !== 'ABSENT'
-                            );
-                            if (!hasWorkingLog) {
-                                stat.absent += 0.5;
-                            }
-                        }
-                    } else {
-                        // Check if there is a working log that is half day
-                        const workingLog = dayLogs.find(l => 
-                            l.status !== 'LEAVE' && 
-                            l.workType !== 'LEAVE' && 
-                            l.status !== 'ABSENT' && 
-                            l.workType !== 'ABSENT'
-                        );
-                        if (workingLog) {
-                            const parsed = parseReason(workingLog.note || '');
-                            const isHalfDay = parsed.isHalfDay || (matchLeave ? (matchLeave.isHalfDay || matchLeave.is_half_day || false) : false);
-                            if (isHalfDay) {
-                                stat.leaves += 0.5;
-                            }
-                        }
-                    }
-                } else {
-                    if (matchLeave) {
-                        const isHalfDay = matchLeave.isHalfDay || matchLeave.is_half_day || false;
-                        stat.leaves += isHalfDay ? 0.5 : 1.0;
-                        if (isHalfDay) {
-                            stat.absent += 0.5;
-                        }
-                    } else {
-                        stat.absent += 1.0;
-                    }
-                }
-            });
-        });
-
-        // Calculate approved Overtime for each user in the selected month/range
-        const activeOtRequests = otRequests.filter(req => {
-            if (req.status !== 'APPROVED') return false;
-            const reqDate = new Date(req.date);
-            const start = dateFilterMode === 'MONTH' ? startOfMonth(currentMonth) : customStartDate;
-            const end = dateFilterMode === 'MONTH' ? endOfMonth(currentMonth) : customEndDate;
-            return reqDate >= start && reqDate <= end;
-        });
-
-        Object.values(statsMap).forEach(stat => {
-            const userOt = activeOtRequests.filter(req => req.userId === stat.userId);
-            const hourlyOt = userOt.filter(req => !req.isFixed && (!req.reason || !req.reason.includes('[OT:FIXED]')));
-            const fixedOt = userOt.filter(req => req.isFixed || (req.reason && req.reason.includes('[OT:FIXED]')));
-
-            stat.totalOtHours = hourlyOt.reduce((sum, req) => sum + req.durationHours, 0);
-            stat.totalFixedOtDays = fixedOt.length;
-            stat.totalOtPayout = userOt.reduce((sum, req) => sum + req.computedPayout, 0);
-        });
-
-        return Object.values(statsMap);
-    }, [users, logs, startTime, lateBuffer, workingDaysInMonth, otRequests, leaveRequests, currentMonth, dateFilterMode, customStartDate, customEndDate, multipleShifts, shouldHideAdmins]);
-
-    // Index users by ID for O(1) lookups
-    const userMap = useMemo(() => {
-        return new Map(users.map(u => [u.id, u]));
-    }, [users]);
-
-    // Compute unique positions from active users
-    const positions = useMemo(() => {
-        const unique = new Set(
-            users
-                .filter(u => u.isActive && u.position && !(shouldHideAdmins && u.role === 'ADMIN'))
-                .map(u => u.position)
-        );
-        return Array.from(unique).sort();
-    }, [users, shouldHideAdmins]);
-
-    // Filtering (Two-Phase Filtering)
-    const filteredStats = useMemo(() => {
-        const baseFiltered = userStats.filter(stat => {
-            const user = userMap.get(stat.userId);
-            if (!user) return false;
-
-            if (shouldHideAdmins && user.role === 'ADMIN') return false;
-
-            const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesEmploymentType = selectedEmploymentType === 'ALL' || user.employmentType === selectedEmploymentType;
-            const matchesPosition = selectedPosition === 'ALL' || user.position === selectedPosition;
-
-            return matchesSearch && matchesEmploymentType && matchesPosition;
-        });
-
-        // Dynamic Metric Filter
-        let finalStats = baseFiltered;
-
-        if (activeStatFilter !== 'ALL') {
-            const getVal = (s: typeof userStats[0]) => {
-                if (activeStatFilter === 'PRESENT') return s.present;
-                if (activeStatFilter === 'LATE') {
-                    return lateViewMode === 'HOURS' ? (s.totalLateMinutes || 0) : s.late;
-                }
-                if (activeStatFilter === 'ABSENT') return s.absent;
-                if (activeStatFilter === 'LEAVE') return s.leaves;
-                return s.present;
-            };
-
-            if (sortDirection === 'DESC') {
-                finalStats = baseFiltered.filter(s => getVal(s) > 0);
-            } else {
-                // ASC
-                const hasZero = baseFiltered.some(s => getVal(s) === 0);
-                if (hasZero) {
-                    finalStats = baseFiltered.filter(s => getVal(s) === 0);
-                }
-            }
-        }
-
-        // Sort
-        return [...finalStats].sort((a, b) => {
-            let valA = 0;
-            let valB = 0;
-            if (activeStatFilter === 'LATE') {
-                valA = lateViewMode === 'HOURS' ? (a.totalLateMinutes || 0) : a.late;
-                valB = lateViewMode === 'HOURS' ? (b.totalLateMinutes || 0) : b.late;
-            } else if (activeStatFilter === 'ABSENT') {
-                valA = a.absent;
-                valB = b.absent;
-            } else if (activeStatFilter === 'LEAVE') {
-                valA = a.leaves;
-                valB = b.leaves;
-            } else {
-                // PRESENT or ALL
-                valA = a.present;
-                valB = b.present;
-            }
-
-            if (sortDirection === 'ASC') {
-                return valA - valB;
-            } else {
-                return valB - valA;
-            }
-        });
-    }, [userStats, userMap, searchTerm, selectedEmploymentType, selectedPosition, activeStatFilter, sortDirection, lateViewMode]);
-
-    // Aggregates
-    const totalLeaves = userStats.reduce((sum, s) => sum + s.leaves, 0);
-    const totalCheckins = userStats.reduce((sum, s) => sum + s.present, 0);
-    const totalLates = userStats.reduce((sum, s) => sum + s.late, 0);
-    const totalAbsents = userStats.reduce((sum, s) => sum + s.absent, 0);
-    const lateRate = totalCheckins > 0 ? Math.round((totalLates / totalCheckins) * 100) : 0;
-
-    const getGrade = (stat: UserStat) => {
-        if (stat.hasProvisionalForgot) {
-            return { grade: '⏳ WAIT', color: 'bg-amber-50 text-amber-700 border border-amber-200/40 animate-pulse' };
-        }
-        if (stat.present === 0 && stat.leaves === 0) return { grade: 'N/A', color: 'bg-gray-100 text-gray-400' };
-
-        // Use Dynamic Rules from Config if available
-        const rules = config?.ATTENDANCE_GRADING_RULES || [
-             { grade: "A+", max_late: 0, color: "bg-green-100 text-green-700" },
-             { grade: "B", max_late: 2, color: "bg-blue-100 text-blue-700" },
-             { grade: "C", max_late: 4, color: "bg-yellow-100 text-yellow-700" },
-             { grade: "F", max_late: 999, color: "bg-red-100 text-red-700" }
-        ];
-
-        // Sort rules by strictness (lowest max_late first)
-        const sortedRules = [...rules].sort((a: any, b: any) => a.max_late - b.max_late);
-
-        for (const rule of sortedRules) {
-            if (stat.late <= rule.max_late) {
-                return { grade: rule.grade, color: rule.color };
-            }
-        }
-        
-        // Fallback
-        return { grade: 'F', color: 'bg-red-100 text-red-700' };
-    };
-
-    // --- CSV Export Logic ---
-    const handleExportCSV = () => {
-        // 1. Header
-        const headers = [
-            "Employee Name", 
-            "Position", 
-            "Days Present", 
-            lateViewMode === 'HOURS' ? "Late Duration" : "Late Count", 
-            "Leave Days", 
-            "Total Hours", 
-            "Performance Grade"
-        ];
-        
-        // 2. Rows
-        const rows = filteredStats.map(stat => {
-            const user = userMap.get(stat.userId);
-            const gradeInfo = getGrade(stat);
-            
-            let lateValue: string | number = stat.late;
-            if (lateViewMode === 'HOURS') {
-                const totalMins = stat.totalLateMinutes || 0;
-                const hrs = Math.floor(totalMins / 60);
-                const mins = totalMins % 60;
-                lateValue = hrs > 0 ? `"${hrs}h ${mins}m"` : `"${mins}m"`;
-            }
-
-            return [
-                `"${user?.name || 'Unknown'}"`,
-                `"${user?.position || '-'}"`,
-                stat.present,
-                lateValue,
-                stat.leaves,
-                stat.totalHours.toFixed(2),
-                `"${gradeInfo.grade}"`
-            ].join(",");
-        });
-
-        // 3. Combine & Download
-        const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(","), ...rows].join("\n");
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        const dateRangeStr = dateFilterMode === 'MONTH' 
-            ? format(currentMonth, 'MMMM_yyyy') 
-            : `${format(customStartDate, 'yyyy-MM-dd')}_to_${format(customEndDate, 'yyyy-MM-dd')}`;
-        const fileName = `Attendance_Report_${dateRangeStr}.csv`;
-        
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", fileName);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
+    const targetTimeDisplay = tempTimeConfig.monthlyOTSummaryTime || '08:00';
+    const targetDayDisplay = tempTimeConfig.monthlyOTSummaryDay || '1';
+    const targetModeDisplay = tempTimeConfig.monthlyOTSummaryMode || 'PREV_MONTH';
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500">
-            
-            <AnimatePresence mode="wait">
-                {viewMode === 'TABLE' ? (
-                    <motion.div
-                        key="TABLE"
-                        initial={{ opacity: 0, y: 15 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -15 }}
-                        transition={{ duration: 0.2, ease: "easeOut" }}
-                        className="space-y-6"
-                    >
-                        <DashboardStats 
-                            totalCheckins={totalCheckins}
-                            totalLates={totalLates}
-                            lateRate={lateRate}
-                            totalAbsents={totalAbsents}
-                            totalLeaves={totalLeaves}
-                            activeUsersCount={users.filter(u => u.isActive).length}
-                            activeFilter={activeStatFilter}
-                            onFilterChange={setActiveStatFilter}
-                        />
-
-                        <DashboardHeader 
-                            currentMonth={currentMonth}
-                            setCurrentMonth={setCurrentMonth}
-                            dateFilterMode={dateFilterMode}
-                            setDateFilterMode={setDateFilterMode}
-                            customStartDate={customStartDate}
-                            setCustomStartDate={setCustomStartDate}
-                            customEndDate={customEndDate}
-                            setCustomEndDate={setCustomEndDate}
-                            searchTerm={searchTerm}
-                            setSearchTerm={setSearchTerm}
-                            selectedEmploymentType={selectedEmploymentType}
-                            setSelectedEmploymentType={setSelectedEmploymentType}
-                            selectedPosition={selectedPosition}
-                            setSelectedPosition={setSelectedPosition}
-                            positions={positions}
-                            viewMode={viewMode}
-                            setViewMode={setViewMode}
-                            isToolsExpanded={isToolsExpanded}
-                            setIsToolsExpanded={setIsToolsExpanded}
-                        />
-
-                        <DashboardTable 
-                            isLoading={isLoading}
-                            filteredStats={filteredStats}
-                            users={users}
-                            getGrade={getGrade}
-                            onUserClick={(user, stat) => setSelectedUser({ user, stat })}
-                            activeStatFilter={activeStatFilter}
-                            sortDirection={sortDirection}
-                            onSortDirectionChange={setSortDirection}
-                            lateViewMode={lateViewMode}
-                            onLateViewModeChange={setLateViewMode}
-                            otViewMode={otViewMode}
-                            onOtViewModeChange={setOtViewMode}
-                            hpViewMode={hpViewMode}
-                            onHpViewModeChange={setHpViewMode}
-                            snapshots={snapshots}
-                            currentMonth={currentMonth}
-                        />
-
-                        <div className="flex justify-end">
-                            <button 
-                                onClick={() => setIsExportModalOpen(true)}
-                                className="flex items-center gap-2 px-5 py-3 bg-white border border-gray-200 rounded-2xl text-sm font-bold text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 transition-all shadow-sm active:scale-95"
+        <div id="sim-card-monthly-ot" className="h-full flex flex-col justify-between space-y-3">
+            <div>
+                <div className="flex items-center justify-between">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-indigo-50 text-indigo-700 border border-indigo-100">
+                        <BarChart3 className="w-3.5 h-3.5 text-indigo-500 animate-pulse" /> 📊 แผน I OT (Overtime Monthly Summary)
+                    </span>
+                    <span className="flex items-center gap-2 text-xs text-indigo-700 font-bold bg-indigo-50/60 px-3 py-1 rounded-xl border border-indigo-100/40">
+                        <span className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></span>
+                        ระบบสแตนด์บาย
+                    </span>
+                </div>
+                
+                <h4 className="font-extrabold text-gray-800 text-lg tracking-tight mt-2.5 mb-1">
+                    รายงานสรุปจำนวนชั่วโมง OT รายเดือน
+                </h4>
+                <p className="text-[11px] text-gray-500 leading-normal font-medium">
+                    ระบบประมวลผลสรุปยอดชั่วโมงการทำงานล่วงเวลาสะสมอัตโนมัติ 100% แยกตามประเภท OT เหมาจ่าย, วันธรรมดา, วันหยุด, และวันหยุดล่วงเวลา เพื่อส่งข้อมูลรายงานอย่างเป็นทางการให้กับฝ่ายบุคคลและผู้บริหาร
+                </p>
+                
+                <div className="mt-3 p-3 bg-gradient-to-r from-indigo-50/40 to-indigo-100/10 rounded-2xl border border-indigo-100/60 space-y-3 shadow-sm">
+                    {/* Mode Selector Option */}
+                    <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-black text-indigo-800 uppercase tracking-wider">📊 โหมดการสรุปยอดชั่วโมง OT:</span>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setTempTimeConfig(prev => ({ ...prev, monthlyOTSummaryMode: 'PREV_MONTH' }))}
+                                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold text-center transition-all border shadow-xs ${targetModeDisplay === 'PREV_MONTH' ? 'bg-indigo-600 text-white border-indigo-600 font-black shadow-md shadow-indigo-600/10' : 'bg-white text-indigo-800 border-indigo-200/80 hover:bg-indigo-50/20'}`}
                             >
-                                <Download className="w-4 h-4" /> Export CSV Report
+                                สรุปถัดไป (เดือนที่แล้ว)
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setTempTimeConfig(prev => ({ ...prev, monthlyOTSummaryMode: 'CURRENT_MONTH' }))}
+                                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold text-center transition-all border shadow-xs ${targetModeDisplay === 'CURRENT_MONTH' ? 'bg-indigo-600 text-white border-indigo-600 font-black shadow-md shadow-indigo-600/10' : 'bg-white text-indigo-800 border-indigo-200/80 hover:bg-indigo-50/20'}`}
+                            >
+                                สะสมตรง (ภายในเดือนนี้)
                             </button>
                         </div>
-                    </motion.div>
-                ) : (
-                    <motion.div
-                        key="ANALYTICS"
-                        initial={{ opacity: 0, y: 15 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -15 }}
-                        transition={{ duration: 0.2, ease: "easeOut" }}
-                        className="space-y-6 w-full"
-                    >
-                        <DashboardHeader 
-                            currentMonth={currentMonth}
-                            setCurrentMonth={setCurrentMonth}
-                            dateFilterMode={dateFilterMode}
-                            setDateFilterMode={setDateFilterMode}
-                            customStartDate={customStartDate}
-                            setCustomStartDate={setCustomStartDate}
-                            customEndDate={customEndDate}
-                            setCustomEndDate={setCustomEndDate}
-                            searchTerm={searchTerm}
-                            setSearchTerm={setSearchTerm}
-                            selectedEmploymentType={selectedEmploymentType}
-                            setSelectedEmploymentType={setSelectedEmploymentType}
-                            selectedPosition={selectedPosition}
-                            setSelectedPosition={setSelectedPosition}
-                            positions={positions}
-                            viewMode={viewMode}
-                            setViewMode={setViewMode}
-                            isToolsExpanded={isToolsExpanded}
-                            setIsToolsExpanded={setIsToolsExpanded}
-                        />
+                    </div>
 
-                        <Suspense fallback={<AnalyticsSkeleton />}>
-                            <AttendanceAnalytics 
-                                users={users}
-                                userStats={userStats}
-                                workingDaysInMonth={workingDaysInMonth}
-                                startTime={startTime}
-                                lateBuffer={lateBuffer}
-                                currentMonth={currentMonth}
-                                getGrade={getGrade}
-                                onUserClick={(user, stat) => setSelectedUser({ user, stat })}
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="flex flex-col gap-1">
+                            <span className="text-[10px] font-extrabold text-indigo-800">⏰ วันที่ส่งรายงานของทุกเดือน:</span>
+                            <select
+                                id="select-monthly-ot-day"
+                                value={targetDayDisplay}
+                                onChange={e => setTempTimeConfig(prev => ({ ...prev, monthlyOTSummaryDay: e.target.value }))}
+                                className="w-full px-2.5 py-1.5 bg-white border border-indigo-200/80 rounded-lg text-xs font-extrabold text-indigo-800 outline-none focus:border-indigo-400 transition-all shadow-sm"
+                            >
+                                {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                                    <option key={day} value={day.toString()}>
+                                        {targetModeDisplay === 'CURRENT_MONTH' 
+                                            ? `วันที่ ${day} (สะสม 1 ถึง ${day})` 
+                                            : `วันที่ ${day} ของเดือนถัดไป`
+                                        }
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <span className="text-[10px] font-extrabold text-indigo-800">⏰ เวลาส่งรายงาน:</span>
+                            <button
+                                id="btn-monthly-ot-time"
+                                type="button"
+                                onClick={() => setIsSummaryTimeOpen(true)}
+                                className="w-full px-2.5 py-1.5 bg-white border border-indigo-200/80 rounded-lg text-xs font-extrabold text-indigo-800 outline-none focus:border-indigo-400 text-left flex justify-between items-center transition-all shadow-sm hover:bg-indigo-50/30"
+                            >
+                                <span>{targetTimeDisplay}</span>
+                                <Clock className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                            </button>
+                            <TimePickerModal 
+                                isOpen={isSummaryTimeOpen}
+                                onClose={() => setIsSummaryTimeOpen(false)}
+                                initialTime={targetTimeDisplay}
+                                onSelect={(val) => setTempTimeConfig(prev => ({ ...prev, monthlyOTSummaryTime: val }))}
                             />
-                        </Suspense>
-                    </motion.div>
-                )}
-            </AnimatePresence>
-            
-            <AnimatePresence>
-                {selectedUser && (
-                    <DashboardUserDetailModal 
-                        user={selectedUser.user}
-                        stat={selectedUser.stat}
-                        workingDaysInMonth={workingDaysInMonth}
-                        startTime={startTime}
-                        lateBuffer={lateBuffer}
-                        onClose={() => setSelectedUser(null)}
-                    />
-                )}
-            </AnimatePresence>
+                        </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="flex flex-col justify-end text-[11px] font-extrabold text-indigo-950/80 col-span-2">
+                            <div className="flex justify-between items-center bg-white px-2.5 py-1.5 rounded-lg border border-indigo-100/80 shadow-sm min-h-[32px]">
+                                <span className="flex items-center gap-1 text-[10px] text-indigo-700">
+                                    <CalendarDays className="w-3.5 h-3.5" /> สรุปผลรายงานล่วงเวลา:
+                                </span>
+                                <span className="text-indigo-800 tracking-wide font-black text-right text-[11px]">
+                                    {targetModeDisplay === 'CURRENT_MONTH'
+                                        ? `สะสมวันที่ 1 ถึง ${targetDayDisplay} ของเดือนนี้`
+                                        : `ทุกวันที่ ${targetDayDisplay} (ข้อมูลของเดือนที่ผ่านมา)`
+                                    } {targetTimeDisplay} น.
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-            <ExportControlCenterModal 
-                isOpen={isExportModalOpen}
-                onClose={() => setIsExportModalOpen(false)}
-                users={users}
-                userStats={userStats}
-                getGrade={getGrade}
-                currentMonth={currentMonth}
-                workingDaysInMonth={workingDaysInMonth}
-            />
+            {/* Interactive Simulator Section */}
+            <div className="bg-indigo-50/40 rounded-2xl p-3 border border-indigo-100/70 text-indigo-950 shadow-sm relative overflow-hidden group">
+                <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-indigo-100/10 rounded-full pointer-events-none group-hover:scale-125 transition-transform duration-500"></div>
+                
+                <div className="flex items-center justify-between mb-2.5 pb-1.5 border-b border-indigo-100/60 relative z-10">
+                    <div className="flex items-center gap-1.5 text-xs font-black text-indigo-800">
+                        <Monitor className="w-3.5 h-3.5 text-indigo-500" /> คอนโซลจำลอง LINE ข้อความ
+                    </div>
+                    
+                    <motion.button
+                        whileHover={{ scale: 1.03, y: -1 }}
+                        whileTap={{ scale: 0.97 }}
+                        type="button"
+                        onClick={triggerSimulator}
+                        className="px-3 py-1 bg-indigo-600 text-white rounded-xl text-xs font-black hover:bg-indigo-700 flex items-center gap-1 transition-all shadow-md shadow-indigo-600/10 hover:shadow-indigo-600/20"
+                    >
+                        <Play className="w-3 h-3 fill-current text-white/90" /> {simM.showPreview ? '🙈 ซ่อนพรีวิว' : '📊 พรีวิวรายงาน OT'}
+                    </motion.button>
+                </div>
+
+                <div className="relative h-[250px] bg-gradient-to-b from-indigo-50 to-indigo-100/20 rounded-xl p-3 text-slate-800 border border-indigo-100/60 shadow-inner flex flex-col justify-center overflow-y-auto">
+                    <AnimatePresence mode="wait">
+                        {simM.showPreview ? (
+                            <motion.div 
+                                key="preview"
+                                initial={{ scale: 0.95, opacity: 0, y: 10 }}
+                                animate={{ scale: 1, opacity: 1, y: 0 }}
+                                exit={{ scale: 0.95, opacity: 0, y: -10 }}
+                                transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                                className="space-y-2 bg-[#0f172a] text-slate-100 p-3.5 rounded-xl border border-slate-700/80 font-sans shadow-xl text-left"
+                            >
+                                <div className="font-extrabold text-indigo-400 border-b border-slate-700 pb-1.5 flex items-center gap-1.5 text-[11px] justify-center text-center">
+                                    {targetModeDisplay === 'CURRENT_MONTH'
+                                        ? `📊 สรุปรายงานสะสมการทำงานล่วงเวลา (OT) (ช่วงวันที่ 1 ถึง ${targetDayDisplay} กรกฎาคม 2569)`
+                                        : `📊 สรุปรายงานสถิติการทำงานล่วงเวลา (OT) (ประจำเดือนกรกฎาคม 2569)`
+                                    }
+                                </div>
+                                <div className="text-[10px] space-y-1.5 leading-normal text-slate-300">
+                                    <p className="font-extrabold text-indigo-300">📈 รายละเอียดชั่วโมงการทำงาน OT ที่ได้รับอนุมัติแล้ว</p>
+                                    
+                                    <div className="bg-slate-800/80 p-2 rounded-lg border border-slate-700 text-slate-200 text-[9px] space-y-1">
+                                        <p className="flex justify-between font-bold">
+                                            <span>📊 ภาพรวมช่วงเวลานี้:</span>
+                                        </p>
+                                        <p>• พนักงานทั้งหมด: 12 คน</p>
+                                        <p>• มีรายการทำงาน OT: <span className="text-emerald-400 font-extrabold">3 คน (25%)</span></p>
+                                    </div>
+
+                                    <div className="text-[9.5px] text-slate-200 space-y-2">
+                                        <div>
+                                            <strong>👤 นายสมหมาย มุ่งมั่น (ฝ่ายผลิต)</strong>
+                                            <p className="pl-3 text-slate-400">
+                                                • OT เหมาจ่าย: {targetModeDisplay === 'CURRENT_MONTH' ? '2' : '4'} ครั้ง<br />
+                                                • OT รายชั่วโมง: วันธรรมดา {targetModeDisplay === 'CURRENT_MONTH' ? '5.0' : '12.5'} ชม. | วันหยุด {targetModeDisplay === 'CURRENT_MONTH' ? '0.0' : '4.0'} ชม. | ล่วงเวลา {targetModeDisplay === 'CURRENT_MONTH' ? '1.5' : '3.0'} ชม.<br />
+                                                • รวมเวลา OT: <span className="text-amber-400 font-bold">{targetModeDisplay === 'CURRENT_MONTH' ? '6.5' : '19.5'} ชม.</span>
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <strong>👤 นางสาวสมศรี มีวินัย (ฝ่ายบัญชี)</strong>
+                                            <p className="pl-3 text-slate-400">
+                                                • OT เหมาจ่าย: 0 ครั้ง<br />
+                                                • OT รายชั่วโมง: วันธรรมดา {targetModeDisplay === 'CURRENT_MONTH' ? '2.0' : '6.0'} ชม. | วันหยุด 0.0 ชม. | ล่วงเวลา 0.0 ชม.<br />
+                                                • รวมเวลา OT: <span className="text-amber-400 font-bold">{targetModeDisplay === 'CURRENT_MONTH' ? '2.0' : '6.0'} ชม.</span>
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <strong>👤 นายรักดี ตั้งใจ (ฝ่ายซ่อมบำรุง)</strong>
+                                            <p className="pl-3 text-slate-400">
+                                                • OT เหมาจ่าย: {targetModeDisplay === 'CURRENT_MONTH' ? '1' : '2'} ครั้ง<br />
+                                                • OT รายชั่วโมง: วันธรรมดา {targetModeDisplay === 'CURRENT_MONTH' ? '1.5' : '4.0'} ชม. | วันหยุด {targetModeDisplay === 'CURRENT_MONTH' ? '4.0' : '8.0'} ชม. | ล่วงเวลา 0.0 ชม.<br />
+                                                • รวมเวลา OT: <span className="text-amber-400 font-bold">{targetModeDisplay === 'CURRENT_MONTH' ? '5.5' : '12.0'} ชม.</span>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <p className="text-[8px] text-slate-500 text-center italic mt-1 pt-1 border-t border-slate-800">
+                                        ระบบประมวลผลข้อมูลอัตโนมัติ ณ วันที่ {targetDayDisplay.padStart(2, '0')}/07/2026
+                                    </p>
+                                </div>
+                            </motion.div>
+                        ) : (
+                            <motion.div 
+                                key="idle"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                className="flex flex-col items-center justify-center py-3 text-xs text-indigo-800/60 font-bold"
+                            >
+                                <div className="p-2 bg-white rounded-xl shadow-sm border border-indigo-100 mb-1.5 text-indigo-500">
+                                    <Sparkles className="w-5 h-5 animate-pulse" />
+                                </div>
+                                <span className="text-[10px] text-indigo-900/60">คลิก "พรีวิวรายงาน OT" เพื่อดูข้อความสรุปที่จะส่งเข้ากลุ่ม LINE</span>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                </div>
+            </div>
         </div>
     );
 };
 
-export default AdminAttendanceDashboard;
+export default MonthlyOTCard;

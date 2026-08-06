@@ -284,6 +284,12 @@ export const parseReason = (
     text = removeOrphanedParentheses(text);
     text = text.replace(/\s+/g, ' ').trim();
 
+    // Normalize empty/useless placeholders like "-", "null", "undefined" to empty string
+    const lowerTrimmed = text.toLowerCase();
+    if (lowerTrimmed === '-' || lowerTrimmed === 'null' || lowerTrimmed === 'undefined') {
+        text = '';
+    }
+
     // Check if the message is a system-generated generic provisional text
     const cleanLower = text.toLowerCase();
     const isGenericProvisional = 

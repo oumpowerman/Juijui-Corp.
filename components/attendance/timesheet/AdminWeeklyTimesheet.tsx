@@ -93,6 +93,7 @@ const AdminWeeklyTimesheet: React.FC<{
     const [selectedLog, setSelectedLog] = useState<AttendanceLog | null>(null);
     const [selectedLeaveRequest, setSelectedLeaveRequest] = useState<any | null>(null);
     const [selectedOtRequest, setSelectedOtRequest] = useState<any | null>(null);
+    const [selectedUser, setSelectedUser] = useState<any | null>(null);
 
     // Smart Calendar Data
     const { annualHolidays } = useAnnualHolidays();
@@ -338,10 +339,11 @@ const AdminWeeklyTimesheet: React.FC<{
                 otRequests={otRequests}
                 getEffectiveDayStatus={getEffectiveDayStatus}
                 workConfig={workConfig}
-                onCellClick={(log, leaveReq, otReq) => {
+                onCellClick={(log, leaveReq, otReq, user) => {
                     setSelectedLog(log);
                     setSelectedLeaveRequest(leaveReq);
                     setSelectedOtRequest(otReq);
+                    setSelectedUser(user);
                 }}
             />
 
@@ -351,10 +353,12 @@ const AdminWeeklyTimesheet: React.FC<{
                         log={selectedLog}
                         leaveRequest={selectedLeaveRequest}
                         otRequest={selectedOtRequest}
+                        user={selectedUser}
                         onClose={() => {
                             setSelectedLog(null);
                             setSelectedLeaveRequest(null);
                             setSelectedOtRequest(null);
+                            setSelectedUser(null);
                         }}
                     />
                 )}

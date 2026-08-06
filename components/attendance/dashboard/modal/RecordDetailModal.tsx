@@ -272,6 +272,13 @@ export const RecordDetailModal: React.FC<RecordDetailModalProps> = ({ record, on
                                             </span>
                                         </div>
                                         <p className="text-sm font-bold text-sky-900">{formatSpecialTypeName(leaveType)}</p>
+                                        {parsed.isHalfDay && (
+                                            <div className="mt-2 flex items-center">
+                                                <span className="px-2.5 py-1 bg-amber-50 text-amber-800 border border-amber-200 rounded-xl text-xs font-bold flex items-center gap-1 shrink-0">
+                                                    🍂 ลาครึ่งวัน{parsed.halfDaySession === 'AM' ? 'เช้า (AM)' : 'บ่าย (PM)'} — (0.5 วัน)
+                                                </span>
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl space-y-2">

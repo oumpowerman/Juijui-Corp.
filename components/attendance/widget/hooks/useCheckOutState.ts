@@ -206,7 +206,17 @@ export const useCheckOutState = ({
                 { enabled: isShiftsEnabled, shiftsList }
             );
 
-            const result = calculateCheckOutStatus(checkInTime, new Date(), minHours, effectiveStartTimeStr);
+            const isHalfDay = !!note && (note.includes('[HALF_DAY:AM]') || note.includes('[HALF_DAY:PM]'));
+            const halfDaySession = note && note.includes('[HALF_DAY:AM]') ? 'AM' : (note && note.includes('[HALF_DAY:PM]') ? 'PM' : undefined);
+
+            const result = calculateCheckOutStatus(
+                checkInTime, 
+                new Date(), 
+                minHours, 
+                effectiveStartTimeStr,
+                isHalfDay,
+                halfDaySession as any
+            );
             setCheckOutStatus(result.status);
             setStatusDetails(result);
 

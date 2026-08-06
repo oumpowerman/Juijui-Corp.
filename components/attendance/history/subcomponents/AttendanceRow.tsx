@@ -1,10 +1,10 @@
 import React from 'react';
-import { AttendanceLog } from '../../../../types/attendance';
-import { findPendingRegistryItemByNote, getWorkTypeStyles, WORK_TYPE_REGISTRY } from '../../../../constants/attendanceRegistry';
+import { AttendanceLog, LeaveRequest, LeaveType } from '../../../../types/attendance';
+import { findPendingRegistryItemByNote, getWorkTypeStyles, WORK_TYPE_REGISTRY, ATTENDANCE_REGISTRY } from '../../../../constants/attendanceRegistry';
 import { format, isSameDay } from 'date-fns';
 import th from 'date-fns/locale/th';
 import { 
-    AlertTriangle, XCircle, Loader2, Image as ImageIcon 
+    AlertTriangle, XCircle, Loader2, Image as ImageIcon, Calendar 
 } from 'lucide-react';
 import { getWorkingDaysDifference } from '../../../../lib/attendanceUtils';
 
@@ -22,6 +22,7 @@ interface AttendanceRowProps {
     onViewProof: (proofUrl: string) => void;
     isHighlighted?: boolean;
     onClearHighlight?: () => void;
+    requests?: LeaveRequest[];
 }
 
 export const AttendanceRow: React.FC<AttendanceRowProps> = React.memo(({
@@ -37,7 +38,8 @@ export const AttendanceRow: React.FC<AttendanceRowProps> = React.memo(({
     onResubmit,
     onViewProof,
     isHighlighted,
-    onClearHighlight
+    onClearHighlight,
+    requests
 }) => {
     const rowRef = React.useRef<HTMLTableRowElement>(null);
     const [localHighlight, setLocalHighlight] = React.useState(false);
@@ -75,11 +77,32 @@ export const AttendanceRow: React.FC<AttendanceRowProps> = React.memo(({
 
     const noteText = log.note || '';
 
+    // Find approved leave request for this day
+    const leaveForThisDay = React.useMemo(() => {
+        if (!requests || requests.length === 0) return null;
+        const dateStr = log.date; // YYYY-MM-DD
+        const checkDate = new Date(dateStr);
+        checkDate.setHours(12, 0, 0, 0); // prevent timezone shifts
+
+        return requests.find(r => {
+            if (r.status !== 'APPROVED') return false;
+            const start = new Date(r.startDate);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(r.endDate);
+            end.setHours(23, 59, 59, 999);
+            return checkDate >= start && checkDate <= end;
+        });
+    }, [log.date, requests]);
+
+    const isAMLeave = leaveForThisDay?.isHalfDay && leaveForThisDay?.halfDaySession === 'AM';
+    const isPMLeave = leaveForThisDay?.isHalfDay && leaveForThisDay?.halfDaySession === 'PM';
+    const leaveLabel = leaveForThisDay ? (ATTENDANCE_REGISTRY[leaveForThisDay.type as LeaveType]?.label || leaveForThisDay.type) : '';
+
     // GPS Appeal check
     const isGpsAppealApproved = noteText.includes('[APPROVED GPS_SPOOF_APPEAL]');
     const isGpsAppealRejected = !isGpsAppealApproved && (noteText.includes('[REJECTED GPS_SPOOF_APPEAL]') || noteText.includes('[REJECTED_GPS_SPOOF_APPEAL]'));
 
-    const late = isLate(log);
+    const late = isAMLeave ? false : isLate(log);
     const pendingItem = findPendingRegistryItemByNote(log.note || '');
     
     // Check-in groups
@@ -99,7 +122,17 @@ export const AttendanceRow: React.FC<AttendanceRowProps> = React.memo(({
     const isProvisionalGpsAppeal = (pendingItem?.id === 'GPS_SPOOF_APPEAL' || noteText.includes('[PROVISIONAL_GPS_SPOOF_APPEAL]') || noteText.includes('[GPS_SPOOF_APPEAL_PENDING]')) && !isGpsAppealApproved && !isGpsAppealRejected;
     const isAppeal = log.status === 'APPEAL' || isProvisionalLate || isProvisionalGpsAppeal || isForgotCheckInPending || isForgotBothPending || isLateEntryPending;
     const proof = getProofUrl(log);
-    const statusConfig = getStatusConfig(log, targetUser?.startDate ? new Date(targetUser.startDate) : undefined);
+    const statusConfig = React.useMemo(() => {
+        const config = getStatusConfig(log, targetUser?.startDate ? new Date(targetUser.startDate) : undefined);
+        if ((isAMLeave || isPMLeave) && (config.label === 'กลับก่อนเวลา' || log.status === 'EARLY_LEAVE' || log.status === 'LATE' || config.label === 'สาย')) {
+            return {
+                label: 'ทำงานครึ่งวัน',
+                color: 'bg-sky-50 text-sky-700 border-sky-100',
+                icon: Calendar
+            };
+        }
+        return config;
+    }, [log, targetUser, isAMLeave, isPMLeave, getStatusConfig]);
     const StatusIcon = statusConfig.icon;
     const isLeave = log.status === 'LEAVE' || log.workType === 'LEAVE';
     const isPending = log.status === 'PENDING_VERIFY';
@@ -207,6 +240,9 @@ export const AttendanceRow: React.FC<AttendanceRowProps> = React.memo(({
                             ) : isAppeal ? (
                                 <span className="ml-2 text-[9px] bg-violet-100 font-medium px-1.5 py-0.5 rounded text-violet-700 uppercase">APPEAL</span>
                             ) : null}
+                            {isAMLeave && (
+                                <span className="ml-2 text-[9px] bg-sky-100 font-bold px-1.5 py-0.5 rounded text-sky-700 uppercase border border-sky-200">⏱️ ลาครึ่งเช้า</span>
+                            )}
                             {!isAppeal && !isGpsAppealApproved && late && <span className="ml-2 text-[9px] bg-red-100 font-medium px-1.5 py-0.5 rounded text-red-700 uppercase">LATE</span>}
                         </span>
                         {(() => {
@@ -294,9 +330,14 @@ export const AttendanceRow: React.FC<AttendanceRowProps> = React.memo(({
                         )}
                         
                         {/* 6. กลับก่อนเวลา (ตัดแต้ม/ปฏิเสธ) */}
-                        {(isEarlyLeaveAccept || isEarlyLeaveRejected) && (
+                        {(isEarlyLeaveAccept || isEarlyLeaveRejected) && !isPMLeave && (
                             <span className="text-[9px] font-bold bg-rose-50 text-rose-600 border border-rose-200 px-1.5 py-0.5 rounded uppercase tracking-wide">
                                 🔴 EARLY
+                            </span>
+                        )}
+                        {isPMLeave && (
+                            <span className="text-[9px] font-bold bg-sky-100 text-sky-700 border border-sky-200 px-1.5 py-0.5 rounded uppercase tracking-wide">
+                                ⏱️ ลาครึ่งบ่าย
                             </span>
                         )}
                         {/* 7. นอกพื้นที่โดนปฏิเสธ */}
@@ -344,11 +385,28 @@ export const AttendanceRow: React.FC<AttendanceRowProps> = React.memo(({
                     <span className={`text-xs text-gray-500 truncate max-w-[120px] ${isLeave ? 'italic font-medium text-slate-500' : ''}`} title={getLocationDisplay(log)}>
                         {getLocationDisplay(log)}
                     </span>
+                    {leaveForThisDay && (
+                        <span className="text-[10px] text-sky-600 font-bold bg-sky-50 px-1.5 py-0.5 rounded border border-sky-100 w-fit mt-0.5">
+                            + {leaveLabel}{leaveForThisDay.isHalfDay ? 'ครึ่งวัน' : ''} ({leaveForThisDay.type} {leaveForThisDay.isHalfDay ? '0.5' : '1.0'})
+                        </span>
+                    )}
                 </div>
             </td>
             <td className="px-6 py-4 text-center">
                 <span className="text-xs font-mono font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded">
-                    {isLeave ? '8h' : getWorkHours(log)}
+                    {(() => {
+                        const workHoursStr = getWorkHours(log);
+                        if (isLeave) {
+                            return '8h';
+                        }
+                        if (leaveForThisDay?.isHalfDay) {
+                            if (workHoursStr === '-') {
+                                return '4h ลา';
+                            }
+                            return `${workHoursStr} (+4h ลา)`;
+                        }
+                        return workHoursStr;
+                    })()}
                 </span>
             </td>
             <td className="px-6 py-4 text-center">

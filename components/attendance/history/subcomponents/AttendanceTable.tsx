@@ -1,5 +1,5 @@
 import React from 'react';
-import { AttendanceLog } from '../../../../types/attendance';
+import { AttendanceLog, LeaveRequest } from '../../../../types/attendance';
 import { Loader2, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
 import AttendanceRow from './AttendanceRow';
 
@@ -23,6 +23,7 @@ interface AttendanceTableProps {
     pageSize: number;
     highlightedDate?: string | null;
     onClearHighlight?: () => void;
+    requests?: LeaveRequest[];
 }
 
 export const AttendanceTable: React.FC<AttendanceTableProps> = ({
@@ -44,7 +45,8 @@ export const AttendanceTable: React.FC<AttendanceTableProps> = ({
     onPageChange,
     pageSize,
     highlightedDate,
-    onClearHighlight
+    onClearHighlight,
+    requests
 }) => {
     return (
         <div className="bg-white rounded-3xl border border-gray-200 shadow-sm overflow-hidden min-h-[400px] flex flex-col">
@@ -93,6 +95,7 @@ export const AttendanceTable: React.FC<AttendanceTableProps> = ({
                                     onViewProof={onViewProof}
                                     isHighlighted={highlightedDate === log.date}
                                     onClearHighlight={onClearHighlight}
+                                    requests={requests}
                                 />
                             ))
                         )}

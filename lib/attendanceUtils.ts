@@ -85,7 +85,9 @@ export const calculateCheckOutStatus = (
     checkInTime: Date,
     currentTime: Date,
     minHours: number = 9,
-    effectiveStartTimeStr?: string
+    effectiveStartTimeStr?: string,
+    isHalfDay: boolean = false,
+    halfDaySession?: 'AM' | 'PM'
 ): CheckOutCalculationResult => {
     // Determine the base time for required checkout time calculation.
     // If checkInTime is earlier than the shift start time, use the shift start time.
@@ -110,7 +112,9 @@ export const calculateCheckOutStatus = (
     const hoursWorked = durationMinutes / 60;
     
     // Calculate exact target end time based on baseTime
-    const requiredMinutes = minHours * 60;
+    // Half-day sessions only require 4 hours of work
+    const requiredHours = isHalfDay ? 4 : minHours;
+    const requiredMinutes = requiredHours * 60;
     const requiredEndTime = addMinutes(baseTime, requiredMinutes);
     
     // Check if current time is NOT before required end time (meaning we met or passed it)

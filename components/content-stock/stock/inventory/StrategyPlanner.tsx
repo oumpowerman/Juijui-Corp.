@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../../../lib/supabase';
 import { Channel, MasterOption, ChannelStrategy } from '../../../../types';
@@ -19,8 +19,18 @@ const StrategyPlanner: React.FC<StrategyPlannerProps> = ({ channels, selectedCha
     const [isSaving, setIsSaving] = useState(false);
 
     // Filter master options
-    const pillarOptions = masterOptions.filter(m => m.type === 'CONTENT_PILLAR' && m.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
-    const categoryOptions = masterOptions.filter(m => m.type === 'CONTENT_CATEGORY' && m.isActive).sort((a, b) => a.sortOrder - b.sortOrder);
+    const pillarOptions = useMemo(() => {
+        return masterOptions
+            .filter(m => m.type === 'PILLAR' && m.parentKey === selectedChannel && m.isActive)
+            .sort((a, b) => a.sortOrder - b.sortOrder);
+    }, [masterOptions, selectedChannel]);
+
+    const categoryOptions = useMemo(() => {
+        const pillarKeys = pillarOptions.map(p => p.key);
+        return masterOptions
+            .filter(m => m.type === 'CATEGORY' && m.parentKey && pillarKeys.includes(m.parentKey) && m.isActive)
+            .sort((a, b) => a.sortOrder - b.sortOrder);
+    }, [masterOptions, pillarOptions]);
 
     useEffect(() => {
         if (channel) {
@@ -164,8 +174,8 @@ const StrategyPlanner: React.FC<StrategyPlannerProps> = ({ channels, selectedCha
         });
     };
 
-    const getPillarLabel = (key: string) => pillarOptions.find(p => p.key === key)?.label || key;
-    const getCategoryLabel = (key: string) => categoryOptions.find(c => c.key === key)?.label || key;
+    const getPillarLabel = (key: string) => masterOptions.find(p => p.type === 'PILLAR' && p.key === key)?.label || key;
+    const getCategoryLabel = (key: string) => masterOptions.find(c => c.type === 'CATEGORY' && c.key === key)?.label || key;
 
     const saveStrategy = async () => {
         if (!isPillarValid) {

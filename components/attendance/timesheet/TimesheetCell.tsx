@@ -166,7 +166,12 @@ const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({
         );
     }
 
-    const late = log.checkInTime && checkIsLate(log.checkInTime, workConfig.startTime, workConfig.buffer, log.note, workConfig.multipleShifts);
+    const isHalfDay = leaveRequest?.is_half_day || leaveRequest?.isHalfDay;
+    const halfDaySession = leaveRequest?.half_day_session || leaveRequest?.halfDaySession;
+    const isAMLeave = isHalfDay && halfDaySession === 'AM' && leaveRequest?.status === 'APPROVED';
+    const isPMLeave = isHalfDay && halfDaySession === 'PM' && leaveRequest?.status === 'APPROVED';
+
+    const late = isAMLeave ? false : (log.checkInTime && checkIsLate(log.checkInTime, workConfig.startTime, workConfig.buffer, log.note, workConfig.multipleShifts));
     const isLeave = log.status === 'LEAVE' || log.workType === 'LEAVE';
     const isPendingVerify = log.status === 'PENDING_VERIFY';
     const isHardAbsent = log.status === 'ABSENT' || log.status === 'NO_SHOW';
@@ -211,6 +216,7 @@ const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({
                   isAppealState ? 'bg-violet-50/50 border-violet-400 border-dashed text-violet-700 ring-1 ring-violet-300/30' :
                   isAnyProvisional ? 'bg-amber-50/45 border-amber-400 border-dashed text-amber-700 ring-1 ring-amber-300/30' :
                   isLeave ? 'bg-sky-50 border-sky-100 text-sky-600' :
+                  (isAMLeave || isPMLeave) ? 'bg-gradient-to-br from-emerald-50/80 to-sky-100/80 border-sky-200 text-emerald-800 font-semibold' :
                   isNoCheckIn ? 'bg-amber-50 border-amber-200 text-amber-600' :
                   isPendingVerify ? 'bg-amber-50 border-amber-200 text-amber-600' :
                   late ? 'bg-orange-50 border-orange-200 text-orange-600' :
@@ -240,10 +246,20 @@ const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({
                         <span className="text-[10px] font-bold font-mono leading-none">
                             {log.checkInTime ? format(log.checkInTime, 'HH:mm') : '--:--'}
                         </span>
+                        {isAMLeave && (
+                            <span className="text-[6.5px] font-extrabold bg-sky-100/90 text-sky-700 px-1 py-0.2 rounded-sm border border-sky-200 scale-90 -my-0.5 whitespace-nowrap">
+                                ⏱️ ลาเช้า
+                            </span>
+                        )}
                         <div className="w-4 h-[1px] bg-current opacity-20"></div>
                         <span className="text-[10px] font-bold font-mono leading-none opacity-60">
                             {log.checkOutTime ? format(log.checkOutTime, 'HH:mm') : '--:--'}
                         </span>
+                        {isPMLeave && (
+                            <span className="text-[6.5px] font-extrabold bg-sky-100/90 text-sky-700 px-1 py-0.2 rounded-sm border border-sky-200 scale-90 -my-0.5 whitespace-nowrap">
+                                ⏱️ ลาบ่าย
+                            </span>
+                        )}
                         {isGpsRejected ? (
                             <span className="text-[7px] font-bold bg-red-600 text-white px-1 py-0.5 rounded scale-90 uppercase tracking-tighter mt-0.5 select-none whitespace-nowrap">
                                 🔴 GPS โดนปฏิเสธ
@@ -313,6 +329,8 @@ const areEqual = (prevProps: TimesheetCellProps, nextProps: TimesheetCellProps) 
         prevProps.leaveRequest?.status === nextProps.leaveRequest?.status &&
         prevProps.leaveRequest?.type === nextProps.leaveRequest?.type &&
         prevProps.leaveRequest?.reason === nextProps.leaveRequest?.reason &&
+        (prevProps.leaveRequest?.is_half_day || prevProps.leaveRequest?.isHalfDay) === (nextProps.leaveRequest?.is_half_day || nextProps.leaveRequest?.isHalfDay) &&
+        (prevProps.leaveRequest?.half_day_session || prevProps.leaveRequest?.halfDaySession) === (nextProps.leaveRequest?.half_day_session || nextProps.leaveRequest?.halfDaySession) &&
         // Compare otRequest properties
         prevProps.otRequest?.id === nextProps.otRequest?.id &&
         prevProps.otRequest?.status === nextProps.otRequest?.status &&

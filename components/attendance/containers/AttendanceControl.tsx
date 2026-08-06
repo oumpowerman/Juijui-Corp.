@@ -387,6 +387,7 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({
                 pendingLateTime={pendingLateTime}
                 isDriveConnected={isDriveAuthenticated}
                 userId={user.id}
+                todayRequests={todayRequests}
             />
 
             <AttendanceRulesModal 

@@ -5,10 +5,15 @@ import { WorkLocation, AttendanceLog } from '../../types/attendance';
 import { useToast } from '../../context/ToastContext';
 import { format } from 'date-fns';
 import { useGamification } from '../useGamification';
-import { calculateCheckOutStatus, checkIsLate, getLateMinutes, mergeAttendanceNotes, getMatchedShiftSlot, resolveAttendanceLogStatus, getEffectiveStartTime } from '../../lib/attendanceUtils';
+import { calculateCheckOutStatus, checkIsLate, getLateMinutes, mergeAttendanceNotes, getMatchedShiftSlot, resolveAttendanceLogStatus, getEffectiveStartTime, getICTTime } from '../../lib/attendanceUtils';
 import { useMasterData } from '../useMasterData';
 import { attendanceService } from '../../services/attendanceService';
 import { useUserSession } from '../../context/UserSessionContext';
+import { 
+    getHalfDayOffset, 
+    calculatePMShiftDetails, 
+    timeToMinutes 
+} from '../../utils/shiftCalculator';
 
 export const useAttendanceActions = (userId: string) => {
     const { masterOptions } = useMasterData();
@@ -60,19 +65,41 @@ export const useAttendanceActions = (userId: string) => {
                 .gte('end_date', todayDateStr);
 
             const amHalfDayLeave = todayLeaves && todayLeaves.find(l => l.half_day_session === 'AM');
+            const pmHalfDayLeave = todayLeaves && todayLeaves.find(l => l.half_day_session === 'PM');
 
-            if (isShiftsEnabled && !amHalfDayLeave) {
-                const shiftsList = shiftsListOpt?.label ? shiftsListOpt.label.split(',').map(s => s.trim()) : ['08:00', '08:30', '09:00'];
-                matchedShift = getMatchedShiftSlot(now, shiftsList, buffer);
+            const minHoursStr = configData?.find(c => c.key === 'MIN_HOURS')?.label || '9';
+            const minHours = parseFloat(minHoursStr);
+            const offset = getHalfDayOffset(minHours);
+
+            let effectiveStartTime = startTimeStr;
+            let isLate = false;
+
+            if (amHalfDayLeave) {
+                // Calculate dynamic afternoon start
+                let pmStartTime = '13:00';
+                if (isShiftsEnabled) {
+                    const shiftsList = shiftsListOpt?.label ? shiftsListOpt.label.split(',').map(s => s.trim()) : ['08:00', '08:30', '09:00'];
+                    const { hour, minute } = getICTTime(now);
+                    const timeStr = `${hour}:${minute}`;
+                    const { matchedPMStart } = calculatePMShiftDetails(timeStr, shiftsList, minHours);
+                    pmStartTime = matchedPMStart;
+                } else {
+                    const startMins = timeToMinutes(startTimeStr);
+                    const pmMins = (startMins + offset * 60) % 1440;
+                    const pmH = Math.floor(pmMins / 60);
+                    const pmM = pmMins % 60;
+                    pmStartTime = `${pmH.toString().padStart(2, '0')}:${pmM.toString().padStart(2, '0')}`;
+                }
+                effectiveStartTime = pmStartTime;
+                isLate = checkIsLate(now, pmStartTime, buffer);
+            } else {
+                if (isShiftsEnabled) {
+                    const shiftsList = shiftsListOpt?.label ? shiftsListOpt.label.split(',').map(s => s.trim()) : ['08:00', '08:30', '09:00'];
+                    matchedShift = getMatchedShiftSlot(now, shiftsList, buffer);
+                }
+                effectiveStartTime = approvedLateTime || (pendingLateTime && checkIsLate(now, pendingLateTime, buffer) ? pendingLateTime : (matchedShift ? matchedShift.targetStartTime : startTimeStr));
+                isLate = matchedShift ? (matchedShift.isLate || matchedShift.isBlocked) : checkIsLate(now, effectiveStartTime, buffer);
             }
-
-            const effectiveStartTime = amHalfDayLeave
-                ? '13:00'
-                : (approvedLateTime || (pendingLateTime && checkIsLate(now, pendingLateTime, buffer) ? pendingLateTime : (matchedShift ? matchedShift.targetStartTime : startTimeStr)));
-            
-            const isLate = amHalfDayLeave
-                ? checkIsLate(now, '13:00', buffer)
-                : (matchedShift ? (matchedShift.isLate || matchedShift.isBlocked) : checkIsLate(now, effectiveStartTime, buffer));
 
             let finalCheckInTime = now;
             let actualCheckInTag = '';
@@ -114,8 +141,14 @@ export const useAttendanceActions = (userId: string) => {
             let incomingNote = note || '';
             const meta = [];
             if (proofUrl) meta.push(`[PROOF:${proofUrl}]`);
-            if (isShiftsEnabled && matchedShift) {
-                meta.push(`[TARGET_SHIFT:${matchedShift.targetStartTime}]`);
+            if (isShiftsEnabled && (matchedShift || amHalfDayLeave)) {
+                meta.push(`[TARGET_SHIFT:${effectiveStartTime}]`);
+            }
+            if (amHalfDayLeave) {
+                meta.push('[HALF_DAY:AM]');
+            }
+            if (pmHalfDayLeave) {
+                meta.push('[HALF_DAY:PM]');
             }
             if (actualCheckInTag) {
                 meta.push(actualCheckInTag);

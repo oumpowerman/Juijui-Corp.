@@ -9,6 +9,7 @@ import { AttendanceLog } from '../../../types/attendance';
 import { checkIsLate, getAttendanceSummary, getLateMinutes } from '../../../lib/attendanceUtils';
 import { useGameConfig } from '../../../context/GameConfigContext';
 import { useUserSession } from '../../../context/UserSessionContext';
+import { parseReason } from '../leave-request/request-detail/utils';
 import { useAnnualHolidays } from '../../../hooks/useAnnualHolidays';
 import { useCalendarExceptions } from '../../../hooks/useCalendarExceptions';
 import { eachDayOfInterval, startOfMonth, endOfMonth, isWeekend } from 'date-fns';
@@ -63,7 +64,7 @@ import { BRAND_CONFIG } from '../../../config/brand';
 const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ users }) => {
     const { masterOptions } = useMasterData();
     const shouldHideAdmins = BRAND_CONFIG.hideAdminFromAttendanceDashboardMode === 2;
-    const { otRequests } = useUserSession();
+    const { otRequests, leaveRequests } = useUserSession();
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [dateFilterMode, setDateFilterMode] = useState<'MONTH' | 'CUSTOM'>('MONTH');
     const [customStartDate, setCustomStartDate] = useState<Date>(startOfMonth(new Date()));
@@ -280,7 +281,19 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                                       !!log.note?.includes('[REJECTED_GPS_SPOOF_APPEAL]');
 
                 if (log.status === 'LEAVE' || log.workType === 'LEAVE') {
-                    stat.leaves++;
+                    const parsed = parseReason(log.note || '');
+                    const isHalfDay = parsed.isHalfDay || leaveRequests?.some(req => {
+                        if (req.userId !== log.userId || req.status !== 'APPROVED') return false;
+                        const reqStart = format(new Date(req.startDate), 'yyyy-MM-dd');
+                        const reqEnd = format(new Date(req.endDate), 'yyyy-MM-dd');
+                        return log.date >= reqStart && log.date <= reqEnd && (req.isHalfDay || req.is_half_day);
+                    });
+                    
+                    if (isHalfDay) {
+                        stat.leaves += 0.5;
+                    } else {
+                        stat.leaves += 1.0;
+                    }
                 } else if (log.status === 'ABSENT' || log.workType === 'ABSENT') {
                     stat.absent++;
                 } else {
@@ -400,7 +413,7 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
         });
 
         return Object.values(statsMap);
-    }, [users, logs, startTime, lateBuffer, workingDaysInMonth, otRequests, currentMonth, dateFilterMode, customStartDate, customEndDate, multipleShifts, shouldHideAdmins]);
+    }, [users, logs, startTime, lateBuffer, workingDaysInMonth, otRequests, leaveRequests, currentMonth, dateFilterMode, customStartDate, customEndDate, multipleShifts, shouldHideAdmins]);
 
     // Index users by ID for O(1) lookups
     const userMap = useMemo(() => {

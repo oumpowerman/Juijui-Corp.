@@ -8,7 +8,13 @@ import { useMasterData } from '../../../../hooks/useMasterData';
 import { useUserSession } from '../../../../context/UserSessionContext';
 import { checkNeedsSelfieVerification } from '../../../../lib/selfieUtils';
 import { useCheckInLocation } from '../../../../hooks/attendance/useCheckInLocation';
-import { getMatchedShiftSlot } from '../../../../lib/attendanceUtils';
+import { getMatchedShiftSlot, getICTTime } from '../../../../lib/attendanceUtils';
+import { 
+    getHalfDayOffset, 
+    getEarliestTransitionPointMinutes, 
+    calculatePMShiftDetails, 
+    timeToMinutes 
+} from '../../../../utils/shiftCalculator';
 
 export type CheckInStep = 'LOCATION' | 'CONFIRM_LOCATION' | 'TYPE' | 'CAMERA' | 'PREVIEW' | 'NO_CONFIG';
 
@@ -43,6 +49,7 @@ interface UseCheckInStateProps {
     approvedLateTime?: string;
     pendingLateTime?: string;
     userId?: string;
+    todayRequests?: any[];
 }
 
 export function useCheckInState({
@@ -60,6 +67,7 @@ export function useCheckInState({
     approvedLateTime,
     pendingLateTime,
     userId,
+    todayRequests = [],
 }: UseCheckInStateProps) {
     const { showAlert, showConfirm } = useGlobalDialog();
     const { masterOptions, isLoading } = useMasterData();
@@ -158,11 +166,57 @@ export function useCheckInState({
         return ['08:00', '08:30', '09:00'];
     }, [shiftsListOpt]);
 
+    const minHours = useMemo(() => {
+        const minHoursOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'MIN_HOURS');
+        return parseFloat(minHoursOpt?.label || '9');
+    }, [masterOptions]);
+
+    const transitionPointMins = useMemo(() => {
+        return getEarliestTransitionPointMinutes(startTime || '10:00', shiftsList, isShiftsEnabled, minHours);
+    }, [startTime, shiftsList, isShiftsEnabled, minHours]);
+
+    const isBeforeTransitionPoint = useMemo(() => {
+        const now = new Date();
+        const currentMins = now.getHours() * 60 + now.getMinutes();
+        return currentMins < transitionPointMins;
+    }, [transitionPointMins]);
+
     const shiftResult = useMemo(() => {
         if (!isShiftsEnabled) return null;
         const now = new Date();
+
+        // Check if there is an AM half-day leave and we are in the PM session
+        const halfDayLeave = todayRequests?.find(req => {
+            const type = req.type || req.leave_type;
+            const isHalf = req.isHalfDay || req.is_half_day === true || req.is_half_day === 'true';
+            const isLeaveType = ['SICK', 'VACATION', 'PERSONAL', 'EMERGENCY', 'UNPAID'].includes(type);
+            return isLeaveType && isHalf && req.status === 'APPROVED';
+        });
+
+        const session = halfDayLeave ? (halfDayLeave.halfDaySession || halfDayLeave.half_day_session) : null;
+        if (session === 'AM' && !isBeforeTransitionPoint) {
+            const { hour, minute, totalMinutes: currentTotalMinutes } = getICTTime(now);
+            const timeStr = `${hour}:${minute}`;
+            const { matchedPMStart } = calculatePMShiftDetails(timeStr, shiftsList, minHours);
+
+            const pmStartTotalMinutes = timeToMinutes(matchedPMStart);
+            const diff = currentTotalMinutes - pmStartTotalMinutes;
+            const isLate = diff > lateBuffer;
+            const isRawLate = diff > 0;
+
+            return {
+                targetStartTime: matchedPMStart,
+                targetShift: matchedPMStart,
+                isLate,
+                isRawLate,
+                isBlocked: isLate,
+                isExceededLastShift: isLate,
+                lateMinutes: diff > 0 ? diff : 0
+            };
+        }
+
         return getMatchedShiftSlot(now, shiftsList, lateBuffer, true);
-    }, [isShiftsEnabled, shiftsList, lateBuffer, isOpen]);
+    }, [isShiftsEnabled, shiftsList, lateBuffer, isOpen, todayRequests, isBeforeTransitionPoint, minHours]);
 
     const isExceededLastShift = useMemo(() => {
         if (approvedLateTime) return false;
@@ -299,6 +353,31 @@ export function useCheckInState({
 
     const handleSubmit = async (forceCheckIn = false, typeToSubmit?: WorkLocation, bypassFile?: boolean, passProvisionalOnsite?: boolean) => {
         if (isSubmitting) return;
+
+        // Check for Half-Day Leave Interceptions
+        const halfDayLeave = todayRequests?.find(req => {
+            const type = req.type || req.leave_type;
+            const isHalf = req.isHalfDay || req.is_half_day === true || req.is_half_day === 'true';
+            const isLeaveType = ['SICK', 'VACATION', 'PERSONAL', 'EMERGENCY', 'UNPAID'].includes(type);
+            return isLeaveType && isHalf && req.status === 'APPROVED';
+        });
+
+        if (halfDayLeave && !forceCheckIn) {
+            const session = halfDayLeave.halfDaySession || halfDayLeave.half_day_session;
+            if (session === 'AM' && isBeforeTransitionPoint) {
+                const confirmed = await showConfirm(
+                    "คุณมีคำขออนุมัติลาครึ่งเช้าอยู่หนิ ถ้ากดเข้างานจะเสียการลาฟรีนะ",
+                    "⚠️ ยืนยันการเข้างานช่วงเช้า"
+                );
+                if (!confirmed) return;
+            } else if (session === 'PM' && !isBeforeTransitionPoint) {
+                const confirmed = await showConfirm(
+                    "คุณมีคำขออนุมัติลาครึ่งบ่ายอยู่หนิ และระบบจะบันทึกว่าคุณขาดงานช่วงเช้า เนื่องจากลาครึ่งบ่ายแปลว่าช่วงเช้าต้องมาทำงาน แต่คุณไม่ได้กดลงเวลาเช้าเลยนิ ใช่ไหม",
+                    "⚠️ ยืนยันการเข้างานช่วงบ่าย"
+                );
+                if (!confirmed) return;
+            }
+        }
 
         if (isExceededLastShift && !approvedLateTime) {
             if (typeToSubmit) setSelectedType(typeToSubmit);

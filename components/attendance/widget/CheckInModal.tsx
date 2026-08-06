@@ -44,6 +44,7 @@ interface CheckInModalProps {
     pendingLateTime?: string;
     isDriveConnected?: boolean; 
     userId?: string; 
+    todayRequests?: any[];
 }
 
 const CheckInModal: React.FC<CheckInModalProps> = ({ 
@@ -63,6 +64,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
     pendingLateTime,
     isDriveConnected,
     userId,
+    todayRequests = [],
 }) => {
     const {
         step,
@@ -121,6 +123,7 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
         approvedLateTime,
         pendingLateTime,
         userId,
+        todayRequests,
     });
 
     const stepVariants: Variants = {

@@ -17,6 +17,77 @@ export function timeToMinutes(timeStr: string): number {
 }
 
 /**
+ * Calculates the dynamic half-day offset (hours) based on MIN_HOURS.
+ * - Even: MIN_HOURS / 2
+ * - Odd: Math.ceil(MIN_HOURS / 2)
+ */
+export function getHalfDayOffset(minHours: number): number {
+    const hours = minHours || 9;
+    return hours % 2 === 0 ? (hours / 2) : Math.ceil(hours / 2);
+}
+
+/**
+ * Calculates the transition point (in minutes from midnight) for the earliest shift.
+ * If shifts list is provided and enabled, it uses the earliest sorted shift.
+ * Otherwise, it uses the default start time.
+ */
+export function getEarliestTransitionPointMinutes(
+    defaultStartTime: string,
+    shiftsList: string[] = [],
+    isShiftsEnabled: boolean = false,
+    minHours: number = 9
+): number {
+    const offset = getHalfDayOffset(minHours);
+    let earliestTimeStr = defaultStartTime || '08:00';
+    if (isShiftsEnabled && shiftsList.length > 0) {
+        const validShifts = [...shiftsList]
+            .map(s => s.trim())
+            .filter(s => /^\d{1,2}:\d{2}$/.test(s))
+            .sort((a, b) => timeToMinutes(a) - timeToMinutes(b));
+        if (validShifts.length > 0) {
+            earliestTimeStr = validShifts[0];
+        }
+    }
+    const earliestMins = timeToMinutes(earliestTimeStr);
+    return earliestMins + offset * 60;
+}
+
+/**
+ * Calculates matched PM shift start and check-in details.
+ */
+export function calculatePMShiftDetails(
+    inputTimeStr: string,
+    shiftsList: string[] = ['08:00', '08:30', '09:00'],
+    minHours: number = 9
+): { matchedMorningShift: string; matchedPMStart: string; adjustedInputTime: string } {
+    const offset = getHalfDayOffset(minHours);
+    const inputMins = timeToMinutes(inputTimeStr);
+    
+    // Subtract offset from input time (in minutes)
+    const adjustedMins = (inputMins - offset * 60 + 1440) % 1440;
+    const adjHours = Math.floor(adjustedMins / 60);
+    const adjMinutes = adjustedMins % 60;
+    const adjustedInputTime = `${adjHours.toString().padStart(2, '0')}:${adjMinutes.toString().padStart(2, '0')}`;
+    
+    // Find the matched morning shift using the regular shift matching helper
+    const matchedMorningResult = calculateShiftAndActualTime(adjustedInputTime, shiftsList);
+    const matchedMorningShift = matchedMorningResult.targetShift;
+    
+    // Add offset to the matched morning shift to get PM start time
+    const morningShiftMins = timeToMinutes(matchedMorningShift);
+    const pmStartMins = (morningShiftMins + offset * 60) % 1440;
+    const pmH = Math.floor(pmStartMins / 60);
+    const pmM = pmStartMins % 60;
+    const matchedPMStart = `${pmH.toString().padStart(2, '0')}:${pmM.toString().padStart(2, '0')}`;
+    
+    return {
+        matchedMorningShift,
+        matchedPMStart,
+        adjustedInputTime
+    };
+}
+
+/**
  * Calculates the mapped target shift and actual check-in time details.
  * 
  * Logic rules:

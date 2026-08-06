@@ -72,7 +72,10 @@ export const PillarCategoryDetailModal: React.FC<PillarCategoryDetailModalProps>
     const trimmed = newCategoryLabel.trim();
     if (!trimmed) return;
 
-    const key = `CAT_${trimmed.toUpperCase().replace(/[^A-Z0-9]/g, '_')}_${Date.now().toString().slice(-4)}`;
+    const cleanKey = trimmed.toUpperCase()
+      .replace(/[^A-Z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    const key = `CAT_${cleanKey || 'GEN'}_${Date.now().toString().slice(-4)}`;
 
     const hasDuplicate = currentCategories.some(
       (cat: any) => cat.label.toLowerCase() === trimmed.toLowerCase()

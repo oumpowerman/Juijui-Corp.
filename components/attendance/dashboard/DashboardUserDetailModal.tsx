@@ -188,15 +188,34 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
         }, 0);
     }, [approvedOtRequests]);
 
+    const calculatedLeaves = useMemo(() => {
+        let total = 0;
+        leaveLogs.forEach(l => {
+            const parsed = parseReason(l.note || '');
+            const isHalfDay = parsed.isHalfDay || leaveRequests?.some(req => {
+                if (req.userId !== user.id || req.status !== 'APPROVED') return false;
+                const reqStart = format(new Date(req.startDate), 'yyyy-MM-dd');
+                const reqEnd = format(new Date(req.endDate), 'yyyy-MM-dd');
+                return l.date >= reqStart && l.date <= reqEnd && (req.isHalfDay || req.is_half_day);
+            });
+            if (isHalfDay) {
+                total += 0.5;
+            } else {
+                total += 1.0;
+            }
+        });
+        return total;
+    }, [leaveLogs, leaveRequests, user.id]);
+
     const totalIssues = lateLogs.length + absentDates.length + leaveLogs.length;
 
     const stats = useMemo(() => ({
         present: onTimeLogs.length + lateLogs.length + leaveLogs.length,
         late: lateLogs.length,
         absent: absentDates.length,
-        leaves: leaveLogs.length,
+        leaves: calculatedLeaves,
         otHours: totalOtHours
-    }), [onTimeLogs, lateLogs, leaveLogs, absentDates, totalOtHours]);
+    }), [onTimeLogs, lateLogs, leaveLogs, absentDates, totalOtHours, calculatedLeaves]);
 
     return createPortal(
         <motion.div 
@@ -383,14 +402,31 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
                                             else if (log.note.includes('EMERGENCY_LEAVE')) extractedType = 'EMERGENCY_LEAVE';
                                             else if (log.note.includes('UNPAID_LEAVE')) extractedType = 'UNPAID_LEAVE';
                                         }
+
+                                        // Find matching leave request to see if it is half day
+                                        let decoratedNote = log.note || '';
+                                        const matchingReq = leaveRequests?.find(req => {
+                                            if (req.userId !== user.id || req.status !== 'APPROVED') return false;
+                                            const reqStart = format(new Date(req.startDate), 'yyyy-MM-dd');
+                                            const reqEnd = format(new Date(req.endDate), 'yyyy-MM-dd');
+                                            return log.date >= reqStart && log.date <= reqEnd;
+                                        });
+                                        if (matchingReq && (matchingReq.isHalfDay || matchingReq.is_half_day)) {
+                                            const session = matchingReq.halfDaySession || 'AM';
+                                            const tag = `[HALF_DAY:${session}]`;
+                                            if (!decoratedNote.includes(tag)) {
+                                                decoratedNote = decoratedNote ? `${decoratedNote} ${tag}` : tag;
+                                            }
+                                        }
+
                                         return (
                                             <AttendanceRecordCard 
                                                 key={log.id}
                                                 date={new Date(log.date)}
                                                 variant="leave"
                                                 badgeText={formatSpecialTypeName(extractedType)}
-                                                note={log.note}
-                                                onClick={() => setSelectedRecord({ type: 'LEAVE', data: log })}
+                                                note={decoratedNote}
+                                                onClick={() => setSelectedRecord({ type: 'LEAVE', data: { ...log, note: decoratedNote } })}
                                             />
                                         );
                                     })}

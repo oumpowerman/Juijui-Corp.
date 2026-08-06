@@ -74,9 +74,9 @@ export const ChannelPillarsCategoriesManager: React.FC<ChannelPillarsCategoriesM
         .map((p: any) => p.label)
     : [];
 
-  const allSuggestedPillars = Array.from(
-    new Set([...systemPillars, ...DEFAULT_POPULAR_PILLARS])
-  );
+  const allSuggestedPillars = systemPillars.length > 0
+    ? systemPillars
+    : DEFAULT_POPULAR_PILLARS;
 
   // Filter recommendations based on user input string
   const filteredSuggestedPillars = allSuggestedPillars.filter(p =>
@@ -102,7 +102,10 @@ export const ChannelPillarsCategoriesManager: React.FC<ChannelPillarsCategoriesM
     const trimmedValue = value.trim();
     if (!trimmedValue) return;
 
-    const key = `PIL_${trimmedValue.toUpperCase().replace(/[^A-Z0-9]/g, '_')}_${Date.now().toString().slice(-4)}`;
+    const cleanKey = trimmedValue.toUpperCase()
+      .replace(/[^A-Z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    const key = `PIL_${cleanKey || 'GEN'}_${Date.now().toString().slice(-4)}`;
 
     const hasDuplicate =
       currentPillars.some((p: any) => p.label.toLowerCase() === trimmedValue.toLowerCase()) ||

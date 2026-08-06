@@ -275,12 +275,17 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
           )}
         </AnimatePresence>
 
-        <StockInventoryModal 
-          isOpen={isInventoryModalOpen}
-          onClose={() => setIsInventoryModalOpen(false)}
-          masterOptions={masterOptions}
-          channels={channels}
-        />
+        <AnimatePresence>
+          {isInventoryModalOpen && (
+            <StockInventoryModal 
+              isOpen={isInventoryModalOpen}
+              onClose={() => setIsInventoryModalOpen(false)}
+              masterOptions={masterOptions}
+              channels={channels}
+              onEditTask={onEdit}
+            />
+          )}
+        </AnimatePresence>
 
         {selectedContentForAnalytics && (
             <AnalyticsEntryModal 

@@ -16,7 +16,7 @@ interface TimesheetTableProps {
     leaveRequests?: any[];
     otRequests?: any[];
     getEffectiveDayStatus: (date: Date) => { status: 'WORK_DAY' | 'HOLIDAY', source: string, desc: string };
-    onCellClick: (log: AttendanceLog | null, leaveRequest?: any, otRequest?: any) => void;
+    onCellClick: (log: AttendanceLog | null, leaveRequest?: any, otRequest?: any, user?: any) => void;
     workConfig: { 
         startTime: string; 
         buffer: number;
@@ -232,7 +232,7 @@ const TimesheetTable: React.FC<TimesheetTableProps> = ({
                                                             isToday={isToday(day)}
                                                             workConfig={workConfig}
                                                             userStartDate={user.startDate}
-                                                            onCellClick={onCellClick}
+                                                            onCellClick={(log, leaveReq, otReq) => onCellClick(log, leaveReq, otReq, user)}
                                                         />
                                                     </td>
                                                 );

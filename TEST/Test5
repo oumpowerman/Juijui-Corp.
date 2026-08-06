@@ -1,594 +1,220 @@
-import React, { useState, useMemo } from 'react';
-import { createPortal } from 'react-dom';
-import { format } from 'date-fns';
-import th from 'date-fns/locale/th';
-import { 
-    ArrowRight, CheckCircle2, Star, Sparkles
-} from 'lucide-react';
-import { User } from '../../../types';
-import { AttendanceLog } from '../../../types/attendance';
+import React, { useState } from 'react';
+import { Gift, Monitor, Play, Sparkles, Clock, CalendarDays } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { getAttendanceSummary } from '../../../lib/attendanceUtils';
-import { useUserSession } from '../../../context/UserSessionContext';
-import { useMasterData } from '../../../hooks/useMasterData';
-import { parseReason } from '../leave-request/request-detail/utils';
+import { WorkTimeConfig } from '../WorkTimeCard';
+import TimePickerModal from '../../../../../ui/TimePickerModal';
 
-// Import our new subcomponents
-import { DetailModalHeader } from './modal/DetailModalHeader';
-import { DetailModalFilterGrid, FilterType } from './modal/DetailModalFilterGrid';
-import { AttendanceRecordCard } from './modal/AttendanceRecordCard';
-import { OvertimeBreakdownSection } from './modal/OvertimeBreakdownSection';
-import { RecordDetailModal, DetailRecordPayload, formatSpecialTypeName } from './modal/RecordDetailModal';
-
-const getLocalDateString = (dateInput: Date | string) => {
-    const d = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
-    if (d instanceof Date && !isNaN(d.getTime())) {
-        return d.toISOString().split('T')[0]; // ดึงเฉพาะ YYYY-MM-DD แบบ UTC ดั้งเดิม ปราศจาก Timezone Shift
-    }
-    return '';
-};
-
-interface UserStat {
-    userId: string;
-    present: number;
-    late: number;
-    leaves: number;
-    absent: number;
-    totalHours: number;
-    avgCheckIn: string;
-    logs: AttendanceLog[];
-    totalOtHours?: number;
+interface MonthlyBonusCardProps {
+    tempTimeConfig: WorkTimeConfig;
+    setTempTimeConfig: React.Dispatch<React.SetStateAction<WorkTimeConfig>>;
 }
 
-interface DashboardUserDetailModalProps {
-    user: User;
-    stat: UserStat;
-    workingDaysInMonth: Date[];
-    startTime: string;
-    lateBuffer: number;
-    onClose: () => void;
-}
-
-const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
-    user,
-    stat,
-    workingDaysInMonth,
-    startTime,
-    lateBuffer,
-    onClose
+const MonthlyBonusCard: React.FC<MonthlyBonusCardProps> = ({
+    tempTimeConfig,
+    setTempTimeConfig,
 }) => {
-    const [activeFilter, setActiveFilter] = useState<FilterType>('ALL');
-    const [isScrolled, setIsScrolled] = useState(false);
-    const [selectedRecord, setSelectedRecord] = useState<DetailRecordPayload | null>(null);
-    const { leaveRequests, otRequests } = useUserSession();
-    const { masterOptions } = useMasterData();
+    const [simM, setSimM] = useState({ active: false, showPreview: false });
+    const [isSummaryTimeOpen, setIsSummaryTimeOpen] = useState(false);
 
-    const multipleShifts = useMemo(() => {
-        const workConfig = masterOptions.filter(opt => opt.type === 'WORK_CONFIG');
-        const enabled = workConfig.find(c => c.key === 'MULTIPLE_SHIFTS_ENABLED')?.label === 'true';
-        const shiftsList = workConfig.find(c => c.key === 'MULTIPLE_SHIFTS_LIST')?.label || '';
-        return { enabled, shiftsList };
-    }, [masterOptions]);
+    const triggerSimulator = () => {
+        setSimM(prev => ({
+            active: true,
+            showPreview: !prev.showPreview
+        }));
+    };
 
-    // Categorize dates
-    const onTimeLogs = useMemo(() => {
-        return stat.logs.filter(l => {
-            if (l.note?.includes('[FORGOT_BOTH_PENDING]')) return false;
-            if (l.status === 'LEAVE' || l.workType === 'LEAVE') return false;
-            if (l.status === 'ABSENT' || l.workType === 'ABSENT') return false;
-            if (!l.checkInTime) return false;
-            const parsed = parseReason(l.note || '');
-            const logDateStr = typeof l.date === 'string' ? l.date : format(new Date(l.date), 'yyyy-MM-dd');
-            const matchLeave = leaveRequests?.find(r => 
-                r.userId === user.id && 
-                r.status === 'APPROVED' &&
-                getLocalDateString(r.startDate) <= logDateStr && 
-                getLocalDateString(r.endDate) >= logDateStr
-            );
-            const isHalfDay = parsed.isHalfDay || (matchLeave ? (matchLeave.isHalfDay || matchLeave.is_half_day || false) : false);
-            const halfDaySession = parsed.halfDaySession || (matchLeave ? (matchLeave.halfDaySession || matchLeave.half_day_session || null) : null);
+    const targetTimeDisplay = tempTimeConfig.monthlySummaryTime || '08:00';
+    const targetDayDisplay = tempTimeConfig.monthlySummaryDay || '1';
+    const targetModeDisplay = tempTimeConfig.monthlySummaryMode || 'PREV_MONTH';
 
-            const summary = getAttendanceSummary(
-                l.checkInTime,
-                l.checkOutTime,
-                { 
-                    startTime, 
-                    buffer: lateBuffer, 
-                    minHours: 9, 
-                    note: l.note, 
-                    multipleShifts,
-                    isHalfDay: isHalfDay,
-                    halfDaySession: halfDaySession
-                }
-            );
-            return !summary.isLate;
-        }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [stat.logs, startTime, lateBuffer, multipleShifts, leaveRequests, user.id]);
-
-    const lateLogs = useMemo(() => {
-        return stat.logs.filter(l => {
-            if (l.note?.includes('[FORGOT_BOTH_PENDING]')) return true;
-            if (l.status === 'ABSENT' || l.workType === 'ABSENT') return false;
-            if (!l.checkInTime) return false;
-            const parsed = parseReason(l.note || '');
-            const logDateStr = typeof l.date === 'string' ? l.date : format(new Date(l.date), 'yyyy-MM-dd');
-            const matchLeave = leaveRequests?.find(r => 
-                r.userId === user.id && 
-                r.status === 'APPROVED' &&
-                getLocalDateString(r.startDate) <= logDateStr && 
-                getLocalDateString(r.endDate) >= logDateStr
-            );
-            const isHalfDay = parsed.isHalfDay || (matchLeave ? (matchLeave.isHalfDay || matchLeave.is_half_day || false) : false);
-            const halfDaySession = parsed.halfDaySession || (matchLeave ? (matchLeave.halfDaySession || matchLeave.half_day_session || null) : null);
-
-            const summary = getAttendanceSummary(
-                l.checkInTime,
-                l.checkOutTime,
-                { 
-                    startTime, 
-                    buffer: lateBuffer, 
-                    minHours: 9, 
-                    note: l.note, 
-                    multipleShifts,
-                    isHalfDay: isHalfDay,
-                    halfDaySession: halfDaySession
-                }
-            );
-            return summary.isLate;
-        }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [stat.logs, startTime, lateBuffer, multipleShifts, leaveRequests, user.id]);
-
-    const leaveLogs = useMemo(() => {
-        const realLeaveLogs = stat.logs.filter(l => {
-            const hasLeaveNote = l.note && (
-                l.note.includes('LEAVE') || 
-                l.note.includes('SICK') || 
-                l.note.includes('VACATION') || 
-                l.note.includes('PERSONAL') || 
-                l.note.includes('EMERGENCY') || 
-                l.note.includes('UNPAID')
-            );
-            return l.status === 'LEAVE' || l.workType === 'LEAVE' || hasLeaveNote;
-        });
-
-        const mockLeaveLogs: any[] = [];
-        workingDaysInMonth.forEach(day => {
-            const dateStr = format(day, 'yyyy-MM-dd');
-            const matchLeave = leaveRequests?.find(r => 
-                r.userId === user.id && 
-                r.status === 'APPROVED' &&
-                getLocalDateString(r.startDate) <= dateStr && 
-                getLocalDateString(r.endDate) >= dateStr
-            );
-
-            if (matchLeave) {
-                const hasRealLog = realLeaveLogs.some(l => {
-                    const logDateStr = typeof l.date === 'string' ? l.date : format(new Date(l.date), 'yyyy-MM-dd');
-                    return logDateStr === dateStr;
-                });
-
-                if (!hasRealLog) {
-                    const leaveType = matchLeave.leaveType || matchLeave.leave_type || 'LEAVE';
-                    mockLeaveLogs.push({
-                        id: `mock-leave-${dateStr}`,
-                        userId: user.id,
-                        date: dateStr,
-                        status: 'LEAVE',
-                        workType: leaveType,
-                        note: `[APPROVED LEAVE: ${leaveType}] ${matchLeave.reason || 'Approved leave request'}`
-                    });
-                }
-            }
-        });
-
-        const combined = [...realLeaveLogs, ...mockLeaveLogs];
-        return combined.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [stat.logs, workingDaysInMonth, leaveRequests, user.id]);
-
-    const absentDates = useMemo(() => {
-        // หาค่าวันเริ่มงานจริงจาก startDate หรือวันสร้างบัญชี (createdAt)
-        const userStartDate = user.startDate ? new Date(user.startDate) : (user.createdAt ? new Date(user.createdAt) : null);
-        const today = new Date();
-        const list: { date: Date; weight: number }[] = [];
-
-        workingDaysInMonth.forEach(day => {
-            if (day > today) return;
-
-            // ตรวจสอบวันเริ่มงาน: หากวันทำงานในเดือนนั้นๆ เกิดขึ้นก่อนวันที่พนักงานเริ่มงานจริง ให้ข้ามไป
-            if (userStartDate) {
-                const dayStr = format(day, 'yyyy-MM-dd');
-                const startStr = format(userStartDate, 'yyyy-MM-dd');
-                if (dayStr < startStr) {
-                    return;
-                }
-            }
-
-            // 🌟 เพิ่มเงื่อนไขเหมือนหน้าหลัก: ถ้าเป็นวันนี้แต่ยังไม่ถึงเวลาเข้างาน ให้ข้ามไปก่อน (ยังไม่แสดง Absent)
-            const isToday = day.getDate() === today.getDate() &&
-                            day.getMonth() === today.getMonth() &&
-                            day.getFullYear() === today.getFullYear();
-
-            if (isToday) {
-                // 1. กำหนดเวลาเริ่มงานหลักเป็นตัวแปรตั้งต้นก่อน (เช่น 10:00)
-                let targetStartTime = startTime; 
-
-                // 2. ถ้าเปิดใช้งาน MULTIPLE_SHIFTS ให้ดึงกะที่สายที่สุดมาใช้งานแทน
-                if (multipleShifts.enabled && multipleShifts.shiftsList) {
-                    const shifts = multipleShifts.shiftsList
-                        .split(',')
-                        .map(s => s.trim())
-                        .filter(Boolean);
-                    
-                    if (shifts.length > 0) {
-                        shifts.sort(); // เรียงลำดับเวลาจากเช้าสุดไปสายสุด (เช่น "08:00" -> "08:30" -> "09:00")
-                        targetStartTime = shifts[shifts.length - 1]; // เลือกเวลาที่สายที่สุด (เช่น "09:00")
-                    }
-                }
-
-                // 3. นำเวลาที่เลือกได้ (targetStartTime) มาแปลงเป็นชั่วโมงและนาทีเพื่อเปรียบเทียบตามเดิม
-                let [startHour, startMin] = [10, 0];
-                if (targetStartTime && targetStartTime.includes(':')) {
-                    const parts = targetStartTime.split(':');
-                    startHour = parseInt(parts[0], 10) || 10;
-                    startMin = parseInt(parts[1], 10) || 0;
-                }
-                const currentHour = today.getHours();
-                const currentMin = today.getMinutes();
-
-                if (currentHour < startHour || (currentHour === startHour && currentMin < startMin)) {
-                    return;
-                }
-            }
-
-            const dateStr = format(day, 'yyyy-MM-dd');
-            const dayLogs = stat.logs.filter(l => l.date === dateStr);
-
-            const matchLeave = leaveRequests?.find(r => 
-                r.userId === user.id && 
-                r.status === 'APPROVED' &&
-                getLocalDateString(r.startDate) <= dateStr && 
-                getLocalDateString(r.endDate) >= dateStr
-            );
-
-            if (dayLogs.length > 0) {
-                // มี Log ในระบบ
-                const hasAbsentLog = dayLogs.some(l => l.status === 'ABSENT' || l.workType === 'ABSENT');
-                if (hasAbsentLog) {
-                    list.push({ date: day, weight: 1.0 });
-                    return;
-                }
-
-                const leaveLog = dayLogs.find(l => l.status === 'LEAVE' || l.workType === 'LEAVE');
-                if (leaveLog) {
-                    const parsed = parseReason(leaveLog.note || '');
-                    const isHalfDay = parsed.isHalfDay || (matchLeave ? (matchLeave.isHalfDay || matchLeave.is_half_day || false) : false);
-                    if (isHalfDay) {
-                        const hasPresentLog = dayLogs.some(l => 
-                            l.id !== leaveLog.id && 
-                            l.status !== 'LEAVE' && 
-                            l.workType !== 'LEAVE' && 
-                            l.status !== 'ABSENT' && 
-                            l.workType !== 'ABSENT'
-                        );
-                        if (!hasPresentLog) {
-                            list.push({ date: day, weight: 0.5 });
-                        }
-                    }
-                }
-            } else {
-                // ไม่มี Log ในระบบเลย
-                if (matchLeave) {
-                    const isHalfDay = matchLeave.isHalfDay || matchLeave.is_half_day || false;
-                    if (isHalfDay) {
-                        list.push({ date: day, weight: 0.5 });
-                    }
-                } else {
-                    list.push({ date: day, weight: 1.0 });
-                }
-            }
-        });
-
-        return list.sort((a, b) => b.date.getTime() - a.date.getTime());
-    }, [workingDaysInMonth, stat.logs, user.startDate, user.createdAt, startTime, multipleShifts, leaveRequests, user.id]);
-
-    // Calculate OT stats using ot_requests only
-    const approvedOtRequests = useMemo(() => {
-        if (workingDaysInMonth.length === 0) return [];
-        const currentMonth = workingDaysInMonth[0].getMonth();
-        const currentYear = workingDaysInMonth[0].getFullYear();
-
-        return (otRequests || []).filter(req => {
-            if (req.userId !== user.id) return false;
-            if (req.status !== 'APPROVED') return false;
-            const reqDate = new Date(req.date);
-            return reqDate.getMonth() === currentMonth && reqDate.getFullYear() === currentYear;
-        });
-    }, [otRequests, user.id, workingDaysInMonth]);
-
-    const totalOtHours = useMemo(() => {
-        return approvedOtRequests.reduce((sum, req) => {
-            return sum + (req.durationHours || 0);
-        }, 0);
-    }, [approvedOtRequests]);
-
-    const totalIssues = lateLogs.length + absentDates.length + leaveLogs.length;
-
-    const stats = useMemo(() => {
-        return {
-            present: stat.present,       // ดึงจากค่าที่ Parent คำนวณไว้แล้ว
-            late: stat.late,             // ดึงจากค่าที่ Parent คำนวณไว้แล้ว
-            absent: stat.absent,         // ดึงจากค่าที่ Parent คำนวณไว้แล้ว
-            leaves: stat.leaves,         // ดึงจากค่าที่ Parent คำนวณไว้แล้ว
-            otHours: stat.totalOtHours || totalOtHours
-        };
-    }, [stat, totalOtHours]);
-
-    return createPortal(
-        <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.35, ease: "easeOut" }}
-            className="fixed inset-0 z-[100] flex items-center justify-center bg-indigo-950/40 backdrop-blur-md p-0 sm:p-4"
-            onClick={onClose}
-        >
-            <motion.div 
-                initial={{ opacity: 0, y: 24, scale: 0.98 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 20, scale: 0.98 }}
-                transition={{ type: "spring", stiffness: 360, damping: 34 }}
-                className="bg-white w-full max-w-full sm:max-w-2xl h-full sm:h-[1000px] sm:max-h-[85vh] rounded-none sm:rounded-[3rem] shadow-none sm:shadow-[0_32px_64px_-12px_rgba(99,102,241,0.2)] overflow-hidden border-0 sm:border-[8px] border-indigo-50 flex flex-col relative"
-                onClick={e => e.stopPropagation()}
-            >
-                {/* Decorative Elements */}
-                <div className="absolute top-20 left-10 opacity-10 pointer-events-none">
-                    <Sparkles className="w-12 h-12 text-indigo-400" />
+    return (
+        <div id="sim-card-monthly-bonus" className="h-full flex flex-col justify-between space-y-3">
+            <div>
+                <div className="flex items-center justify-between">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-amber-50 text-amber-700 border border-amber-100">
+                        <Gift className="w-3.5 h-3.5 text-amber-500 animate-pulse" /> 🏆 แผน H (Monthly Perfect Attendance)
+                    </span>
+                    <span className="flex items-center gap-2 text-xs text-amber-700 font-bold bg-amber-50/60 px-3 py-1 rounded-xl border border-amber-100/40">
+                        <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                        ระบบสแตนด์บาย
+                    </span>
                 </div>
-                <div className="absolute bottom-40 right-10 opacity-10 pointer-events-none">
-                    <Star className="w-16 h-16 text-pink-400" />
-                </div>
+                
+                <h4 className="font-extrabold text-gray-800 text-lg tracking-tight mt-2.5 mb-1">
+                    รายงานสรุปสิทธิ์เบี้ยขยันรายเดือน
+                </h4>
+                <p className="text-[11px] text-gray-500 leading-normal font-medium">
+                    ระบบประมวลผลค้นหาและคัดเลือกพนักงานที่ไม่ขาดงาน ไม่สาย ไม่ลากิจ/ลาป่วยเลย (ยกเว้นลาพักร้อน) ตลอดช่วงเวลาที่เลือกแบบอัตโนมัติ 100% เพื่อสรุปผลงานระดับเหรียญทองเกียรติยศส่งตรงให้ผู้บริหารและ HR ทราบทันที
+                </p>
+                
+                <div className="mt-3 p-3 bg-gradient-to-r from-amber-50/40 to-amber-100/10 rounded-2xl border border-amber-100/60 space-y-3 shadow-sm">
+                    {/* Mode Selector Option */}
+                    <div className="flex flex-col gap-1">
+                        <span className="text-[10px] font-black text-amber-800 uppercase tracking-wider">📊 โหมดการคำนวณและสรุปยอด:</span>
+                        <div className="grid grid-cols-2 gap-2">
+                            <button
+                                type="button"
+                                onClick={() => setTempTimeConfig(prev => ({ ...prev, monthlySummaryMode: 'PREV_MONTH' }))}
+                                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold text-center transition-all border shadow-xs ${targetModeDisplay === 'PREV_MONTH' ? 'bg-amber-600 text-white border-amber-600 font-black shadow-md shadow-amber-600/10' : 'bg-white text-amber-800 border-amber-200/80 hover:bg-amber-50/20'}`}
+                            >
+                                สรุปถัดไป (เดือนที่แล้ว)
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setTempTimeConfig(prev => ({ ...prev, monthlySummaryMode: 'CURRENT_MONTH' }))}
+                                className={`px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold text-center transition-all border shadow-xs ${targetModeDisplay === 'CURRENT_MONTH' ? 'bg-amber-600 text-white border-amber-600 font-black shadow-md shadow-amber-600/10' : 'bg-white text-amber-800 border-amber-200/80 hover:bg-amber-50/20'}`}
+                            >
+                                สะสมตรง (ภายในเดือนนี้)
+                            </button>
+                        </div>
+                    </div>
 
-                {/* Header & Quick Filter Stats Grid */}
-                <div className="shrink-0">
-                    <DetailModalHeader 
-                        user={user}
-                        isScrolled={isScrolled}
-                        totalIssues={totalIssues}
-                        onClose={onClose}
-                    />
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="flex flex-col gap-1">
+                            <span className="text-[10px] font-extrabold text-amber-800">⏰ วันที่ส่งรายงานของทุกเดือน:</span>
+                            <select
+                                id="select-monthly-day"
+                                value={targetDayDisplay}
+                                onChange={e => setTempTimeConfig(prev => ({ ...prev, monthlySummaryDay: e.target.value }))}
+                                className="w-full px-2.5 py-1.5 bg-white border border-amber-200/80 rounded-lg text-xs font-extrabold text-amber-800 outline-none focus:border-amber-400 transition-all shadow-sm"
+                            >
+                                {Array.from({ length: 31 }, (_, i) => i + 1).map(day => (
+                                    <option key={day} value={day.toString()}>
+                                        {targetModeDisplay === 'CURRENT_MONTH' 
+                                            ? `วันที่ ${day} (สะสม 1 ถึง ${day})` 
+                                            : `วันที่ ${day} ของเดือนถัดไป`
+                                        }
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                            <span className="text-[10px] font-extrabold text-amber-800">⏰ เวลาส่งรายงาน:</span>
+                            <button
+                                id="btn-monthly-time"
+                                type="button"
+                                onClick={() => setIsSummaryTimeOpen(true)}
+                                className="w-full px-2.5 py-1.5 bg-white border border-amber-200/80 rounded-lg text-xs font-extrabold text-amber-800 outline-none focus:border-amber-400 text-left flex justify-between items-center transition-all shadow-sm hover:bg-amber-50/30"
+                            >
+                                <span>{targetTimeDisplay}</span>
+                                <Clock className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                            </button>
+                            <TimePickerModal 
+                                isOpen={isSummaryTimeOpen}
+                                onClose={() => setIsSummaryTimeOpen(false)}
+                                initialTime={targetTimeDisplay}
+                                onSelect={(val) => setTempTimeConfig(prev => ({ ...prev, monthlySummaryTime: val }))}
+                            />
+                        </div>
+                    </div>
                     
-                    {/* Filter grid attached right under header */}
-                    <div className="bg-gradient-to-br from-indigo-50/20 via-white to-pink-50/20 px-4 sm:px-6 pb-4 border-b border-indigo-50 shrink-0">
-                        <DetailModalFilterGrid 
-                            activeFilter={activeFilter}
-                            setActiveFilter={setActiveFilter}
-                            isScrolled={isScrolled}
-                            stats={stats}
-                        />
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="flex flex-col justify-end text-[11px] font-extrabold text-amber-950/80 col-span-2">
+                            <div className="flex justify-between items-center bg-white px-2.5 py-1.5 rounded-lg border border-amber-100/80 shadow-sm min-h-[32px]">
+                                <span className="flex items-center gap-1 text-[10px] text-amber-700">
+                                    <CalendarDays className="w-3.5 h-3.5" /> รายงานสรุปตั้งเวลา:
+                                </span>
+                                <span className="text-amber-800 tracking-wide font-black text-right text-[11px]">
+                                    {targetModeDisplay === 'CURRENT_MONTH'
+                                        ? `สะสมวันที่ 1 ถึง ${targetDayDisplay} ของเดือนนี้`
+                                        : `ทุกวันที่ ${targetDayDisplay} (ข้อมูลของเดือนที่ผ่านมา)`
+                                    } {targetTimeDisplay} น.
+                                </span>
+                            </div>
+                        </div>
                     </div>
                 </div>
+            </div>
 
-                {/* Content Section - Scrollable */}
-                <div 
-                    className="flex-1 overflow-y-auto p-5 sm:p-8 space-y-8 scrollbar-thin scrollbar-thumb-indigo-100"
-                    onScroll={(e) => {
-                        const target = e.currentTarget;
-                        setIsScrolled(target.scrollTop > 20);
-                    }}
-                >
+            {/* Interactive Simulator Section */}
+            <div className="bg-amber-50/40 rounded-2xl p-3 border border-amber-100/70 text-amber-950 shadow-sm relative overflow-hidden group">
+                <div className="absolute -right-6 -bottom-6 w-24 h-24 bg-amber-100/10 rounded-full pointer-events-none group-hover:scale-125 transition-transform duration-500"></div>
+                
+                <div className="flex items-center justify-between mb-2.5 pb-1.5 border-b border-amber-100/60 relative z-10">
+                    <div className="flex items-center gap-1.5 text-xs font-black text-amber-800">
+                        <Monitor className="w-3.5 h-3.5 text-amber-500" /> คอนโซลจำลอง LINE ข้อความ
+                    </div>
+                    
+                    <motion.button
+                        whileHover={{ scale: 1.03, y: -1 }}
+                        whileTap={{ scale: 0.97 }}
+                        type="button"
+                        onClick={triggerSimulator}
+                        className="px-3 py-1 bg-amber-600 text-white rounded-xl text-xs font-black hover:bg-amber-700 flex items-center gap-1 transition-all shadow-md shadow-amber-600/10 hover:shadow-amber-600/20"
+                    >
+                        <Play className="w-3 h-3 fill-current text-white/90" /> {simM.showPreview ? '🙈 ซ่อนพรีวิว' : '🏆 พรีวิวเบี้ยขยัน'}
+                    </motion.button>
+                </div>
+
+                <div className="relative h-[240px] bg-gradient-to-b from-amber-50 to-amber-100/20 rounded-xl p-3 text-slate-800 border border-amber-100/60 shadow-inner flex flex-col justify-center overflow-y-auto">
                     <AnimatePresence mode="wait">
-                        {/* On-Time Section */}
-                        {activeFilter === 'ALL' && onTimeLogs.length > 0 && (
-                            <motion.section 
-                                initial={{ opacity: 0, x: -10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: 10 }}
-                                key="on-time-section"
-                                className="space-y-4"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-emerald-50 rounded-2xl text-emerald-500">
-                                        <CheckCircle2 className="w-5 h-5"/>
-                                    </div>
-                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] text-left">
-                                        On-Time Arrival Records
-                                    </h4>
-                                </div>
-                                <div className="grid grid-cols-1 gap-3">
-                                    {onTimeLogs.map(log => (
-                                        <AttendanceRecordCard 
-                                            key={log.id}
-                                            date={new Date(log.date)}
-                                            variant="on-time"
-                                            timeLabel={log.checkInTime ? format(new Date(log.checkInTime), 'HH:mm') : '--:--'}
-                                            badgeText="ON-TIME"
-                                            note={log.note}
-                                            onClick={() => setSelectedRecord({ type: 'ATTENDANCE', data: log })}
-                                            userId={user.id}
-                                        />
-                                    ))}
-                                </div>
-                            </motion.section>
-                        )}
-
-                        {/* Late Section */}
-                        {(activeFilter === 'ALL' || activeFilter === 'LATE') && lateLogs.length > 0 && (
-                            <motion.section 
-                                initial={{ opacity: 0, x: -10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: 10 }}
-                                key="late-section"
-                                className="space-y-4"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-amber-50 rounded-2xl text-amber-500">
-                                        <CheckCircle2 className="w-5 h-5"/>
-                                    </div>
-                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] text-left">
-                                        Late Arrival Records
-                                    </h4>
-                                </div>
-                                <div className="grid grid-cols-1 gap-3">
-                                    {lateLogs.map(log => {
-                                        const isForgotBothPending = !!log.note?.includes('[FORGOT_BOTH_PENDING]');
-                                        const isProvisionalLate = log.status === 'APPEAL' || !!log.note?.includes('[PROVISIONAL_LATE_ENTRY]');
-                                        const parsed = parseReason(log.note || '', log.checkInTime, log.checkOutTime);
-                                        const timeLabel = isForgotBothPending && parsed.time ? parsed.time : (log.checkInTime ? format(new Date(log.checkInTime), 'HH:mm') : '--:--');
-                                        return (
-                                            <AttendanceRecordCard 
-                                                key={log.id}
-                                                date={new Date(log.date)}
-                                                variant={(isForgotBothPending || isProvisionalLate) ? 'appeal' : 'late'}
-                                                timeLabel={timeLabel}
-                                                badgeText={isForgotBothPending ? 'FORGOT BOTH' : isProvisionalLate ? 'APPEAL' : 'LATE'}
-                                                note={log.note}
-                                                onClick={() => setSelectedRecord({ type: 'ATTENDANCE', data: log })}
-                                                userId={user.id}
-                                            />
-                                        );
-                                    })}
-                                </div>
-                            </motion.section>
-                        )}
-
-                        {/* Absent Section */}
-                        {(activeFilter === 'ALL' || activeFilter === 'ABSENT') && absentDates.length > 0 && (
-                            <motion.section 
-                                initial={{ opacity: 0, x: -10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: 10 }}
-                                key="absent-section"
-                                className="space-y-4"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-rose-50 rounded-2xl text-rose-500">
-                                        <CheckCircle2 className="w-5 h-5"/>
-                                    </div>
-                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] text-left">
-                                        Missing Attendance
-                                    </h4>
-                                </div>
-                                <div className="grid grid-cols-1 gap-3">
-                                    {absentDates.map(({ date, weight }) => (
-                                        <AttendanceRecordCard 
-                                            key={date.toString()}
-                                            date={date}
-                                            variant="absent"
-                                            badgeText={weight === 0.5 ? "ABSENT (HALF DAY)" : "ABSENT"}
-                                            onClick={() => setSelectedRecord({ type: 'ABSENT', data: { date } })}
-                                            userId={user.id}
-                                        />
-                                    ))}
-                                </div>
-                            </motion.section>
-                        )}
-
-                        {/* Leave Section */}
-                        {(activeFilter === 'ALL' || activeFilter === 'LEAVE') && leaveLogs.length > 0 && (
-                            <motion.section 
-                                initial={{ opacity: 0, x: -10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                exit={{ opacity: 0, x: 10 }}
-                                key="leave-section"
-                                className="space-y-4"
-                            >
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-sky-50 rounded-2xl text-sky-500">
-                                        <CheckCircle2 className="w-5 h-5"/>
-                                    </div>
-                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] text-left">
-                                        Official Leave History
-                                    </h4>
-                                </div>
-                                <div className="grid grid-cols-1 gap-3">
-                                    {leaveLogs.map(log => {
-                                        const leaveTypeMatch = log.note?.match(/\[(?:APPROVED|REJECTED) LEAVE: (.*?)\]/);
-                                        let extractedType = leaveTypeMatch ? leaveTypeMatch[1] : log.workType;
-                                        if (log.note) {
-                                            if (log.note.includes('SICK_LEAVE')) extractedType = 'SICK_LEAVE';
-                                            else if (log.note.includes('VACATION_LEAVE')) extractedType = 'VACATION_LEAVE';
-                                            else if (log.note.includes('PERSONAL_LEAVE')) extractedType = 'PERSONAL_LEAVE';
-                                            else if (log.note.includes('EMERGENCY_LEAVE')) extractedType = 'EMERGENCY_LEAVE';
-                                            else if (log.note.includes('UNPAID_LEAVE')) extractedType = 'UNPAID_LEAVE';
-                                        }
-                                        const parsed = parseReason(log.note || '');
-                                        const logDateStr = typeof log.date === 'string' ? log.date : format(new Date(log.date), 'yyyy-MM-dd');
-                                        const matchLeave = leaveRequests?.find(r => 
-                                            r.userId === user.id && 
-                                            r.status === 'APPROVED' &&
-                                            getLocalDateString(r.startDate) <= logDateStr && 
-                                            getLocalDateString(r.endDate) >= logDateStr
-                                        );
-                                        const isHalfDay = parsed.isHalfDay || (matchLeave ? (matchLeave.isHalfDay || matchLeave.is_half_day || false) : false);
-                                        const halfDaySession = parsed.halfDaySession || (matchLeave ? (matchLeave.halfDaySession || matchLeave.half_day_session || null) : null);
-                                        return (
-                                            <AttendanceRecordCard 
-                                                key={log.id}
-                                                date={new Date(log.date)}
-                                                variant="leave"
-                                                badgeText={formatSpecialTypeName(extractedType, isHalfDay, halfDaySession)}
-                                                note={log.note}
-                                                onClick={() => setSelectedRecord({ type: 'LEAVE', data: log })}
-                                                userId={user.id}
-                                            />
-                                        );
-                                    })}
-                                </div>
-                            </motion.section>
-                        )}
-
-                        {/* Overtime Breakdown View */}
-                        {activeFilter === 'OT' && (
-                            <OvertimeBreakdownSection 
-                                leaveRequests={leaveRequests || []}
-                                userId={user.id}
-                                workingDaysInMonth={workingDaysInMonth}
-                                onSelectRecord={(otData) => setSelectedRecord({ type: 'OT', data: otData })}
-                            />
-                        )}
-
-                        {/* Empty State / Filter Empty State */}
-                        {((activeFilter === 'LATE' && lateLogs.length === 0) || 
-                          (activeFilter === 'ABSENT' && absentDates.length === 0) || 
-                          (activeFilter === 'LEAVE' && leaveLogs.length === 0) ||
-                          (activeFilter === 'OT' && approvedOtRequests.length === 0) ||
-                          (activeFilter === 'ALL' && totalIssues === 0 && onTimeLogs.length === 0)) && (
+                        {simM.showPreview ? (
                             <motion.div 
-                                initial={{ opacity: 0, scale: 0.9 }}
-                                animate={{ opacity: 1, scale: 1 }}
-                                key="empty-state"
-                                className="flex flex-col items-center justify-center py-20 text-indigo-200"
+                                key="preview"
+                                initial={{ scale: 0.95, opacity: 0, y: 10 }}
+                                animate={{ scale: 1, opacity: 1, y: 0 }}
+                                exit={{ scale: 0.95, opacity: 0, y: -10 }}
+                                transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                                className="space-y-2 bg-[#0f172a] text-slate-100 p-3.5 rounded-xl border border-slate-700/80 font-sans shadow-xl text-left"
                             >
-                                <div className="w-24 h-24 bg-indigo-50 rounded-[2.5rem] flex items-center justify-center mb-6 relative">
-                                    <div className="absolute inset-0 bg-indigo-100 rounded-[2.5rem] animate-ping opacity-20"></div>
-                                    <CheckCircle2 className="w-12 h-12 text-indigo-400 relative z-10" />
+                                <div className="font-extrabold text-amber-400 border-b border-slate-700 pb-1.5 flex items-center gap-1.5 text-[11px] justify-center text-center">
+                                    {targetModeDisplay === 'CURRENT_MONTH'
+                                        ? `🏆 สรุปรายชื่อพนักงานได้รับเบี้ยขยันสะสม (ช่วงวันที่ 1 ถึง ${targetDayDisplay} กรกฎาคม 2569)`
+                                        : `🏆 สรุปรายชื่อพนักงานได้รับเบี้ยขยัน (ประจำเดือนกรกฎาคม 2569)`
+                                    }
                                 </div>
-                                <p className="text-sm font-bold uppercase tracking-[0.3em] text-slate-800">Everything is Good!</p>
-                                <p className="text-[10px] font-bold text-slate-400 mt-1">No records found for this category</p>
+                                <div className="text-[10px] space-y-1.5 leading-normal text-slate-300">
+                                    <p className="font-extrabold text-amber-300">👑 สรุปผลงานระดับเหรียญทองเกียรติยศ (Perfect Attendance)</p>
+                                    <p className="text-[9px] text-slate-400">
+                                        {targetModeDisplay === 'CURRENT_MONTH'
+                                            ? `พนักงานที่มีวินัยดีเยี่ยม ไม่ขาด ไม่สาย ไม่ลากิจ/ลาป่วย ตั้งแต่วันที่ 1 ถึง ${targetDayDisplay}`
+                                            : `พนักงานที่มีวินัยดีเยี่ยม ไม่ขาด ไม่สาย ไม่ลากิจ/ลาป่วย ตลอดทั้งเดือน`
+                                        }
+                                    </p>
+                                    
+                                    <div className="bg-slate-800/80 p-2 rounded-lg border border-slate-700 text-slate-200 text-[9px] space-y-1">
+                                        <p className="flex justify-between font-bold">
+                                            <span>📊 ภาพรวมช่วงเวลานี้:</span>
+                                        </p>
+                                        <p>• พนักงานทั้งหมด: 12 คน</p>
+                                        <p>• ผ่านเกณฑ์เบี้ยขยัน: <span className="text-emerald-400 font-extrabold">2 คน (17%)</span></p>
+                                    </div>
+
+                                    <div className="text-[9px] text-amber-200">
+                                        🥇 นายสมหมาย มุ่งมั่น (ฝ่ายผลิต)<br />
+                                        &nbsp;&nbsp;&nbsp;{targetModeDisplay === 'CURRENT_MONTH' 
+                                            ? `[ ตรงเวลา: 8 วัน | ลาพักร้อน: 0 วัน | สาย: 0 | ขาด: 0 ]` 
+                                            : `[ ตรงเวลา: 22 วัน | ลาพักร้อน: 1 วัน | สาย: 0 | ขาด: 0 ]`
+                                        }<br />
+                                        🥇 นางสาวสมศรี มีวินัย (ฝ่ายบัญชี)<br />
+                                        &nbsp;&nbsp;&nbsp;{targetModeDisplay === 'CURRENT_MONTH' 
+                                            ? `[ ตรงเวลา: 8 วัน | ลาพักร้อน: 0 วัน | สาย: 0 | ขาด: 0 ]` 
+                                            : `[ ตรงเวลา: 23 วัน | ลาพักร้อน: 0 วัน | สาย: 0 | ขาด: 0 ]`
+                                        }
+                                    </div>
+                                    <p className="text-[8px] text-slate-500 text-center italic mt-1 pt-1 border-t border-slate-800">
+                                        ระบบประมวลผลข้อมูลอัตโนมัติ ณ วันที่ {targetDayDisplay.padStart(2, '0')}/07/2026
+                                    </p>
+                                </div>
+                            </motion.div>
+                        ) : (
+                            <motion.div 
+                                key="idle"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                className="flex flex-col items-center justify-center py-3 text-xs text-amber-800/60 font-bold"
+                            >
+                                <div className="p-2 bg-white rounded-xl shadow-sm border border-amber-100 mb-1.5 text-amber-500">
+                                    <Sparkles className="w-5 h-5 animate-pulse" />
+                                </div>
+                                <span className="text-[10px] text-amber-900/60">คลิก "พรีวิวเบี้ยขยัน" เพื่อดูข้อความสรุปที่จะส่งเข้ากลุ่ม LINE</span>
                             </motion.div>
                         )}
                     </AnimatePresence>
                 </div>
-
-                {/* Footer Section - Cute Style */}
-                <div className="p-5 sm:p-8 bg-white border-t border-indigo-50 shrink-0">
-                    <button 
-                        onClick={onClose}
-                        className="w-full py-4 bg-gradient-to-r from-indigo-500 to-sky-500 text-white rounded-[2rem] font-bold text-xs tracking-[0.3em] uppercase hover:shadow-xl hover:shadow-indigo-200 transition-all active:scale-95 flex items-center justify-center gap-2"
-                    >
-                        Close Details <ArrowRight className="w-4 h-4" />
-                    </button>
-                </div>
-            </motion.div>
-
-            {/* Drilldown Detail Sub-Modal */}
-            <RecordDetailModal 
-                record={selectedRecord}
-                onClose={() => setSelectedRecord(null)}
-            />
-        </motion.div>,
-        document.body
+            </div>
+        </div>
     );
 };
 
-export default DashboardUserDetailModal;
+export default MonthlyBonusCard;

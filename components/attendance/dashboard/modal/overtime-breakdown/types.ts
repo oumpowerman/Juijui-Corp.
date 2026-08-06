@@ -5,6 +5,12 @@ export interface OvertimeSummary {
     total: number;
 }
 
+export const OT_TYPE_DESCRIPTIONS: Record<'NORMAL_DAY' | 'HOLIDAY' | 'HOLIDAY_OVERTIME', string> = {
+    NORMAL_DAY: "ค่าล่วงเวลาในวันทำงานปกติ (1.5 เท่า)",
+    HOLIDAY: "ค่าทำงานในวันหยุด ตามเวลาปกติ (2.0 เท่า)",
+    HOLIDAY_OVERTIME: "ค่าล่วงเวลาในวันหยุด เกินเวลาปกติ (3.0 เท่า)"
+};
+
 export interface ProcessedOtRequest {
     id: string;
     date: Date;

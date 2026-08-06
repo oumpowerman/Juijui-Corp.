@@ -35,7 +35,7 @@ export const OvertimeLogList: React.FC<OvertimeLogListProps> = ({
                             <strong className="font-bold">
                                 {activeFilter === 'NORMAL_DAY' && 'วันทำงานปกติ (1.5x)'}
                                 {activeFilter === 'HOLIDAY' && 'วันหยุดปกติ (2.0x)'}
-                                {activeFilter === 'HOLIDAY_OVERTIME' && 'วันหยุดพิเศษ (3.0x)'}
+                                {activeFilter === 'HOLIDAY_OVERTIME' && 'วันหยุดล่วงเวลา (3.0x)'}
                             </strong>
                         </span>
                         {onClearFilter && (
@@ -56,11 +56,16 @@ export const OvertimeLogList: React.FC<OvertimeLogListProps> = ({
                         matchedRequests.map((req, index) => {
                             const dateObj = new Date(req.date);
                             
+                            const isSplitHoliday = (req.type === 'HOLIDAY' || req.type === 'HOLIDAY_OVERTIME') && req.durationHours > 8;
+                            const badgeLabel = isSplitHoliday 
+                                ? `วันหยุด (2.0x 8 ชม. + 3.0x ${(req.durationHours - 8).toFixed(1)} ชม.)`
+                                : (req.type === 'NORMAL_DAY' ? 'วันทำงานปกติ 1.5x' : (req.type === 'HOLIDAY' ? 'วันหยุดปกติ 2.0x' : 'วันหยุดล่วงเวลา 3.0x'));
+
                             // Badge details matching the type
                             const typeConfig = {
                                 'NORMAL_DAY': {
                                     badgeBg: 'bg-purple-100 text-purple-600',
-                                    label: 'วันทำงานปกติ 1.5x',
+                                    label: badgeLabel,
                                     dot: 'bg-purple-500',
                                     cardHoverShadow: 'hover:shadow-purple-100/40',
                                     cardHoverBorder: 'hover:border-purple-200',
@@ -71,8 +76,8 @@ export const OvertimeLogList: React.FC<OvertimeLogListProps> = ({
                                     payIcon: 'text-purple-500'
                                 },
                                 'HOLIDAY': {
-                                    badgeBg: 'bg-amber-100 text-amber-600',
-                                    label: 'วันหยุดปกติ 2.0x',
+                                    badgeBg: isSplitHoliday ? 'bg-gradient-to-r from-amber-100 to-sky-100 text-slate-700 border border-slate-200' : 'bg-amber-100 text-amber-600',
+                                    label: badgeLabel,
                                     dot: 'bg-amber-500',
                                     cardHoverShadow: 'hover:shadow-amber-100/40',
                                     cardHoverBorder: 'hover:border-amber-200',
@@ -83,8 +88,8 @@ export const OvertimeLogList: React.FC<OvertimeLogListProps> = ({
                                     payIcon: 'text-amber-500'
                                 },
                                 'HOLIDAY_OVERTIME': {
-                                    badgeBg: 'bg-sky-100 text-sky-600',
-                                    label: 'วันหยุดล่วงเวลา 3.0x',
+                                    badgeBg: isSplitHoliday ? 'bg-gradient-to-r from-amber-100 to-sky-100 text-slate-700 border border-slate-200' : 'bg-sky-100 text-sky-600',
+                                    label: badgeLabel,
                                     dot: 'bg-sky-500',
                                     cardHoverShadow: 'hover:shadow-sky-100/40',
                                     cardHoverBorder: 'hover:border-sky-200',
@@ -96,7 +101,7 @@ export const OvertimeLogList: React.FC<OvertimeLogListProps> = ({
                                 }
                             }[req.type] || {
                                 badgeBg: 'bg-slate-100 text-slate-600',
-                                label: 'ล่วงเวลา',
+                                label: badgeLabel,
                                 dot: 'bg-slate-500',
                                 cardHoverShadow: 'hover:shadow-slate-100/40',
                                 cardHoverBorder: 'hover:border-slate-200',

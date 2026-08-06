@@ -9,7 +9,7 @@ import { useGoogleDrive } from './useGoogleDrive';
 import { useUserSession } from '../context/UserSessionContext';
 import { useMasterData } from './useMasterData';
 import { isWorkingDay, countWorkingDaysBetween } from '../utils/judgeUtils';
-import { calculateOtMultiplier, calculateEstimatedPayout } from '../utils/otCalculator';
+import { calculateOtMultiplier, calculateEstimatedPayout, calculateOtBreakdownWithHours } from '../utils/otCalculator';
 import { attendanceService } from '../services/attendanceService';
 
 export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } = {}) => {
@@ -316,8 +316,9 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                 }
 
                 const baseSalary = currentUser.baseSalary || 0;
-                const { type: otType, multiplier } = calculateOtMultiplier(startDate, annualHolidays, calendarExceptions);
-                const estimatedPayout = isFixedOt ? 0 : calculateEstimatedPayout(baseSalary, otHours, multiplier);
+                const otBreakdown = calculateOtBreakdownWithHours(otHours, startDate, baseSalary, annualHolidays, calendarExceptions);
+                const otType = otBreakdown.primaryType;
+                const estimatedPayout = isFixedOt ? 0 : otBreakdown.estimatedPayout;
 
                 const insertedOt = await attendanceService.insertOtRequest({
                     user_id: currentUser.id,

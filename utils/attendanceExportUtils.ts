@@ -318,10 +318,10 @@ export const generateOvertimeCSV = (
 
         if (req.type === 'NORMAL_DAY') {
             normalHours = req.durationHours;
-        } else if (req.type === 'HOLIDAY') {
-            holidayHours = req.durationHours;
-        } else if (req.type === 'HOLIDAY_OVERTIME') {
-            specialHours = req.durationHours;
+        } else {
+            // Holiday splitting: up to 8 hours @ 2.0x, exceeding @ 3.0x
+            holidayHours = Math.min(req.durationHours, 8);
+            specialHours = Math.max(0, req.durationHours - 8);
         }
 
         return [

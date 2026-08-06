@@ -1,5 +1,10 @@
 import { format } from 'date-fns';
-import { OvertimeSummary, ProcessedOtRequest, MatchedOtRequest } from './types';
+import { OvertimeSummary, ProcessedOtRequest, MatchedOtRequest, OT_TYPE_DESCRIPTIONS } from './types';
+import { isHolidayDate, STANDARD_DAY_WORK_HOURS } from '../../../../../utils/otCalculator';
+
+export const getOtTypeDescription = (type: 'NORMAL_DAY' | 'HOLIDAY' | 'HOLIDAY_OVERTIME'): string => {
+    return OT_TYPE_DESCRIPTIONS[type] || 'ค่าล่วงเวลา';
+};
 
 export const getIntervalDuration = (start: string, end: string): number => {
     if (!start || !end) return 0;
@@ -28,7 +33,11 @@ export const getScannedDuration = (dateStr: string, startTime: string, checkOutT
     }
 };
 
-export const calculateOtSummary = (processedRequests: ProcessedOtRequest[]): OvertimeSummary => {
+export const calculateOtSummary = (
+    processedRequests: ProcessedOtRequest[],
+    annualHolidays: any[] = [],
+    calendarExceptions: any[] = []
+): OvertimeSummary => {
     const summary: OvertimeSummary = {
         normal: 0,
         holiday: 0,
@@ -38,16 +47,27 @@ export const calculateOtSummary = (processedRequests: ProcessedOtRequest[]): Ove
 
     processedRequests.forEach(req => {
         const hours = Number(req.durationHours || 0);
-        if (req.type === 'NORMAL_DAY') {
+        if (hours <= 0) return;
+
+        const reqDate = req.date instanceof Date ? req.date : new Date(req.date);
+        const isHoliday = req.type === 'HOLIDAY' || req.type === 'HOLIDAY_OVERTIME' || isHolidayDate(reqDate, annualHolidays, calendarExceptions);
+
+        if (!isHoliday && req.type === 'NORMAL_DAY') {
             summary.normal += hours;
-        } else if (req.type === 'HOLIDAY') {
-            summary.holiday += hours;
-        } else if (req.type === 'HOLIDAY_OVERTIME') {
-            summary.special += hours;
+        } else {
+            // Holiday splitting: up to 8 hours @ 2.0x (HOLIDAY), exceeding 8 hours @ 3.0x (HOLIDAY_OVERTIME)
+            const normalHolidayHours = Math.min(hours, STANDARD_DAY_WORK_HOURS);
+            const overtimeHolidayHours = Math.max(0, hours - STANDARD_DAY_WORK_HOURS);
+
+            summary.holiday += normalHolidayHours;
+            summary.special += overtimeHolidayHours;
         }
     });
 
-    summary.total = summary.normal + summary.holiday + summary.special;
+    summary.normal = Number(summary.normal.toFixed(2));
+    summary.holiday = Number(summary.holiday.toFixed(2));
+    summary.special = Number(summary.special.toFixed(2));
+    summary.total = Number((summary.normal + summary.holiday + summary.special).toFixed(2));
     return summary;
 };
 

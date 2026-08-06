@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Zap } from 'lucide-react';
 import { LeaveRequest } from '../../../../types/attendance';
 import { useUserSession } from '../../../../context/UserSessionContext';
+import { useMasterData } from '../../../../hooks/useMasterData';
 
 // Import refactored subcomponents and utils
 import { ProcessedOtRequest } from './overtime-breakdown/types';
@@ -25,6 +26,7 @@ export const OvertimeBreakdownSection: React.FC<OvertimeBreakdownSectionProps> =
     onSelectRecord
 }) => {
     const { otRequests, attendanceLogs } = useUserSession();
+    const { annualHolidays, calendarExceptions } = useMasterData();
 
     // Determine boundary dates for current selection
     const selectedMonthDates = useMemo(() => {
@@ -71,8 +73,8 @@ export const OvertimeBreakdownSection: React.FC<OvertimeBreakdownSectionProps> =
 
     // Calculate aggregated statistics
     const otSummary = useMemo(() => {
-        return calculateOtSummary(processedOtRequests);
-    }, [processedOtRequests]);
+        return calculateOtSummary(processedOtRequests, annualHolidays, calendarExceptions);
+    }, [processedOtRequests, annualHolidays, calendarExceptions]);
 
     // Match each OT request with scanned attendance logs for display
     const matchedOtRequests = useMemo(() => {
@@ -84,7 +86,12 @@ export const OvertimeBreakdownSection: React.FC<OvertimeBreakdownSectionProps> =
     // Filter matched OT requests based on active rate filter
     const filteredMatchedRequests = useMemo(() => {
         if (activeRateFilter === 'ALL') return matchedOtRequests;
-        return matchedOtRequests.filter(req => req.type === activeRateFilter);
+        return matchedOtRequests.filter(req => {
+            if (activeRateFilter === 'NORMAL_DAY') return req.type === 'NORMAL_DAY';
+            if (activeRateFilter === 'HOLIDAY') return req.type === 'HOLIDAY' || req.type === 'HOLIDAY_OVERTIME';
+            if (activeRateFilter === 'HOLIDAY_OVERTIME') return req.type === 'HOLIDAY_OVERTIME' || (req.type === 'HOLIDAY' && req.durationHours > 8);
+            return true;
+        });
     }, [matchedOtRequests, activeRateFilter]);
 
     return (

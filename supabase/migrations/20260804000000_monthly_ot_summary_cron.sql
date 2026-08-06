@@ -131,23 +131,23 @@ BEGIN
           AND date >= summary_start_date
           AND date <= summary_end_date;
 
-        -- 3) Sum approved hourly OT (HOLIDAY)
-        SELECT COALESCE(SUM(duration_hours), 0) INTO user_holiday_ot_hours
+        -- 3) Sum approved hourly OT (HOLIDAY: up to 8 hrs)
+        SELECT COALESCE(SUM(LEAST(duration_hours, 8)), 0) INTO user_holiday_ot_hours
         FROM public.ot_requests
         WHERE user_id = profile_rec.id
           AND status = 'APPROVED'
           AND is_fixed = FALSE
-          AND type = 'HOLIDAY'
+          AND (type = 'HOLIDAY' OR type = 'HOLIDAY_OVERTIME')
           AND date >= summary_start_date
           AND date <= summary_end_date;
 
-        -- 4) Sum approved hourly OT (HOLIDAY_OVERTIME)
-        SELECT COALESCE(SUM(duration_hours), 0) INTO user_holiday_overtime_hours
+        -- 4) Sum approved hourly OT (HOLIDAY_OVERTIME: hours exceeding 8 hrs)
+        SELECT COALESCE(SUM(GREATEST(0, duration_hours - 8)), 0) INTO user_holiday_overtime_hours
         FROM public.ot_requests
         WHERE user_id = profile_rec.id
           AND status = 'APPROVED'
           AND is_fixed = FALSE
-          AND type = 'HOLIDAY_OVERTIME'
+          AND (type = 'HOLIDAY' OR type = 'HOLIDAY_OVERTIME')
           AND date >= summary_start_date
           AND date <= summary_end_date;
           

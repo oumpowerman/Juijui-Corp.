@@ -479,10 +479,14 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
             </motion.div>
 
             {/* Drilldown Detail Sub-Modal */}
-            <RecordDetailModal 
-                record={selectedRecord}
-                onClose={() => setSelectedRecord(null)}
-            />
+            <AnimatePresence>
+                {selectedRecord && (
+                    <RecordDetailModal 
+                        record={selectedRecord}
+                        onClose={() => setSelectedRecord(null)}
+                    />
+                )}
+            </AnimatePresence>
         </motion.div>,
         document.body
     );

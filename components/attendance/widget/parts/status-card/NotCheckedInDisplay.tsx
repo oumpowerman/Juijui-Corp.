@@ -46,6 +46,38 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
 }) => {
     const isActualLeaveToday = isLeaveLog || (isApprovedLeaveToday && todayActiveLeave && !['WFH', 'ONSITE', 'LATE_ENTRY', 'OVERTIME', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT', 'GPS_SPOOF_APPEAL'].includes(todayActiveLeave.type));
 
+    const getHalfDayInfo = (leave: LeaveRequest | null) => {
+        if (!leave) return { isHalfDay: false, session: null };
+        const parsed = parseReason(leave.reason || '');
+        const isHalf = Boolean(leave.isHalfDay || (leave as any).is_half_day || parsed.isHalfDay);
+        const session = (leave.halfDaySession || (leave as any).half_day_session || parsed.halfDaySession) as 'AM' | 'PM' | null;
+        return { isHalfDay: isHalf, session };
+    };
+
+    const { isHalfDay, session } = getHalfDayInfo(todayActiveLeave);
+
+    const getLeaveTypeName = (type?: string) => {
+        switch (type) {
+            case 'SICK': return 'ลาป่วย';
+            case 'VACATION': return 'ลาพักร้อน';
+            case 'PERSONAL': return 'ลากิจ';
+            case 'EMERGENCY': return 'ลาฉุกเฉิน';
+            case 'UNPAID': return 'ลาไม่รับค่าจ้าง';
+            default: return type ? `ลาประเภท ${type}` : 'ลางาน';
+        }
+    };
+
+    const getLeaveTypeFullName = (type?: string) => {
+        switch (type) {
+            case 'SICK': return 'ลาป่วย (Sick Leave) 🤒';
+            case 'VACATION': return 'ลาพักร้อน (Vacation Leave) 🏖️';
+            case 'PERSONAL': return 'ลากิจ (Personal Leave) 💼';
+            case 'EMERGENCY': return 'ลาฉุกเฉิน (Emergency Leave) 🚨';
+            case 'UNPAID': return 'ลาไม่รับค่าจ้าง (Unpaid Leave) 🪵';
+            default: return type ? `ลาประเภท ${type}` : 'ลางาน (Leave)';
+        }
+    };
+
     const formatDateString = (d: any) => {
         if (!d) return '';
         try {
@@ -141,10 +173,14 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
                         </div>
                         <div className="text-left">
                             <h3 className="text-sm sm:text-base font-extrabold text-emerald-950 leading-snug">
-                                วันนี้การลางานได้รับการอนุมัติแล้ว ✅
+                                {isHalfDay 
+                                    ? `อนุมัติการลาครึ่งวัน${session === 'AM' ? 'เช้า' : 'บ่าย'} (0.5 วัน) เรียบร้อยแล้ว ✅` 
+                                    : 'วันนี้การลางานได้รับการอนุมัติแล้ว ✅'}
                             </h3>
                             <p className="text-[11px] text-emerald-800 font-medium mt-0.5">
-                                คุณได้รับการอนุมัติให้ลางานเรียบร้อย ระบบจะบันทึกสถานะการลางานให้โดยอัตโนมัติ
+                                {isHalfDay 
+                                    ? `คุณได้รับการอนุมัติให้ลาครึ่งวัน${session === 'AM' ? 'เช้า' : 'บ่าย'} เรียบร้อย ระบบจะบันทึกสถานะให้โดยอัตโนมัติ` 
+                                    : 'คุณได้รับการอนุมัติให้ลางานเรียบร้อย ระบบจะบันทึกสถานะการลางานให้โดยอัตโนมัติ'}
                             </p>
                         </div>
                     </div>
@@ -154,15 +190,21 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
                             <span className="font-bold text-emerald-900 shrink-0">ประเภทการลา:</span>
                             <span className="font-semibold text-slate-800">
                                 {todayActiveLeave ? (
-                                    todayActiveLeave.type === 'SICK' ? 'ลาป่วย (Sick Leave) 🤒' :
-                                    todayActiveLeave.type === 'VACATION' ? 'ลาพักร้อน (Vacation Leave) 🏖️' :
-                                    todayActiveLeave.type === 'PERSONAL' ? 'ลากิจ (Personal Leave) 💼' :
-                                    todayActiveLeave.type === 'EMERGENCY' ? 'ลาฉุกเฉิน (Emergency Leave) 🚨' :
-                                    todayActiveLeave.type === 'UNPAID' ? 'ลาไม่รับค่าจ้าง (Unpaid Leave) 🪵' :
-                                    `ลาประเภท ${todayActiveLeave.type}`
+                                    <>
+                                        {getLeaveTypeFullName(todayActiveLeave.type)}
+                                        {isHalfDay && ` [ครึ่งวัน${session === 'AM' ? 'เช้า' : 'บ่าย'}]`}
+                                    </>
                                 ) : 'ลางาน (Leave)'}
                             </span>
                         </div>
+                        {isHalfDay && (
+                            <div className="flex items-center gap-2">
+                                <span className="font-bold text-emerald-900 shrink-0">⏱️ รูปแบบ:</span>
+                                <span className="font-semibold text-slate-700">
+                                    {`ลาครึ่งวัน (0.5 วัน) — ช่วง${session === 'AM' ? 'เช้า (08:30 - 12:00 น.)' : 'บ่าย (13:00 - 17:30 น.)'}`}
+                                </span>
+                            </div>
+                        )}
                         {todayActiveLeave && (
                             <>
                                 <div className="flex items-start gap-2">
@@ -188,7 +230,9 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
                     </div>
 
                     <p className="text-[10px] text-slate-500 font-medium italic text-center">
-                        * หมายเหตุ: หากคุณต้องการเข้ามาปฏิบัติงานจริงเพิ่มเติมในวันนี้ สามารถกดลงเวลาเริ่มงาน (Check-in) ด้านล่างได้ปกติครับ
+                        {isHalfDay
+                            ? `* หมายเหตุ: คุณอนุมัติลาครึ่งวัน${session === 'AM' ? 'เช้า' : 'บ่าย'} สามารถกดลงเวลาเข้าทำงาน (Check-in) สำหรับการปฏิบัติงานช่วง${session === 'AM' ? 'บ่าย' : 'เช้า'}ได้ตามปกติครับ`
+                            : '* หมายเหตุ: หากคุณต้องการเข้ามาปฏิบัติงานจริงเพิ่มเติมในวันนี้ สามารถกดลงเวลาเริ่มงาน (Check-in) ด้านล่างได้ปกติครับ'}
                     </p>
                 </div>
             )}
@@ -291,8 +335,16 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
                      <div className="flex items-center gap-2">
                         <Hourglass className="w-4 h-4 text-yellow-600 animate-pulse" />
                         <div className="text-left">
-                            <p className="text-xs font-bold text-yellow-800">รออนุมัติ: {todayActiveLeave.type}</p>
-                            <p className="text-[10px] text-yellow-600">คุณสามารถ Check-in เพื่อยกเลิกการลาได้</p>
+                            <p className="text-xs font-bold text-yellow-800">
+                                {isHalfDay 
+                                    ? `รออนุมัติ: ${getLeaveTypeName(todayActiveLeave.type)} (ครึ่งวัน${session === 'AM' ? 'เช้า' : 'บ่าย'}) ⏳`
+                                    : `รออนุมัติ: ${getLeaveTypeName(todayActiveLeave.type)} ⏳`}
+                            </p>
+                            <p className="text-[10px] text-yellow-600">
+                                {isHalfDay 
+                                    ? 'คำขอลาครึ่งวันของคุณอยู่ระหว่างรอพิจารณา คุณยังสามารถ Check-in เพื่อเข้าปฏิบัติงานอีกครึ่งวันได้ตามปกติครับ'
+                                    : 'คุณสามารถ Check-in เพื่อยกเลิกการลาได้'}
+                            </p>
                         </div>
                      </div>
                 </div>
@@ -376,7 +428,9 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
                         }
                     `}>
                         {isActualLeaveToday 
-                            ? '🔔 วันนี้มีประวัติการลาที่อนุมัติแล้ว หากต้องการมาเข้างานเพิ่มเติม:' 
+                            ? (isHalfDay 
+                                ? `🔔 วันนี้คุณมีรายการลาครึ่งวัน${session === 'AM' ? 'เช้า' : 'บ่าย'} หากต้องการลงเวลาเข้าทำงานอีกครึ่งวันที่เหลือ:`
+                                : '🔔 วันนี้มีประวัติการลาที่อนุมัติแล้ว หากต้องการมาเข้างานเพิ่มเติม:') 
                             : dayStatus.mode === 'HOLIDAY' 
                                 ? 'ถ้าจะทำงาน กดยื่นคำขออนุมัติก่อนนะ!' 
                                 : 'พร้อมเริ่มงานรึยัง?'
@@ -403,7 +457,11 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
                                 ) : isActualLeaveToday ? (
                                     <>
                                         <LogIn className="w-4 h-4 text-slate-500" />
-                                        <span>กดลงเวลากรณีปฏิบัติงานเพิ่ม (Check-in)</span>
+                                        <span>
+                                            {isHalfDay 
+                                                ? `กดลงเวลาเข้าทำงาน (สำหรับช่วง${session === 'AM' ? 'บ่าย' : 'เช้า'})`
+                                                : 'กดลงเวลากรณีปฏิบัติงานเพิ่ม (Check-in)'}
+                                        </span>
                                     </>
                                 ) : (
                                     <>

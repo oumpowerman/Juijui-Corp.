@@ -25,7 +25,7 @@ interface RecordDetailModalProps {
 export { formatSpecialTypeName };
 
 export const RecordDetailModal: React.FC<RecordDetailModalProps> = ({ record, onClose }) => {
-    const [copiedGps, setCopiedGps] = useState(false);
+    const [copiedGps, setCopiedGps] = useState<string | null>(null);
     const [previewImage, setPreviewImage] = useState<string | null>(null);
 
     if (!record) return null;
@@ -38,21 +38,20 @@ export const RecordDetailModal: React.FC<RecordDetailModalProps> = ({ record, on
     const formattedDateFull = format(recordDate, 'EEEEที่ d MMMM yyyy', { locale: th });
 
     // Copy GPS handler
-    const handleCopyGps = (coords: string) => {
+    const handleCopyGps = (coords: string, key: string) => {
         navigator.clipboard.writeText(coords);
-        setCopiedGps(true);
-        setTimeout(() => setCopiedGps(false), 2000);
+        setCopiedGps(key);
+        setTimeout(() => setCopiedGps(null), 2000);
     };
 
     return (
-        <AnimatePresence>
-            <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md"
-                onClick={onClose}
-            >
+        <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md"
+            onClick={onClose}
+        >
                 <motion.div
                     initial={{ opacity: 0, scale: 0.9, y: 20 }}
                     animate={{ opacity: 1, scale: 1, y: 0 }}
@@ -110,11 +109,21 @@ export const RecordDetailModal: React.FC<RecordDetailModalProps> = ({ record, on
                                 checkInStr = `${parts[0]} น. (ระบุในคำขอ)`;
                                 checkOutStr = `${parts[1]} น. (ระบุในคำขอ)`;
                             }
-                            const locationName = data.locationName || data.location_name || 'ไม่ได้ระบุสถานที่';
                             const photoUrl = data.photoUrl || data.photo_url || data.image_url;
-                            const lat = data.latitude || data.lat;
-                            const lng = data.longitude || data.lng;
-                            const gpsCoords = (lat && lng) ? `${lat}, ${lng}` : null;
+
+                            // 1. ดึงสถานที่เช็คอินและเช็คเอาท์
+                            const checkInLocation = data.location_name || data.locationName || 'ไม่ได้ระบุสถานที่';
+                            const checkOutLocation = data.check_out_location_name || data.checkOutLocationName || (checkOutTimeVal ? 'ไม่ได้ระบุสถานที่เช็คเอาท์' : 'ยังไม่ได้เช็คเอาท์');
+
+                            // 2. ดึงพิกัด GPS เช็คอิน
+                            const checkInLat = data.location_lat || data.latitude || data.lat;
+                            const checkInLng = data.location_lng || data.longitude || data.lng;
+                            const checkInGps = (checkInLat && checkInLng) ? `${checkInLat}, ${checkInLng}` : null;
+
+                            // 3. ดึงพิกัด GPS เช็คเอาท์
+                            const checkOutLat = data.check_out_lat || data.checkOutLat;
+                            const checkOutLng = data.check_out_lng || data.checkOutLng;
+                            const checkOutGps = (checkOutLat && checkOutLng) ? `${checkOutLat}, ${checkOutLng}` : null;
 
                             return (
                                 <>
@@ -151,39 +160,80 @@ export const RecordDetailModal: React.FC<RecordDetailModalProps> = ({ record, on
                                     </div>
 
                                     {/* Location & GPS */}
-                                    <div className="p-4 bg-indigo-50/40 border border-indigo-100/70 rounded-2xl space-y-2.5">
-                                        <div className="flex items-start justify-between">
-                                            <div className="flex items-start gap-2">
-                                                <MapPin className="w-4 h-4 text-indigo-500 shrink-0 mt-0.5" />
-                                                <div>
-                                                    <p className="text-xs font-bold text-slate-800">{locationName}</p>
-                                                    <p className="text-[11px] text-slate-500 mt-0.5">ประเภท: {formatSpecialTypeName(data.workType)}</p>
-                                                </div>
+                                    <div className="p-4 bg-indigo-50/40 border border-indigo-100/70 rounded-2xl space-y-4">
+                                        <div className="flex items-center justify-between border-b border-indigo-100/60 pb-2">
+                                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">สถานที่และพิกัดลงเวลา</span>
+                                        </div>
+
+                                        {/* 1. Check-in Location */}
+                                        <div className="space-y-1.5">
+                                            <div className="flex items-center gap-1.5">
+                                                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                                                <span className="text-xs font-bold text-emerald-700">จุดเช็คอินเข้างาน</span>
+                                            </div>
+                                            <div className="pl-3.5 border-l-2 border-emerald-100 space-y-1">
+                                                <p className="text-xs font-semibold text-slate-800">{checkInLocation}</p>
+                                                {checkInGps ? (
+                                                    <div className="flex items-center justify-between text-[11px] text-slate-500">
+                                                        <span>พิกัด GPS: <strong className="text-slate-600 font-mono">{checkInGps}</strong></span>
+                                                        <div className="flex items-center gap-1">
+                                                             <button
+                                                                 onClick={() => handleCopyGps(checkInGps, 'checkin')}
+                                                                 className="p-1 hover:bg-indigo-100 rounded text-indigo-600 transition-colors cursor-pointer"
+                                                                 title="คัดลอกพิกัด"
+                                                             >
+                                                                 {copiedGps === 'checkin' ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                                                             </button>
+                                                             <a
+                                                                 href={`https://www.google.com/maps?q=${checkInLat},${checkInLng}`}
+                                                                 target="_blank"
+                                                                 rel="noopener noreferrer"
+                                                                 className="p-1 hover:bg-indigo-100 rounded text-indigo-600 transition-colors flex items-center gap-0.5 font-bold"
+                                                             >
+                                                                 แผนที่ <ExternalLink className="w-2.5 h-2.5" />
+                                                             </a>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    <p className="text-[11px] text-slate-400 italic">ไม่มีข้อมูลพิกัด GPS เช็คอิน</p>
+                                                )}
                                             </div>
                                         </div>
 
-                                        {gpsCoords && (
-                                            <div className="flex items-center justify-between pt-2 border-t border-indigo-100/60 text-xs">
-                                                <span className="text-slate-500 font-medium">พิกัด GPS: <strong className="text-slate-700 font-mono">{gpsCoords}</strong></span>
-                                                <div className="flex items-center gap-2">
-                                                    <button
-                                                        onClick={() => handleCopyGps(gpsCoords)}
-                                                        className="p-1.5 hover:bg-indigo-100 rounded-lg text-indigo-600 transition-colors cursor-pointer"
-                                                        title="คัดลอกพิกัด"
-                                                    >
-                                                        {copiedGps ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
-                                                    </button>
-                                                    <a
-                                                        href={`https://www.google.com/maps?q=${lat},${lng}`}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="p-1.5 hover:bg-indigo-100 rounded-lg text-indigo-600 transition-colors flex items-center gap-1 text-[11px] font-bold"
-                                                    >
-                                                        แผนที่ <ExternalLink className="w-3 h-3" />
-                                                    </a>
-                                                </div>
+                                        {/* 2. Check-out Location */}
+                                        <div className="space-y-1.5 pt-1">
+                                            <div className="flex items-center gap-1.5">
+                                                <span className={`w-2 h-2 rounded-full ${checkOutTimeVal ? 'bg-sky-500 animate-pulse' : 'bg-slate-300'}`} />
+                                                <span className={`text-xs font-bold ${checkOutTimeVal ? 'text-sky-700' : 'text-slate-500'}`}>จุดเช็คเอาท์ออกงาน</span>
                                             </div>
-                                        )}
+                                            <div className={`pl-3.5 border-l-2 ${checkOutTimeVal ? 'border-sky-100' : 'border-slate-100'} space-y-1`}>
+                                                <p className={`text-xs font-semibold ${checkOutTimeVal ? 'text-slate-800' : 'text-slate-400 italic'}`}>{checkOutLocation}</p>
+                                                {checkOutGps ? (
+                                                    <div className="flex items-center justify-between text-[11px] text-slate-500">
+                                                        <span>พิกัด GPS: <strong className="text-slate-600 font-mono">{checkOutGps}</strong></span>
+                                                        <div className="flex items-center gap-1">
+                                                             <button
+                                                                 onClick={() => handleCopyGps(checkOutGps, 'checkout')}
+                                                                 className="p-1 hover:bg-indigo-100 rounded text-indigo-600 transition-colors cursor-pointer"
+                                                                 title="คัดลอกพิกัด"
+                                                             >
+                                                                 {copiedGps === 'checkout' ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                                                             </button>
+                                                             <a
+                                                                 href={`https://www.google.com/maps?q=${checkOutLat},${checkOutLng}`}
+                                                                 target="_blank"
+                                                                 rel="noopener noreferrer"
+                                                                 className="p-1 hover:bg-indigo-100 rounded text-indigo-600 transition-colors flex items-center gap-0.5 font-bold"
+                                                             >
+                                                                 แผนที่ <ExternalLink className="w-2.5 h-2.5" />
+                                                             </a>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    checkOutTimeVal && <p className="text-[11px] text-slate-400 italic">ไม่มีข้อมูลพิกัด GPS เช็คเอาท์</p>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
 
                                     {/* Reasons / Full Notes */}
@@ -438,6 +488,5 @@ export const RecordDetailModal: React.FC<RecordDetailModalProps> = ({ record, on
                     </motion.div>
                 )}
             </motion.div>
-        </AnimatePresence>
     );
 };

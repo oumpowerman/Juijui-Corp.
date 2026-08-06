@@ -159,7 +159,7 @@ BEGIN
         WHILE cur_day <= summary_end_date LOOP
             IF public.is_working_day_db(cur_day, profile_rec.id) THEN
                 -- Check approved leave request on cur_day
-                SELECT leave_type INTO leave_type_val
+                SELECT type INTO leave_type_val
                 FROM public.leave_requests
                 WHERE user_id = profile_rec.id
                   AND status = 'APPROVED'

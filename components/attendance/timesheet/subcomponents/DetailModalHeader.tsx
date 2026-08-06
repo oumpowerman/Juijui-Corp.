@@ -5,6 +5,7 @@ import { Info, Clock } from 'lucide-react';
 import { AttendanceLog } from '../../../../types/attendance';
 import { formatSpecialTypeName } from '../../leave-request/request-detail/utils';
 import { AttendanceConditionBadges } from '../../shared/AttendanceBadges';
+import { getRegistryItem } from '../../../../constants/attendanceRegistry';
 
 interface DetailModalHeaderProps {
     user?: any | null;
@@ -58,7 +59,13 @@ const DetailModalHeader: React.FC<DetailModalHeaderProps> = ({
             <div className="flex justify-between items-start shrink-0">
                 <div className="text-left">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.3em] mb-1">
-                        {log ? 'Time Analysis Log' : (leaveRequest ? 'Leave Request Detail' : 'Overtime Request Detail')}
+                        {log ? 'บันทึกและวิเคราะห์เวลาทำงาน' : (leaveRequest ? (() => {
+                            const item = getRegistryItem(leaveRequest.type);
+                            const category = item?.category || 'LEAVE';
+                            if (category === 'CORRECTION') return 'รายละเอียดคำขอปรับปรุงเวลา';
+                            if (category === 'SPECIAL') return 'รายละเอียดคำขอปฏิบัติงาน';
+                            return 'รายละเอียดคำขอลา';
+                        })() : (otRequest ? 'รายละเอียดคำขอทำงานล่วงเวลา (OT)' : 'รายละเอียดคำขอ'))}
                     </p>
                     <h3 className="text-2xl md:text-3xl font-bold text-slate-800">
                         {format(displayDate, 'EEEE d MMMM', { locale: th })}

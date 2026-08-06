@@ -255,26 +255,18 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
     // Gather all valid attachment/proof URLs
     const attachmentUrls: string[] = [];
     
-    // 1. Check leaveRequest attachmentUrls
-    if (leaveRequest?.attachmentUrls && leaveRequest.attachmentUrls.length > 0) {
-        attachmentUrls.push(...leaveRequest.attachmentUrls);
+    // 0. Check log attachmentUrls
+    if (log?.attachmentUrls && log.attachmentUrls.length > 0) {
+        attachmentUrls.push(...log.attachmentUrls);
     }
 
-    // 2. Extract [PROOF:...] from note
-    if (note) {
-        const globalProofMatches = [...note.matchAll(/\[PROOF:(.*?)\]/g)];
-        if (globalProofMatches.length > 0) {
-            globalProofMatches.forEach(m => {
-                if (m[1] && !attachmentUrls.includes(m[1])) {
-                    attachmentUrls.push(m[1]);
-                }
-            });
-        } else {
-            const match = note.match(/\[PROOF:(.*?)\]/);
-            if (match && match[1] && !attachmentUrls.includes(match[1])) {
-                attachmentUrls.push(match[1]);
+    // 1. Check leaveRequest attachmentUrls
+    if (leaveRequest?.attachmentUrls && leaveRequest.attachmentUrls.length > 0) {
+        leaveRequest.attachmentUrls.forEach((url: string) => {
+            if (!attachmentUrls.includes(url)) {
+                attachmentUrls.push(url);
             }
-        }
+        });
     }
 
     const uniqueAttachmentUrls = Array.from(new Set(attachmentUrls.filter(Boolean)));

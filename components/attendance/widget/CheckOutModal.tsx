@@ -15,7 +15,7 @@ import { useCheckOutState } from './hooks/useCheckOutState';
 interface CheckOutModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (location?: { lat: number, lng: number }, locationName?: string, reason?: string) => Promise<void>;
+    onConfirm: (location?: { lat: number, lng: number }, locationName?: string, reason?: string, proofUrl?: string) => Promise<void>;
     onRequest: (time: string, reason: string, requestType?: any) => Promise<boolean>;
     availableLocations: LocationDef[];
     checkInTime: Date;

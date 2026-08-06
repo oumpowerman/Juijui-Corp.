@@ -140,8 +140,7 @@ export const useAttendanceActions = (userId: string) => {
 
             let incomingNote = note || '';
             const meta = [];
-            if (proofUrl) meta.push(`[PROOF:${proofUrl}]`);
-            if (isShiftsEnabled && (matchedShift || amHalfDayLeave)) {
+            if (isShiftsEnabled && (matchedShift || amHalfDayLeave || pmHalfDayLeave)) {
                 meta.push(`[TARGET_SHIFT:${effectiveStartTime}]`);
             }
             if (amHalfDayLeave) {
@@ -199,12 +198,16 @@ export const useAttendanceActions = (userId: string) => {
             // FETCH FRESH LOG DATA TO PREVENT OVERWRITE
             const { data: existingLog } = await supabase
                 .from('attendance_logs')
-                .select('note')
+                .select('note, attachment_urls')
                 .eq('user_id', userId)
                 .eq('date', todayDateStr)
                 .maybeSingle();
 
             const finalNote = mergeAttendanceNotes(existingLog?.note, incomingNote);
+            const existingAttachments: string[] = Array.isArray(existingLog?.attachment_urls) ? existingLog.attachment_urls : [];
+            const updatedAttachments = proofUrl && !existingAttachments.includes(proofUrl)
+                ? [...existingAttachments, proofUrl]
+                : existingAttachments;
 
             const payload: any = {
                 user_id: userId,
@@ -213,6 +216,7 @@ export const useAttendanceActions = (userId: string) => {
                 work_type: workType,
                 status: 'WORKING',
                 note: finalNote,
+                attachment_urls: updatedAttachments,
                 location_lat: location?.lat,
                 location_lng: location?.lng,
                 location_name: locationName || 'Unknown Location'
@@ -394,17 +398,20 @@ export const useAttendanceActions = (userId: string) => {
             }
 
             let incomingNote = reason;
-            if (proofUrl) incomingNote += ` [PROOF:${proofUrl}]`;
 
             // FETCH FRESH LOG DATA TO PREVENT OVERWRITE
             const { data: existingLog } = await supabase
                 .from('attendance_logs')
-                .select('note')
+                .select('note, attachment_urls')
                 .eq('user_id', userId)
                 .eq('date', dateStr)
                 .maybeSingle();
 
             const finalNote = mergeAttendanceNotes(existingLog?.note, `[MANUAL_ENTRY] ${incomingNote}`);
+            const existingAttachments: string[] = Array.isArray(existingLog?.attachment_urls) ? existingLog.attachment_urls : [];
+            const updatedAttachments = proofUrl && !existingAttachments.includes(proofUrl)
+                ? [...existingAttachments, proofUrl]
+                : existingAttachments;
 
             const payload = {
                 user_id: userId,
@@ -413,6 +420,7 @@ export const useAttendanceActions = (userId: string) => {
                 work_type: 'OFFICE',
                 status: 'PENDING_VERIFY',
                 note: finalNote,
+                attachment_urls: updatedAttachments,
                 location_name: 'Manual Entry'
             };
 
@@ -442,7 +450,8 @@ export const useAttendanceActions = (userId: string) => {
         todayLog: AttendanceLog,
         location?: { lat: number, lng: number },
         locationName?: string,
-        reason?: string
+        reason?: string,
+        proofUrl?: string
     ) => {
         if (!todayLog || !todayLog.checkInTime) return false;
         setIsActionLoading(true);
@@ -495,10 +504,10 @@ export const useAttendanceActions = (userId: string) => {
                 calcResult.missingMinutes = 0;
             }
 
-            // Fetch fresh log data to ensure we have the latest note (prevent overwriting)
+            // Fetch fresh log data to ensure we have the latest note and attachment_urls (prevent overwriting)
             const { data: freshLog, error: fetchError } = await supabase
                 .from('attendance_logs')
-                .select('note')
+                .select('note, attachment_urls')
                 .eq('id', todayLog.id)
                 .single();
 
@@ -507,17 +516,26 @@ export const useAttendanceActions = (userId: string) => {
             }
 
             const currentNote = freshLog?.note || todayLog.note || '';
+            const existingAttachments: string[] = Array.isArray(freshLog?.attachment_urls)
+                ? freshLog.attachment_urls
+                : (Array.isArray(todayLog.attachmentUrls) ? todayLog.attachmentUrls : []);
+
+            let newAttachments = [...existingAttachments];
+            if (proofUrl && !newAttachments.includes(proofUrl)) {
+                newAttachments.push(proofUrl);
+            }
 
             let noteAppend = '';
+            const cleanFinalReason = finalReason ? finalReason.trim() : '';
             if (isAdjustedCheckout) {
                  noteAppend += `[FORGETFUL_ADJUST_CHECKOUT] [OK: ${calcResult.hoursWorked.toFixed(2)} hrs]`;
-                 if (finalReason) noteAppend += ` [REASON: ${finalReason}]`;
+                 if (cleanFinalReason) noteAppend += ` [REASON: ${cleanFinalReason}]`;
             } else if (calcResult.status === 'EARLY_LEAVE') {
                  noteAppend += `[EARLY: Missing ${calcResult.missingMinutes.toFixed(0)}m]`;
-                 if (finalReason) noteAppend += ` [REASON: ${finalReason}]`;
+                 if (cleanFinalReason) noteAppend += ` [REASON: ${cleanFinalReason}]`;
             } else {
                  noteAppend += `[OK: ${calcResult.hoursWorked.toFixed(2)} hrs]`;
-                 if (finalReason) noteAppend += ` [REASON: ${finalReason}]`;
+                 if (cleanFinalReason) noteAppend += ` [REASON: ${cleanFinalReason}]`;
             }
 
             const isProvisionalCheckout = reason && reason.includes('[PROVISIONAL_CHECKOUT]');
@@ -533,6 +551,7 @@ export const useAttendanceActions = (userId: string) => {
                 check_out_time: now.toISOString(),
                 status: newStatus,
                 note: finalNote,
+                attachment_urls: newAttachments,
                 check_out_lat: location?.lat,
                 check_out_lng: location?.lng,
                 check_out_location_name: locationName

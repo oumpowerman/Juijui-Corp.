@@ -194,7 +194,7 @@ export function useCheckInState({
         });
 
         const session = halfDayLeave ? (halfDayLeave.halfDaySession || halfDayLeave.half_day_session) : null;
-        if (session === 'AM' && !isBeforeTransitionPoint) {
+        if (session === 'AM') {
             const { hour, minute, totalMinutes: currentTotalMinutes } = getICTTime(now);
             const timeStr = `${hour}:${minute}`;
             const { matchedPMStart } = calculatePMShiftDetails(timeStr, shiftsList, minHours);
@@ -213,6 +213,19 @@ export function useCheckInState({
                 isExceededLastShift: isLate,
                 lateMinutes: diff > 0 ? diff : 0
             };
+        } else if (session === 'PM') {
+            if (isBeforeTransitionPoint) {
+                return getMatchedShiftSlot(now, shiftsList, lateBuffer, true);
+            } else {
+                const normalSlot = getMatchedShiftSlot(now, shiftsList, lateBuffer, true);
+                return {
+                    ...normalSlot,
+                    isLate: true,
+                    isRawLate: true,
+                    isBlocked: true,
+                    isExceededLastShift: true,
+                };
+            }
         }
 
         return getMatchedShiftSlot(now, shiftsList, lateBuffer, true);
@@ -366,8 +379,8 @@ export function useCheckInState({
             const session = halfDayLeave.halfDaySession || halfDayLeave.half_day_session;
             if (session === 'AM' && isBeforeTransitionPoint) {
                 const confirmed = await showConfirm(
-                    "คุณมีคำขออนุมัติลาครึ่งเช้าอยู่หนิ ถ้ากดเข้างานจะเสียการลาฟรีนะ",
-                    "⚠️ ยืนยันการเข้างานช่วงเช้า"
+                    "คุณมีคำขออนุมัติลาครึ่งเช้าอยู่ หากยืนยันตอกบัตรตอนนี้จะลงเวลาเข้างานช่วงบ่าย ยืนยันหรือไม่?",
+                    "⚠️ ยืนยันการเข้างานช่วงบ่าย"
                 );
                 if (!confirmed) return;
             } else if (session === 'PM' && !isBeforeTransitionPoint) {

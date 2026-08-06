@@ -4,7 +4,6 @@ import { motion } from 'framer-motion';
 import LateAlertCard from './addons/LateAlertCard';
 import MidnightCheckCard from './addons/MidnightCheckCard';
 import DailyReportCard from './addons/DailyReportCard';
-import AttendanceRaceCard from './addons/AttendanceRaceCard';
 import LineApprovalModeCard from './addons/LineApprovalModeCard';
 import CheckoutReminderCard from './addons/CheckoutReminderCard';
 import SubmissionAlertCard from './addons/SubmissionAlertCard';
@@ -105,47 +104,40 @@ const ServerAddonsSection: React.FC<ServerAddonsSectionProps> = ({
                 );
             case 3:
                 return (
-                    <AttendanceRaceCard
+                    <LineApprovalModeCard
                         tempTimeConfig={tempTimeConfig}
                         setTempTimeConfig={setTempTimeConfig}
                     />
                 );
             case 4:
                 return (
-                    <LineApprovalModeCard
+                    <CheckoutReminderCard
                         tempTimeConfig={tempTimeConfig}
                         setTempTimeConfig={setTempTimeConfig}
                     />
                 );
             case 5:
                 return (
-                    <CheckoutReminderCard
+                    <SubmissionAlertCard
                         tempTimeConfig={tempTimeConfig}
                         setTempTimeConfig={setTempTimeConfig}
                     />
                 );
             case 6:
                 return (
-                    <SubmissionAlertCard
+                    <AbsentCheckCard
                         tempTimeConfig={tempTimeConfig}
                         setTempTimeConfig={setTempTimeConfig}
                     />
                 );
             case 7:
                 return (
-                    <AbsentCheckCard
-                        tempTimeConfig={tempTimeConfig}
-                        setTempTimeConfig={setTempTimeConfig}
-                    />
-                );
-            case 8:
-                return (
                     <MonthlyBonusCard
                         tempTimeConfig={tempTimeConfig}
                         setTempTimeConfig={setTempTimeConfig}
                     />
                 );
-            case 9:
+            case 8:
                 return (
                     <MonthlyOTCard
                         tempTimeConfig={tempTimeConfig}
@@ -162,7 +154,6 @@ const ServerAddonsSection: React.FC<ServerAddonsSectionProps> = ({
         { title: 'Late Alert Alarm', color: 'bg-indigo-500', glow: 'shadow-indigo-500/30' },
         { title: 'Midnight Auto Check-out', color: 'bg-amber-500', glow: 'shadow-amber-500/30' },
         { title: 'Daily Summary Report', color: 'bg-emerald-500', glow: 'shadow-emerald-500/30' },
-        { title: 'Weekly Attendance Race', color: 'bg-purple-500', glow: 'shadow-purple-500/30' },
         { title: 'LINE Approval Mode', color: 'bg-emerald-500', glow: 'shadow-emerald-500/30' },
         { title: 'Checkout Reminder', color: 'bg-indigo-500', glow: 'shadow-indigo-500/30' },
         { title: 'Submission Alert Policy', color: 'bg-emerald-500', glow: 'shadow-emerald-500/30' },
@@ -248,7 +239,7 @@ const ServerAddonsSection: React.FC<ServerAddonsSectionProps> = ({
                             }}
                             transition={{ type: "spring", stiffness: 220, damping: 26 }}
                         >
-                            {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((idx) => {
+                            {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((idx) => {
                                 const isActive = idx === activeSlide;
                                 return (
                                     <motion.div
@@ -258,7 +249,7 @@ const ServerAddonsSection: React.FC<ServerAddonsSectionProps> = ({
                                                 setActiveSlide(idx);
                                             }
                                         }}
-                                        className={`shrink-0 select-none border border-gray-100 bg-white p-5 rounded-2xl shadow-sm flex flex-col justify-between h-[650px] overflow-y-auto scrollbar-thin ${
+                                        className={`shrink-0 select-none border border-gray-100 bg-white p-5 rounded-2xl shadow-sm flex flex-col justify-between h-[650px] overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] ${
                                             isActive 
                                                 ? `${slideMeta[idx].glow} ring-2 ring-indigo-100/50 cursor-default` 
                                                 : "cursor-pointer hover:border-gray-200"
@@ -301,7 +292,7 @@ const ServerAddonsSection: React.FC<ServerAddonsSectionProps> = ({
             ) : (
                 /* GRID VIEW MODE */
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {[0, 1, 2, 3, 4, 5, 6, 7, 8, 9].map((idx) => (
+                    {[0, 1, 2, 3, 4, 5, 6, 7, 8].map((idx) => (
                         <div
                             key={idx}
                             className={`border border-gray-100 bg-white p-5 rounded-2xl shadow-sm hover:shadow-md transition-all flex flex-col justify-between min-h-[440px]`}

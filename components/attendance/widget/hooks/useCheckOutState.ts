@@ -14,7 +14,7 @@ import { useUserSession } from '../../../../context/UserSessionContext';
 interface UseCheckOutStateProps {
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (location?: { lat: number, lng: number }, locationName?: string, reason?: string) => Promise<void>;
+    onConfirm: (location?: { lat: number, lng: number }, locationName?: string, reason?: string, proofUrl?: string) => Promise<void>;
     onRequest: (time: string, reason: string, requestType?: any) => Promise<boolean>;
     availableLocations: LocationDef[];
     checkInTime: Date;
@@ -274,6 +274,7 @@ export const useCheckOutState = ({
         
         setIsSubmitting(true);
         let finalReason = earlyReason;
+        let proofUrl: string | undefined = undefined;
 
         if (checkOutStatus === 'EARLY_LEAVE' && selectedImageFile) {
             setIsUploading(true);
@@ -317,7 +318,8 @@ export const useCheckOutState = ({
                 }
                 
                 if (uploadUrl) {
-                    finalReason = `${earlyReason} [PROOF:${uploadUrl}]`;
+                    finalReason = earlyReason;
+                    proofUrl = uploadUrl;
                 }
             } catch (err) {
                 console.error("Failed to upload check-out proof image:", err);
@@ -333,7 +335,8 @@ export const useCheckOutState = ({
         await onConfirm(
             { lat: currentLat, lng: currentLng }, 
             matchedLocation?.name, 
-            finalReason
+            finalReason,
+            proofUrl
         );
         setIsSubmitting(false);
         setShowEarlyConfirmation(false);
@@ -403,6 +406,7 @@ export const useCheckOutState = ({
         }
         setIsSubmitting(true);
         let finalReason = reason;
+        let proofUrl: string | undefined = undefined;
 
         // Dynamically synchronize the time to the actual click-submit moment for real-time checkouts
         let finalTime = time;
@@ -453,7 +457,8 @@ export const useCheckOutState = ({
                 }
 
                 if (uploadUrl) {
-                    finalReason = `${reason} [PROOF:${uploadUrl}]`;
+                    finalReason = reason;
+                    proofUrl = uploadUrl;
                 }
             } catch (err) {
                 console.error("Failed to upload out-of-range check-out proof image:", err);
@@ -476,7 +481,8 @@ export const useCheckOutState = ({
         await onConfirm(
             { lat: currentLat, lng: currentLng }, 
             matchedLocation?.name || 'Unknown Location', 
-            reasonWithProv
+            reasonWithProv,
+            proofUrl
         );
 
         // Also submit the formal request for admin review/approval

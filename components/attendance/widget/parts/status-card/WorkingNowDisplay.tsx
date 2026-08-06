@@ -7,7 +7,7 @@ import { CheckOutModal } from '../../CheckOutModal';
 interface WorkingNowDisplayProps {
     todayLog: AttendanceLog;
     availableLocations: LocationDef[];
-    onCheckOut: (location?: { lat: number, lng: number }, locationName?: string, reason?: string) => Promise<void>;
+    onCheckOut: (location?: { lat: number, lng: number }, locationName?: string, reason?: string, proofUrl?: string) => Promise<void>;
     handleCheckOutRequest: (timeStr: string, reason: string) => Promise<boolean>;
     handleOvertimeSubmit: (otMinutes: number, reason: string) => Promise<boolean>;
     onNavigateToHistory?: () => void;

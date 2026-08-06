@@ -4,6 +4,10 @@ import { parseAttendanceMetadata } from '../../lib/attendanceUtils';
 
 export const mapAttendanceLog = (data: any): AttendanceLog => {
     const meta = parseAttendanceMetadata(data.note);
+    const rawAttachments: string[] = Array.isArray(data.attachment_urls) ? data.attachment_urls : [];
+    const attachmentUrls = rawAttachments.length > 0 
+        ? rawAttachments 
+        : (meta.proofUrl ? [meta.proofUrl] : []);
     
     return {
         id: data.id,
@@ -14,6 +18,7 @@ export const mapAttendanceLog = (data: any): AttendanceLog => {
         workType: data.work_type,
         status: data.status,
         note: data.note,
+        attachmentUrls,
         locationLat: data.location_lat ?? meta.location?.lat,
         locationName: data.location_name ?? meta.locationName,
         locationLng: data.location_lng ?? meta.location?.lng,

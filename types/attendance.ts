@@ -30,6 +30,7 @@ export interface AttendanceLog {
     workType: WorkLocation;
     status: AttendanceStatus;
     note?: string;
+    attachmentUrls?: string[]; // Structured file proof attachments
     user?: User; // Joined profile
     
     // New Structured Data Columns

@@ -63,7 +63,7 @@ BEGIN
 
     -- Loop through active profiles that match target roles
     FOR profile_rec IN
-        SELECT p.id, p.hp, p.max_hp, p.death_count, p.name, p.role
+        SELECT p.id, p.hp, p.max_hp, p.death_count, p.full_name, p.role
         FROM public.profiles p
         WHERE p.is_active = TRUE
           AND (

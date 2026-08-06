@@ -536,12 +536,16 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                     }
                 }
 
+                const existingAttachments: string[] = Array.isArray(existingLog?.attachment_urls) ? existingLog.attachment_urls : [];
+                const combinedAttachments = Array.from(new Set([...existingAttachments, ...uploadedUrls]));
+
                 const payload: any = {
                     user_id: currentUser.id,
                     date: startDateStr,
                     check_in_time: startDate.toISOString(),
                     status: 'WORKING',
                     note: finalNote,
+                    attachment_urls: combinedAttachments,
                     work_type: linkedRemoteType || existingLog?.work_type || 'OFFICE'
                 };
 
@@ -579,6 +583,9 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                     finalNote = `[ORIGINALLY: ABSENT] ${finalNote}`;
                 }
                 
+                const existingAttachmentsFB: string[] = Array.isArray(existingLog?.attachment_urls) ? existingLog.attachment_urls : [];
+                const combinedAttachmentsFB = Array.from(new Set([...existingAttachmentsFB, ...uploadedUrls]));
+
                 const payload: any = {
                     user_id: currentUser.id,
                     date: startDateStr,
@@ -586,6 +593,7 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                     check_out_time: endDate.toISOString(), // บันทึกเวลาออกจำลองชั่วคราวตามที่ส่งขอ
                     status: 'PENDING_VERIFY', // ตั้งเป็น PENDING_VERIFY เพื่อรออนุมัติ
                     note: finalNote,
+                    attachment_urls: combinedAttachmentsFB,
                     work_type: linkedRemoteType || existingLog?.work_type || 'OFFICE'
                 };
 
@@ -616,12 +624,16 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                     }
                 }
 
+                const existingAttachmentsLE: string[] = Array.isArray(existingLog?.attachment_urls) ? existingLog.attachment_urls : [];
+                const combinedAttachmentsLE = Array.from(new Set([...existingAttachmentsLE, ...uploadedUrls]));
+
                 const payload: any = {
                     user_id: currentUser.id,
                     date: startDateStr,
                     check_in_time: startDate.toISOString(),
                     status: 'WORKING',
                     note: finalNote,
+                    attachment_urls: combinedAttachmentsLE,
                     work_type: linkedRemoteType || existingLog?.work_type || 'OFFICE'
                 };
 
@@ -649,9 +661,13 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                     }
                 }
 
+                const existingAttachmentsFCO: string[] = Array.isArray(existingLog?.attachment_urls) ? existingLog.attachment_urls : [];
+                const combinedAttachmentsFCO = Array.from(new Set([...existingAttachmentsFCO, ...uploadedUrls]));
+
                 const payload: any = {
                     status: 'PENDING_VERIFY',
                     note: finalNote,
+                    attachment_urls: combinedAttachmentsFCO,
                     check_out_time: endDate.toISOString()
                 };
 

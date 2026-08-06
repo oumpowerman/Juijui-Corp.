@@ -10,7 +10,7 @@ interface AttendanceDetailTableProps {
     logs: AttendanceLog[];
     leaveRequests?: any[];
     getStatusDetails: (status: string) => { label: string; className: string };
-    extractProofUrl: (note?: string) => string | null;
+    extractProofUrl: (logOrNote?: AttendanceLog | string | null) => string | null;
     cleanNote: (note?: string) => string;
     formatTime: (time: any) => string;
     setPreviewImage: (url: string | null) => void;
@@ -110,7 +110,7 @@ export const AttendanceDetailTable: React.FC<AttendanceDetailTableProps> = ({
                 </thead>
                 <tbody className="divide-y divide-slate-50">
                     {logs.map((log) => {
-                        const proofUrl = extractProofUrl(log.note);
+                        const proofUrl = extractProofUrl(log);
                         const noteText = cleanNote(log.note);
                         const statusDetails = getStatusDetails(log.status);
 

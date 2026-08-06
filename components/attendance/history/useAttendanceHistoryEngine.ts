@@ -270,9 +270,8 @@ export const useAttendanceHistoryEngine = (userId: string, highlightedDate?: str
     }, [startTimeStr, lateBufferMinutes, multipleShifts]);
 
     const getProofUrl = useCallback((log: AttendanceLog) => {
-        if (log.note && log.note.includes('[PROOF:')) {
-            const meta = parseAttendanceMetadata(log.note);
-            return meta.proofUrl;
+        if (log.attachmentUrls && log.attachmentUrls.length > 0) {
+            return log.attachmentUrls[0];
         }
         return null;
     }, []);

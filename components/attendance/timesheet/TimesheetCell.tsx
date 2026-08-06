@@ -280,7 +280,7 @@ const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({
                     </>
                 )}
                 
-                {log.note?.includes('[PROOF:') && (
+                {((log.attachmentUrls && log.attachmentUrls.length > 0) || (leaveRequest?.attachmentUrls && leaveRequest.attachmentUrls.length > 0)) && (
                     <div className="absolute top-1 right-1">
                         <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></div>
                     </div>

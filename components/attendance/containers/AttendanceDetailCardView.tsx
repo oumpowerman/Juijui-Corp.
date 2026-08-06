@@ -10,7 +10,7 @@ interface AttendanceDetailCardViewProps {
     logs: AttendanceLog[];
     leaveRequests?: any[];
     getStatusDetails: (status: string) => { label: string; className: string };
-    extractProofUrl: (note?: string) => string | null;
+    extractProofUrl: (logOrNote?: AttendanceLog | string | null) => string | null;
     cleanNote: (note?: string) => string;
     formatTime: (time: any) => string;
     setPreviewImage: (url: string | null) => void;
@@ -89,7 +89,7 @@ export const AttendanceDetailCardView: React.FC<AttendanceDetailCardViewProps> =
     return (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
             {logs.map((log) => {
-                const proofUrl = extractProofUrl(log.note);
+                const proofUrl = extractProofUrl(log);
                 const noteText = cleanNote(log.note);
                 const statusDetails = getStatusDetails(log.status);
 

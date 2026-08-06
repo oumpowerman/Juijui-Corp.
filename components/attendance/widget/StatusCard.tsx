@@ -27,7 +27,7 @@ interface StatusCardProps {
     outdatedLogs: AttendanceLog[];
     stats: AttendanceStats;
     todayActiveLeave: LeaveRequest | null;
-    onCheckOut: (location?: { lat: number, lng: number }, locationName?: string, reason?: string) => Promise<void>; 
+    onCheckOut: (location?: { lat: number, lng: number }, locationName?: string, reason?: string, proofUrl?: string) => Promise<void>; 
     onCheckOutRequest: (type: LeaveType, start: Date, end: Date, reason: string, files?: File[]) => Promise<boolean>; 
     onOpenCheckIn: (isHoliday?: boolean) => void;
     onOpenLeave: (type?: any) => void;

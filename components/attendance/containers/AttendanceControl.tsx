@@ -237,7 +237,7 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({
         }
     };
 
-    const handleCheckOut = async (location?: any, locationName?: string, reason?: string) => {
+    const handleCheckOut = async (location?: any, locationName?: string, reason?: string, proofUrl?: string) => {
         if (!todayLog) return;
         
         const now = new Date();
@@ -261,7 +261,7 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({
         const calcResult = calculateCheckOutStatus(new Date(todayLog.checkInTime), now, minHours, effectiveStartTimeStr);
         const isEarlyLeave = calcResult.status === 'EARLY_LEAVE';
 
-        const success = await checkOut(todayLog, location, locationName, reason);
+        const success = await checkOut(todayLog, location, locationName, reason, proofUrl);
         if (success) {
             if (!isEarlyLeave) {
                 await showSuccess(

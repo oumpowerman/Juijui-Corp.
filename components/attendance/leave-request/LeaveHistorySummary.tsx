@@ -162,6 +162,13 @@ const LeaveHistorySummary: React.FC<LeaveHistorySummaryProps> = ({ onBack, borde
         return r.sort((a, b) => new Date(b.startDate).getTime() - new Date(a.startDate).getTime());
     }, [requests, currentUserProfile, selectedYear, filterType]);
 
+    // Force reset isScrolled when filteredRequests is 2 or less to prevent loop shaking
+    useEffect(() => {
+        if (filteredRequests.length <= 2 && isScrolled) {
+            setIsScrolled(false);
+        }
+    }, [filteredRequests.length, isScrolled]);
+
     // Calculate usage stats dynamically for the selected year
     const selectedYearStats = useMemo(() => {
         const stats: Record<string, number> = {
@@ -337,7 +344,7 @@ const LeaveHistorySummary: React.FC<LeaveHistorySummaryProps> = ({ onBack, borde
                     className="overflow-hidden"
                     id="history-stats-cards-grid-full-wrapper"
                 >
-                    <div className="grid grid-cols-3 gap-3 pt-1" id="history-stats-cards-grid-full">
+                    <div className="grid grid-cols-3 gap-3 p-1.5" id="history-stats-cards-grid-full">
                         {Object.entries(selectedYearStats).map(([type, value]) => {
                             const theme = PASTEL_THEMES[type] || PASTEL_THEMES.DEFAULT;
                             const Icon = theme.icon;
@@ -389,7 +396,7 @@ const LeaveHistorySummary: React.FC<LeaveHistorySummaryProps> = ({ onBack, borde
                     className="overflow-hidden"
                     id="history-compact-stats-wrapper"
                 >
-                    <div className="flex items-center gap-1.5 overflow-x-auto py-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] snap-x animate-in fade-in slide-in-from-top-2 duration-300" id="history-compact-stats">
+                    <div className="flex items-center gap-1.5 overflow-x-auto py-1.5 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] snap-x animate-in fade-in slide-in-from-top-2 duration-300" id="history-compact-stats">
                         {Object.entries(selectedYearStats).map(([type, value]) => {
                             const theme = PASTEL_THEMES[type] || PASTEL_THEMES.DEFAULT;
                             const Icon = theme.icon;
@@ -423,9 +430,19 @@ const LeaveHistorySummary: React.FC<LeaveHistorySummaryProps> = ({ onBack, borde
             <div 
                 ref={containerRef}
                 onScroll={(e) => {
-                    setIsScrolled(e.currentTarget.scrollTop > 45);
+                    if (filteredRequests.length <= 2) {
+                        if (isScrolled) setIsScrolled(false);
+                        return;
+                    }
+
+                    const { scrollTop } = e.currentTarget;
+                    if (scrollTop > 45) {
+                        setIsScrolled(true);
+                    } else if (scrollTop <= 5) {
+                        setIsScrolled(false);
+                    }
                 }}
-                className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-0.5 py-4 pb-20 flex flex-col space-y-3" 
+                className="flex-1 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] px-0.5 py-4 pb-4 flex flex-col space-y-3" 
                 id="history-list-scroll-view"
             >
                 <div className="flex justify-between items-center border-b border-slate-100 pb-1.5">
@@ -568,6 +585,18 @@ const LeaveHistorySummary: React.FC<LeaveHistorySummaryProps> = ({ onBack, borde
                             );
                         })}
                     </AnimatePresence>
+                )}
+
+                {/* Compensatory Bottom Spacer to prevent scroll bounce looping */}
+                {filteredRequests.length > 0 && (
+                    <motion.div
+                        animate={{
+                            height: isScrolled ? 110 : 20,
+                        }}
+                        transition={{ duration: 0.25, ease: 'easeInOut' }}
+                        className="shrink-0 animate-in fade-in duration-200"
+                        id="history-scroll-compensatory-spacer"
+                    />
                 )}
             </div>
         </>

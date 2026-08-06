@@ -73,10 +73,15 @@ const AttendanceDetailCards: React.FC<Props> = ({ logs, type, onClose }) => {
         }
     };
 
-    const extractProofUrl = (note?: string) => {
-        if (!note) return null;
-        const match = note.match(/\[PROOF:(.*?)\]/);
-        return match ? match[1] : null;
+    const extractProofUrl = (logOrNote?: AttendanceLog | string | null) => {
+        if (!logOrNote) return null;
+        if (typeof logOrNote === 'object') {
+            if (logOrNote.attachmentUrls && logOrNote.attachmentUrls.length > 0) {
+                return logOrNote.attachmentUrls[0];
+            }
+            return null;
+        }
+        return null;
     };
 
     const cleanNote = (note?: string) => {

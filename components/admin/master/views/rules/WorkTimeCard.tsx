@@ -3,6 +3,7 @@ import { Clock, Sparkles, Save } from 'lucide-react';
 import TimePickerModal from '../../../../ui/TimePickerModal';
 import ServerAddonsSection from './ServerAddonsSection';
 import MultipleShiftsCard from './MultipleShiftsCard';
+import AttendanceRaceCard from './addons/AttendanceRaceCard';
 
 export interface WorkTimeConfig {
     start: string;
@@ -185,6 +186,9 @@ const WorkTimeCard: React.FC<WorkTimeCardProps> = ({
                     </div>
                 </div>
             </div>
+
+            {/* Weekly Attendance Race (Gamification) */}
+            <AttendanceRaceCard tempTimeConfig={tempTimeConfig} setTempTimeConfig={setTempTimeConfig} />
 
             {/* Multiple Shifts Configuration Section */}
             <MultipleShiftsCard tempTimeConfig={tempTimeConfig} setTempTimeConfig={setTempTimeConfig} />

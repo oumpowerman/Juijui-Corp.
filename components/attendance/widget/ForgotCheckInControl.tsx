@@ -575,7 +575,7 @@ const ForgotCheckInControl: React.FC<ForgotCheckInControlProps> = ({
                                                     ระบบตรวจสอบพิกัดเสร็จสิ้น
                                                 </h3>
                                                 <p className="text-xs text-gray-400 font-medium leading-relaxed max-w-xs font-sarabun text-center">
-                                                    คุณยืนยันตัวตนอยู่ที่ <span className="font-bold text-emerald-600">[สำนักงานใหญ่]</span> เรียบร้อยแล้ว
+                                                    คุณยืนยันตัวตนอยู่ที่ <span className="font-bold text-emerald-600">[{locationState.matchedLocation?.name || 'สำนักงานใหญ่'}]</span> เรียบร้อยแล้ว
                                                 </p>
                                             </div>
 
@@ -635,8 +635,10 @@ const ForgotCheckInControl: React.FC<ForgotCheckInControlProps> = ({
                 masterOptions={masterOptions}
                 leaveUsage={leaveUsage}
                 fixedType="FORGOT_CHECKIN"
+                initialTargetTime={startTime}
                 linkedRemoteType={selectedRemoteType}
                 isInOffice={isInOffice}
+                locationName={locationState.matchedLocation?.name}
             />
         </>
     );

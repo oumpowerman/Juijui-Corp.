@@ -30,6 +30,7 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user, onNavigateToH
     const [leaveModalType, setLeaveModalType] = useState<LeaveType | undefined>(undefined);
     const [linkedRemoteType, setLinkedRemoteType] = useState<'WFH' | 'ONSITE' | undefined>(undefined);
     const [isCheckInModalOpen, setIsCheckInModalOpen] = useState(false);
+    const [isInstantCheckIn, setIsInstantCheckIn] = useState<boolean>(false);
 
     // Auto-trigger Check-in Modal if action=checkin or triggerCheckIn=true query param exists
     useEffect(() => {
@@ -119,24 +120,27 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user, onNavigateToH
         files?: File[], 
         linkedRemoteType?: 'WFH' | 'ONSITE',
         isHalfDay?: boolean,
-        halfDaySession?: string
+        halfDaySession?: string,
+        isInstant?: boolean
     ): Promise<boolean> => {
-        const result = await submitRequest(type, start, end, reason, files, linkedRemoteType, isHalfDay, halfDaySession);
+        const result = await submitRequest(type, start, end, reason, files, linkedRemoteType, isHalfDay, halfDaySession, isInstant !== undefined ? isInstant : isInstantCheckIn);
         if (result) {
             setIsCheckInModalOpen(false);
         }
         return !!result;
-    }, [submitRequest]);
+    }, [submitRequest, isInstantCheckIn]);
 
     const handleCloseLeaveModal = useCallback(() => {
         setIsLeaveModalOpen(false);
         setLeaveModalType(undefined);
         setLinkedRemoteType(undefined);
+        setIsInstantCheckIn(false);
     }, []);
 
-    const handleOpenLeaveModal = useCallback((type?: LeaveType, workType?: 'WFH' | 'ONSITE') => {
+    const handleOpenLeaveModal = useCallback((type?: LeaveType, workType?: 'WFH' | 'ONSITE', isInstant: boolean = false) => {
         setLeaveModalType(type);
         setLinkedRemoteType(workType);
+        setIsInstantCheckIn(isInstant);
         setIsLeaveModalOpen(true);
     }, []);
 
@@ -176,6 +180,7 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user, onNavigateToH
                 requests={requests} 
                 fixedType={leaveModalType}
                 linkedRemoteType={linkedRemoteType}
+                isInstantCheckIn={isInstantCheckIn}
             />
         </div>
     );

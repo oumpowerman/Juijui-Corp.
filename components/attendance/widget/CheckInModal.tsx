@@ -253,18 +253,18 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
                                                     <AlertTriangle className="w-12 h-12 text-rose-500" />
                                                 </div>
                                                 <h3 className="text-lg font-bold text-gray-900 mb-2">
-                                                    เลยช่วงเวลาล็อคกะงานสุดท้ายแล้ว
+                                                    เลยช่วงเวลาเข้างานแล้ว
                                                 </h3>
                                                 <p className="text-sm font-semibold text-rose-600 mb-3">
                                                     (Overdue / Required Appeal)
                                                 </p>
                                                 <p className="text-xs text-gray-500 leading-relaxed px-2 max-w-sm">
-                                                    คุณลงเวลาเกินกำหนดกะรอบสุดท้าย ({shiftResult.targetStartTime} น.) ร่วมกับช่วงเวลาผ่อนปรนเรียบร้อยแล้วค่ะ ระบบไม่อนุญาตให้ลงเวลาปกติ กรุณาส่งใบคำร้องพิเศษเพื่อขออนุมัติย้อนหลังจากผู้ดูแลระบบอย่างเป็นทางการแทน
+                                                    คุณลงเวลาเกินกำหนด ({shiftResult.targetStartTime} น.) ร่วมกับช่วงเวลาผ่อนปรนเรียบร้อยแล้วค่ะ ระบบไม่อนุญาตให้ลงเวลาปกติ กรุณาส่งใบคำร้องพิเศษเพื่อขออนุมัติย้อนหลังจากผู้ดูแลระบบอย่างเป็นทางการแทน
                                                 </p>
                                                 
                                                 <div className="mt-4 p-3 bg-gray-50 rounded-xl border border-gray-100 text-left w-full text-xs space-y-1.5">
                                                     <div className="flex justify-between">
-                                                        <span className="text-gray-400">กะสุดท้ายที่พบ:</span>
+                                                        <span className="text-gray-400">เวลาที่พบ:</span>
                                                         <span className="font-bold text-gray-700">{shiftResult.targetStartTime} น.</span>
                                                     </div>
                                                     <div className="flex justify-between">

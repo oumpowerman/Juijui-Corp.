@@ -32,7 +32,8 @@ interface Props {
         files?: File[], 
         linkedRemoteType?: 'WFH' | 'ONSITE',
         isHalfDay?: boolean,
-        halfDaySession?: string
+        halfDaySession?: string,
+        isInstantCheckIn?: boolean
     ) => Promise<boolean>;
     onClose: () => void;
     masterOptions: MasterOption[];
@@ -40,14 +41,17 @@ interface Props {
     pendingUsage?: LeaveUsage;
     initialDate?: Date;
     initialReason?: string;
+    initialTargetTime?: string;
     fixedType?: boolean;
     linkedRemoteType?: 'WFH' | 'ONSITE';
     isInOffice?: boolean;
+    locationName?: string;
+    isInstantCheckIn?: boolean;
 }
 
 
 const LeaveFormContainer: React.FC<Props> = ({ 
-    selectedType, onBack, onSubmit, onClose, masterOptions, leaveUsage, pendingUsage, initialDate, initialReason, fixedType, linkedRemoteType, isInOffice
+    selectedType, onBack, onSubmit, onClose, masterOptions, leaveUsage, pendingUsage, initialDate, initialReason, initialTargetTime, fixedType, linkedRemoteType, isInOffice, locationName, isInstantCheckIn
 }) => {
     const { annualHolidays, calendarExceptions } = useMasterData();
     const { currentUserProfile } = useUserSession();
@@ -138,11 +142,13 @@ const LeaveFormContainer: React.FC<Props> = ({
         onClose, 
         initialDate, 
         initialReason, 
+        initialTargetTime, 
         selectedType, 
         advanceDays: parsedAdvanceDays,
         maxFutureDays: parsedMaxFutureDays,
         maxPastDays: (getRegistryItem(selectedType)?.category === 'CORRECTION' && selectedType !== 'LATE_ENTRY' && selectedType !== 'OUT_OF_RANGE_CHECKOUT') ? 7 : parsedMaxPastDays,
-        linkedRemoteType
+        linkedRemoteType,
+        isInstantCheckIn
     });
 
     const [filePreviewUrls, setFilePreviewUrls] = useState<string[]>([]);
@@ -411,6 +417,7 @@ const LeaveFormContainer: React.FC<Props> = ({
                             isTimeSpecific={isTimeSpecific}
                             linkedRemoteType={linkedRemoteType}
                             isInOffice={isInOffice}
+                            locationName={locationName}
                             files={files}
                             filePreviewUrls={filePreviewUrls}
                             isSubmitting={isSubmitting}
@@ -496,7 +503,7 @@ const LeaveFormContainer: React.FC<Props> = ({
                                     </div>
                                     <p className={`text-[11px] sm:text-xs leading-relaxed font-bold font-sarabun text-center px-2 ${isInOffice ? 'text-emerald-600' : 'text-indigo-600/90'}`}>
                                         {isInOffice 
-                                            ? '✨ ยืนยันพิกัดเข้างานสำเร็จ! ระบบตรวจพบว่าคุณยืนยันตัวตนอยู่ในพื้นที่ [สำนักงานใหญ่] เรียบร้อยแล้ว แอดมินสามารถอนุมัติคำขอนี้ได้ทันทีโดยไม่ต้องตรวจสอบเอกสารพิกัดเพิ่มเติม'
+                                            ? `✨ ยืนยันพิกัดเข้างานสำเร็จ! ระบบตรวจพบว่าคุณยืนยันตัวตนอยู่ในพื้นที่ [${locationName || 'สำนักงานใหญ่'}] เรียบร้อยแล้ว แอดมินสามารถอนุมัติคำขอนี้ได้ทันทีโดยไม่ต้องตรวจสอบเอกสารพิกัดเพิ่มเติม`
                                             : `✨ ผูกโยงข้อมูลเรียลไทม์สำเร็จ! แอดมินจะพิจารณาอนุมัติเวลาตอกบัตรนี้ควบคู่ไปกับพิกัดนอกสำนักงานและใบคำขอ ${linkedRemoteType === 'WFH' ? 'WFH' : 'On-site'} ที่ส่งมาโดยอัตโนมัติ`
                                         }
                                     </p>

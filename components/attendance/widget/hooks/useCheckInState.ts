@@ -258,7 +258,7 @@ export function useCheckInState({
         if (pendingLateTime) {
             const [ph, pm] = pendingLateTime.split(':').map(Number);
             const pendingLimit = new Date();
-            pendingLimit.setHours(ph, pm + lateBuffer, 0, 0);
+            pendingLimit.setHours(ph, pm, 0, 0);
             const isPendingLatePast = now > pendingLimit;
             
             if (!isPendingLatePast) {
@@ -289,7 +289,7 @@ export function useCheckInState({
         } else if (pendingLateTime) {
             const [ph, pm] = pendingLateTime.split(':').map(Number);
             const pendingLimit = new Date();
-            pendingLimit.setHours(ph, pm + lateBuffer, 0, 0);
+            pendingLimit.setHours(ph, pm, 0, 0);
             if (now > pendingLimit) {
                 effectiveStartTime = pendingLateTime;
             }

@@ -92,7 +92,7 @@ export default defineConfig(({ mode }) => {
       'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY || '')
     },
     server: {
-      host: true,
+      host: '0.0.0.0',
       port: 3000,
       strictPort: true,
       allowedHosts: true

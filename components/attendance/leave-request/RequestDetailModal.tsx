@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { History, ChevronUp, ChevronDown, XCircle } from 'lucide-react';
+import { History, ChevronUp, ChevronDown, XCircle, AlertTriangle } from 'lucide-react';
 import { format } from 'date-fns';
 import { LeaveRequest } from '../../../types/attendance';
+import { supabase } from '../../../lib/supabase';
 import { getWorkingDaysDifference, getMaxShiftWithBuffer } from '../../../lib/attendanceUtils';
 import { useMasterData } from '../../../hooks/useMasterData';
 import { ApproveRequestParams } from '../../../hooks/useAdminApprovals';
@@ -17,6 +18,7 @@ import { LeaveHistoryTimeline } from './request-detail/LeaveHistoryTimeline';
 import { AdminOtAdjustment } from './request-detail/AdminOtAdjustment';
 import { ActionFooter } from './request-detail/ActionFooter';
 import { parseReason } from './request-detail/utils';
+import { OtConflictAlertModal, OtAlertModalData } from './request-detail/OtConflictAlertModal';
 import { HpPenaltySection } from './request-detail/HpPenaltySection';
 import { getRegistryItem } from '../../../constants/attendanceRegistry';
 
@@ -49,6 +51,10 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
     const [isMobileFlipped, setIsMobileFlipped] = useState(false);
     const [hpPenalty, setHpPenalty] = useState<number>(0);
     const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' ? window.innerWidth < 1024 : false);
+
+    // Overtime Warn and Force States
+    const [showOtAlertModal, setShowOtAlertModal] = useState(false);
+    const [otAlertModalData, setOtAlertModalData] = useState<OtAlertModalData | null>(null);
 
     useEffect(() => {
         if (typeof window !== 'undefined') {
@@ -177,7 +183,41 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
         originalOtHours = parsedReason.otHours || '';
     }
 
+    const executeApprove = async (
+        finalStartTime?: string, 
+        finalEndTime?: string, 
+        hasCustom?: boolean, 
+        forceFullHours?: boolean,
+        forceCustomOtHours?: number
+    ) => {
+        setIsSubmitting(true);
+        try {
+            const finalOtHours = forceCustomOtHours !== undefined
+                ? forceCustomOtHours
+                : (hasCustom ? parseFloat(editOtHours) : undefined);
+
+            await onApprove({
+                request: request!,
+                customOtHours: finalOtHours,
+                customStartTime: finalStartTime,
+                customEndTime: finalEndTime,
+                adminNote: adminNote || undefined,
+                hpPenalty: hpPenalty || undefined,
+                forceFullHours
+            });
+            setShowOtAlertModal(false);
+            setOtAlertModalData(null);
+            onClose();
+        } catch (e: any) {
+            console.error(e);
+            showAlert(e?.message || 'เกิดข้อผิดพลาดในการอนุมัติ', 'ไม่สามารถอนุมัติได้');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
     const handleApprove = async (customStartTimeArg?: string) => {
+        if (!request) return;
         setIsSubmitting(true);
         try {
             const isOvertime = request.type === 'OVERTIME';
@@ -189,21 +229,102 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
                 : (editEndTime || undefined);
             const hasCustom = isOvertime && editOtHours !== '' && editOtHours !== originalOtHours;
 
+            if (isOvertime && !isFixedOt) {
+                const shiftDateStr = format(new Date(request.startDate), 'yyyy-MM-dd');
+                const { data: attendanceLog } = await supabase
+                    .from('attendance_logs')
+                    .select('*')
+                    .eq('user_id', request.userId)
+                    .eq('date', shiftDateStr)
+                    .maybeSingle();
+
+                const reqStartStr = finalStartTime || originalStartTime || '17:30';
+                const reqEndStr = finalEndTime || originalEndTime || '19:30';
+                const requestedHours = hasCustom ? parseFloat(editOtHours) : parseFloat(originalOtHours || '0');
+
+                const reqStart = new Date(`${shiftDateStr}T${reqStartStr}`);
+                const reqEnd = new Date(`${shiftDateStr}T${reqEndStr}`);
+
+                if (!attendanceLog) {
+                    setOtAlertModalData({
+                        type: 'NO_LOG',
+                        requestedHours,
+                        calculatedHours: 0,
+                        reqStartStr,
+                        reqEndStr,
+                        onConfirmFull: () => executeApprove(finalStartTime, finalEndTime, hasCustom, true),
+                        onCancel: () => {
+                            setOtAlertModalData(null);
+                            setIsSubmitting(false);
+                        }
+                    });
+                    setShowOtAlertModal(true);
+                    return;
+                } else if (!attendanceLog.check_out_time) {
+                    setOtAlertModalData({
+                        type: 'NO_CHECKOUT',
+                        requestedHours,
+                        calculatedHours: 0,
+                        reqStartStr,
+                        reqEndStr,
+                        onConfirmFull: () => executeApprove(finalStartTime, finalEndTime, hasCustom, true),
+                        onCancel: () => {
+                            setOtAlertModalData(null);
+                            setIsSubmitting(false);
+                        }
+                    });
+                    setShowOtAlertModal(true);
+                    return;
+                } else {
+                    const checkOutDate = new Date(attendanceLog.check_out_time);
+                    const checkoutTimeDisplay = format(checkOutDate, 'HH:mm');
+
+                    if (checkOutDate < reqStart) {
+                        setOtAlertModalData({
+                            type: 'CHECKOUT_BEFORE_START',
+                            checkoutTime: checkoutTimeDisplay,
+                            requestedHours,
+                            calculatedHours: 0,
+                            reqStartStr,
+                            reqEndStr,
+                            onConfirmFull: () => executeApprove(finalStartTime, finalEndTime, hasCustom, true),
+                            onCancel: () => {
+                                setOtAlertModalData(null);
+                                setIsSubmitting(false);
+                            }
+                        });
+                        setShowOtAlertModal(true);
+                        return;
+                    } else if (checkOutDate < reqEnd) {
+                        const diffMs = checkOutDate.getTime() - reqStart.getTime();
+                        const actualHours = Number((diffMs / (1000 * 60 * 60)).toFixed(1));
+
+                        setOtAlertModalData({
+                            type: 'CHECKOUT_BEFORE_END',
+                            checkoutTime: checkoutTimeDisplay,
+                            requestedHours,
+                            calculatedHours: actualHours,
+                            reqStartStr,
+                            reqEndStr,
+                            onConfirmFull: () => executeApprove(finalStartTime, finalEndTime, hasCustom, true),
+                            onConfirmCalculated: () => executeApprove(finalStartTime, finalEndTime, true, false, actualHours),
+                            onCancel: () => {
+                                setOtAlertModalData(null);
+                                setIsSubmitting(false);
+                            }
+                        });
+                        setShowOtAlertModal(true);
+                        return;
+                    }
+                }
+            }
+
             // Centralized check-in/start time validation using helper - bypassed for admin overrides
 
-            await onApprove({
-                request,
-                customOtHours: hasCustom ? parseFloat(editOtHours) : undefined,
-                customStartTime: finalStartTime,
-                customEndTime: finalEndTime,
-                adminNote: adminNote || undefined,
-                hpPenalty: hpPenalty || undefined
-            });
-            onClose();
+            await executeApprove(finalStartTime, finalEndTime, hasCustom);
         } catch (e: any) {
             console.error(e);
             showAlert(e?.message || 'เกิดข้อผิดพลาดในการอนุมัติ', 'ไม่สามารถอนุมัติได้');
-        } finally {
             setIsSubmitting(false);
         }
     };
@@ -413,11 +534,11 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
 
                     {/* Mobile Version (3D Flip Book) */}
                     <div className="lg:hidden flex flex-col flex-1 min-h-0 overflow-hidden bg-slate-50/20">
-                        <div className="w-full relative px-3 py-3 sm:px-4 sm:py-4 flex-1 flex flex-col min-h-0" style={{ perspective: '1200px' }}>
+                        <div className="w-full relative px-3 py-3 sm:px-4 sm:py-4 flex-1 flex flex-col min-h-0" style={{ perspective: '1200px', WebkitPerspective: '1200px' }}>
                             <motion.div
                                 animate={{ rotateY: isMobileFlipped ? 180 : 0 }}
                                 transition={{ type: 'spring', damping: 24, stiffness: 120 }}
-                                style={{ transformStyle: 'preserve-3d' }}
+                                style={{ transformStyle: 'preserve-3d', WebkitTransformStyle: 'preserve-3d' }}
                                 className="w-full flex-1 relative min-h-[390px] sm:min-h-[460px] md:h-[65vh] md:max-h-[580px]"
                             >
                                 {/* FRONT FACE (Main request details) */}
@@ -426,7 +547,8 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
                                         backfaceVisibility: 'hidden',
                                         WebkitBackfaceVisibility: 'hidden',
                                         transformStyle: 'preserve-3d',
-                                        transform: 'rotateY(0deg)'
+                                        transform: 'rotateY(0deg)',
+                                        visibility: isMobileFlipped ? 'hidden' : 'visible'
                                     }}
                                     className={`absolute inset-0 w-full h-full bg-white rounded-3xl border border-slate-100 shadow-sm flex flex-col justify-between min-h-0 overflow-hidden ${isMobileFlipped ? 'pointer-events-none' : ''}`}
                                 >
@@ -525,7 +647,8 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
                                         backfaceVisibility: 'hidden',
                                         WebkitBackfaceVisibility: 'hidden',
                                         transformStyle: 'preserve-3d',
-                                        transform: 'rotateY(180deg)'
+                                        transform: 'rotateY(180deg)',
+                                        visibility: isMobileFlipped ? 'visible' : 'hidden'
                                     }}
                                     className={`absolute inset-0 w-full h-full bg-[#fdfbf7] rounded-3xl border border-amber-200/60 shadow-inner flex flex-col p-3 sm:p-4 ${!isMobileFlipped ? 'pointer-events-none' : ''}`}
                                 >
@@ -563,6 +686,9 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
 
                 </div>
             </motion.div>
+
+            {/* Custom Overtime Conflict Warning Modal */}
+            <OtConflictAlertModal isOpen={showOtAlertModal} data={otAlertModalData} request={request} />
         </motion.div>,
         document.body
     );

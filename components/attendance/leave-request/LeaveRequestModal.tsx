@@ -25,7 +25,8 @@ interface LeaveRequestModalProps {
         files?: File[], 
         linkedRemoteType?: 'WFH' | 'ONSITE',
         isHalfDay?: boolean,
-        halfDaySession?: string
+        halfDaySession?: string,
+        isInstantCheckIn?: boolean
     ) => Promise<boolean>;    
     masterOptions?: MasterOption[];
     leaveUsage?: LeaveUsage; 
@@ -33,9 +34,12 @@ interface LeaveRequestModalProps {
     requests?: LeaveRequest[];
     initialDate?: Date;
     initialReason?: string; // Add Prop
+    initialTargetTime?: string;
     fixedType?: LeaveType;
     linkedRemoteType?: 'WFH' | 'ONSITE';
     isInOffice?: boolean;
+    locationName?: string;
+    isInstantCheckIn?: boolean;
 }
 
 const slideVariants = {
@@ -63,7 +67,7 @@ const slideVariants = {
 };
 
 const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({ 
-    isOpen, onClose, onBack, onSubmit, masterOptions = [], leaveUsage, pendingUsage, initialDate, initialReason, fixedType, linkedRemoteType, isInOffice
+    isOpen, onClose, onBack, onSubmit, masterOptions = [], leaveUsage, pendingUsage, initialDate, initialReason, initialTargetTime, fixedType, linkedRemoteType, isInOffice, locationName, isInstantCheckIn
 }) => {
     const [step, setStep] = useState<'SELECT' | 'FORM'>('SELECT');
     const [selectedType, setSelectedType] = useState<string | null>(null);
@@ -295,9 +299,12 @@ const LeaveRequestModal: React.FC<LeaveRequestModalProps> = ({
                                         pendingUsage={pendingUsage}
                                         initialDate={initialDate}
                                         initialReason={initialReason}
+                                        initialTargetTime={initialTargetTime}
                                         fixedType={!!fixedType}
                                         linkedRemoteType={linkedRemoteType}
                                         isInOffice={isInOffice}
+                                        locationName={locationName}
+                                        isInstantCheckIn={isInstantCheckIn}
                                     />
                                 </motion.div>
                             )}

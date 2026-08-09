@@ -40,6 +40,7 @@ export interface WorkTimeConfig {
     monthlyOTSummaryTime?: string;
     monthlyOTSummaryDay?: string;
     monthlyOTSummaryMode?: string;
+    lateEntryStrictEndTime?: string;
 }
 
 interface WorkTimeCardProps {
@@ -184,6 +185,42 @@ const WorkTimeCard: React.FC<WorkTimeCardProps> = ({
                         />
                         <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-500 bg-slate-50 px-2 py-1 rounded-lg border border-slate-100 shadow-sm">Hrs / ชม.</span>
                     </div>
+                </div>
+            </div>
+
+            {/* Strict Shift End Time for Late Entry Option */}
+            <div className="mt-6 p-4 bg-amber-50/50 border border-amber-200/70 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                    <h4 className="text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                        <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                        ยึดเวลาออกงานตามกะปกติเมื่อขอเข้าสาย (ไม่ต้องทำงานชดเชยตาม MinHours)
+                    </h4>
+                    <p className="text-[11px] text-amber-700/80 leading-relaxed">
+                        เมื่อเปิดใช้งาน: กรณีพนักงานขอเข้าสาย (ไม่ว่าจะได้รับอนุมัติหรือถูกปฏิเสธ) เวลาเลิกงานที่อนุญาตให้ออกได้จะยึดตามเวลาเลิกงานปกติของกะ (เช่น 17:00 น.) โดยไม่นำเวลาที่เข้าสายไปบวกเพิ่มเป็นเวลาทำงานชดเชย
+                    </p>
+                </div>
+                <div className="flex items-center gap-2 bg-white p-1.5 rounded-xl border border-amber-200/80 shrink-0 self-end sm:self-auto">
+                    <span className={`text-xs font-bold ${tempTimeConfig.lateEntryStrictEndTime === 'true' ? 'text-amber-700' : 'text-gray-400'}`}>
+                        {tempTimeConfig.lateEntryStrictEndTime === 'true' ? 'เปิดใช้งาน' : 'ปิดการใช้งาน'}
+                    </span>
+                    <button
+                        id="btn-toggle-late-strict-end-time"
+                        type="button"
+                        onClick={() => setTempTimeConfig(prev => ({
+                            ...prev,
+                            lateEntryStrictEndTime: prev.lateEntryStrictEndTime === 'true' ? 'false' : 'true'
+                        }))}
+                        className={`w-11 h-6 flex items-center rounded-full p-1 cursor-pointer transition-all ${
+                            tempTimeConfig.lateEntryStrictEndTime === 'true' ? 'bg-amber-500' : 'bg-gray-300'
+                        }`}
+                        aria-label="Toggle late entry strict end time mode"
+                    >
+                        <div
+                            className={`bg-white w-4 h-4 rounded-full shadow-md transform transition-all duration-300 ${
+                                tempTimeConfig.lateEntryStrictEndTime === 'true' ? 'translate-x-5' : 'translate-x-0'
+                            }`}
+                        />
+                    </button>
                 </div>
             </div>
 

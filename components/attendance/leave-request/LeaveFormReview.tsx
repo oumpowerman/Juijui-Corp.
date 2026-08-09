@@ -22,6 +22,7 @@ interface LeaveFormReviewProps {
     isTimeSpecific: boolean;
     linkedRemoteType?: 'WFH' | 'ONSITE';
     isInOffice?: boolean;
+    locationName?: string;
     files: File[];
     filePreviewUrls: string[];
     isSubmitting: boolean;
@@ -43,6 +44,7 @@ export const LeaveFormReview: React.FC<LeaveFormReviewProps> = ({
     isTimeSpecific,
     linkedRemoteType,
     isInOffice,
+    locationName,
     files,
     filePreviewUrls,
     isSubmitting,
@@ -216,7 +218,7 @@ export const LeaveFormReview: React.FC<LeaveFormReviewProps> = ({
                                     {isInOffice ? 'การตรวจสอบพิกัด' : 'รูปแบบการทำงานภายนอก'}
                                 </p>
                                 <p className="text-xs sm:text-sm font-bold text-slate-700 mt-0.5">
-                                    {isInOffice ? '🏢 สำนักงานใหญ่ (Office Secure)' : linkedRemoteType === 'WFH' ? '🏡 ทำงานที่บ้าน (Work From Home)' : '📍 ปฏิบัติงานนอกสถานที่ (On-site)'}
+                                    {isInOffice ? `🏢 ${locationName || 'สำนักงานใหญ่'} (Office Secure)` : linkedRemoteType === 'WFH' ? '🏡 ทำงานที่บ้าน (Work From Home)' : '📍 ปฏิบัติงานนอกสถานที่ (On-site)'}
                                 </p>
                             </div>
                         </div>
@@ -352,7 +354,7 @@ export const LeaveFormReview: React.FC<LeaveFormReviewProps> = ({
                             animate={{ opacity: 1 }}
                             exit={{ opacity: 0 }}
                             onClick={() => setIsPreviewOpen(false)}
-                            className="fixed inset-0 z-[99999] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out animate-fade-in"
+                            className="fixed inset-0 z-[99999] bg-slate-950/95 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out"
                         >
                             {/* Close Button */}
                             <motion.button

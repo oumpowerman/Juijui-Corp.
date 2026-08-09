@@ -29,30 +29,48 @@ export const useAttendanceJudge = (
             if (!matchUser) return false;
             
             const matchType = log.action_type === actionType;
-            // Robust check: Log might store targetId as string or UUID depending on DB state
+            if (!matchType) return false;
+
             const logRelatedId = typeof log.related_id === 'string' ? log.related_id : JSON.stringify(log.related_id);
-            const matchId = !targetId || logRelatedId === targetId;
-            const matchDesc = !descriptionMatch || (log.description && log.description.includes(descriptionMatch));
-            return matchType && matchId && matchDesc;
+            const matchId = targetId && logRelatedId === targetId;
+            const matchDesc = descriptionMatch && log.description && log.description.includes(descriptionMatch);
+
+            if (targetId && descriptionMatch) {
+                return matchId || matchDesc;
+            } else if (targetId) {
+                return matchId;
+            } else if (descriptionMatch) {
+                return matchDesc;
+            }
+            return true;
         });
 
         if (localMatch) return true;
 
         // 2. If not in local logs (e.g. pushed out of last 100), check DB directly (Robust)
-        if (targetId) {
-            try {
-                const { data, error } = await supabase
-                    .from('game_logs')
-                    .select('id')
-                    .eq('user_id', currentUser.id)
-                    .eq('related_id', targetId) // DB column is UUID, targetId from toValidUuid is UUID
-                    .maybeSingle();
-                
-                if (data) return true;
-                if (error) console.error("[AttendanceJudge] DB Penalty Check Error:", error);
-            } catch (err) {
-                console.error("[AttendanceJudge] DB sync error for penalty:", err);
+        try {
+            let query = supabase
+                .from('game_logs')
+                .select('id')
+                .eq('user_id', currentUser.id)
+                .eq('action_type', actionType);
+
+            if (targetId && descriptionMatch) {
+                query = query.or(`related_id.eq.${targetId},description.ilike.%${descriptionMatch}%`);
+            } else if (targetId) {
+                query = query.eq('related_id', targetId);
+            } else if (descriptionMatch) {
+                query = query.ilike('description', `%${descriptionMatch}%`);
+            } else {
+                return false;
             }
+
+            const { data, error } = await query.limit(1);
+            
+            if (data && data.length > 0) return true;
+            if (error) console.error("[AttendanceJudge] DB Penalty Check Error:", error);
+        } catch (err) {
+            console.error("[AttendanceJudge] DB sync error for penalty:", err);
         }
 
         return false;
@@ -145,7 +163,7 @@ export const useAttendanceJudge = (
 
                  if (!isProcessingRef.current.has(absentLockKey)) {
                      // ตรวจสอบจาก game_logs ใน Context ว่าเคยโดนหักคะแนน Absent หรือยัง
-                     const alreadyPenalized = await hasPenaltyInLogs('ATTENDANCE_ABSENT', `ABSENT:${checkDateStr}`);
+                     const alreadyPenalized = await hasPenaltyInLogs('ATTENDANCE_ABSENT', `ABSENT:${checkDateStr}`, checkDateStr);
 
                      if (alreadyPenalized) {
                          // ถ้ามี Penalty ใน Log แล้ว ห้ามเขียนทับข้อมูลมั่วซั่ว

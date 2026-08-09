@@ -127,7 +127,7 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({
             >
                 <div>
                     <p className="text-[10px] font-bold text-pink-400 uppercase">Total Leaves</p>
-                    <h3 className="text-3xl font-bold text-pink-900"><Counter value={totalLeaves} /></h3>
+                    <h3 className="text-3xl font-bold text-pink-900"><Counter value={totalLeaves} decimals={totalLeaves % 1 === 0 ? 0 : 1} /></h3>
                 </div>
                 <div className={`p-3 rounded-xl transition-all ${isActive('LEAVE') ? 'bg-pink-500 text-white shadow-inner' : 'bg-white text-pink-500 shadow-sm'}`}><HeartPulse className="w-6 h-6"/></div>
             </div>

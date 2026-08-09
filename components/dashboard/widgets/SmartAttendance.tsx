@@ -147,7 +147,7 @@ const SmartAttendance: React.FC<SmartAttendanceProps> = ({ user, masterOptions, 
     if (isLoading) return <div className="h-28 bg-gray-100 rounded-[2.5rem] animate-pulse w-full"></div>;
 
     // Safety check for Leave logs that have no time
-    const isLeaveLog = todayLog?.status === 'LEAVE' || todayLog?.workType === 'LEAVE';
+    const isLeaveLog = (todayLog?.status === 'LEAVE' || todayLog?.workType === 'LEAVE') && !todayLog?.checkInTime;
 
     const isCheckedIn = !!todayLog && !!todayLog.checkInTime && !isLeaveLog;
     const isCheckedOut = !!todayLog?.checkOutTime;

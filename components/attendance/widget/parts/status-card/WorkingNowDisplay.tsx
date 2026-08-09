@@ -147,17 +147,17 @@ export const WorkingNowDisplay: React.FC<WorkingNowDisplayProps> = ({
                     <AlertCircle className="w-4 h-4 text-violet-500 shrink-0 mt-0.5" />
                     <div className="text-left">
                         <span className="block text-xs text-violet-800 font-bold">กำลังทำงาน (แจ้งเข้าสายจำลอง)</span>
-                        <span className="block text-[10px] text-violet-600 leading-normal mt-0.5">ใบคำขอแจ้งเข้าสายยังไม่ได้รับการอนุมัติ ระบบให้เข้างานชั่วคราว หากได้รับการอนุมัติจะไม่ถูกหักคะแนนหากเข้าสายตามเวลาที่ขอไว้</span>
+                        <span className="block text-[10px] text-violet-600 leading-normal mt-0.5">ใบคำขอแจ้งเข้าสายยังไม่ได้รับการอนุมัติ</span> {/*ระบบให้เข้างานชั่วคราว หากได้รับการอนุมัติจะไม่ถูกหักคะแนนหากเข้าสายตามเวลาที่ขอไว้*/}
                     </div>
                 </div>
             )}
-
+            
             {isProvisionalLate && (
                  <div className="bg-gradient-to-r from-amber-50 to-orange-50 px-4 py-3 rounded-xl border border-amber-200 shadow-sm flex items-start gap-2.5 animate-pulse-slow">
                     <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                     <div className="text-left">
                         <span className="block text-xs text-amber-800 font-bold">อยู่ระหว่างรอพิจารณาคำชี้แจงกรณีเข้างานสาย (Late Appeal / Provisional)</span>
-                        <span className="block text-[10px] text-amber-600 leading-normal mt-0.5">ใบคำขอแจ้งเข้าสายยังไม่ได้รับการอนุมัติ ระบบให้เข้างานชั่วคราว หากได้รับการอนุมัติจะไม่ถูกหักคะแนนหากเข้าสายตามเวลาที่ขอไว้</span>
+                        <span className="block text-[10px] text-amber-600 leading-normal mt-0.5">ใบคำขอแจ้งเข้าสายยังไม่ได้รับการอนุมัติ</span> {/*ระบบให้เข้างานชั่วคราว หากได้รับการอนุมัติจะไม่ถูกหักคะแนนหากเข้าสายตามเวลาที่ขอไว้*/}
                     </div>
                 </div>
             )}

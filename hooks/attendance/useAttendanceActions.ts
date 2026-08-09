@@ -155,7 +155,7 @@ export const useAttendanceActions = (userId: string) => {
             
             let finalIsAppeal = isAppeal;
             if (approvedLateTime) {
-                const isLatePastApproved = checkIsLate(now, approvedLateTime, buffer);
+                const isLatePastApproved = checkIsLate(now, approvedLateTime, 0);
                 if (isLatePastApproved) {
                     finalIsAppeal = false;
                     meta.push(`[LATE_PAST_APPROVED]`);
@@ -164,7 +164,7 @@ export const useAttendanceActions = (userId: string) => {
                     finalIsAppeal = false;
                 }
             } else if (pendingLateTime) {
-                const isLatePastPending = checkIsLate(now, pendingLateTime, buffer);
+                const isLatePastPending = checkIsLate(now, pendingLateTime, 0);
                 if (isLatePastPending) {
                     finalIsAppeal = false;
                     meta.push(`[LATE_PAST_PENDING]`);
@@ -475,8 +475,10 @@ export const useAttendanceActions = (userId: string) => {
             const startTimeStr = configData?.find(c => c.key === 'START_TIME')?.label || '10:00';
             const shiftsEnabledOpt = configData?.find(o => o.key === 'MULTIPLE_SHIFTS_ENABLED');
             const shiftsListOpt = configData?.find(o => o.key === 'MULTIPLE_SHIFTS_LIST');
+            const lateEntryStrictOpt = configData?.find(o => o.key === 'LATE_ENTRY_STRICT_END_TIME');
             const isShiftsEnabled = shiftsEnabledOpt?.label === 'true';
             const shiftsList = shiftsListOpt?.label || '';
+            const isLateEntryStrictEndTime = lateEntryStrictOpt?.label === 'true';
 
             const effectiveStartTimeStr = getEffectiveStartTime(
                 todayLog.checkInTime,
@@ -485,9 +487,7 @@ export const useAttendanceActions = (userId: string) => {
                 { enabled: isShiftsEnabled, shiftsList }
             );
 
-            const calcResult = calculateCheckOutStatus(todayLog.checkInTime, now, minHours, effectiveStartTimeStr);
-
-            // Check if there is an approved PM half-day leave today
+            // Check if there is an approved half-day leave today
             const { data: todayLeavesCheckout } = await supabase
                 .from('leave_requests')
                 .select('id, is_half_day, half_day_session, status')
@@ -497,9 +497,43 @@ export const useAttendanceActions = (userId: string) => {
                 .lte('start_date', todayDateStr)
                 .gte('end_date', todayDateStr);
 
+            const amHalfDayLeave = todayLeavesCheckout && todayLeavesCheckout.find(l => l.half_day_session === 'AM');
             const pmHalfDayLeave = todayLeavesCheckout && todayLeavesCheckout.find(l => l.half_day_session === 'PM');
 
-            if (pmHalfDayLeave) {
+            const isHalfDay = !!(amHalfDayLeave || pmHalfDayLeave);
+            const halfDaySession = amHalfDayLeave ? 'AM' : (pmHalfDayLeave ? 'PM' : undefined);
+
+            const note = todayLog.note || '';
+            const hasLateEntryNote = note.includes('[PROVISIONAL_LATE_ENTRY]') ||
+                note.includes('[APPROVED LATE_ENTRY]') ||
+                note.includes('[REJECTED LATE_ENTRY]') ||
+                note.includes('LATE_ENTRY') ||
+                note.includes('[APPROVED_TIME:') ||
+                note.includes('[LATE_PAST_PENDING]') ||
+                note.includes('[APPEAL_PENDING]');
+
+            const { data: todayLateRequests } = await supabase
+                .from('leave_requests')
+                .select('id, type, status')
+                .eq('user_id', userId)
+                .eq('type', 'LATE_ENTRY')
+                .lte('start_date', todayDateStr)
+                .gte('end_date', todayDateStr);
+
+            const hasLateRequest = !!(todayLateRequests && todayLateRequests.length > 0);
+            const useShiftEndTimeForLate = Boolean(isLateEntryStrictEndTime && (hasLateEntryNote || hasLateRequest));
+
+            const calcResult = calculateCheckOutStatus(
+                todayLog.checkInTime, 
+                now, 
+                minHours, 
+                effectiveStartTimeStr,
+                isHalfDay,
+                halfDaySession,
+                useShiftEndTimeForLate
+            );
+
+            if (amHalfDayLeave || pmHalfDayLeave) {
                 calcResult.status = 'COMPLETED';
                 calcResult.missingMinutes = 0;
             }

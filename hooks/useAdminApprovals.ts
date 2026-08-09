@@ -19,6 +19,7 @@ export interface ApproveRequestParams {
     customEndTime?: string;
     adminNote?: string;
     hpPenalty?: number;
+    forceFullHours?: boolean;
 }
 
 export const useAdminApprovals = (currentUser?: any, options: { enabled?: boolean } = {}) => {
@@ -158,6 +159,7 @@ export const useAdminApprovals = (currentUser?: any, options: { enabled?: boolea
         let customEndTime: string | undefined;
         let adminNote: string | undefined;
         let hpPenalty: number | undefined;
+        let forceFullHours: boolean | undefined;
 
         if (paramsOrRequest && 'request' in paramsOrRequest) {
             request = paramsOrRequest.request;
@@ -166,6 +168,7 @@ export const useAdminApprovals = (currentUser?: any, options: { enabled?: boolea
             customEndTime = paramsOrRequest.customEndTime;
             adminNote = paramsOrRequest.adminNote;
             hpPenalty = paramsOrRequest.hpPenalty;
+            forceFullHours = paramsOrRequest.forceFullHours;
         } else {
             request = paramsOrRequest as LeaveRequest;
             customOtHours = legacyOtHours;
@@ -192,7 +195,8 @@ export const useAdminApprovals = (currentUser?: any, options: { enabled?: boolea
                     customStartTime,
                     customEndTime,
                     adminNote,
-                    processAction
+                    processAction,
+                    forceFullHours
                 });
 
                 showToast(`อนุมัติคำขอ OT เรียบร้อยแล้ว${checkOutMsg} 🎉`, 'success');

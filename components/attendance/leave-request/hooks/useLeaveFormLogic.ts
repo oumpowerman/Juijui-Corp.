@@ -6,7 +6,7 @@ import { useGlobalDialog } from '../../../../context/GlobalDialogContext';
 import { getRegistryItem } from '../../../../constants/attendanceRegistry';
 import { useMasterData } from '../../../../hooks/useMasterData';
 import { useUserSession } from '../../../../context/UserSessionContext';
-import { calculateShiftAndActualTime, formatCorrectionNote, calculateRequiredCheckOutTime, isValidCheckOutTime } from '../../../../utils/shiftCalculator';
+import { calculateShiftAndActualTime, formatCorrectionNote, calculateRequiredCheckOutTime, isValidCheckOutTime, getHalfDayOffset, calculatePMShiftDetails, timeToMinutes } from '../../../../utils/shiftCalculator';
 import { compressImage } from '../../../../lib/imageUtils';
 
 interface UseLeaveFormLogicProps {
@@ -18,25 +18,28 @@ interface UseLeaveFormLogicProps {
         files?: File[], 
         linkedRemoteType?: 'WFH' | 'ONSITE',
         isHalfDay?: boolean,
-        halfDaySession?: string
+        halfDaySession?: string,
+        isInstantCheckIn?: boolean
     ) => Promise<boolean>;
     onClose: () => void;
     initialDate?: Date;
     initialReason?: string;
+    initialTargetTime?: string;
     selectedType?: string;
     advanceDays?: number;
     maxFutureDays?: number;
     maxPastDays?: number;
     linkedRemoteType?: 'WFH' | 'ONSITE';
+    isInstantCheckIn?: boolean;
 }
 
 export const useLeaveFormLogic = ({ 
-    onSubmit, onClose, initialDate, initialReason, selectedType, 
-    advanceDays, maxFutureDays, maxPastDays, linkedRemoteType
+    onSubmit, onClose, initialDate, initialReason, initialTargetTime, selectedType, 
+    advanceDays, maxFutureDays, maxPastDays, linkedRemoteType, isInstantCheckIn
 }: UseLeaveFormLogicProps) => {
     const { showAlert } = useGlobalDialog();
     const { masterOptions } = useMasterData();
-    const { attendanceLogs } = useUserSession();
+    const { attendanceLogs, leaveRequests = [] } = useUserSession();
 
     const shiftsEnabledOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'MULTIPLE_SHIFTS_ENABLED');
     const shiftsListOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'MULTIPLE_SHIFTS_LIST');
@@ -47,6 +50,7 @@ export const useLeaveFormLogic = ({
         }
         return ['08:00', '08:30', '09:00'];
     }, [shiftsListOpt]);
+
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
     const [reason, setReason] = useState(initialReason || ''); // Use initialReason
@@ -59,6 +63,17 @@ export const useLeaveFormLogic = ({
     const [isReviewing, setIsReviewing] = useState(false);
     const [isHalfDay, setIsHalfDay] = useState(false);
     const [halfDaySession, setHalfDaySession] = useState<'AM' | 'PM'>('AM');
+
+    const hasAMHalfDayLeave = useMemo(() => {
+        if (!leaveRequests || !startDate) return false;
+        return leaveRequests.some((r: any) => {
+            const rDate = r.startDate ? format(new Date(r.startDate), 'yyyy-MM-dd') : '';
+            const isApproved = r.status === 'APPROVED';
+            const isHalf = r.isHalfDay === true || r.is_half_day === true || r.isHalfDay === 'true' || r.is_half_day === 'true';
+            const isAM = r.halfDaySession === 'AM' || r.half_day_session === 'AM';
+            return rDate === startDate && isApproved && isHalf && isAM;
+        });
+    }, [leaveRequests, startDate]);
 
     useEffect(() => {
         if (startDate && endDate && startDate !== endDate) {
@@ -116,12 +131,12 @@ export const useLeaveFormLogic = ({
             const currentMinutes = String(now.getMinutes()).padStart(2, '0');
             setTargetTime(`${currentHours}:${currentMinutes}`);
         } else {
-            setTargetTime(item?.rules.defaultTargetTime || '09:00');
+            setTargetTime(initialTargetTime || item?.rules.defaultTargetTime || '09:00');
         }
         setEndTime(item?.rules.defaultEndTime || '18:00');
         
         setOtHours(2);
-    }, [initialDateStr, initialReason, selectedType, advanceDays]);
+    }, [initialDateStr, initialReason, selectedType, advanceDays, initialTargetTime]);
 
     // Automatically sync endDate with startDate for single-day/time-specific requests
     useEffect(() => {
@@ -278,9 +293,19 @@ export const useLeaveFormLogic = ({
             const isCheckInCorrection = ['FORGOT_CHECKIN', 'FORGOT_BOTH', 'LATE_ENTRY'].includes(selectedType);
 
             if (isShiftsEnabled && isCheckInCorrection) {
-                const shiftCalc = calculateShiftAndActualTime(targetTime, shiftsList);
-                const mappedShift = shiftCalc.targetShift;
-                const actualCheckIn = shiftCalc.actualTime;
+                const minHours = parseFloat(masterOptions.find(o => o.key === 'MIN_HOURS')?.label || '9');
+                let mappedShift = '';
+                let actualCheckIn = '';
+
+                if (hasAMHalfDayLeave) {
+                    const pmDetails = calculatePMShiftDetails(targetTime, shiftsList, minHours);
+                    mappedShift = pmDetails.matchedPMStart;
+                    actualCheckIn = pmDetails.adjustedInputTime;
+                } else {
+                    const shiftCalc = calculateShiftAndActualTime(targetTime, shiftsList);
+                    mappedShift = shiftCalc.targetShift;
+                    actualCheckIn = shiftCalc.actualTime;
+                }
 
                 if (selectedType === 'LATE_ENTRY') {
                     const [targetH, targetM] = targetTime.split(':').map(Number);
@@ -302,12 +327,24 @@ export const useLeaveFormLogic = ({
                 const [hours, minutes] = targetTime.split(':').map(Number);
                 finalStartDate = new Date(year, month - 1, day, hours, minutes, 0, 0);
                 
+                let targetShiftTime = targetTime;
+                if (hasAMHalfDayLeave) {
+                    const minHours = parseFloat(masterOptions.find(o => o.key === 'MIN_HOURS')?.label || '9');
+                    const startTimeStr = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'START_TIME')?.label || '10:00';
+                    const offset = getHalfDayOffset(minHours);
+                    const startMins = timeToMinutes(startTimeStr);
+                    const pmMins = (startMins + offset * 60) % 1440;
+                    const pmH = Math.floor(pmMins / 60);
+                    const pmM = pmMins % 60;
+                    targetShiftTime = `${pmH.toString().padStart(2, '0')}:${pmM.toString().padStart(2, '0')}`;
+                }
+                
                 if (selectedType === 'FORGOT_BOTH') {
-                    finalReason = `[TARGET_SHIFT:${targetTime}] [TIME:${targetTime}-${endTime}] ${reason}`;
+                    finalReason = `[TARGET_SHIFT:${targetShiftTime}] [TIME:${targetTime}-${endTime}] ${reason}`;
                     const [endH, endM] = endTime.split(':').map(Number);
                     finalEndDate = new Date(year, month - 1, day, endH, endM, 0, 0);
                 } else {
-                    finalReason = `[TARGET_SHIFT:${targetTime}] [TIME:${targetTime}] ${reason}`;
+                    finalReason = `[TARGET_SHIFT:${targetShiftTime}] [TIME:${targetTime}] ${reason}`;
                     finalEndDate = finalStartDate; 
                 }
             }
@@ -328,7 +365,8 @@ export const useLeaveFormLogic = ({
             finalFiles.length > 0 ? finalFiles : undefined,
             linkedRemoteType,
             isHalfDay,
-            halfDaySession
+            halfDaySession,
+            isInstantCheckIn
         );
 
         setIsSubmitting(false);

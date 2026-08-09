@@ -17,11 +17,12 @@ import {
 import { sendLineMessages } from './services/lineService.ts';
 import { buildFlexHeader } from './templates/flexBase.ts';
 import {
-  buildDailySummaryPayload,
   buildMonthlyBonusSummaryPayload,
   buildSingleBodyContents,
   buildBatchBodyContents
 } from './templates/attendanceFlex.ts';
+import { buildDailySummaryPayload } from './templates/SummaryFlex.ts';
+import { buildMonthlyOTSummaryPayload } from './templates/otSummaryFlex.ts';
 import { buildFooterButtons } from './templates/requestFlex.ts';
 
 Deno.serve(async (req: any) => {
@@ -143,6 +144,8 @@ Deno.serve(async (req: any) => {
           lineMessagePayload = buildDailySummaryPayload(targetDestination, record);
         } else if (record.type === 'MONTHLY_BONUS_SUMMARY') {
           lineMessagePayload = buildMonthlyBonusSummaryPayload(targetDestination, record);
+        } else if (record.type === 'MONTHLY_OT_SUMMARY') {
+          lineMessagePayload = buildMonthlyOTSummaryPayload(targetDestination, record);
         } else {
           const isBatch = claimedRecords.length > 1;
           

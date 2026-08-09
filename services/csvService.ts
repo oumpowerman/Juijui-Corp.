@@ -280,7 +280,6 @@ export const parseHistoricalLeaveCSV = async (
                         status: 'APPROVED',
                         is_half_day: isHalfDay,
                         half_day_session: halfDaySession,
-                        is_fixed: true, // critical field so no alerts/HP deductions are triggered
                         created_at: new Date().toISOString()
                     });
                 }

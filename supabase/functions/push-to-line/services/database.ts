@@ -51,7 +51,7 @@ export async function getTargetDestination(
   let targetDestination: string | null = null;
   let targetName = '';
 
-  if (record.type === 'DAILY_SUMMARY' || record.type === 'APPROVAL_SUMMARY' || record.type === 'MONTHLY_BONUS_SUMMARY') {
+  if (record.type === 'DAILY_SUMMARY' || record.type === 'APPROVAL_SUMMARY' || record.type === 'MONTHLY_BONUS_SUMMARY' || record.type === 'MONTHLY_OT_SUMMARY') {
     const { data: destOpt } = await supabaseAdmin
       .from('master_options')
       .select('label')
@@ -156,7 +156,7 @@ export async function markAsAbandoned(
 ): Promise<void> {
   await supabaseAdmin.from('notifications').update({
     line_status: 'ABANDONED',
-    last_error: (recordType === 'DAILY_SUMMARY' || recordType === 'APPROVAL_SUMMARY')
+    last_error: (recordType === 'DAILY_SUMMARY' || recordType === 'APPROVAL_SUMMARY' || recordType === 'MONTHLY_BONUS_SUMMARY' || recordType === 'MONTHLY_OT_SUMMARY')
       ? 'LINE_SUMMARY_DESTINATION is empty or not found in master_options'
       : 'No LINE ID linked in profile'
   }).in('id', claimedIds);

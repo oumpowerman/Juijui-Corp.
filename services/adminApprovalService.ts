@@ -56,6 +56,7 @@ export interface ApproveOtRequestParams {
     customEndTime?: string;
     adminNote?: string;
     processAction: (userId: string, actionType: any, payload?: any) => Promise<any>;
+    forceFullHours?: boolean;
 }
 
 export interface ApproveLeaveRequestParams {
@@ -95,7 +96,8 @@ export const adminApprovalService = {
         customStartTime,
         customEndTime,
         adminNote,
-        processAction
+        processAction,
+        forceFullHours
     }: ApproveOtRequestParams): Promise<{ success: boolean; checkOutMsg: string }> {
         const isFixedOt = otReq.isFixed || (otReq.reason && otReq.reason.includes('[OT:FIXED]'));
 
@@ -107,6 +109,9 @@ export const adminApprovalService = {
         } else if (isFixedOt) {
             finalHours = 0;
             checkOutMsg = '';
+        } else if (forceFullHours) {
+            finalHours = otReq.durationHours;
+            checkOutMsg = ' (อนุมัติเวลาเต็มจำนวนตามคำขอเป็นกรณีพิเศษ)';
         } else {
             // Get actual clock-out logs from DB
             const { data: attendanceLogs } = await supabase
@@ -255,6 +260,8 @@ export const adminApprovalService = {
             if (request.type === 'OUT_OF_RANGE_CHECKOUT') {
                 await approveOutOfRangeCheckoutRequest({
                     request,
+                    customStartTime,
+                    masterOptions,
                     processAction
                 });
             } else if (request.type === 'GPS_SPOOF_APPEAL') {

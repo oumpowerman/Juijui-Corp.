@@ -121,7 +121,7 @@ export const ActionFooter: React.FC<ActionFooterProps> = ({
                             <ShiftCardSelector 
                                 shifts={shiftsList}
                                 selectedShift={selectedShift}
-                                isCustomMode={false}
+                                isCustomMode={Boolean(selectedShift && !shiftsList.includes(selectedShift))}
                                 onSelectShift={(time) => {
                                     if (requestType === 'FORGOT_BOTH') {
                                         const minHours = parseFloat(masterOptions?.find(o => o.key === 'MIN_HOURS')?.label || '9');
@@ -152,7 +152,7 @@ export const ActionFooter: React.FC<ActionFooterProps> = ({
                     <XCircle className="w-4 h-4" /> ปฏิเสธคำขอ
                 </button>
 
-                {isTimeSpecific && !isFixed && requestType !== 'OVERTIME' && requestType !== 'FORGOT_BOTH' && requestType !== 'FORGOT_CHECKIN' && (
+                {isTimeSpecific && !isFixed && requestType !== 'OVERTIME' && requestType !== 'FORGOT_BOTH' && (
                     <button
                         type="button"
                         onClick={() => setIsAdjustPickerOpen(true)}
@@ -171,7 +171,7 @@ export const ActionFooter: React.FC<ActionFooterProps> = ({
                             ? undefined
                             : (isShiftApplicable 
                                 ? selectedShift 
-                                : (isTimeSpecific ? defaultCheckInTime : undefined));
+                                : (isTimeSpecific ? (selectedShift || defaultCheckInTime) : undefined));
                         onApprove(targetTime);
                     }}
                     disabled={isSubmitting}
@@ -187,14 +187,14 @@ export const ActionFooter: React.FC<ActionFooterProps> = ({
                                 : requestType === 'OVERTIME'
                                     ? 'อนุมัติทำงานล่วงเวลา (OT)'
                                     : requestType === 'FORGOT_CHECKOUT'
-                                        ? `อนุมัติเวลาออกงาน (${defaultCheckInTime})`
+                                        ? `อนุมัติเวลาออกงาน (${selectedShift || defaultCheckInTime})`
                                         : requestType === 'OUT_OF_RANGE_CHECKOUT'
-                                            ? `อนุมัติลงเวลานอกพื้นที่ (${defaultCheckInTime})`
+                                            ? `อนุมัติลงเวลานอกพื้นที่ (${selectedShift || defaultCheckInTime})`
                                             : requestType === 'EARLY_LEAVE'
-                                                ? `อนุมัติเวลากลับก่อนเวลา (${defaultCheckInTime})`
+                                                ? `อนุมัติเวลากลับก่อนเวลา (${selectedShift || defaultCheckInTime})`
                                                 : requestType === 'FORGOT_BOTH'
                                                     ? `อนุมัติเวลาเข้า-ออกงาน (${selectedShift.includes('-') ? selectedShift.replace('-', ' - ') : selectedShift})`
-                                                    : `อนุมัติตามเวลาที่ขอ (${isShiftApplicable ? selectedShift : defaultCheckInTime})`}
+                                                    : `อนุมัติตามเวลาที่ขอ (${selectedShift || defaultCheckInTime})`}
                     </span>
                 </button>
 
@@ -205,7 +205,7 @@ export const ActionFooter: React.FC<ActionFooterProps> = ({
                         onSelect={(time) => {
                             setIsAdjustPickerOpen(false);
                             setSelectedShift(time);
-                            onApprove(time);
+                            setAdjustedTime(time);
                         }}
                         initialTime={selectedShift || defaultCheckInTime}
                     />

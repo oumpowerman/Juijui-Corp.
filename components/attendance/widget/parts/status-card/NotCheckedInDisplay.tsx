@@ -3,6 +3,7 @@ import { LogIn, Palmtree, Hourglass, ShieldCheck, AlertCircle, ArrowRight, Flame
 import { LeaveType, LocationDef, AttendanceStats, LeaveRequest, AttendanceLog } from '../../../../../types/attendance';
 import ForgotCheckInControl from '../../ForgotCheckInControl';
 import { parseReason } from '../../../leave-request/request-detail/utils';
+import { getMatchedShiftSlot, addMinutesToTimeString } from '../../../../../lib/attendanceUtils';
 
 interface NotCheckedInDisplayProps {
     dayStatus: { mode: string; name: string };
@@ -23,6 +24,7 @@ interface NotCheckedInDisplayProps {
     onOpenLeave?: (type?: any) => void;
     approvedFixedOtToday?: { id: string; reason: string; otHours?: number; fixedAmount?: number } | null;
     isDesktop?: boolean;
+    masterOptions?: any[];
 }
 
 export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
@@ -42,7 +44,8 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
     todayLog,
     onOpenLeave,
     approvedFixedOtToday,
-    isDesktop = false
+    isDesktop = false,
+    masterOptions = []
 }) => {
     const isActualLeaveToday = isLeaveLog || (isApprovedLeaveToday && todayActiveLeave && !['WFH', 'ONSITE', 'LATE_ENTRY', 'OVERTIME', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT', 'GPS_SPOOF_APPEAL'].includes(todayActiveLeave.type));
 
@@ -55,6 +58,36 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
     };
 
     const { isHalfDay, session } = getHalfDayInfo(todayActiveLeave);
+
+    // Parse shift configuration
+    const configData = masterOptions ? masterOptions.filter(o => o.type === 'WORK_CONFIG') : [];
+    const shiftsEnabledOpt = configData?.find(o => o.key === 'MULTIPLE_SHIFTS_ENABLED');
+    const shiftsListOpt = configData?.find(o => o.key === 'MULTIPLE_SHIFTS_LIST');
+    const isShiftsEnabled = shiftsEnabledOpt?.label === 'true';
+    const shiftsList = shiftsListOpt?.label ? shiftsListOpt.label.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
+
+    let baseStartTime = startTime || '10:00';
+    if (isShiftsEnabled && shiftsList.length > 0) {
+        // เรียงลำดับกะจากเช้าไปสาย (เช่น ["08:00", "08:30"])
+        const sortedShifts = [...shiftsList].sort((a, b) => {
+            const [ah, am] = a.split(':').map(Number);
+            const [bh, bm] = b.split(':').map(Number);
+            return (ah * 60 + am) - (bh * 60 + bm);
+        });
+        // เลือกใช้กะสุดท้ายตามแผนที่คุณเสนอมา เพื่อความเสถียรของการคำนวณครึ่งวัน
+        baseStartTime = sortedShifts[sortedShifts.length - 1]; 
+    }
+
+    // Now calculate morning / afternoon shift slots
+    // AM Leave (Absent in the morning): AM period is 4 hours (240 minutes) from baseStartTime
+    const amLeaveStart = baseStartTime;
+    const amLeaveEnd = addMinutesToTimeString(baseStartTime, 240);
+
+    // PM Leave (Absent in the afternoon): PM period is 4 hours (240 minutes) starting after a 1 hour (60 minutes) break
+    // Total elapsed time before afternoon shift starts is 4 hours + 1 hour break = 5 hours (300 minutes)
+    // PM shift ends 9 hours (540 minutes) after baseStartTime
+    const pmLeaveStart = addMinutesToTimeString(baseStartTime, 300);
+    const pmLeaveEnd = addMinutesToTimeString(baseStartTime, 540);
 
     const getLeaveTypeName = (type?: string) => {
         switch (type) {
@@ -201,7 +234,7 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
                             <div className="flex items-center gap-2">
                                 <span className="font-bold text-emerald-900 shrink-0">⏱️ รูปแบบ:</span>
                                 <span className="font-semibold text-slate-700">
-                                    {`ลาครึ่งวัน (0.5 วัน) — ช่วง${session === 'AM' ? 'เช้า (08:30 - 12:00 น.)' : 'บ่าย (13:00 - 17:30 น.)'}`}
+                                    {`ลาครึ่งวัน (0.5 วัน) — ช่วง${session === 'AM' ? `เช้า (${amLeaveStart} - ${amLeaveEnd} น.)` : `บ่าย (${pmLeaveStart} - ${pmLeaveEnd} น.)`}`}
                                 </span>
                             </div>
                         )}

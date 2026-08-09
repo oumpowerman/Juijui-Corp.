@@ -829,7 +829,7 @@ export function buildMonthlyBonusSummaryPayload(targetDestination: string, recor
           text: `ประจำเดือน${monthName} ${yearName}`,
           size: "xs",
           color: "#94a3b8",
-          marginTop: "4px"
+          margin: "sm"
         }
       ]
     },
@@ -861,14 +861,14 @@ export function buildMonthlyBonusSummaryPayload(targetDestination: string, recor
               weight: "bold",
               size: "md",
               color: "#78350f",
-              marginTop: "4px"
+              margin: "sm"
             },
             {
               type: "text",
               text: "ไม่ขาด ไม่สาย ไม่ลากิจ/ลาป่วย ตลอดทั้งเดือน",
               size: "xxs",
               color: "#d97706",
-              marginTop: "4px"
+              margin: "sm"
             }
           ]
         },
@@ -878,7 +878,7 @@ export function buildMonthlyBonusSummaryPayload(targetDestination: string, recor
           weight: "bold",
           size: "xs",
           color: "#475569",
-          marginTop: "16px"
+          margin: "md"
         },
         {
           type: "box",

@@ -219,14 +219,6 @@ export async function approveAttendanceCorrection({
     const registryItem = getRegistryItem(request.type);
     const behavior = registryItem?.approvalBehavior;
 
-    // Hard lock: check if timeStr exceeds max shift + buffer (Skip this lock for LATE_ENTRY as late entries can be at any time, and bypass if customStartTime is overridden by admin)
-    if (!customStartTime && request.type !== 'LATE_ENTRY' && behavior?.correctionTarget !== 'CHECKOUT_ONLY' && timeStr && timeStr !== '00:00') {
-        const { maxAllowedTimeStr, maxShiftTimeStr, bufferMinutes } = getMaxShiftWithBuffer(masterOptions);
-        if (timeStr > maxAllowedTimeStr) {
-            throw new Error(`ไม่อนุญาตให้อนุมัติ: เวลาที่ระบุ (${timeStr} น.) เกินกำหนดเวลาสายสุดของกะงาน (${maxAllowedTimeStr} น. - คำนวณจากกะสุดท้าย ${maxShiftTimeStr} น. + Buffer ${bufferMinutes} นาที)`);
-        }
-    }
-
     const { data: freshLog } = await supabase
         .from('attendance_logs')
         .select('*')
@@ -246,7 +238,8 @@ export async function approveAttendanceCorrection({
         }
 
         // Clean and replace [TARGET_SHIFT:...] tag with the correct admin approved entry/target time
-        if (finalReason.includes('[TARGET_SHIFT:')) {
+        // Skip this for LATE_ENTRY as customStartTime is the corrected entry time, not the shift start time
+        if (request.type !== 'LATE_ENTRY' && finalReason.includes('[TARGET_SHIFT:')) {
             finalReason = finalReason.replace(/\[TARGET_SHIFT:[^\]]+\]/g, `[TARGET_SHIFT:${adminEntryTime}]`);
         }
 
@@ -273,13 +266,36 @@ export async function approveAttendanceCorrection({
     }
 
     if (request.type === 'LATE_ENTRY' && freshLog) {
-        const actualCheckInDateTime = freshLog.check_in_time ? new Date(freshLog.check_in_time) : null;
+        let actualCheckInDateTime = freshLog.check_in_time ? new Date(freshLog.check_in_time) : null;
         
-        // Parse ACTUAL_CHECK_IN from request.reason (supporting optional seconds)
-        const actualCheckInMatch = request.reason.match(/\[ACTUAL_CHECK_IN:(\d{2}:\d{2})(:\d{2})?\]/);
-        const actualRequestedTimeStr = actualCheckInMatch ? actualCheckInMatch[1] : timeStr;
-        
-        const [approvedHour, approvedMinute] = actualRequestedTimeStr.split(':').map(Number);
+        if (customStartTime) {
+            const [h, m] = customStartTime.split(':').map(Number);
+            const updatedCheckIn = new Date(request.startDate);
+            updatedCheckIn.setHours(h, m, 0, 0);
+            actualCheckInDateTime = updatedCheckIn;
+            freshLog.check_in_time = updatedCheckIn.toISOString();
+        }
+
+        // Determine the late entry threshold (shift start / approved late time) using prioritized rules:
+        // 1. [APPROVED_TIME:...] tag in finalReason / request.reason
+        // 2. Default timeStr (requested late time)
+        // 3. [TARGET_SHIFT:...] tag in finalReason / request.reason (fallback)
+        const approvedTimeMatch = finalReason.match(/\[APPROVED_TIME:([^\]]+)\]/);
+        const targetShiftMatch = finalReason.match(/\[TARGET_SHIFT:(\d{2}:\d{2})\]/);
+
+        let lateThresholdStr = '';
+        if (approvedTimeMatch) {
+            const approvedVal = approvedTimeMatch[1];
+            lateThresholdStr = approvedVal.includes('-') ? approvedVal.split('-')[0].trim() : approvedVal.trim();
+        } else if (timeStr && timeStr !== '00:00') {
+            lateThresholdStr = timeStr;
+        } else if (targetShiftMatch) {
+            lateThresholdStr = targetShiftMatch[1].trim();
+        } else {
+            lateThresholdStr = timeStr;
+        }
+
+        const [approvedHour, approvedMinute] = lateThresholdStr.split(':').map(Number);
         const approvedMinutesSinceMidnight = approvedHour * 60 + approvedMinute;
         
         let isActuallyLate = false;
@@ -290,7 +306,7 @@ export async function approveAttendanceCorrection({
             const { hour, minute, totalMinutes: actualMinutesSinceMidnight } = getICTTime(actualCheckInDateTime);
             actualTimeStr = `${hour}:${minute}`;
             
-            // If actual check-in time is AFTER the approved late time, they are still late!
+            // If actual check-in time is AFTER the approved late threshold time, they are late!
             if (actualMinutesSinceMidnight > approvedMinutesSinceMidnight) {
                 isActuallyLate = true;
                 diffLateMinutes = actualMinutesSinceMidnight - approvedMinutesSinceMidnight;
@@ -298,7 +314,7 @@ export async function approveAttendanceCorrection({
         }
 
         let newNote = cleanAttendanceNoteTags(freshLog.note || '', request.type);
-        newNote = `${newNote} [APPROVED LATE_ENTRY] ${request.reason}`;
+        newNote = `${newNote} [APPROVED LATE_ENTRY] ${finalReason}`;
         
         if (isActuallyLate) {
             newNote = `${newNote} [LATE]`;
@@ -310,7 +326,7 @@ export async function approveAttendanceCorrection({
         const targetWorkType = await deduceTargetWorkType({
             userId: request.userId,
             dateStr: shiftDateStr,
-            requestReason: request.reason,
+            requestReason: finalReason,
             existingNote: freshLog.note,
             existingWorkType: freshLog.work_type
         });
@@ -320,7 +336,12 @@ export async function approveAttendanceCorrection({
             : 'WORKING';
 
         await supabase.from('attendance_logs')
-            .update({ status: targetStatus, note: newNote, work_type: targetWorkType })
+            .update({ 
+                status: targetStatus, 
+                note: newNote, 
+                work_type: targetWorkType,
+                check_in_time: actualCheckInDateTime ? actualCheckInDateTime.toISOString() : null
+            })
             .eq('id', freshLog.id);
 
         // Recalculate and trigger ATTENDANCE_CHECK_IN action for gamification
@@ -340,9 +361,9 @@ export async function approveAttendanceCorrection({
         const originalStatusNote = (freshLog?.status === 'ABSENT' || freshLog?.note?.includes('[ORIGINALLY: ABSENT]')) ? '[ORIGINALLY: ABSENT] ' : '';
 
         // Calculate isLate considering MULTIPLE_SHIFTS_ENABLED
-        const { startTime: startTimeStr, lateBuffer: buffer } = parseWorkConfig(masterOptions);
+        const { startTime: startTimeStr, lateBuffer: buffer, multipleShifts } = parseWorkConfig(masterOptions);
         const { maxShiftTimeStr } = getMaxShiftWithBuffer(masterOptions);
-        const referenceStart = maxShiftTimeStr || startTimeStr;
+        const referenceStart = (multipleShifts?.enabled && maxShiftTimeStr) ? maxShiftTimeStr : startTimeStr;
         const isLate = checkIsLate(checkInDateTime, referenceStart, buffer);
 
         // Determine targetWorkType
@@ -377,9 +398,9 @@ export async function approveAttendanceCorrection({
         
         const cleanedNote = cleanAttendanceNoteTags(freshLog?.note || '', request.type);
  
-        const { startTime: startTimeStr, lateBuffer: buffer } = parseWorkConfig(masterOptions);
+        const { startTime: startTimeStr, lateBuffer: buffer, multipleShifts } = parseWorkConfig(masterOptions);
         const { maxShiftTimeStr } = getMaxShiftWithBuffer(masterOptions);
-        const referenceStart = maxShiftTimeStr || startTimeStr;
+        const referenceStart = (multipleShifts?.enabled && maxShiftTimeStr) ? maxShiftTimeStr : startTimeStr;
         const isLate = checkIsLate(checkInDateTime, referenceStart, buffer);
 
         // Determine targetWorkType
@@ -479,11 +500,11 @@ export async function approveAttendanceCorrection({
         });
     }
 
-    if (behavior?.correctionTarget !== 'CHECKOUT_ONLY') {
-        const { startTime: defaultStartTime, lateBuffer: buffer } = parseWorkConfig(masterOptions);
+    if (behavior?.correctionTarget !== 'CHECKOUT_ONLY' && request.type !== 'LATE_ENTRY') {
+        const { startTime: defaultStartTime, lateBuffer: buffer, multipleShifts } = parseWorkConfig(masterOptions);
         const { maxShiftTimeStr } = getMaxShiftWithBuffer(masterOptions);
         
-        const referenceStartTime = customStartTime || maxShiftTimeStr || defaultStartTime;
+        const referenceStartTime = (multipleShifts?.enabled && maxShiftTimeStr) ? maxShiftTimeStr : defaultStartTime;
         const checkInDateTime = new Date(`${shiftDateStr}T${timeStr}:00`);
         const isLate = checkIsLate(checkInDateTime, referenceStartTime, buffer);
         
@@ -491,40 +512,7 @@ export async function approveAttendanceCorrection({
         let calculatedStatus: 'LATE' | 'ON_TIME' = 'ON_TIME';
         let checkInTimeForAction = timeStr;
 
-        if (request.type === 'LATE_ENTRY') {
-            const actualCheckInDateTime = freshLog?.check_in_time ? new Date(freshLog.check_in_time) : null;
-            
-            // Parse ACTUAL_CHECK_IN from request.reason (supporting optional seconds)
-            const actualCheckInMatch = request.reason.match(/\[ACTUAL_CHECK_IN:(\d{2}:\d{2})(:\d{2})?\]/);
-            const actualRequestedTimeStr = actualCheckInMatch ? actualCheckInMatch[1] : timeStr;
-            const approvedLateDateTime = new Date(`${shiftDateStr}T${actualRequestedTimeStr}:00`);
-
-            if (actualCheckInDateTime) {
-                try {
-                    const hours = String(actualCheckInDateTime.getHours()).padStart(2, '0');
-                    const minutes = String(actualCheckInDateTime.getMinutes()).padStart(2, '0');
-                    checkInTimeForAction = `${hours}:${minutes}`;
-                } catch (e) {
-                    checkInTimeForAction = timeStr;
-                }
-
-                const checkInCompare = new Date(actualCheckInDateTime);
-                checkInCompare.setSeconds(0, 0);
-                const approvedCompare = new Date(approvedLateDateTime);
-                approvedCompare.setSeconds(0, 0);
-
-                if (checkInCompare > approvedCompare) {
-                    calculatedStatus = 'LATE';
-                    lateMinutes = Math.max(0, Math.ceil((checkInCompare.getTime() - approvedCompare.getTime()) / (1000 * 60)));
-                } else {
-                    calculatedStatus = 'ON_TIME';
-                    lateMinutes = 0;
-                }
-            } else {
-                calculatedStatus = 'ON_TIME';
-                lateMinutes = 0;
-            }
-        } else if (isLate || (behavior?.verifyLateness && isLate)) {
+        if (isLate || (behavior?.verifyLateness && isLate)) {
             calculatedStatus = 'LATE';
             lateMinutes = getLateMinutes(checkInDateTime, referenceStartTime, buffer);
         }
@@ -560,13 +548,19 @@ export async function approveAttendanceCorrection({
  */
 export async function approveOutOfRangeCheckoutRequest({
     request,
+    customStartTime,
+    masterOptions = [],
     processAction
 }: {
     request: LeaveRequest;
+    customStartTime?: string;
+    masterOptions?: any[];
     processAction: (userId: string, actionType: any, payload?: any) => Promise<any>;
 }) {
     await approveAttendanceCorrection({
         request,
+        customStartTime,
+        masterOptions,
         processAction
     });
 }

@@ -21,7 +21,7 @@ interface AttendanceControlProps {
     todayActiveLeave: any;
     requests?: any[];
     onLeaveSubmit: any;
-    onOpenLeave: (type?: any, workType?: 'WFH' | 'ONSITE') => void;
+    onOpenLeave: (type?: any, workType?: 'WFH' | 'ONSITE', isInstant?: boolean) => void;
     isCheckInModalOpen: boolean;
     setIsCheckInModalOpen: (isOpen: boolean) => void;
 }
@@ -248,8 +248,10 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({
         const startTimeStr = configData?.find(c => c.key === 'START_TIME')?.label || '10:00';
         const shiftsEnabledOpt = configData?.find(o => o.key === 'MULTIPLE_SHIFTS_ENABLED');
         const shiftsListOpt = configData?.find(o => o.key === 'MULTIPLE_SHIFTS_LIST');
+        const lateEntryStrictOpt = configData?.find(o => o.key === 'LATE_ENTRY_STRICT_END_TIME');
         const isShiftsEnabled = shiftsEnabledOpt?.label === 'true';
         const shiftsList = shiftsListOpt?.label || '';
+        const isLateEntryStrictEndTime = lateEntryStrictOpt?.label === 'true';
 
         const effectiveStartTimeStr = getEffectiveStartTime(
             new Date(todayLog.checkInTime),
@@ -258,7 +260,33 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({
             { enabled: isShiftsEnabled, shiftsList }
         );
 
-        const calcResult = calculateCheckOutStatus(new Date(todayLog.checkInTime), now, minHours, effectiveStartTimeStr);
+        const todayHalfDayLeave = todayRequests.find(
+            r => r.status === 'APPROVED' && (r.is_half_day === true || r.is_half_day === 'true' || r.isHalfDay === true || r.isHalfDay === 'true')
+        );
+        const isHalfDay = !!todayHalfDayLeave;
+        const halfDaySession = todayHalfDayLeave ? (todayHalfDayLeave.half_day_session || todayHalfDayLeave.halfDaySession) : undefined;
+
+        const note = todayLog.note || '';
+        const hasLateEntryNote = note.includes('[PROVISIONAL_LATE_ENTRY]') ||
+            note.includes('[APPROVED LATE_ENTRY]') ||
+            note.includes('[REJECTED LATE_ENTRY]') ||
+            note.includes('LATE_ENTRY') ||
+            note.includes('[APPROVED_TIME:') ||
+            note.includes('[LATE_PAST_PENDING]') ||
+            note.includes('[APPEAL_PENDING]');
+
+        const hasLateEntryRequest = todayRequests.some((req: any) => req.type === 'LATE_ENTRY');
+        const useShiftEndTimeForLate = Boolean(isLateEntryStrictEndTime && (hasLateEntryNote || hasLateEntryRequest));
+
+        const calcResult = calculateCheckOutStatus(
+            new Date(todayLog.checkInTime), 
+            now, 
+            minHours, 
+            effectiveStartTimeStr,
+            isHalfDay,
+            halfDaySession,
+            useShiftEndTimeForLate
+        );
         const isEarlyLeave = calcResult.status === 'EARLY_LEAVE';
 
         const success = await checkOut(todayLog, location, locationName, reason, proofUrl);
@@ -377,7 +405,7 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({
                 availableLocations={availableLocations}
                 startTime={startTime}
                 lateBuffer={lateBuffer}
-                onSwitchToLeave={(type, workType) => { onOpenLeave(type, workType); }} // Keep CheckIn open so they can return to it if they change their mind
+                onSwitchToLeave={(type, workType) => { onOpenLeave(type, workType, true); }} // Keep CheckIn open so they can return to it if they change their mind
                 approvedWFH={todayRequests.some(r => r.type === 'WFH' && r.status === 'APPROVED')}
                 approvedOnsite={todayRequests.some(r => (r.type === 'ONSITE' || r.type === 'OFFSITE') && r.status === 'APPROVED')}
                 pendingWFHRequest={pendingWFHRequest}

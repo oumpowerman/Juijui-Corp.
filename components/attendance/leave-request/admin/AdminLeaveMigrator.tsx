@@ -81,7 +81,7 @@ export const AdminLeaveMigrator: React.FC<AdminLeaveMigratorProps> = ({
             }
 
             const confirmImport = await showConfirm(
-                `ตรวจพบประวัติการลาที่ถูกต้องจำนวน ${parsedRows.length} รายการ\n\nระบบจะบันทึกเป็นสถานะ อนุมัติแล้ว (APPROVED) และตั้งค่าพิเศษ (is_fixed: true) เพื่อป้องกันการหักพลังชีวิต (HP) ของพนักงานซ้ำซ้อน\n\nต้องการยืนยันการนำเข้าหรือไม่?`,
+                `ตรวจพบประวัติการลาที่ถูกต้องจำนวน ${parsedRows.length} รายการ\n\nระบบจะบันทึกเป็นสถานะ อนุมัติแล้ว (APPROVED) และหักโควตาวันลาของพนักงานโดยไม่ส่งผลเสียต่อค่าพลังชีวิต (HP)\n\nต้องการยืนยันการนำเข้าหรือไม่?`,
                 'ยืนยันการนำเข้าประวัติการลาสะสม'
             );
 
@@ -221,7 +221,7 @@ export const AdminLeaveMigrator: React.FC<AdminLeaveMigratorProps> = ({
                                             <ul className="list-disc list-inside text-[11px] text-amber-700 space-y-1 leading-relaxed">
                                                 <li>รายการที่นำเข้าจะถูกปรับเป็นสถานะ <strong>อนุมัติแล้ว (APPROVED)</strong> โดยอัตโนมัติ</li>
                                                 <li>ระบบจะแนบคำอธิบายเหตุผลเป็น <code>[MIGRATED] ประวัติการลาย้อนหลัง...</code> เพื่อให้แยกแยะได้</li>
-                                                <li>ระบบจะเปิดใช้งานสถานะพิเศษ <strong>is_fixed: true</strong> ซึ่งจะไม่มีการหักพลังชีวิต (HP) ของพนักงาน และไม่มีการส่งข้อความแจ้งเตือนซ้ำซ้อน</li>
+                                                <li>การนำเข้าข้อมูลจะไม่ส่งข้อความแจ้งเตือนซ้ำซ้อนไปยังพนักงาน และไม่หักพลังชีวิต (HP) ของพนักงาน</li>
                                             </ul>
                                         </div>
                                     </div>

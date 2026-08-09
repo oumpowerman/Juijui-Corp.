@@ -41,15 +41,15 @@ const LateInterventionOverlay: React.FC<LateInterventionOverlayProps> = ({
             </motion.div>
             
             <h3 className="text-xl font-bold text-gray-800 mb-2">
-                {isExceededLastShift ? 'เลยเวลาเข้างานกะสุดท้ายแล้ว! ⛔' : 'เข้างานสายเกินกำหนด! 😱'}
+                {isExceededLastShift ? 'เลยเวลาเข้างานแล้ว! ⛔' : 'เข้างานสายเกินกำหนด! 😱'}
             </h3>
             
             <p className="text-sm text-gray-500 text-center mb-6 leading-relaxed">
                 {isExceededLastShift ? (
                     <>
-                        ขณะนี้เลยกำหนดเวลาเริ่มเข้างานกะสุดท้ายแล้ว ({startTime} น.) <br/>
+                        ขณะนี้เลยกำหนดเวลาเริ่มเข้างานแล้ว ({startTime} น.) <br/>
                         <span className="text-red-600 font-bold">ระบบได้ทำการล็อกการตอกบัตรเข้างานโดยตรงไว้</span> <br/>
-                        คุณต้องยื่นคำขอเข้าสายเพื่อขออนุมัติจากหัวหน้างานเท่านั้น
+                        หากต้องการยื่นคำขอเข้าสาย (Late Request) จะต้องเป็นคำขอที่เกิดจากอุบัติเหตุหรือเหตุผลจำเป็นจริง ๆ เท่านั้น
                     </>
                 ) : (
                     <>

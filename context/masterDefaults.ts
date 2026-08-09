@@ -53,6 +53,7 @@ export const DEFAULT_OPTIONS = [
     { type: 'WORK_CONFIG', key: 'ADMIN_ABSENT_PENALTY_ENABLED', label: 'false', color: '', sort_order: 18, description: 'กำหนดให้แอดมิน (ADMIN) โดนหักคะแนนและรับแจ้งเตือนเมื่อขาดงานหรือไม่' },
     { type: 'WORK_CONFIG', key: 'LINE_SUBMISSION_ALERT_MODE', label: 'ADMIN_PRIVATE', color: '', sort_order: 19, description: 'ช่องทางการแจ้งเตือนเมื่อพนักงานยื่นคำขอใหม่ (ADMIN_PRIVATE, GROUP_ONLY, NONE)' },
     { type: 'WORK_CONFIG', key: 'FORGOT_CHECKIN_LIMIT_HOURS', label: '12', color: '', sort_order: 20, description: 'ระยะเวลาสิ้นสุดหลังกกะสุดท้ายสำหรับการลืมลงเวลาเข้างาน (หน่วย: ชั่วโมง)' },
+    { type: 'WORK_CONFIG', key: 'LATE_ENTRY_STRICT_END_TIME', label: 'false', color: '', sort_order: 21, description: 'ยึดเวลาออกงานตามกะปกติเมื่อขอเข้าสาย (ไม่ต้องทำงานชดเชยตาม MinHours)' },
     { type: 'ATTENDANCE_TYPE', key: 'OFFICE', label: 'เข้าออฟฟิศ', color: 'bg-indigo-600', sort_order: 10 },
     { type: 'ATTENDANCE_TYPE', key: 'ON_TIME', label: 'มาตรงเวลา (On Time)', color: 'bg-emerald-600', sort_order: 15, description: '{"icon": "CheckCircle", "category": "STANDARD"}' },
     { type: 'ATTENDANCE_TYPE', key: 'WFH', label: 'ทำงานที่บ้าน (WFH)', color: 'bg-blue-600', sort_order: 10, description: '{"icon": "Home", "category": "STANDARD"}' },

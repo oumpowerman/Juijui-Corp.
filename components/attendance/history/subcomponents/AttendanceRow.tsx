@@ -86,6 +86,11 @@ export const AttendanceRow: React.FC<AttendanceRowProps> = React.memo(({
 
         return requests.find(r => {
             if (r.status !== 'APPROVED') return false;
+
+            // Filter to only include actual leaves (category === 'LEAVE')
+            const registryItem = ATTENDANCE_REGISTRY[r.type as LeaveType];
+            if (!registryItem || registryItem.category !== 'LEAVE') return false;
+
             const start = new Date(r.startDate);
             start.setHours(0, 0, 0, 0);
             const end = new Date(r.endDate);

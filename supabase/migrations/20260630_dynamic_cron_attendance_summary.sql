@@ -84,6 +84,13 @@ DECLARE
     late_buffer_minutes INT;
     late_cutoff_time TIME;
     
+    -- Multiple Shifts configuration
+    shifts_enabled_val TEXT;
+    shifts_list_val TEXT;
+    is_shifts_enabled BOOLEAN := FALSE;
+    last_shift_time TIME;
+    late_minutes_val INT;
+    
     -- Summary counts
     ontime_count INT := 0;
     late_count INT := 0;
@@ -101,6 +108,8 @@ DECLARE
     has_log BOOLEAN;
     on_leave BOOLEAN;
     leave_type_label TEXT;
+    is_half_day_val BOOLEAN := FALSE;
+    half_day_session_val TEXT;
     checkin_time_local TIME;
     admin_user_id UUID;
     app_name_val TEXT;
@@ -155,6 +164,32 @@ BEGIN
 
     late_cutoff_time := start_time_parsed + (late_buffer_minutes || ' minutes')::INTERVAL;
 
+    -- Fetch multiple shifts settings
+    SELECT label INTO shifts_enabled_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'MULTIPLE_SHIFTS_ENABLED' LIMIT 1;
+    SELECT label INTO shifts_list_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'MULTIPLE_SHIFTS_LIST' LIMIT 1;
+
+    IF shifts_enabled_val = 'true' THEN
+        is_shifts_enabled := TRUE;
+    END IF;
+
+    IF is_shifts_enabled AND shifts_list_val IS NOT NULL AND shifts_list_val != '' THEN
+        BEGIN
+            SELECT MAX(trimmed_time::TIME)
+            INTO last_shift_time
+            FROM (
+                SELECT TRIM(val) as trimmed_time
+                FROM regexp_split_to_table(shifts_list_val, ',') as val
+            ) s
+            WHERE s.trimmed_time ~ '^[0-2]?[0-9]:[0-5][0-9]$' OR s.trimmed_time ~ '^[0-2]?[0-9]:[0-5][0-9]:[0-5][0-9]$';
+        EXCEPTION WHEN OTHERS THEN
+            last_shift_time := NULL;
+        END;
+    END IF;
+
+    IF last_shift_time IS NULL THEN
+        last_shift_time := start_time_parsed;
+    END IF;
+
     -- Fetch an active ADMIN user ID to satisfy foreign key user_id on notifications
     SELECT id INTO admin_user_id FROM public.profiles WHERE is_active = TRUE AND role = 'ADMIN' LIMIT 1;
     -- If no ADMIN, get any active user
@@ -182,21 +217,41 @@ BEGIN
                   AND status = 'APPROVED'
                   AND start_date <= cur_date 
                   AND end_date >= cur_date
+                  AND type IN ('SICK', 'VACATION', 'PERSONAL', 'EMERGENCY', 'UNPAID')
             ) INTO on_leave;
 
             -- Get leave type label if on leave
             IF on_leave THEN
-                SELECT COALESCE(mo.label, lr.leave_type) INTO leave_type_label
+                SELECT 
+                    COALESCE(mo.label, lr.type),
+                    lr.is_half_day,
+                    lr.half_day_session
+                INTO 
+                    leave_type_label,
+                    is_half_day_val,
+                    half_day_session_val
                 FROM public.leave_requests lr
-                LEFT JOIN public.master_options mo ON mo.type = 'LEAVE_TYPE' AND mo.key = lr.leave_type
+                LEFT JOIN public.master_options mo ON mo.type = 'LEAVE_TYPE' AND mo.key = lr.type
                 WHERE lr.user_id = profile_rec.id 
                   AND lr.status = 'APPROVED'
                   AND lr.start_date <= cur_date 
                   AND lr.end_date >= cur_date
+                  AND lr.type IN ('SICK', 'VACATION', 'PERSONAL', 'EMERGENCY', 'UNPAID')
                 LIMIT 1;
 
                 IF leave_type_label IS NULL OR leave_type_label = '' THEN
                     leave_type_label := 'ลาพักผ่อน/อื่นๆ';
+                END IF;
+
+                -- ตรวจสอบเงื่อนไขการลาครึ่งวันเพื่อใส่รายละเอียดเพิ่มเติม
+                IF is_half_day_val = TRUE THEN
+                    IF half_day_session_val = 'AM' THEN
+                        leave_type_label := leave_type_label || ' ครึ่งวันเช้า';
+                    ELSIF half_day_session_val = 'PM' THEN
+                        leave_type_label := leave_type_label || ' ครึ่งวันบ่าย';
+                    ELSE
+                        leave_type_label := leave_type_label || ' ครึ่งวัน';
+                    END IF;
                 END IF;
 
                 leave_count := leave_count + 1;
@@ -217,21 +272,48 @@ BEGIN
                     -- User checked in! Let's check if they are late
                     checkin_time_local := (log_rec.check_in_time AT TIME ZONE 'Asia/Bangkok')::TIME;
                     
-                    IF checkin_time_local <= late_cutoff_time THEN
-                        -- On-time
-                        ontime_count := ontime_count + 1;
-                        IF ontime_list = '' THEN
-                            ontime_list := '• ' || profile_rec.full_name || ' (' || to_char(checkin_time_local, 'HH24:MI') || ' น.)';
+                    IF is_shifts_enabled THEN
+                        -- Multiple Shifts is ON: Check against last shift time without buffer
+                        IF checkin_time_local <= last_shift_time THEN
+                            -- On-time
+                            ontime_count := ontime_count + 1;
+                            IF ontime_list = '' THEN
+                                ontime_list := '• ' || profile_rec.full_name || ' (' || to_char(checkin_time_local, 'HH24:MI') || ' น.)';
+                            ELSE
+                                ontime_list := ontime_list || E'\n• ' || profile_rec.full_name || ' (' || to_char(checkin_time_local, 'HH24:MI') || ' น.)';
+                            END IF;
                         ELSE
-                            ontime_list := ontime_list || E'\n• ' || profile_rec.full_name || ' (' || to_char(checkin_time_local, 'HH24:MI') || ' น.)';
+                            -- Late
+                            late_count := late_count + 1;
+                            
+                            -- Calculate late minutes (difference between checkin_time_local and last_shift_time)
+                            late_minutes_val := EXTRACT(EPOCH FROM (checkin_time_local - last_shift_time))::INT / 60;
+                            IF late_minutes_val < 0 THEN late_minutes_val := 0; END IF;
+                            
+                            IF late_list = '' THEN
+                                late_list := '• ' || profile_rec.full_name || ' (' || to_char(checkin_time_local, 'HH24:MI') || ' น. - สาย ' || late_minutes_val || ' นาที)';
+                            ELSE
+                                late_list := late_list || E'\n• ' || profile_rec.full_name || ' (' || to_char(checkin_time_local, 'HH24:MI') || ' น. - สาย ' || late_minutes_val || ' นาที)';
+                            END IF;
                         END IF;
                     ELSE
-                        -- Late
-                        late_count := late_count + 1;
-                        IF late_list = '' THEN
-                            late_list := '• ' || profile_rec.full_name || ' (' || to_char(checkin_time_local, 'HH24:MI') || ' น.)';
+                        -- Multiple Shifts is OFF: Same as before (using late_cutoff_time)
+                        IF checkin_time_local <= late_cutoff_time THEN
+                            -- On-time
+                            ontime_count := ontime_count + 1;
+                            IF ontime_list = '' THEN
+                                ontime_list := '• ' || profile_rec.full_name || ' (' || to_char(checkin_time_local, 'HH24:MI') || ' น.)';
+                            ELSE
+                                ontime_list := ontime_list || E'\n• ' || profile_rec.full_name || ' (' || to_char(checkin_time_local, 'HH24:MI') || ' น.)';
+                            END IF;
                         ELSE
-                            late_list := late_list || E'\n• ' || profile_rec.full_name || ' (' || to_char(checkin_time_local, 'HH24:MI') || ' น.)';
+                            -- Late
+                            late_count := late_count + 1;
+                            IF late_list = '' THEN
+                                late_list := '• ' || profile_rec.full_name || ' (' || to_char(checkin_time_local, 'HH24:MI') || ' น.)';
+                            ELSE
+                                late_list := late_list || E'\n• ' || profile_rec.full_name || ' (' || to_char(checkin_time_local, 'HH24:MI') || ' น.)';
+                            END IF;
                         END IF;
                     END IF;
                 ELSE

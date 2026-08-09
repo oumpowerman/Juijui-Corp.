@@ -87,11 +87,12 @@ export const calculateCheckOutStatus = (
     minHours: number = 9,
     effectiveStartTimeStr?: string,
     isHalfDay: boolean = false,
-    halfDaySession?: 'AM' | 'PM'
+    halfDaySession?: 'AM' | 'PM',
+    useShiftEndTimeForLate: boolean = false
 ): CheckOutCalculationResult => {
     // Determine the base time for required checkout time calculation.
-    // If checkInTime is earlier than the shift start time, use the shift start time.
-    // If checkInTime is later (late check-in), use the actual checkInTime.
+    // If checkInTime is earlier than shift start time or if useShiftEndTimeForLate is enabled for late entry cases, use shiftStartTime.
+    // Otherwise (standard late check-in without strict flag), use the actual checkInTime.
     let baseTime = checkInTime;
     if (effectiveStartTimeStr) {
         try {
@@ -99,7 +100,7 @@ export const calculateCheckOutStatus = (
             const shiftStartTime = new Date(checkInTime);
             shiftStartTime.setHours(sh, sm, 0, 0);
 
-            if (isBefore(checkInTime, shiftStartTime)) {
+            if (isBefore(checkInTime, shiftStartTime) || useShiftEndTimeForLate) {
                 baseTime = shiftStartTime;
             }
         } catch (e) {
@@ -371,6 +372,7 @@ export interface AttendanceSummaryConfig {
     multipleShifts?: MultipleShiftsConfig;
     isHalfDay?: boolean;
     halfDaySession?: 'AM' | 'PM' | null;
+    useShiftEndTimeForLate?: boolean;
 }
 
 /**
@@ -434,7 +436,7 @@ export const getAttendanceSummary = (
                 const shiftStartTime = new Date(checkIn);
                 shiftStartTime.setHours(sh, sm, 0, 0);
 
-                if (isBefore(checkIn, shiftStartTime)) {
+                if (isBefore(checkIn, shiftStartTime) || config.useShiftEndTimeForLate) {
                     baseTime = shiftStartTime;
                 }
             } catch (e) {

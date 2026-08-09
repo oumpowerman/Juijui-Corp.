@@ -37,7 +37,7 @@ export const useCheckOutState = ({
     const { showAlert } = useGlobalDialog();
     const { masterOptions } = useMasterData();
     const { config } = useGameConfig();
-    const { otRequests, currentUserProfile } = useUserSession();
+    const { otRequests, leaveRequests, currentUserProfile } = useUserSession();
 
     // Dynamically retrieve early leave interval and rate from Game Config, Master Options, or safe fallbacks
     const earlyLeaveInterval = parseFloat(
@@ -196,8 +196,10 @@ export const useCheckOutState = ({
             const startTimeStr = configData?.find(c => c.key === 'START_TIME')?.label || '10:00';
             const shiftsEnabledOpt = configData?.find(o => o.key === 'MULTIPLE_SHIFTS_ENABLED');
             const shiftsListOpt = configData?.find(o => o.key === 'MULTIPLE_SHIFTS_LIST');
+            const lateEntryStrictOpt = configData?.find(o => o.key === 'LATE_ENTRY_STRICT_END_TIME');
             const isShiftsEnabled = shiftsEnabledOpt?.label === 'true';
             const shiftsList = shiftsListOpt?.label || '';
+            const isLateEntryStrictEndTime = lateEntryStrictOpt?.label === 'true';
 
             const effectiveStartTimeStr = getEffectiveStartTime(
                 checkInTime,
@@ -209,13 +211,40 @@ export const useCheckOutState = ({
             const isHalfDay = !!note && (note.includes('[HALF_DAY:AM]') || note.includes('[HALF_DAY:PM]'));
             const halfDaySession = note && note.includes('[HALF_DAY:AM]') ? 'AM' : (note && note.includes('[HALF_DAY:PM]') ? 'PM' : undefined);
 
+            const hasLateEntryNote = !!note && (
+                note.includes('[PROVISIONAL_LATE_ENTRY]') ||
+                note.includes('[APPROVED LATE_ENTRY]') ||
+                note.includes('[REJECTED LATE_ENTRY]') ||
+                note.includes('LATE_ENTRY') ||
+                note.includes('[APPROVED_TIME:') ||
+                note.includes('[LATE_PAST_PENDING]') ||
+                note.includes('[APPEAL_PENDING]')
+            );
+
+            const todayStr = format(new Date(), 'yyyy-MM-dd');
+            const hasLateEntryRequest = leaveRequests?.some((req: any) => {
+                if (req.type !== 'LATE_ENTRY') return false;
+                const reqDate = req.date || req.startDate || req.start_date;
+                if (reqDate === todayStr) return true;
+                const createdAtVal = req.createdAt || req.created_at;
+                if (createdAtVal) {
+                    if (typeof createdAtVal === 'string') return createdAtVal.startsWith(todayStr);
+                    if (createdAtVal instanceof Date) return format(createdAtVal, 'yyyy-MM-dd') === todayStr;
+                    return String(createdAtVal).startsWith(todayStr);
+                }
+                return false;
+            });
+
+            const useShiftEndTimeForLate = Boolean(isLateEntryStrictEndTime && (hasLateEntryNote || !!hasLateEntryRequest));
+
             const result = calculateCheckOutStatus(
                 checkInTime, 
                 new Date(), 
                 minHours, 
                 effectiveStartTimeStr,
                 isHalfDay,
-                halfDaySession as any
+                halfDaySession as any,
+                useShiftEndTimeForLate
             );
             setCheckOutStatus(result.status);
             setStatusDetails(result);

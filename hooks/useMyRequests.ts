@@ -210,7 +210,8 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
         file?: File | File[],
         linkedRemoteType?: 'WFH' | 'ONSITE',
         isHalfDay?: boolean,
-        halfDaySession?: string
+        halfDaySession?: string,
+        isInstantCheckIn?: boolean
     ): Promise<boolean> => {
         if (!currentUser?.id) return false;
         showLoading('กำลังอัปโหลดไฟล์และส่งคำขอเข้าระบบ...');
@@ -517,6 +518,18 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                 }
             }
 
+            // Check for approved half-day leaves on the target date to link them
+            const { data: approvedLeavesForDay } = await supabase
+                .from('leave_requests')
+                .select('is_half_day, half_day_session')
+                .eq('user_id', currentUser.id)
+                .eq('status', 'APPROVED')
+                .eq('is_half_day', true)
+                .eq('start_date', startDateStr);
+
+            const amHalfDay = approvedLeavesForDay && approvedLeavesForDay.some(l => l.half_day_session === 'AM');
+            const pmHalfDay = approvedLeavesForDay && approvedLeavesForDay.some(l => l.half_day_session === 'PM');
+
             if (type === 'FORGOT_CHECKIN') {
                 const { data: existingLog } = await supabase
                     .from('attendance_logs')
@@ -537,6 +550,13 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                     }
                 }
 
+                if (amHalfDay && !finalNote.includes('[HALF_DAY:AM]')) {
+                    finalNote = `${finalNote} [HALF_DAY:AM]`.trim();
+                }
+                if (pmHalfDay && !finalNote.includes('[HALF_DAY:PM]')) {
+                    finalNote = `${finalNote} [HALF_DAY:PM]`.trim();
+                }
+
                 const existingAttachments: string[] = Array.isArray(existingLog?.attachment_urls) ? existingLog.attachment_urls : [];
                 const combinedAttachments = Array.from(new Set([...existingAttachments, ...uploadedUrls]));
 
@@ -547,7 +567,7 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                     status: 'WORKING',
                     note: finalNote,
                     attachment_urls: combinedAttachments,
-                    work_type: linkedRemoteType || existingLog?.work_type || 'OFFICE'
+                    work_type: linkedRemoteType || (existingLog?.work_type && existingLog.work_type !== 'LEAVE' && existingLog.work_type !== 'ABSENT' ? existingLog.work_type : 'OFFICE')
                 };
 
                 await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
@@ -583,6 +603,13 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                 if (wasAbsent && !finalNote.includes('[ORIGINALLY: ABSENT]')) {
                     finalNote = `[ORIGINALLY: ABSENT] ${finalNote}`;
                 }
+
+                if (amHalfDay && !finalNote.includes('[HALF_DAY:AM]')) {
+                    finalNote = `${finalNote} [HALF_DAY:AM]`.trim();
+                }
+                if (pmHalfDay && !finalNote.includes('[HALF_DAY:PM]')) {
+                    finalNote = `${finalNote} [HALF_DAY:PM]`.trim();
+                }
                 
                 const existingAttachmentsFB: string[] = Array.isArray(existingLog?.attachment_urls) ? existingLog.attachment_urls : [];
                 const combinedAttachmentsFB = Array.from(new Set([...existingAttachmentsFB, ...uploadedUrls]));
@@ -595,7 +622,7 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                     status: 'PENDING_VERIFY', // ตั้งเป็น PENDING_VERIFY เพื่อรออนุมัติ
                     note: finalNote,
                     attachment_urls: combinedAttachmentsFB,
-                    work_type: linkedRemoteType || existingLog?.work_type || 'OFFICE'
+                   work_type: linkedRemoteType || (existingLog?.work_type && existingLog.work_type !== 'LEAVE' && existingLog.work_type !== 'ABSENT' ? existingLog.work_type : 'OFFICE')
                 };
 
                 await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
@@ -605,7 +632,7 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                 }
             }
 
-            if (type === 'LATE_ENTRY') {
+            if (type === 'LATE_ENTRY' && isInstantCheckIn) {
                 const { data: existingLog } = await supabase
                     .from('attendance_logs')
                     .select('*')
@@ -625,6 +652,13 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                     }
                 }
 
+                if (amHalfDay && !finalNote.includes('[HALF_DAY:AM]')) {
+                    finalNote = `${finalNote} [HALF_DAY:AM]`.trim();
+                }
+                if (pmHalfDay && !finalNote.includes('[HALF_DAY:PM]')) {
+                    finalNote = `${finalNote} [HALF_DAY:PM]`.trim();
+                }
+
                 const existingAttachmentsLE: string[] = Array.isArray(existingLog?.attachment_urls) ? existingLog.attachment_urls : [];
                 const combinedAttachmentsLE = Array.from(new Set([...existingAttachmentsLE, ...uploadedUrls]));
 
@@ -635,7 +669,7 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                     status: 'WORKING',
                     note: finalNote,
                     attachment_urls: combinedAttachmentsLE,
-                    work_type: linkedRemoteType || existingLog?.work_type || 'OFFICE'
+                    work_type: linkedRemoteType || (existingLog?.work_type && existingLog.work_type !== 'LEAVE' && existingLog.work_type !== 'ABSENT' ? existingLog.work_type : 'OFFICE')
                 };
 
                 await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });

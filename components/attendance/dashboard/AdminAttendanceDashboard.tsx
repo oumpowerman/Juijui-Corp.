@@ -291,14 +291,29 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                     
                     if (isHalfDay) {
                         stat.leaves += 0.5;
+                        if (log.checkInTime) {
+                            stat.present += 0.5;
+                        }
                     } else {
                         stat.leaves += 1.0;
                     }
                 } else if (log.status === 'ABSENT' || log.workType === 'ABSENT') {
                     stat.absent++;
                 } else {
+                    const isApprovedHalfDayLeave = leaveRequests?.some(req => {
+                        if (req.userId !== log.userId || req.status !== 'APPROVED') return false;
+                        const reqStart = format(new Date(req.startDate), 'yyyy-MM-dd');
+                        const reqEnd = format(new Date(req.endDate), 'yyyy-MM-dd');
+                        return log.date >= reqStart && log.date <= reqEnd && (req.isHalfDay || req.is_half_day);
+                    });
+
                     if (!isProvisional && !isGpsRejected) {
-                        stat.present++;
+                        if (isApprovedHalfDayLeave) {
+                            stat.present += 0.5;
+                            stat.leaves += 0.5;
+                        } else {
+                            stat.present += 1.0;
+                        }
                     }
 
                     const summary = getAttendanceSummary(
@@ -317,24 +332,18 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
             }
         });
 
-        // Calculate Absents
+        // Calculate Absents and un-logged Approved Leaves
         Object.values(statsMap).forEach(stat => {
             const user = users.find(u => u.id === stat.userId);
             const userStartDate = user?.startDate ? new Date(user.startDate) : (user?.createdAt ? new Date(user.createdAt) : null);
 
-            // Set of logged dates and leave dates for O(1) lookups
-            const loggedDates = new Set(stat.logs.map(l => l.date));
-            const leaveDates = new Set(
-                stat.logs
-                    .filter(l => l.status === 'LEAVE' || l.workType === 'LEAVE')
-                    .map(l => l.date)
-            );
+            // Map of logs by date
+            const logByDateMap = new Map(stat.logs.map(l => [l.date, l]));
 
             workingDaysInMonth.forEach(day => {
                 if (userStartDate) {
                     const dayStr = format(day, 'yyyy-MM-dd');
                     const startStr = format(userStartDate, 'yyyy-MM-dd');
-                    // หากวันทำงานนั้นๆ เกิดขึ้นก่อนวันที่พนักงานเริ่มงานจริง ให้ข้ามไป ไม่นับเป็นวันขาดงาน
                     if (dayStr < startStr) {
                         return;
                     }
@@ -350,10 +359,8 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                                 day.getFullYear() === today.getFullYear();
 
                 if (isToday) {
-                    // 1. กำหนดเวลาเริ่มงานหลักเป็นตัวแปรตั้งต้นก่อน (เช่น 10:00)
                     let targetStartTime = startTime; 
 
-                    // 2. ถ้าเปิดใช้งาน MULTIPLE_SHIFTS ให้ดึงกะที่สายที่สุดมาใช้งานแทน
                     if (multipleShifts.enabled && multipleShifts.shiftsList) {
                         const shifts = multipleShifts.shiftsList
                             .split(',')
@@ -361,12 +368,11 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                             .filter(Boolean);
                         
                         if (shifts.length > 0) {
-                            shifts.sort(); // เรียงลำดับเวลาจากเช้าสุดไปสายสุด (เช่น "08:00" -> "08:30" -> "09:00")
-                            targetStartTime = shifts[shifts.length - 1]; // เลือกเวลาที่สายที่สุด (เช่น "09:00")
+                            shifts.sort();
+                            targetStartTime = shifts[shifts.length - 1];
                         }
                     }
 
-                    // 3. นำเวลาที่เลือกได้ (targetStartTime) มาแปลงเป็นชั่วโมงและนาทีเพื่อเปรียบเทียบตามเดิม
                     let [startHour, startMin] = [10, 0];
                     if (targetStartTime && targetStartTime.includes(':')) {
                         const parts = targetStartTime.split(':');
@@ -376,19 +382,43 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                     const currentHour = today.getHours();
                     const currentMin = today.getMinutes();
 
-                    // If it is today and we haven't reached the official work start time yet, 
-                    // do not mark as absent yet (safeguard for early morning checks e.g. 03:00)
                     if (currentHour < startHour || (currentHour === startHour && currentMin < startMin)) {
                         return;
                     }
                 }
                 
                 const dateStr = format(day, 'yyyy-MM-dd');
-                const hasLog = loggedDates.has(dateStr);
-                const isLeave = leaveDates.has(dateStr);
+                const log = logByDateMap.get(dateStr);
                 
-                if (!hasLog && !isLeave) {
-                    stat.absent++;
+                // Check if there is an approved leave request on this date
+                const matchingLeaveReq = leaveRequests?.find(req => {
+                    if (req.userId !== stat.userId || req.status !== 'APPROVED') return false;
+                    const reqStart = format(new Date(req.startDate), 'yyyy-MM-dd');
+                    const reqEnd = format(new Date(req.endDate), 'yyyy-MM-dd');
+                    return dateStr >= reqStart && dateStr <= reqEnd;
+                });
+
+                if (!log) {
+                    // No attendance log exists for this working day
+                    if (matchingLeaveReq) {
+                        const isHalf = Boolean(matchingLeaveReq.isHalfDay || matchingLeaveReq.is_half_day === true || matchingLeaveReq.is_half_day === 'true');
+                        if (isHalf) {
+                            stat.leaves += 0.5;
+                            stat.absent += 0.5;
+                        } else {
+                            stat.leaves += 1.0;
+                        }
+                    } else {
+                        stat.absent += 1.0;
+                    }
+                } else if (log.status === 'LEAVE' || log.workType === 'LEAVE') {
+                    // Log exists with LEAVE status
+                    const parsed = parseReason(log.note || '');
+                    const isHalf = parsed.isHalfDay || Boolean(matchingLeaveReq?.isHalfDay || matchingLeaveReq?.is_half_day === true || matchingLeaveReq?.is_half_day === 'true');
+                    if (isHalf && !log.checkInTime) {
+                        // Took half day leave and did not check in for remaining half
+                        stat.absent += 0.5;
+                    }
                 }
             });
         });
@@ -499,7 +529,7 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
 
     // Aggregates
     const totalCheckins = logs.filter(l => l.status !== 'LEAVE').length;
-    const totalLeaves = logs.filter(l => l.status === 'LEAVE').length;
+    const totalLeaves = userStats.reduce((sum, s) => sum + s.leaves, 0);
     const totalLates = userStats.reduce((sum, s) => sum + s.late, 0);
     const totalAbsents = userStats.reduce((sum, s) => sum + s.absent, 0);
     const lateRate = totalCheckins > 0 ? Math.round((totalLates / totalCheckins) * 100) : 0;

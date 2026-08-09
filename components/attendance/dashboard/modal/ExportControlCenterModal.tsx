@@ -194,10 +194,29 @@ export const ExportControlCenterModal: React.FC<ExportControlCenterModalProps> =
                 const stat = statsMap[log.userId];
                 stat.logs.push(log);
 
+                const isApprovedHalfDayLeave = leaveRequests?.some(req => {
+                    if (req.userId !== log.userId || req.status !== 'APPROVED') return false;
+                    const reqStart = format(new Date(req.startDate), 'yyyy-MM-dd');
+                    const reqEnd = format(new Date(req.endDate), 'yyyy-MM-dd');
+                    return log.date >= reqStart && log.date <= reqEnd && (req.isHalfDay || req.is_half_day);
+                });
+
                 if (log.status === 'LEAVE' || log.workType === 'LEAVE') {
-                    stat.leaves++;
+                    if (isApprovedHalfDayLeave) {
+                        stat.leaves += 0.5;
+                        if (log.checkInTime) {
+                            stat.present += 0.5;
+                        }
+                    } else {
+                        stat.leaves += 1.0;
+                    }
                 } else {
-                    stat.present++;
+                    if (isApprovedHalfDayLeave) {
+                        stat.present += 0.5;
+                        stat.leaves += 0.5;
+                    } else {
+                        stat.present += 1.0;
+                    }
                     
                     // Simple working hour math (using state value / 0 buffer for recalculation if not specified)
                     const buffer = 0;
@@ -239,16 +258,39 @@ export const ExportControlCenterModal: React.FC<ExportControlCenterModalProps> =
 
         const today = new Date();
         Object.values(statsMap).forEach(stat => {
+            const logByDateMap = new Map(stat.logs.map((l: any) => [l.date, l]));
+
             workingDaysInRange.forEach(day => {
                 const isFutureDay = day > today;
                 if (isFutureDay) return;
 
                 const dateStr = format(day, 'yyyy-MM-dd');
-                const hasLog = stat.logs.some((l: any) => l.date === dateStr);
-                const isLeave = stat.logs.some((l: any) => l.date === dateStr && (l.status === 'LEAVE' || l.workType === 'LEAVE'));
+                const log: any = logByDateMap.get(dateStr);
                 
-                if (!hasLog && !isLeave) {
-                    stat.absent++;
+                const matchingLeaveReq = leaveRequests?.find(req => {
+                    if (req.userId !== stat.userId || req.status !== 'APPROVED') return false;
+                    const reqStart = format(new Date(req.startDate), 'yyyy-MM-dd');
+                    const reqEnd = format(new Date(req.endDate), 'yyyy-MM-dd');
+                    return dateStr >= reqStart && dateStr <= reqEnd;
+                });
+
+                if (!log) {
+                    if (matchingLeaveReq) {
+                        const isHalf = Boolean(matchingLeaveReq.isHalfDay || matchingLeaveReq.is_half_day === true || matchingLeaveReq.is_half_day === 'true');
+                        if (isHalf) {
+                            stat.leaves += 0.5;
+                            stat.absent += 0.5;
+                        } else {
+                            stat.leaves += 1.0;
+                        }
+                    } else {
+                        stat.absent += 1.0;
+                    }
+                } else if (log.status === 'LEAVE' || log.workType === 'LEAVE') {
+                    const isHalf = Boolean(matchingLeaveReq?.isHalfDay || matchingLeaveReq?.is_half_day === true || matchingLeaveReq?.is_half_day === 'true');
+                    if (isHalf && !log.checkInTime) {
+                        stat.absent += 0.5;
+                    }
                 }
             });
         });

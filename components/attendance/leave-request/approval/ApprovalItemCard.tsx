@@ -421,8 +421,10 @@ export const ApprovalItemCard = React.forwardRef<HTMLDivElement, ApprovalItemCar
             ref={cardRef}
             layout
             initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
+            animate={{ opacity: 1, scale: shouldGlow ? 1.03 : 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
+            whileHover={{ scale: shouldGlow ? 1.03 : 1.01 }}
+            whileTap={{ scale: 0.99 }}
             transition={{
                 type: "spring",
                 stiffness: 380,
@@ -430,8 +432,8 @@ export const ApprovalItemCard = React.forwardRef<HTMLDivElement, ApprovalItemCar
                 mass: 0.8
             }}
             onClick={() => onViewDetail(request)}
-            className={`${cardStyle.bg} ${cardStyle.border} p-5 rounded-3xl border shadow-sm hover:shadow-md hover:scale-[1.01] active:scale-[0.99] transition-all relative overflow-hidden group cursor-pointer ${
-                shouldGlow ? 'ring-4 ring-amber-400 ring-offset-2 shadow-amber-300/60 scale-[1.03] duration-500 animate-pulse' : 'duration-200'
+            className={`${cardStyle.bg} ${cardStyle.border} p-5 rounded-3xl border shadow-sm hover:shadow-md transition-[background-color,border-color,box-shadow] relative overflow-hidden group cursor-pointer ${
+                shouldGlow ? 'ring-4 ring-amber-400 ring-offset-2 shadow-amber-300/60 duration-500 animate-pulse' : 'duration-200'
             }`}
             id={`request-card-${request.id}`}
         >

@@ -174,7 +174,7 @@ const StatusCard: React.FC<StatusCardProps> = ({
         return dayStatus.mode === 'HOLIDAY' && !hasApprovedOT;
     }, [dayStatus.mode, hasApprovedOT]);
 
-    const isLeaveLog = todayLog?.status === 'LEAVE' || todayLog?.workType === 'LEAVE';
+    const isLeaveLog = (todayLog?.status === 'LEAVE' || todayLog?.workType === 'LEAVE') && !todayLog?.checkInTime;
     const isApprovedLeaveToday = todayActiveLeave?.status === 'APPROVED';
 
     const isGpsAppealRejectedToday = !!todayLog?.note?.includes('[REJECTED GPS_SPOOF_APPEAL]') || !!todayLog?.note?.includes('[REJECTED_GPS_SPOOF_APPEAL]');

@@ -354,6 +354,7 @@ const StatusCard: React.FC<StatusCardProps> = ({
                     onOpenLeave={onOpenLeave}
                     approvedFixedOtToday={approvedFixedOtToday}
                     isDesktop={isDesktop}
+                    masterOptions={masterOptions}
                 />
             )}
         </div>

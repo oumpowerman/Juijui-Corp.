@@ -50,14 +50,14 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
     const isActualLeaveToday = isLeaveLog || (isApprovedLeaveToday && todayActiveLeave && !['WFH', 'ONSITE', 'LATE_ENTRY', 'OVERTIME', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT', 'GPS_SPOOF_APPEAL'].includes(todayActiveLeave.type));
 
     const getHalfDayInfo = (leave: LeaveRequest | null) => {
-        if (!leave) return { isHalfDay: false, session: null };
+        if (!leave) return { isHalfDay: false, session: null, leaveTargetShift: null };
         const parsed = parseReason(leave.reason || '');
         const isHalf = Boolean(leave.isHalfDay || (leave as any).is_half_day || parsed.isHalfDay);
         const session = (leave.halfDaySession || (leave as any).half_day_session || parsed.halfDaySession) as 'AM' | 'PM' | null;
-        return { isHalfDay: isHalf, session };
+        return { isHalfDay: isHalf, session, leaveTargetShift: parsed.targetShift };
     };
 
-    const { isHalfDay, session } = getHalfDayInfo(todayActiveLeave);
+    const { isHalfDay, session, leaveTargetShift } = getHalfDayInfo(todayActiveLeave);
 
     // Parse shift configuration
     const configData = masterOptions ? masterOptions.filter(o => o.type === 'WORK_CONFIG') : [];
@@ -67,15 +67,15 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
     const shiftsList = shiftsListOpt?.label ? shiftsListOpt.label.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
 
     let baseStartTime = startTime || '10:00';
-    if (isShiftsEnabled && shiftsList.length > 0) {
-        // เรียงลำดับกะจากเช้าไปสาย (เช่น ["08:00", "08:30"])
-        const sortedShifts = [...shiftsList].sort((a, b) => {
-            const [ah, am] = a.split(':').map(Number);
-            const [bh, bm] = b.split(':').map(Number);
-            return (ah * 60 + am) - (bh * 60 + bm);
-        });
-        // เลือกใช้กะสุดท้ายตามแผนที่คุณเสนอมา เพื่อความเสถียรของการคำนวณครึ่งวัน
-        baseStartTime = sortedShifts[sortedShifts.length - 1]; 
+    if (isHalfDay && leaveTargetShift) {
+        // 1. ใช้กะเวลาที่ระบุในเอกสารขออนุมัติลาจริง (leaveTargetShift) เช่น 08:00 เพื่อให้เวลานั้นถูกต้องตรงกับกะที่ยื่นขอลาครึ่งวัน
+        baseStartTime = leaveTargetShift;
+    } else if (isShiftsEnabled && shiftsList.length > 0) {
+        // 2. หากไม่มี ให้ดึงจากข้อมูลกะงานที่เข้าคู่กัน (Matched Shift) จากระบบหลายกะ
+        baseStartTime = getMatchedShiftSlot(new Date(), shiftsList).targetStartTime;
+    } else {
+        // 3. หากไม่ได้เปิดใช้ระบบหลายกะ ให้ใช้ค่า startTime พื้นฐานของระบบ
+        baseStartTime = startTime || '10:00';
     }
 
     // Now calculate morning / afternoon shift slots
@@ -231,11 +231,23 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
                             </span>
                         </div>
                         {isHalfDay && (
-                            <div className="flex items-center gap-2">
-                                <span className="font-bold text-emerald-900 shrink-0">⏱️ รูปแบบ:</span>
-                                <span className="font-semibold text-slate-700">
-                                    {`ลาครึ่งวัน (0.5 วัน) — ช่วง${session === 'AM' ? `เช้า (${amLeaveStart} - ${amLeaveEnd} น.)` : `บ่าย (${pmLeaveStart} - ${pmLeaveEnd} น.)`}`}
-                                </span>
+                            <div className="space-y-1.5 mt-1 border-t border-emerald-100/50 pt-1.5 text-[11px]">
+                                <div className="flex items-center gap-2">
+                                    <span className="font-bold text-emerald-900 shrink-0">⏱️ เวลาที่ลาหยุด:</span>
+                                    <span className="font-semibold text-slate-700 bg-rose-50 text-rose-700 px-1.5 py-0.5 rounded border border-rose-100">
+                                        {session === 'AM' 
+                                            ? `ช่วงเช้า (${amLeaveStart} - ${amLeaveEnd} น.)` 
+                                            : `ช่วงบ่าย (${pmLeaveStart} - ${pmLeaveEnd} น.)`}
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className="font-bold text-emerald-950 shrink-0">💼 เวลาปฏิบัติงานจริง:</span>
+                                    <span className="font-bold text-emerald-800 bg-emerald-50 text-emerald-700 px-1.5 py-0.5 rounded border border-emerald-200">
+                                        {session === 'AM' 
+                                            ? `ช่วงบ่าย (${pmLeaveStart} - ${pmLeaveEnd} น.)` 
+                                            : `ช่วงเช้า (${amLeaveStart} - ${amLeaveEnd} น.)`}
+                                    </span>
+                                </div>
                             </div>
                         )}
                         {todayActiveLeave && (
@@ -262,9 +274,9 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
                         </div>
                     </div>
 
-                    <p className="text-[10px] text-slate-500 font-medium italic text-center">
+                    <p className="text-[10px] text-slate-500 font-medium italic text-center leading-relaxed">
                         {isHalfDay
-                            ? `* หมายเหตุ: คุณอนุมัติลาครึ่งวัน${session === 'AM' ? 'เช้า' : 'บ่าย'} สามารถกดลงเวลาเข้าทำงาน (Check-in) สำหรับการปฏิบัติงานช่วง${session === 'AM' ? 'บ่าย' : 'เช้า'}ได้ตามปกติครับ`
+                            ? `* หมายเหตุ: คุณได้รับอนุมัติลาครึ่งวัน${session === 'AM' ? 'เช้า' : 'บ่าย'} ต้องเข้ามาลงเวลาเริ่มงาน (Check-in) และปฏิบัติงานจริงในช่วง${session === 'AM' ? `บ่ายตั้งแต่เวลา ${pmLeaveStart} น. เป็นต้นไป` : `เช้าก่อนเวลา ${amLeaveStart} น.`} ครับ`
                             : '* หมายเหตุ: หากคุณต้องการเข้ามาปฏิบัติงานจริงเพิ่มเติมในวันนี้ สามารถกดลงเวลาเริ่มงาน (Check-in) ด้านล่างได้ปกติครับ'}
                     </p>
                 </div>

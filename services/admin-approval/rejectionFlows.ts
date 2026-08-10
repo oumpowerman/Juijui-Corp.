@@ -495,6 +495,43 @@ export async function rejectGpsSpoofAppealRequest({
 }
 
 /**
+ * Handles rejection of a GPS Spoof Out Appeal request (Check-out).
+ */
+export async function rejectGpsSpoofOutAppealRequest({
+    req,
+    reason
+}: {
+    req: any;
+    reason: string;
+}) {
+    const { data: freshLog } = await supabase.from('attendance_logs')
+        .select('*')
+        .eq('user_id', req.user_id)
+        .eq('date', req.start_date)
+        .maybeSingle();
+
+    if (freshLog) {
+        const noteText = freshLog.note || '';
+        let cleanedNote = noteText
+            .replace(/\[PROVISIONAL_GPS_SPOOF_OUT\]/g, '')
+            .replace(/\[GPS_SPOOF_OUT_PENDING\]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+        const tag = '[REJECTED GPS_SPOOF_OUT]';
+        const label = 'ปฏิเสธการยื่นอุทธรณ์พิกัด GPS (ออกงาน)';
+        const updatedNote = mergeAttendanceNotes(
+            cleanedNote, 
+            `${tag} ${label}: ${reason}`
+        );
+
+        await supabase.from('attendance_logs').update({
+            status: 'ACTION_REQUIRED',
+            note: updatedNote
+        }).eq('id', freshLog.id);
+    }
+}
+
+/**
  * Handles rejection logic for Forgot Both (check-in and check-out) requests.
  */
 export async function rejectForgotBothRequest({

@@ -91,6 +91,8 @@ const TimesheetTable: React.FC<TimesheetTableProps> = ({
         return map;
     }, [otRequests]);
 
+    let globalUserIdx = 0;
+
     return (
         <div className="bg-white rounded-3xl sm:rounded-[2.5rem] border border-slate-200 shadow-xl overflow-hidden flex flex-col min-h-[500px] sm:min-h-[600px] relative z-10">
             <div className="flex-1 overflow-auto scrollbar-thin scrollbar-thumb-slate-200 rounded-b-3xl sm:rounded-b-[2.5rem]">
@@ -187,58 +189,62 @@ const TimesheetTable: React.FC<TimesheetTableProps> = ({
                                             </div>
                                         </td>
                                     </motion.tr>,
-                                    ...deptUsers.map(user => (
-                                        <motion.tr 
-                                            key={`user-${user.id}`}
-                                            variants={rowVariants}
-                                            initial="hidden"
-                                            animate="visible"
-                                            exit="exit"
-                                            layout="position"
-                                            className="hover:bg-indigo-50/40 transition-all duration-200 group"
-                                        >
-                                            <td className="p-2 sm:p-4 sticky left-0 bg-white group-hover:bg-[#f8faff] z-[90] border-r border-slate-100 shadow-[10px_0_15px_-5px_rgba(0,0,0,0.05)] transition-all duration-200 after:content-[''] after:absolute after:top-0 after:bottom-0 after:-right-12 after:w-12 after:bg-gradient-to-r after:from-white group-hover:after:from-[#f8faff] after:to-transparent after:pointer-events-none">
-                                                <div className="flex items-center gap-1.5 sm:gap-3">
-                                                    <div className="relative shrink-0">
-                                                        <img src={user.avatarUrl} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 border-white shadow-md object-cover" />
-                                                        <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 sm:w-3.5 h-2.5 sm:h-3.5 rounded-full border border-white ${user.workStatus === 'ONLINE' ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
+                                    ...deptUsers.map((user, userIdx) => {
+                                        const currentGlobalIdx = globalUserIdx++;
+                                        return (
+                                            <motion.tr 
+                                                key={`user-${user.id}`}
+                                                variants={rowVariants}
+                                                initial="hidden"
+                                                animate="visible"
+                                                exit="exit"
+                                                layout="position"
+                                                className="hover:bg-indigo-50/40 hover:relative hover:z-[140] transition-all duration-200 group"
+                                            >
+                                                <td className="p-2 sm:p-4 sticky left-0 bg-white group-hover:bg-[#f8faff] z-[90] border-r border-slate-100 shadow-[10px_0_15px_-5px_rgba(0,0,0,0.05)] transition-all duration-200 after:content-[''] after:absolute after:top-0 after:bottom-0 after:-right-12 after:w-12 after:bg-gradient-to-r after:from-white group-hover:after:from-[#f8faff] after:to-transparent after:pointer-events-none">
+                                                    <div className="flex items-center gap-1.5 sm:gap-3">
+                                                        <div className="relative shrink-0">
+                                                            <img src={user.avatarUrl} className="w-8 h-8 sm:w-10 sm:h-10 rounded-full border-2 border-white shadow-md object-cover" />
+                                                            <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 sm:w-3.5 h-2.5 sm:h-3.5 rounded-full border border-white ${user.workStatus === 'ONLINE' ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="text-[11px] sm:text-sm font-bold text-slate-800 truncate leading-tight">{user.name}</p>
+                                                            <p className="hidden sm:block text-[10px] text-indigo-500 font-bold uppercase truncate opacity-70">Lv.{user.level} {user.position}</p>
+                                                            <p className="block sm:hidden text-[9px] text-indigo-500/85 font-bold uppercase truncate">Lv.{user.level}</p>
+                                                        </div>
                                                     </div>
-                                                    <div className="min-w-0">
-                                                        <p className="text-[11px] sm:text-sm font-bold text-slate-800 truncate leading-tight">{user.name}</p>
-                                                        <p className="hidden sm:block text-[10px] text-indigo-500 font-bold uppercase truncate opacity-70">Lv.{user.level} {user.position}</p>
-                                                        <p className="block sm:hidden text-[9px] text-indigo-500/85 font-bold uppercase truncate">Lv.{user.level}</p>
-                                                    </div>
-                                                </div>
-                                            </td>
-                                            {dateRange.map(day => {
-                                                const dateStr = format(day, 'yyyy-MM-dd');
-                                                const log = logsMap.get(`${user.id}_${dateStr}`);
-                                                const dayStatus = getEffectiveDayStatus(day);
-                                                
-                                                // Find relevant leave request in O(1) time
-                                                const relevantRequest = leaveRequestsMap.get(`${user.id}_${dateStr}`);
-                                                
-                                                // Find relevant OT request in O(1) time
-                                                const relevantOtRequest = otRequestsMap.get(`${user.id}_${dateStr}`);
+                                                </td>
+                                                {dateRange.map(day => {
+                                                    const dateStr = format(day, 'yyyy-MM-dd');
+                                                    const log = logsMap.get(`${user.id}_dateStr`);
+                                                    const dayStatus = getEffectiveDayStatus(day);
+                                                    
+                                                    // Find relevant leave request in O(1) time
+                                                    const relevantRequest = leaveRequestsMap.get(`${user.id}_dateStr`);
+                                                    
+                                                    // Find relevant OT request in O(1) time
+                                                    const relevantOtRequest = otRequestsMap.get(`${user.id}_dateStr`);
 
-                                                return (
-                                                    <td key={day.toString()} className="p-0">
-                                                        <TimesheetCell 
-                                                            date={day}
-                                                            log={log} 
-                                                            leaveRequest={relevantRequest}
-                                                            otRequest={relevantOtRequest}
-                                                            dayStatus={dayStatus}
-                                                            isToday={isToday(day)}
-                                                            workConfig={workConfig}
-                                                            userStartDate={user.startDate}
-                                                            onCellClick={(log, leaveReq, otReq) => onCellClick(log, leaveReq, otReq, user)}
-                                                        />
-                                                    </td>
-                                                );
-                                            })}
-                                        </motion.tr>
-                                    ))
+                                                    return (
+                                                        <td key={day.toString()} className="p-0">
+                                                            <TimesheetCell 
+                                                                date={day}
+                                                                log={logsMap.get(`${user.id}_${dateStr}`)} 
+                                                                leaveRequest={leaveRequestsMap.get(`${user.id}_${dateStr}`)}
+                                                                otRequest={otRequestsMap.get(`${user.id}_${dateStr}`)}
+                                                                dayStatus={dayStatus}
+                                                                isToday={isToday(day)}
+                                                                workConfig={workConfig}
+                                                                userStartDate={user.startDate}
+                                                                positionY={currentGlobalIdx < 2 ? 'bottom' : 'top'}
+                                                                onCellClick={(log, leaveReq, otReq) => onCellClick(log, leaveReq, otReq, user)}
+                                                            />
+                                                        </td>
+                                                    );
+                                                })}
+                                            </motion.tr>
+                                        );
+                                    })
                                 ])
                             )}
                         </AnimatePresence>

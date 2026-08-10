@@ -19,6 +19,7 @@ export const TYPE_CONFIG: Record<string, TypeConfig> = {
   'NEW_ASSIGNMENT': { color: '#8b5cf6', emoji: '⚡', label: 'งานใหม่เข้า' },
   'REVIEW': { color: '#a855f7', emoji: '🔍', label: 'ส่งตรวจงาน' },
   'INFO': { color: '#10b981', emoji: 'ℹ️', label: 'แจ้งเตือนทั่วไป' },
+  'DANGER': { color: '#dc2626', emoji: '🚨', label: 'แจ้งเตือนอันตราย' },
   'ATTENDANCE_ALERT': { color: '#4f46e5', emoji: '⏰', label: 'ระบบลงเวลาทำงาน' },
 };
 

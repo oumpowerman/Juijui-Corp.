@@ -17,10 +17,10 @@ import {
 import { sendLineMessages } from './services/lineService.ts';
 import { buildFlexHeader } from './templates/flexBase.ts';
 import {
-  buildMonthlyBonusSummaryPayload,
   buildSingleBodyContents,
   buildBatchBodyContents
 } from './templates/attendanceFlex.ts';
+import { buildMonthlyBonusSummaryPayload } from './templates/bonusSummaryFlex.ts';
 import { buildDailySummaryPayload } from './templates/SummaryFlex.ts';
 import { buildMonthlyOTSummaryPayload } from './templates/otSummaryFlex.ts';
 import { buildFooterButtons } from './templates/requestFlex.ts';

@@ -61,7 +61,7 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({
             {/* Total Check-ins Card */}
             <div 
                 onClick={() => handleCardClick('PRESENT')}
-                className={`bg-indigo-50 p-5 rounded-2xl border-2 flex items-center justify-between cursor-pointer hover:scale-[1.02] hover:shadow-md active:scale-95 transition-all duration-300 ${
+                className={`group bg-indigo-50 p-5 rounded-2xl border-2 flex flex-col justify-between cursor-pointer hover:scale-[1.02] hover:shadow-md hover:border-indigo-300 active:scale-95 transition-all duration-300 ${
                     isActive('PRESENT') 
                         ? 'border-indigo-400 ring-4 ring-indigo-500/10 opacity-100 scale-[1.02]' 
                         : isDimmed('PRESENT')
@@ -69,17 +69,26 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({
                             : 'border-indigo-100 opacity-100'
                 }`}
             >
-                <div>
-                    <p className="text-[10px] font-bold text-indigo-400 uppercase">Total Check-ins</p>
-                    <h3 className="text-3xl font-bold text-indigo-900"><Counter value={totalCheckins} /></h3>
+                <div className="flex items-center justify-between w-full">
+                    <div>
+                        <p className="text-[10px] font-bold text-indigo-400 uppercase">Total Check-ins</p>
+                        <h3 className="text-3xl font-bold text-indigo-900"><Counter value={totalCheckins} /></h3>
+                    </div>
+                    <div className={`p-3 rounded-xl transition-all ${isActive('PRESENT') ? 'bg-indigo-500 text-white shadow-inner' : 'bg-white text-indigo-500 shadow-sm'}`}><Users className="w-6 h-6"/></div>
                 </div>
-                <div className={`p-3 rounded-xl transition-all ${isActive('PRESENT') ? 'bg-indigo-500 text-white shadow-inner' : 'bg-white text-indigo-500 shadow-sm'}`}><Users className="w-6 h-6"/></div>
+                
+                {/* Expandable Explanation */}
+                <div className="max-h-0 opacity-0 overflow-hidden group-hover:max-h-20 group-hover:opacity-100 transition-all duration-300 ease-in-out">
+                    <p className="text-[11px] leading-relaxed text-indigo-600 mt-3 pt-2 border-t border-indigo-200/50">
+                        จำนวนการลงเวลาเข้างานจริงที่มีบันทึกเวลา Check-in สำเร็จในระบบ (ไม่นับรวมสถานะขาดงานหรือลา)
+                    </p>
+                </div>
             </div>
 
             {/* Late Arrivals Card */}
             <div 
                 onClick={() => handleCardClick('LATE')}
-                className={`bg-orange-50 p-5 rounded-2xl border-2 flex items-center justify-between cursor-pointer hover:scale-[1.02] hover:shadow-md active:scale-95 transition-all duration-300 ${
+                className={`group bg-orange-50 p-5 rounded-2xl border-2 flex flex-col justify-between cursor-pointer hover:scale-[1.02] hover:shadow-md hover:border-orange-300 active:scale-95 transition-all duration-300 ${
                     isActive('LATE') 
                         ? 'border-orange-400 ring-4 ring-orange-500/10 opacity-100 scale-[1.02]' 
                         : isDimmed('LATE')
@@ -87,19 +96,28 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({
                             : 'border-orange-100 opacity-100'
                 }`}
             >
-                <div>
-                    <p className="text-[10px] font-bold text-orange-400 uppercase">Late Arrivals</p>
-                    <h3 className="text-3xl font-bold text-orange-900">
-                        <Counter value={totalLates} /> <span className="text-xs text-orange-400 font-bold">(<Counter value={lateRate} decimals={lateRate % 1 === 0 ? 0 : 1} />%)</span>
-                    </h3>
+                <div className="flex items-center justify-between w-full">
+                    <div>
+                        <p className="text-[10px] font-bold text-orange-400 uppercase">Late Arrivals</p>
+                        <h3 className="text-3xl font-bold text-orange-900">
+                            <Counter value={totalLates} /> <span className="text-xs text-orange-400 font-bold">(<Counter value={lateRate} decimals={lateRate % 1 === 0 ? 0 : 1} />%)</span>
+                        </h3>
+                    </div>
+                    <div className={`p-3 rounded-xl transition-all ${isActive('LATE') ? 'bg-orange-500 text-white shadow-inner' : 'bg-white text-orange-500 shadow-sm'}`}><Clock className="w-6 h-6"/></div>
                 </div>
-                <div className={`p-3 rounded-xl transition-all ${isActive('LATE') ? 'bg-orange-500 text-white shadow-inner' : 'bg-white text-orange-500 shadow-sm'}`}><Clock className="w-6 h-6"/></div>
+
+                {/* Expandable Explanation */}
+                <div className="max-h-0 opacity-0 overflow-hidden group-hover:max-h-20 group-hover:opacity-100 transition-all duration-300 ease-in-out">
+                    <p className="text-[11px] leading-relaxed text-orange-600 mt-3 pt-2 border-t border-orange-200/50">
+                        จำนวนครั้งที่มีการ Check-in หลังเวลาเริ่มกะงานที่กำหนด โดยจะแสดงควบคู่กับสัดส่วนเปอร์เซ็นต์การเข้างานสาย
+                    </p>
+                </div>
             </div>
 
             {/* Total Absents Card */}
             <div 
                 onClick={() => handleCardClick('ABSENT')}
-                className={`bg-red-50 p-5 rounded-2xl border-2 flex items-center justify-between cursor-pointer hover:scale-[1.02] hover:shadow-md active:scale-95 transition-all duration-300 ${
+                className={`group bg-red-50 p-5 rounded-2xl border-2 flex flex-col justify-between cursor-pointer hover:scale-[1.02] hover:shadow-md hover:border-red-300 active:scale-95 transition-all duration-300 ${
                     isActive('ABSENT') 
                         ? 'border-red-400 ring-4 ring-red-500/10 opacity-100 scale-[1.02]' 
                         : isDimmed('ABSENT')
@@ -107,17 +125,26 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({
                             : 'border-red-100 opacity-100'
                 }`}
             >
-                <div>
-                    <p className="text-[10px] font-bold text-red-400 uppercase">Total Absents</p>
-                    <h3 className="text-3xl font-bold text-red-900"><Counter value={totalAbsents} /></h3>
+                <div className="flex items-center justify-between w-full">
+                    <div>
+                        <p className="text-[10px] font-bold text-red-400 uppercase">Total Absents</p>
+                        <h3 className="text-3xl font-bold text-red-900"><Counter value={totalAbsents} /></h3>
+                    </div>
+                    <div className={`p-3 rounded-xl transition-all ${isActive('ABSENT') ? 'bg-red-500 text-white shadow-inner' : 'bg-white text-red-500 shadow-sm'}`}><UserX className="w-6 h-6"/></div>
                 </div>
-                <div className={`p-3 rounded-xl transition-all ${isActive('ABSENT') ? 'bg-red-500 text-white shadow-inner' : 'bg-white text-red-500 shadow-sm'}`}><UserX className="w-6 h-6"/></div>
+
+                {/* Expandable Explanation */}
+                <div className="max-h-0 opacity-0 overflow-hidden group-hover:max-h-20 group-hover:opacity-100 transition-all duration-300 ease-in-out">
+                    <p className="text-[11px] leading-relaxed text-red-600 mt-3 pt-2 border-t border-red-200/50">
+                        จำนวนวันที่พนักงานไม่ได้ลงเวลาเข้างานและไม่มีใบลาที่ได้รับการอนุมัติในวันที่มีกะปฏิบัติงาน
+                    </p>
+                </div>
             </div>
 
             {/* Total Leaves Card */}
             <div 
                 onClick={() => handleCardClick('LEAVE')}
-                className={`bg-pink-50 p-5 rounded-2xl border-2 flex items-center justify-between cursor-pointer hover:scale-[1.02] hover:shadow-md active:scale-95 transition-all duration-300 ${
+                className={`group bg-pink-50 p-5 rounded-2xl border-2 flex flex-col justify-between cursor-pointer hover:scale-[1.02] hover:shadow-md hover:border-pink-300 active:scale-95 transition-all duration-300 ${
                     isActive('LEAVE') 
                         ? 'border-pink-400 ring-4 ring-pink-500/10 opacity-100 scale-[1.02]' 
                         : isDimmed('LEAVE')
@@ -125,11 +152,20 @@ const DashboardStats: React.FC<DashboardStatsProps> = ({
                             : 'border-pink-100 opacity-100'
                 }`}
             >
-                <div>
-                    <p className="text-[10px] font-bold text-pink-400 uppercase">Total Leaves</p>
-                    <h3 className="text-3xl font-bold text-pink-900"><Counter value={totalLeaves} decimals={totalLeaves % 1 === 0 ? 0 : 1} /></h3>
+                <div className="flex items-center justify-between w-full">
+                    <div>
+                        <p className="text-[10px] font-bold text-pink-400 uppercase">Total Leaves</p>
+                        <h3 className="text-3xl font-bold text-pink-900"><Counter value={totalLeaves} decimals={totalLeaves % 1 === 0 ? 0 : 1} /></h3>
+                    </div>
+                    <div className={`p-3 rounded-xl transition-all ${isActive('LEAVE') ? 'bg-pink-500 text-white shadow-inner' : 'bg-white text-pink-500 shadow-sm'}`}><HeartPulse className="w-6 h-6"/></div>
                 </div>
-                <div className={`p-3 rounded-xl transition-all ${isActive('LEAVE') ? 'bg-pink-500 text-white shadow-inner' : 'bg-white text-pink-500 shadow-sm'}`}><HeartPulse className="w-6 h-6"/></div>
+
+                {/* Expandable Explanation */}
+                <div className="max-h-0 opacity-0 overflow-hidden group-hover:max-h-20 group-hover:opacity-100 transition-all duration-300 ease-in-out">
+                    <p className="text-[11px] leading-relaxed text-pink-600 mt-3 pt-2 border-t border-pink-200/50">
+                        จำนวนรายการขออนุมัติลาหยุดทุกประเภท (ลากิจ, ลาป่วย, ลาพักร้อน) ที่ได้รับการอนุมัติแล้วในช่วงเวลาที่เลือก
+                    </p>
+                </div>
             </div>
         </div>
     );

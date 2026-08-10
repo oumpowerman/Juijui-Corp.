@@ -1,5 +1,5 @@
 import React from 'react';
-import { LogOut, Loader2 } from 'lucide-react';
+import { LogOut, Loader2, AlertTriangle } from 'lucide-react';
 import { LocationDef } from '../../../../types/attendance';
 import { OvertimeFlow } from './OvertimeFlow';
 import { ForgotCheckOutFlow } from './ForgotCheckOutFlow';
@@ -10,6 +10,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 interface CheckOutFlowRouterProps {
     status: 'LOADING' | 'ERROR' | 'SUCCESS' | 'OUT_OF_RANGE';
     isGpsSecure: boolean;
+    isGpsAppealActive?: boolean;
+    onSetGpsAppealActive?: (active: boolean) => void;
     gpsThreatReason?: string;
     distance: number;
     matchedLocation: LocationDef | undefined;
@@ -61,6 +63,9 @@ interface CheckOutFlowRouterProps {
 export const CheckOutFlowRouter: React.FC<CheckOutFlowRouterProps> = ({
     status,
     isGpsSecure,
+    isGpsAppealActive = false,
+    onSetGpsAppealActive,
+    gpsThreatReason,
     distance,
     matchedLocation,
     checkOutStatus,
@@ -135,7 +140,76 @@ export const CheckOutFlowRouter: React.FC<CheckOutFlowRouterProps> = ({
         }
 
         if (otFlowStep === 'NONE') {
-            // 2. GPS location loading or check issues
+            // 2. GPS spoofing appeal flows
+            if (isGpsAppealActive) {
+                return (
+                    <motion.div
+                        key="gps-appeal-flow"
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -12 }}
+                        transition={{ duration: 0.2 }}
+                    >
+                        <OutOfRangeFlow
+                            distance={distance}
+                            matchedLocationName={matchedLocation?.name}
+                            checkLocation={checkLocation}
+                            isEarlyLeave={checkOutStatus === 'EARLY_LEAVE'}
+                            earlyLeaveInterval={earlyLeaveInterval}
+                            earlyLeaveRate={earlyLeaveRate}
+                            missingMinutes={statusDetails?.missingMinutes}
+                            time={time}
+                            reason={reason}
+                            onSetReason={onSetReason}
+                            isSubmitting={isSubmitting}
+                            onSubmitRequest={onSubmitRequest}
+                            selectedFile={selectedImageFile}
+                            previewUrl={imagePreviewUrl}
+                            onFileSelect={onFileSelect}
+                            onOpenLightbox={onOpenLightbox}
+                            onEditTime={onOpenTimePicker}
+                            requiredEndTime={statusDetails?.requiredEndTime}
+                            isGpsAppeal={true}
+                        />
+                    </motion.div>
+                );
+            }
+
+            if (!isGpsSecure && !isGpsAppealActive) {
+                return (
+                    <motion.div
+                        key="gps-threat-warning"
+                        initial={{ opacity: 0, y: 12 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -12 }}
+                        transition={{ duration: 0.2 }}
+                        className="space-y-4 text-center pt-2"
+                    >
+                        <div className="p-4 bg-rose-50 border border-rose-100 rounded-2xl text-left space-y-2">
+                            <h4 className="text-sm font-bold text-rose-800 flex items-center gap-1.5">
+                                <AlertTriangle className="w-4 h-4 text-rose-600" />
+                                ตรวจพบพิกัดตำแหน่งผิดปกติ
+                            </h4>
+                            <p className="text-xs text-rose-700 leading-relaxed">
+                                {gpsThreatReason || 'ระบบตรวจพบการใช้แอปหรือเครื่องมือจำลองพิกัด GPS ทำให้ไม่สามารถกดบันทึกเวลาออกแบบปกติได้'}
+                            </p>
+                            <p className="text-[11px] text-rose-600/80 italic font-medium">
+                                * หากนี่เป็นข้อผิดพลาดของระบบ คุณสามารถยื่นคำขออุทธรณ์พิกัดพร้อมแนบภาพถ่ายยืนยันสถานที่จริงเพื่อส่งตรวจสอบภายหลังได้ครับ
+                            </p>
+                        </div>
+
+                        <button
+                            type="button"
+                            onClick={() => onSetGpsAppealActive?.(true)}
+                            className="w-full py-3.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-lg shadow-rose-100 transition-all active:scale-95 flex items-center justify-center gap-2 text-sm cursor-pointer"
+                        >
+                            📝 ยื่นคำขออุทธรณ์พิกัด GPS (ออกงาน)
+                        </button>
+                    </motion.div>
+                );
+            }
+
+            // 3. GPS location loading or check issues
             if (status === 'LOADING') {
                 return null; // The location card shows loading, router can be quiet
             }

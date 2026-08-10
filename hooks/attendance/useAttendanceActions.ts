@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { supabase } from '../../lib/supabase';
-import { WorkLocation, AttendanceLog } from '../../types/attendance';
+import { WorkLocation, AttendanceLog, LeaveType } from '../../types/attendance';
 import { useToast } from '../../context/ToastContext';
 import { format } from 'date-fns';
 import { useGamification } from '../useGamification';
@@ -226,21 +226,19 @@ export const useAttendanceActions = (userId: string) => {
             if (error) throw error;
 
             // --- Auto Leave Request Generation for Provisional WFH / Onsite / GPS Appeal ---
-            let isProvisional = false;
-            let provisionalType = '';
+            const provisionalTypes: LeaveType[] = [];
             
             if (workType === 'WFH' && !isApprovedWFH) {
-                isProvisional = true;
-                provisionalType = 'WFH';
-            } else if (workType === 'SITE' && isProvisionalOnsite) {
-                isProvisional = true;
-                provisionalType = 'ONSITE';
-            } else if (isGpsAppeal) {
-                isProvisional = true;
-                provisionalType = 'GPS_SPOOF_APPEAL';
+                provisionalTypes.push('WFH');
+            }
+            if (workType === 'SITE' && isProvisionalOnsite) {
+                provisionalTypes.push('ONSITE');
+            }
+            if (isGpsAppeal) {
+                provisionalTypes.push('GPS_SPOOF_APPEAL');
             }
 
-            if (isProvisional) {
+            for (const provisionalType of provisionalTypes) {
                 try {
                     // Check if there is ALREADY an existing PENDING request for today matching this type
                     const { data: existingPendingRequests } = await supabase
@@ -328,7 +326,7 @@ export const useAttendanceActions = (userId: string) => {
                         }
                     }
                 } catch (requestErr: any) {
-                    console.error("Failed to generate or check provisional leave request", requestErr);
+                    console.error(`Failed to generate or check provisional leave request for ${provisionalType}`, requestErr);
                 }
             }
 
@@ -338,7 +336,7 @@ export const useAttendanceActions = (userId: string) => {
             const lateMinutes = matchedShift ? matchedShift.lateMinutes : getLateMinutes(now, effectiveStartTime, buffer);
 
             await processAction(userId, 'ATTENDANCE_CHECK_IN', {
-                status: (finalIsAppeal || isProvisional) ? 'APPEAL' : (isLate ? 'LATE' : 'ON_TIME'),
+                status: (finalIsAppeal || provisionalTypes.length > 0) ? 'APPEAL' : (isLate ? 'LATE' : 'ON_TIME'),
                 date: now,
                 time: format(now, 'HH:mm'),
                 lateMinutes: lateMinutes
@@ -572,7 +570,7 @@ export const useAttendanceActions = (userId: string) => {
                  if (cleanFinalReason) noteAppend += ` [REASON: ${cleanFinalReason}]`;
             }
 
-            const isProvisionalCheckout = reason && reason.includes('[PROVISIONAL_CHECKOUT]');
+            const isProvisionalCheckout = reason && (reason.includes('[PROVISIONAL_CHECKOUT]') || reason.includes('[PROVISIONAL_GPS_SPOOF_OUT]'));
             const finalNote = mergeAttendanceNotes(currentNote, noteAppend);
             const resolvedStatus = resolveAttendanceLogStatus(
                 todayLog.checkInTime.toISOString(),

@@ -528,7 +528,7 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
     }, [userStats, userMap, searchTerm, selectedEmploymentType, selectedPosition, activeStatFilter, sortDirection, lateViewMode]);
 
     // Aggregates
-    const totalCheckins = logs.filter(l => l.status !== 'LEAVE').length;
+    const totalCheckins = logs.filter(l => l.checkInTime !== null && l.status !== 'ABSENT').length;
     const totalLeaves = userStats.reduce((sum, s) => sum + s.leaves, 0);
     const totalLates = userStats.reduce((sum, s) => sum + s.late, 0);
     const totalAbsents = userStats.reduce((sum, s) => sum + s.absent, 0);

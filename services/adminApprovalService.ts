@@ -10,7 +10,8 @@ import {
     approveAttendanceCorrection,
     approveStandardLeave,
     approveOutOfRangeCheckoutRequest,
-    approveGpsSpoofAppealRequest
+    approveGpsSpoofAppealRequest,
+    approveGpsSpoofOutAppealRequest
 } from './admin-approval/approvalFlows';
 import {
     rejectWfhOnsiteRequest,
@@ -19,6 +20,7 @@ import {
     rejectForgotCheckOutRequest,
     rejectOutOfRangeCheckoutRequest,
     rejectGpsSpoofAppealRequest,
+    rejectGpsSpoofOutAppealRequest,
     rejectForgotBothRequest
 } from './admin-approval/rejectionFlows';
 import {
@@ -270,6 +272,12 @@ export const adminApprovalService = {
                     masterOptions,
                     processAction
                 });
+            } else if (request.type === 'GPS_SPOOF_OUT_APPEAL') {
+                await approveGpsSpoofOutAppealRequest({
+                    request,
+                    masterOptions,
+                    processAction
+                });
             } else {
                 await approveAttendanceCorrection({
                     request,
@@ -440,6 +448,13 @@ export const adminApprovalService = {
 
         if (req && req.type === 'GPS_SPOOF_APPEAL') {
             await rejectGpsSpoofAppealRequest({
+                req,
+                reason
+            });
+        }
+
+        if (req && req.type === 'GPS_SPOOF_OUT_APPEAL') {
+            await rejectGpsSpoofOutAppealRequest({
                 req,
                 reason
             });

@@ -91,6 +91,7 @@ export const useCheckOutState = ({
     const [earlyLeaveStep, setEarlyLeaveStep] = useState<'CHOOSE' | 'FORM'>('CHOOSE');
     const [time, setTime] = useState('');
     const [reason, setReason] = useState('');
+    const [isGpsAppealActive, setIsGpsAppealActive] = useState(false);
     const [earlyReason, setEarlyReason] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isTimePickerOpen, setIsTimePickerOpen] = useState(false);
@@ -178,6 +179,7 @@ export const useCheckOutState = ({
             setEarlyLeaveStep('CHOOSE');
             setTime(format(new Date(), 'HH:mm'));
             setReason('');
+            setIsGpsAppealActive(false);
             setEarlyReason('');
             setOtFlowStep('NONE');
             setOtReason('');
@@ -261,7 +263,7 @@ export const useCheckOutState = ({
     }, [isOpen]);
 
     const handleNormalSubmit = async () => {
-        if (!isGpsSecure) {
+        if (!isGpsSecure && !isGpsAppealActive) {
             showAlert(`ระบบตรวจพบการพยายามใช้แอปสวมสิทธิ์พิกัดปลอมหรือจำลอง GPS: ${gpsThreatReason || 'กรุณาปิดเครื่องมือจำลองพิกัดก่อน'}`, 'ไม่สามารถลงเวลาได้');
             return;
         }
@@ -426,7 +428,9 @@ export const useCheckOutState = ({
     const handleRequestSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         if (!reason.trim()) {
-            if (checkOutStatus === 'EARLY_LEAVE') {
+            if (isGpsAppealActive) {
+                setWarningModal({ isOpen: true, message: 'กรุณาระบุรายละเอียดข้อเท็จจริงและเหตุผลที่พิกัดผิดปกติด้วยครับ' });
+            } else if (checkOutStatus === 'EARLY_LEAVE') {
                 setWarningModal({ isOpen: true, message: 'กรุณาระบุเหตุผลที่กลับก่อนเวลาด้วยครับ' });
             } else {
                 setWarningModal({ isOpen: true, message: 'กรุณาระบุเหตุผลที่ปฏิบัติงานนอกสถานที่ด้วยครับ' });
@@ -500,11 +504,11 @@ export const useCheckOutState = ({
         }
 
         // Perform the provisional check-out directly first
-        const provTag = '[PROVISIONAL_CHECKOUT]';
+        const provTag = isGpsAppealActive ? '[PROVISIONAL_GPS_SPOOF_OUT] [GPS_SPOOF_OUT_PENDING]' : '[PROVISIONAL_CHECKOUT]';
         const timeTag = checkOutStatus === 'EARLY_LEAVE' ? `[EARLY:${finalTime}]` : `[TIME:${finalTime}]`;
         
         // เพิ่มแท็ก (Location Mismatch) เข้าไปในกรณีที่เป็นการเช็คเอาท์นอกพื้นที่
-        const locationMismatchTag = (checkOutStatus !== 'EARLY_LEAVE' || status === 'OUT_OF_RANGE') ? ' (Location Mismatch)' : '';
+        const locationMismatchTag = (!isGpsAppealActive && (checkOutStatus !== 'EARLY_LEAVE' || status === 'OUT_OF_RANGE')) ? ' (Location Mismatch)' : '';
         const reasonWithProv = `${timeTag} ${finalReason}${locationMismatchTag} ${provTag}`;
         
         await onConfirm(
@@ -515,10 +519,12 @@ export const useCheckOutState = ({
         );
 
         // Also submit the formal request for admin review/approval
-        const requestType = checkOutStatus === 'EARLY_LEAVE' ? 'EARLY_LEAVE' : 'OUT_OF_RANGE_CHECKOUT';
+        const requestType = isGpsAppealActive ? 'GPS_SPOOF_OUT_APPEAL' : (checkOutStatus === 'EARLY_LEAVE' ? 'EARLY_LEAVE' : 'OUT_OF_RANGE_CHECKOUT');
         
         let submitReason = finalReason;
-        if (status === 'OUT_OF_RANGE' && !submitReason.includes('(Location Mismatch)')) {
+        if (isGpsAppealActive) {
+            submitReason = `อุทธรณ์พิกัด GPS ผิดปกติ (ออกงาน): ${submitReason}`.trim();
+        } else if (status === 'OUT_OF_RANGE' && !submitReason.includes('(Location Mismatch)')) {
             submitReason = `${submitReason} (Location Mismatch)`.trim();
         }
         await onRequest(finalTime, submitReason, requestType);
@@ -549,6 +555,8 @@ export const useCheckOutState = ({
         currentLng,
         checkOutStatus,
         statusDetails,
+        isGpsAppealActive,
+        setIsGpsAppealActive,
         otFlowStep,
         setOtFlowStep,
         otReason,

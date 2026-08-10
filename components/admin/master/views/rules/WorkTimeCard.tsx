@@ -37,6 +37,7 @@ export interface WorkTimeConfig {
     monthlySummaryTime?: string;
     monthlySummaryDay?: string;
     monthlySummaryMode?: string;
+    monthlySummaryFebDay?: string;
     monthlyOTSummaryTime?: string;
     monthlyOTSummaryDay?: string;
     monthlyOTSummaryMode?: string;

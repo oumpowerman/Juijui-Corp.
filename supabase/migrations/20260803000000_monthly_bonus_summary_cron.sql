@@ -309,25 +309,42 @@ VALUES
     ('WORK_CONFIG', 'MONTHLY_SUMMARY_MODE', 'PREV_MONTH', '', true, 11)
 ON CONFLICT (type, key) DO UPDATE SET label = EXCLUDED.label;
 
+INSERT INTO public.master_options (type, key, label, color, is_active, sort_order)
+VALUES 
+    ('WORK_CONFIG', 'MONTHLY_SUMMARY_FEB_DAY', '28', '', true, 12)
+ON CONFLICT (type, key) DO UPDATE SET label = EXCLUDED.label;
+
 -- 3. Create the Trigger Function that recalculates local clock and reschedules pg_cron
 CREATE OR REPLACE FUNCTION public.recalculate_and_reschedule_monthly_bonus_cron()
 RETURNS trigger AS $$
 DECLARE
     summary_time_val TEXT;
     summary_day_val TEXT;
+    summary_feb_day_val TEXT;
     local_alert_time TIME;
     summary_day INT;
+    summary_feb_day INT;
     utc_alert_timestamp TIMESTAMP;
     utc_hour INT;
     utc_minute INT;
     cron_expr TEXT;
+    cron_expr_feb TEXT;
+    cron_expr_30 TEXT;
+    cron_expr_31 TEXT;
 BEGIN
-    -- Check if we are updating MONTHLY_SUMMARY_TIME, MONTHLY_SUMMARY_DAY or MONTHLY_SUMMARY_MODE under WORK_CONFIG type
-    IF (NEW.type = 'WORK_CONFIG' AND (NEW.key = 'MONTHLY_SUMMARY_TIME' OR NEW.key = 'MONTHLY_SUMMARY_DAY' OR NEW.key = 'MONTHLY_SUMMARY_MODE')) THEN
+    -- Check if we are updating any of the relevant keys under WORK_CONFIG type
+    IF (NEW.type = 'WORK_CONFIG' AND (
+        NEW.key = 'MONTHLY_SUMMARY_TIME' OR 
+        NEW.key = 'MONTHLY_SUMMARY_DAY' OR 
+        NEW.key = 'MONTHLY_SUMMARY_MODE' OR 
+        NEW.key = 'MONTHLY_SUMMARY_FEB_DAY'
+    )) THEN
         -- Fetch MONTHLY_SUMMARY_TIME from database
         SELECT label INTO summary_time_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'MONTHLY_SUMMARY_TIME' LIMIT 1;
         -- Fetch MONTHLY_SUMMARY_DAY from database
         SELECT label INTO summary_day_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'MONTHLY_SUMMARY_DAY' LIMIT 1;
+        -- Fetch MONTHLY_SUMMARY_FEB_DAY from database
+        SELECT label INTO summary_feb_day_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'MONTHLY_SUMMARY_FEB_DAY' LIMIT 1;
 
         IF summary_time_val IS NOT NULL AND summary_time_val != '' THEN
             BEGIN
@@ -352,28 +369,84 @@ BEGIN
             summary_day := 1;
         END IF;
 
+        IF summary_feb_day_val IS NOT NULL AND summary_feb_day_val != '' THEN
+            BEGIN
+                summary_feb_day := summary_feb_day_val::INT;
+                IF summary_feb_day < 1 OR summary_feb_day > 28 THEN
+                    summary_feb_day := 28;
+                END IF;
+            EXCEPTION WHEN OTHERS THEN
+                summary_feb_day := 28;
+            END;
+        ELSE
+            summary_feb_day := 28;
+        END IF;
+
         -- Convert local alert time to UTC to set up pg_cron
         utc_alert_timestamp := (CURRENT_DATE + local_alert_time) AT TIME ZONE 'Asia/Bangkok' AT TIME ZONE 'UTC';
         utc_hour := EXTRACT(HOUR FROM utc_alert_timestamp);
         utc_minute := EXTRACT(MINUTE FROM utc_alert_timestamp);
 
-        -- Build monthly cron expression: 'minute hour day * *'
-        cron_expr := utc_minute || ' ' || utc_hour || ' ' || summary_day || ' * *';
-
-        -- Update/reschedule pg_cron job using SECURITY DEFINER permissions
+        -- Unschedule all old/related monthly jobs safely
         BEGIN
             PERFORM cron.unschedule('monthly-bonus-summary');
-        EXCEPTION WHEN OTHERS THEN
-            -- Ignored if cron is not active or job does not exist
-        END;
-        
+        EXCEPTION WHEN OTHERS THEN END;
         BEGIN
-            PERFORM cron.schedule('monthly-bonus-summary', cron_expr, 'SELECT public.generate_monthly_bonus_summary()');
-        EXCEPTION WHEN OTHERS THEN
-            -- Ignored
-        END;
-        
-        RAISE NOTICE 'Rescheduled monthly-bonus-summary cron job to UTC time: %:% (%)', utc_hour, utc_minute, cron_expr;
+            PERFORM cron.unschedule('monthly-bonus-summary-normal');
+        EXCEPTION WHEN OTHERS THEN END;
+        BEGIN
+            PERFORM cron.unschedule('monthly-bonus-summary-feb');
+        EXCEPTION WHEN OTHERS THEN END;
+        BEGIN
+            PERFORM cron.unschedule('monthly-bonus-summary-30day');
+        EXCEPTION WHEN OTHERS THEN END;
+        BEGIN
+            PERFORM cron.unschedule('monthly-bonus-summary-31day');
+        EXCEPTION WHEN OTHERS THEN END;
+
+        -- Schedule based on the selected day
+        IF summary_day <= 28 THEN
+            -- Only 1 job needed (works for all months)
+            cron_expr := utc_minute || ' ' || utc_hour || ' ' || summary_day || ' * *';
+            BEGIN
+                PERFORM cron.schedule('monthly-bonus-summary-normal', cron_expr, 'SELECT public.generate_monthly_bonus_summary()');
+            EXCEPTION WHEN OTHERS THEN END;
+            RAISE NOTICE 'Scheduled monthly-bonus-summary-normal (1-28) to run on day % at %:% UTC', summary_day, utc_hour, utc_minute;
+
+        ELSIF summary_day = 29 OR summary_day = 30 THEN
+            -- 2 jobs: Normal job (run on months with >= 29/30 days) + Specific Feb job
+            cron_expr := utc_minute || ' ' || utc_hour || ' ' || summary_day || ' * *';
+            BEGIN
+                PERFORM cron.schedule('monthly-bonus-summary-normal', cron_expr, 'SELECT public.generate_monthly_bonus_summary()');
+            EXCEPTION WHEN OTHERS THEN END;
+
+            cron_expr_feb := utc_minute || ' ' || utc_hour || ' ' || summary_feb_day || ' 2 *';
+            BEGIN
+                PERFORM cron.schedule('monthly-bonus-summary-feb', cron_expr_feb, 'SELECT public.generate_monthly_bonus_summary()');
+            EXCEPTION WHEN OTHERS THEN END;
+            RAISE NOTICE 'Scheduled monthly-bonus-summary-normal (day %) and monthly-bonus-summary-feb (day %) at %:% UTC', summary_day, summary_feb_day, utc_hour, utc_minute;
+
+        ELSE -- summary_day = 31
+            -- 3 jobs (31-day months on day 31 + 30-day months on day 30 + Feb on day 28)
+            -- 1. 31-day months (Jan, Mar, May, Jul, Aug, Oct, Dec)
+            cron_expr_31 := utc_minute || ' ' || utc_hour || ' 31 1,3,5,7,8,10,12 *';
+            BEGIN
+                PERFORM cron.schedule('monthly-bonus-summary-31day', cron_expr_31, 'SELECT public.generate_monthly_bonus_summary()');
+            EXCEPTION WHEN OTHERS THEN END;
+
+            -- 2. 30-day months (Apr, Jun, Sep, Nov) on the 30th
+            cron_expr_30 := utc_minute || ' ' || utc_hour || ' 30 4,6,9,11 *';
+            BEGIN
+                PERFORM cron.schedule('monthly-bonus-summary-30day', cron_expr_30, 'SELECT public.generate_monthly_bonus_summary()');
+            EXCEPTION WHEN OTHERS THEN END;
+
+            -- 3. Feb (on the 28th)
+            cron_expr_feb := utc_minute || ' ' || utc_hour || ' 28 2 *';
+            BEGIN
+                PERFORM cron.schedule('monthly-bonus-summary-feb', cron_expr_feb, 'SELECT public.generate_monthly_bonus_summary()');
+            EXCEPTION WHEN OTHERS THEN END;
+            RAISE NOTICE 'Scheduled 3 independent jobs for 31st of month: 31day (31st), 30day (30th), feb (28th)';
+        END IF;
     END IF;
 
     RETURN NEW;
@@ -392,12 +465,17 @@ DO $$
 DECLARE
     summary_time_val TEXT;
     summary_day_val TEXT;
+    summary_feb_day_val TEXT;
     local_alert_time TIME;
     summary_day INT;
+    summary_feb_day INT;
     utc_alert_timestamp TIMESTAMP;
     utc_hour INT;
     utc_minute INT;
     cron_expr TEXT;
+    cron_expr_feb TEXT;
+    cron_expr_30 TEXT;
+    cron_expr_31 TEXT;
 BEGIN
     -- Ensure pg_cron extension exists if possible
     BEGIN
@@ -408,6 +486,7 @@ BEGIN
 
     SELECT label INTO summary_time_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'MONTHLY_SUMMARY_TIME' LIMIT 1;
     SELECT label INTO summary_day_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'MONTHLY_SUMMARY_DAY' LIMIT 1;
+    SELECT label INTO summary_feb_day_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'MONTHLY_SUMMARY_FEB_DAY' LIMIT 1;
 
     IF summary_time_val IS NOT NULL AND summary_time_val != '' THEN
         BEGIN
@@ -429,21 +508,73 @@ BEGIN
         summary_day := 1;
     END IF;
 
+    IF summary_feb_day_val IS NOT NULL AND summary_feb_day_val != '' THEN
+        BEGIN
+            summary_feb_day := summary_feb_day_val::INT;
+        EXCEPTION WHEN OTHERS THEN
+            summary_feb_day := 28;
+        END;
+    ELSE
+        summary_feb_day := 28;
+    END IF;
+
     utc_alert_timestamp := (CURRENT_DATE + local_alert_time) AT TIME ZONE 'Asia/Bangkok' AT TIME ZONE 'UTC';
     utc_hour := EXTRACT(HOUR FROM utc_alert_timestamp);
     utc_minute := EXTRACT(MINUTE FROM utc_alert_timestamp);
-    cron_expr := utc_minute || ' ' || utc_hour || ' ' || summary_day || ' * *';
 
+    -- Unschedule all old/related monthly jobs safely
     BEGIN
         PERFORM cron.unschedule('monthly-bonus-summary');
-    EXCEPTION WHEN OTHERS THEN
-        -- Ignored
-    END;
-
+    EXCEPTION WHEN OTHERS THEN END;
     BEGIN
-        PERFORM cron.schedule('monthly-bonus-summary', cron_expr, 'SELECT public.generate_monthly_bonus_summary()');
-    EXCEPTION WHEN OTHERS THEN
-        -- Ignored
-    END;
+        PERFORM cron.unschedule('monthly-bonus-summary-normal');
+    EXCEPTION WHEN OTHERS THEN END;
+    BEGIN
+        PERFORM cron.unschedule('monthly-bonus-summary-feb');
+    EXCEPTION WHEN OTHERS THEN END;
+    BEGIN
+        PERFORM cron.unschedule('monthly-bonus-summary-30day');
+    EXCEPTION WHEN OTHERS THEN END;
+    BEGIN
+        PERFORM cron.unschedule('monthly-bonus-summary-31day');
+    EXCEPTION WHEN OTHERS THEN END;
+
+    -- Schedule based on the selected day
+    IF summary_day <= 28 THEN
+        cron_expr := utc_minute || ' ' || utc_hour || ' ' || summary_day || ' * *';
+        BEGIN
+            PERFORM cron.schedule('monthly-bonus-summary-normal', cron_expr, 'SELECT public.generate_monthly_bonus_summary()');
+        EXCEPTION WHEN OTHERS THEN END;
+
+    ELSIF summary_day = 29 OR summary_day = 30 THEN
+        cron_expr := utc_minute || ' ' || utc_hour || ' ' || summary_day || ' * *';
+        BEGIN
+            PERFORM cron.schedule('monthly-bonus-summary-normal', cron_expr, 'SELECT public.generate_monthly_bonus_summary()');
+        EXCEPTION WHEN OTHERS THEN END;
+
+        cron_expr_feb := utc_minute || ' ' || utc_hour || ' ' || summary_feb_day || ' 2 *';
+        BEGIN
+            PERFORM cron.schedule('monthly-bonus-summary-feb', cron_expr_feb, 'SELECT public.generate_monthly_bonus_summary()');
+        EXCEPTION WHEN OTHERS THEN END;
+
+    ELSE -- summary_day = 31
+        -- 1. 31-day months (Jan, Mar, May, Jul, Aug, Oct, Dec)
+        cron_expr_31 := utc_minute || ' ' || utc_hour || ' 31 1,3,5,7,8,10,12 *';
+        BEGIN
+            PERFORM cron.schedule('monthly-bonus-summary-31day', cron_expr_31, 'SELECT public.generate_monthly_bonus_summary()');
+        EXCEPTION WHEN OTHERS THEN END;
+
+        -- 2. 30-day months (Apr, Jun, Sep, Nov) on the 30th
+        cron_expr_30 := utc_minute || ' ' || utc_hour || ' 30 4,6,9,11 *';
+        BEGIN
+            PERFORM cron.schedule('monthly-bonus-summary-30day', cron_expr_30, 'SELECT public.generate_monthly_bonus_summary()');
+        EXCEPTION WHEN OTHERS THEN END;
+
+        -- 3. Feb (on the 28th)
+        cron_expr_feb := utc_minute || ' ' || utc_hour || ' 28 2 *';
+        BEGIN
+            PERFORM cron.schedule('monthly-bonus-summary-feb', cron_expr_feb, 'SELECT public.generate_monthly_bonus_summary()');
+        EXCEPTION WHEN OTHERS THEN END;
+    END IF;
 END;
 $$;

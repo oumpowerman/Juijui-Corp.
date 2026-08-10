@@ -57,6 +57,8 @@ export const CheckOutModal: React.FC<CheckOutModalProps> = ({
         setOtEndTime,
         activeOtTimePicker,
         setActiveOtTimePicker,
+        isGpsAppealActive,
+        setIsGpsAppealActive,
         forgetCheckOutTime,
         setForgetCheckOutTime,
         earlyLeaveStep,
@@ -188,6 +190,8 @@ export const CheckOutModal: React.FC<CheckOutModalProps> = ({
                                     <CheckOutFlowRouter
                                         status={status}
                                         isGpsSecure={isGpsSecure}
+                                        isGpsAppealActive={isGpsAppealActive}
+                                        onSetGpsAppealActive={setIsGpsAppealActive}
                                         gpsThreatReason={gpsThreatReason}
                                         distance={distance}
                                         matchedLocation={matchedLocation}

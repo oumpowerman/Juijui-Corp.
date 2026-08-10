@@ -26,6 +26,7 @@ const MonthlyBonusCard: React.FC<MonthlyBonusCardProps> = ({
     const targetTimeDisplay = tempTimeConfig.monthlySummaryTime || '08:00';
     const targetDayDisplay = tempTimeConfig.monthlySummaryDay || '1';
     const targetModeDisplay = tempTimeConfig.monthlySummaryMode || 'PREV_MONTH';
+    const targetFebDayDisplay = tempTimeConfig.monthlySummaryFebDay || '28';
 
     return (
         <div id="sim-card-monthly-bonus" className="h-full flex flex-col justify-between space-y-3">
@@ -107,6 +108,37 @@ const MonthlyBonusCard: React.FC<MonthlyBonusCardProps> = ({
                             />
                         </div>
                     </div>
+
+                    {/* Conditional February Day Selection or warning */}
+                    {(targetDayDisplay === '29' || targetDayDisplay === '30') && (
+                        <div className="flex flex-col gap-1.5 p-3 bg-amber-50/70 border border-amber-100 rounded-xl mt-1">
+                            <span className="text-[10px] font-black text-amber-800 flex items-center gap-1">
+                                📅 สำหรับเดือนกุมภาพันธ์ ต้องการให้สรุปยอดในวันที่เท่าไหร่?
+                            </span>
+                            <select
+                                id="select-monthly-feb-day"
+                                value={targetFebDayDisplay}
+                                onChange={e => setTempTimeConfig(prev => ({ ...prev, monthlySummaryFebDay: e.target.value }))}
+                                className="w-full px-2.5 py-1.5 bg-white border border-amber-200/80 rounded-lg text-xs font-extrabold text-amber-800 outline-none focus:border-amber-400 transition-all shadow-sm"
+                            >
+                                {Array.from({ length: 27 }, (_, i) => i + 1).map(day => (
+                                    <option key={day} value={day.toString()}>
+                                        วันที่ {day} ของกุมภาพันธ์
+                                    </option>
+                                ))}
+                                <option value="28">วันสุดท้ายของกุมภาพันธ์ (วันที่ 28)</option>
+                            </select>
+                        </div>
+                    )}
+
+                    {targetDayDisplay === '31' && (
+                        <div className="p-3 bg-amber-50/70 border border-amber-100/80 rounded-xl text-amber-900 text-[11px] font-semibold leading-relaxed flex items-start gap-1.5 mt-1 shadow-2xs">
+                            <span className="text-xs shrink-0">💡</span>
+                            <p>
+                                สำหรับเดือนที่มี 30 วัน ระบบจะประมวลผลและส่งรายงานให้คุณโดยอัตโนมัติในวันที่ 30 ของเดือนนั้นๆ และในเดือนกุมภาพันธ์จะส่งในวันสุดท้ายของเดือน (วันที่ 28)
+                            </p>
+                        </div>
+                    )}
                     
                     <div className="grid grid-cols-2 gap-3">
                         <div className="flex flex-col justify-end text-[11px] font-extrabold text-amber-950/80 col-span-2">
@@ -117,7 +149,11 @@ const MonthlyBonusCard: React.FC<MonthlyBonusCardProps> = ({
                                 <span className="text-amber-800 tracking-wide font-black text-right text-[11px]">
                                     {targetModeDisplay === 'CURRENT_MONTH'
                                         ? `สะสมวันที่ 1 ถึง ${targetDayDisplay} ของเดือนนี้`
-                                        : `ทุกวันที่ ${targetDayDisplay} (ข้อมูลของเดือนที่ผ่านมา)`
+                                        : targetDayDisplay === '31'
+                                            ? 'ทุกวันสิ้นเดือน (31, 30 หรือ วันสุดท้ายของกุมภาพันธ์)'
+                                            : targetDayDisplay === '30' || targetDayDisplay === '29'
+                                                ? `ทุกวันที่ ${targetDayDisplay} (ก.พ. สรุปวันที่ ${targetFebDayDisplay})`
+                                                : `ทุกวันที่ ${targetDayDisplay} (ข้อมูลของเดือนที่ผ่านมา)`
                                     } {targetTimeDisplay} น.
                                 </span>
                             </div>

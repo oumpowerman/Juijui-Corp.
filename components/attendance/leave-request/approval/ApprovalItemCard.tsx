@@ -10,6 +10,25 @@ import { getWorkingDaysDifference } from '../../../../lib/attendanceUtils';
 import { parseReason, ParsedReason } from '../request-detail/utils';
 import { getRegistryItem } from '../../../../constants/attendanceRegistry';
 
+const LEAVE_EMOJI_MAP: Record<string, string> = {
+    SICK: '🤒',
+    VACATION: '🌴',
+    PERSONAL: '💼',
+    EMERGENCY: '🚨',
+    UNPAID: '💸',
+    LATE_ENTRY: '⏰',
+    OVERTIME: '🌙',
+    FORGOT_CHECKIN: '🤷‍♂️',
+    FORGOT_CHECKOUT: '🤦‍♂️',
+    FORGOT_BOTH: '🫣',
+    WFH: '🏠',
+    ONSITE: '📍',
+    OUT_OF_RANGE_CHECKOUT: '🗺️',
+    GPS_SPOOF_APPEAL: '📡',
+    GPS_SPOOF_OUT_APPEAL: '📡',
+    EARLY_LEAVE: '🏃',
+};
+
 export interface ApprovalItemCardProps {
     request: LeaveRequest;
     onApprove: (req: LeaveRequest, customStartTime?: string) => Promise<void> | void;
@@ -22,14 +41,33 @@ export interface ApprovalItemCardProps {
 
 export const getCardStyle = (type: string) => {
     const item = getRegistryItem(type);
-    if (item) {
+    
+    let category: 'LEAVE' | 'LATE_FORGOT' | 'OT' = 'LEAVE';
+    if (type === 'OVERTIME') {
+        category = 'OT';
+    } else if (item?.category === 'CORRECTION' || type === 'GPS_SPOOF_APPEAL') {
+        category = 'LATE_FORGOT';
+    }
+
+    if (category === 'OT') {
         return {
-            bg: `${item.colors.bg} hover:${item.colors.bg}/40`,
-            border: `${item.colors.border} hover:${item.colors.border}/80`,
-            accent: item.colors.accent
+            bg: 'bg-indigo-100/60 hover:bg-indigo-100/80',
+            border: 'border-indigo-100/70 hover:border-indigo-200',
+            accent: 'bg-indigo-500'
+        };
+    } else if (category === 'LATE_FORGOT') {
+        return {
+            bg: 'bg-amber-100/60 hover:bg-amber-100/80',
+            border: 'border-amber-100/70 hover:border-amber-200',
+            accent: 'bg-amber-500'
+        };
+    } else {
+        return {
+            bg: 'bg-rose-100/60 hover:bg-rose-100/80',
+            border: 'border-rose-100/70 hover:border-rose-200',
+            accent: 'bg-rose-500'
         };
     }
-    return { bg: 'bg-white', border: 'border-gray-100', accent: 'bg-orange-400' };
 };
 
 const isTimeDifferent = (time1: string | null, time2: string | null): boolean => {
@@ -236,17 +274,40 @@ export const ApprovalCardDetails: React.FC<ApprovalCardDetailsProps> = ({
             </div>
             
             <div className="flex flex-wrap items-center gap-3 mb-4">
-                <div className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full shadow-sm ${
-                    request.type === 'LATE_ENTRY' ? 'bg-violet-100 text-violet-700' : 
-                    request.type === 'OUT_OF_RANGE_CHECKOUT' ? 'bg-orange-100 text-orange-700' :
-                    request.type === 'GPS_SPOOF_APPEAL' ? 'bg-rose-100 text-rose-700 font-semibold ring-1 ring-rose-200/60' :
-                    request.type.includes('FORGOT') ? 'bg-amber-100 text-amber-700' :
-                    'bg-white/80 text-gray-700 border border-black/5'
-                }`}>
-                    <Calendar className="w-3.5 h-3.5" />
-                    {format(new Date(request.startDate), 'd MMM')} 
-                    {new Date(request.startDate).getTime() !== new Date(request.endDate).getTime() && ` - ${format(new Date(request.endDate), 'd MMM yyyy')}`}
-                </div>
+                {/* 1. Dynamic Date Badge (No Hardcoded Colors) */}
+                {(() => {
+                    const registryItem = getRegistryItem(request.type);
+                    const bgClass = registryItem?.colors?.bg ? `${registryItem.colors.bg}/80` : 'bg-white/80';
+                    const textClass = registryItem?.colors?.text || 'text-gray-700';
+                    const borderClass = registryItem?.colors?.border ? `border-2 ${registryItem.colors.border}/50` : 'border border-black/5';
+                    
+                    return (
+                        <div className={`flex items-center gap-2 text-xs font-bold px-3 py-1.5 rounded-full shadow-sm ${bgClass} ${textClass} ${borderClass}`}>
+                            <Calendar className="w-3.5 h-3.5" />
+                            {format(new Date(request.startDate), 'd MMM')} 
+                            {new Date(request.startDate).getTime() !== new Date(request.endDate).getTime() && ` - ${format(new Date(request.endDate), 'd MMM yyyy')}`}
+                        </div>
+                    );
+                })()}
+
+                {/* 2. Primary Badge (Showing Request Type Label with Emoji) */}
+                {(() => {
+                    const registryItem = getRegistryItem(request.type);
+                    if (!registryItem) return null;
+                    
+                    const emoji = LEAVE_EMOJI_MAP[request.type] || '📝'; 
+                    
+                    const bgClass = registryItem.colors?.bg ? `${registryItem.colors.bg}/95` : 'bg-slate-50';
+                    const textClass = registryItem.colors?.text || 'text-slate-700';
+                    const borderClass = registryItem.colors?.border ? `border-2 ${registryItem.colors.border}` : 'border border-slate-200';
+                    
+                    return (
+                        <span className={`text-xs px-3.5 py-1.5 rounded-full font-extrabold shadow-sm flex items-center gap-1.5 ${bgClass} ${textClass} ${borderClass}`}>
+                            <span>{emoji}</span>
+                            <span>{registryItem.label}</span>
+                        </span>
+                    );
+                })()}
 
                 {(() => {
                     const attachments: string[] = [];

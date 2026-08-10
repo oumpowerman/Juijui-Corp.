@@ -39,7 +39,7 @@ export function buildMonthlyOTSummaryPayload(targetDestination: string, record: 
   }
 
   const baseAppUrl = getAppUrl();
-  const targetDeepLink = `${baseAppUrl}/?openExternalBrowser=1&view=ATTENDANCE&tab=admin`;
+  const targetDeepLink = `${baseAppUrl}/?openExternalBrowser=1&view=ATTENDANCE&tab=REPORT`;
 
   const userContents: any[] = [];
 

@@ -316,11 +316,11 @@ export const useLeaveFormLogic = ({
                 }
 
                 if (selectedType === 'FORGOT_BOTH') {
-                    finalReason = formatCorrectionNote(mappedShift, actualCheckIn, reason, endTime);
+                    finalReason = formatCorrectionNote(mappedShift, hasAMHalfDayLeave ? targetTime : actualCheckIn, reason, endTime);
                     const [endH, endM] = endTime.split(':').map(Number);
                     finalEndDate = new Date(year, month - 1, day, endH, endM, 0, 0);
                 } else {
-                    finalReason = formatCorrectionNote(mappedShift, actualCheckIn, reason);
+                    finalReason = formatCorrectionNote(mappedShift, hasAMHalfDayLeave ? targetTime : actualCheckIn, reason);
                     finalEndDate = finalStartDate;
                 }
             } else {

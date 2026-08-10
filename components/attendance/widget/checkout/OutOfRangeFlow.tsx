@@ -22,6 +22,7 @@ interface OutOfRangeFlowProps {
     onOpenLightbox: () => void;
     onEditTime?: () => void;
     requiredEndTime?: Date;
+    isGpsAppeal?: boolean;
 }
 
 export const OutOfRangeFlow: React.FC<OutOfRangeFlowProps> = ({

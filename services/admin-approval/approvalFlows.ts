@@ -2,6 +2,7 @@ import { supabase } from '../../lib/supabase';
 import { LeaveRequest } from '../../types/attendance';
 import { format, eachDayOfInterval } from 'date-fns';
 import { getRegistryItem } from '../../constants/attendanceRegistry';
+import { calculateShiftAndActualTime } from '../../utils/shiftCalculator';
 import {
     buildOtAuditLog,
     buildAttendanceCorrectionPayload,
@@ -240,7 +241,27 @@ export async function approveAttendanceCorrection({
         // Clean and replace [TARGET_SHIFT:...] tag with the correct admin approved entry/target time
         // Skip this for LATE_ENTRY as customStartTime is the corrected entry time, not the shift start time
         if (request.type !== 'LATE_ENTRY' && finalReason.includes('[TARGET_SHIFT:')) {
-            finalReason = finalReason.replace(/\[TARGET_SHIFT:[^\]]+\]/g, `[TARGET_SHIFT:${adminEntryTime}]`);
+            let targetShiftTime = adminEntryTime;
+
+            if (request.type === 'FORGOT_CHECKIN') {
+                const { multipleShifts } = parseWorkConfig(masterOptions || []);
+                if (multipleShifts?.enabled && multipleShifts.shiftsList) {
+                    let shiftsArray: string[] = [];
+                    if (Array.isArray(multipleShifts.shiftsList)) {
+                        shiftsArray = multipleShifts.shiftsList;
+                    } else if (typeof multipleShifts.shiftsList === 'string') {
+                        shiftsArray = multipleShifts.shiftsList.split(',').map(s => s.trim()).filter(Boolean);
+                    }
+                    if (shiftsArray.length > 0) {
+                        const shiftResult = calculateShiftAndActualTime(adminEntryTime, shiftsArray);
+                        if (shiftResult && shiftResult.targetShift) {
+                            targetShiftTime = shiftResult.targetShift;
+                        }
+                    }
+                }
+            }
+
+            finalReason = finalReason.replace(/\[TARGET_SHIFT:[^\]]+\]/g, `[TARGET_SHIFT:${targetShiftTime}]`);
         }
 
         // Clean and replace [TIME:...] tag with the correct range or single time
@@ -660,6 +681,64 @@ export async function approveGpsSpoofAppealRequest({
                 time: format(checkInDate, 'HH:mm'),
                 lateMinutes: lateMinutes,
                 date: checkInDate
+            });
+        }
+    }
+}
+
+/**
+ * Handles approval logic for GPS Spoof Out Appeal requests (Check-out).
+ */
+export async function approveGpsSpoofOutAppealRequest({
+    request,
+    masterOptions = [],
+    processAction
+}: {
+    request: LeaveRequest;
+    masterOptions?: any[];
+    processAction: (userId: string, actionType: any, payload?: any) => Promise<any>;
+}) {
+    const shiftDateStr = format(request.startDate, 'yyyy-MM-dd');
+
+    const { data: freshLog } = await supabase
+        .from('attendance_logs')
+        .select('*')
+        .eq('user_id', request.userId)
+        .eq('date', shiftDateStr)
+        .maybeSingle();
+
+    if (freshLog) {
+        const cleanedNoteStr = cleanAttendanceNoteTags(freshLog.note || '', request.type, [
+            '[PROVISIONAL_GPS_SPOOF_OUT]',
+            '[GPS_SPOOF_OUT_PENDING]'
+        ]);
+
+        const cleanedReason = (request.reason || '')
+            .replace(/\[PROVISIONAL_GPS_SPOOF_OUT\]/g, '')
+            .replace(/\[GPS_SPOOF_OUT_PENDING\]/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+
+        const newNote = mergeAttendanceNotes(cleanedNoteStr, `[APPROVED GPS_SPOOF_OUT] อนุมัติการยื่นอุทธรณ์พิกัด GPS (ออกงาน): ${cleanedReason}`);
+
+        const finalStatus = resolveAttendanceLogStatus(
+            freshLog.check_in_time ? new Date(freshLog.check_in_time).toISOString() : null,
+            freshLog.check_out_time ? new Date(freshLog.check_out_time).toISOString() : null,
+            newNote,
+            freshLog.status
+        );
+
+        await supabase.from('attendance_logs').update({
+            status: finalStatus,
+            note: newNote
+        }).eq('id', freshLog.id);
+
+        // Award check-out points on GPS spoof out appeal approval!
+        if (freshLog.check_out_time) {
+            const checkOutDate = new Date(freshLog.check_out_time);
+            await processAction(request.userId, 'ATTENDANCE_CHECK_OUT', {
+                time: format(checkOutDate, 'HH:mm'),
+                date: shiftDateStr
             });
         }
     }

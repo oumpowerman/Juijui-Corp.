@@ -278,6 +278,20 @@ export const ATTENDANCE_REGISTRY: Record<LeaveType, AttendanceRegistryItem> = {
         },
         placeholder: 'กรุณาระบุรายละเอียดข้อเท็จจริงและเหตุผลที่พิกัดผิดปกติ เพื่อให้แอดมินตรวจสอบย้อนหลัง...'
     },
+    GPS_SPOOF_OUT_APPEAL: {
+        id: 'GPS_SPOOF_OUT_APPEAL',
+        label: 'อุทธรณ์พิกัด GPS ผิดปกติ (ออกงาน)',
+        category: 'SPECIAL',
+        colors: { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-100', accent: 'bg-rose-500' },
+        rules: { isTimeSpecific: false, isSingleDay: true, isProvisionalAllowed: true, requireAttachment: true },
+        tags: {
+            provisional: '[PROVISIONAL_GPS_SPOOF_OUT]',
+            pending: '[GPS_SPOOF_OUT_PENDING]',
+            approved: '[APPROVED GPS_SPOOF_OUT]',
+            rejected: '[REJECTED GPS_SPOOF_OUT]'
+        },
+        placeholder: 'กรุณาระบุรายละเอียดข้อเท็จจริงและเหตุผลที่พิกัดผิดปกติเมื่อกดเช็คเอาท์ เพื่อให้แอดมินตรวจสอบย้อนหลัง...'
+    },
     EARLY_LEAVE: {
         id: 'EARLY_LEAVE',
         label: 'กลับก่อนเวลา (Early Leave)',

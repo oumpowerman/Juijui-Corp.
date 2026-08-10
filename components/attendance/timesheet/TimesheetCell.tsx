@@ -5,6 +5,7 @@ import { Coffee, UserX } from 'lucide-react';
 import { AttendanceLog } from '../../../types/attendance';
 import { getRegistryItem, findPendingRegistryItemByNote } from '../../../constants/attendanceRegistry';
 import { checkIsLate } from '../../../lib/attendanceUtils';
+import { CellTooltip } from './CellTooltip';
 
 interface TimesheetCellProps {
     date: Date;
@@ -23,6 +24,7 @@ interface TimesheetCellProps {
         };
     };
     userStartDate?: Date | string | null;
+    positionY?: 'top' | 'bottom';
 }
 
 const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({ 
@@ -34,15 +36,26 @@ const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({
     isToday, 
     onCellClick,
     workConfig,
-    userStartDate
+    userStartDate,
+    positionY = 'top'
 }) => {
     const isHoliday = dayStatus.status === 'HOLIDAY';
     const isPastDay = isPast(date) && !isToday;
+
+    const [isShaking, setIsShaking] = React.useState(false);
 
     const handleClick = () => {
         if (log || leaveRequest || otRequest) {
             onCellClick(log || null, leaveRequest, otRequest);
         }
+    };
+
+    const handleUnclickableClick = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        setIsShaking(true);
+        setTimeout(() => {
+            setIsShaking(false);
+        }, 400);
     };
 
 
@@ -69,8 +82,28 @@ const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({
         // 0. Handle Not Started Yet (Priority over Absent/Holiday)
         if (!hasStarted) {
             return (
-                <div className="h-16 w-full flex flex-col items-center justify-center border-r border-slate-100/50 bg-slate-50/20 grayscale opacity-40">
+                <div 
+                    onClick={handleUnclickableClick}
+                    className={`h-16 w-full flex flex-col items-center justify-center border-r border-slate-100/50 bg-slate-50/20 grayscale opacity-40 cursor-not-allowed group/cell relative select-none transition-all ${isShaking ? 'animate-shake' : ''}`}
+                >
                     <span className="text-[7px] font-bold text-slate-400 uppercase tracking-tighter">NOT JOINED</span>
+                    
+                    <CellTooltip 
+                        hasNotStarted={true}
+                        userStartDate={userStartDate}
+                        positionY={positionY}
+                    />
+                    
+                    <style>{`
+                        @keyframes shake {
+                            0%, 100% { transform: translateX(0); }
+                            10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+                            20%, 40%, 60%, 80% { transform: translateX(4px); }
+                        }
+                        .animate-shake {
+                            animation: shake 0.4s ease-in-out;
+                        }
+                    `}</style>
                 </div>
             );
         }
@@ -86,7 +119,7 @@ const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({
             return (
                 <div 
                     onClick={handleClick}
-                    className={`h-16 w-full flex flex-col items-center justify-center border-r border-slate-100/50 cursor-pointer group/cell transition-all
+                    className={`h-16 w-full flex flex-col items-center justify-center border-r border-slate-100/50 cursor-pointer group/cell relative transition-all
                         ${isPending ? 'bg-amber-50/50 hover:bg-amber-50' : 
                           isWFHRequest ? 'bg-emerald-50/30 hover:bg-emerald-50/50' : `${regColors.bg}/30 hover:${regColors.bg}/50`}`}
                 >
@@ -100,6 +133,10 @@ const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({
                             {displayLabel}
                         </div>
                     </div>
+                    <CellTooltip 
+                        leaveRequest={leaveRequest}
+                        positionY={positionY}
+                    />
                 </div>
             );
         }
@@ -113,7 +150,7 @@ const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({
             return (
                 <div 
                     onClick={handleClick}
-                    className={`h-16 w-full flex flex-col items-center justify-center border-r border-slate-100/50 cursor-pointer group/cell transition-all
+                    className={`h-16 w-full flex flex-col items-center justify-center border-r border-slate-100/50 cursor-pointer group/cell relative transition-all
                         ${isPending ? 'bg-purple-50/30 hover:bg-purple-50/50' : 
                           isFixed ? 'bg-purple-50/60 hover:bg-purple-100/80 border-l-2 border-purple-500' : 'bg-amber-50/40 hover:bg-amber-100/60 border-l-2 border-amber-500'}`}
                 >
@@ -127,6 +164,10 @@ const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({
                             {isFixed ? 'OT FIXED' : 'OT REGULAR'}
                         </div>
                     </div>
+                    <CellTooltip 
+                        otRequest={otRequest}
+                        positionY={positionY}
+                    />
                 </div>
             );
         }
@@ -136,11 +177,29 @@ const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({
         if (isAbsent) {
             return (
                 <div 
-                    onClick={handleClick}
-                    className="h-16 w-full flex flex-col items-center justify-center border-r border-slate-100/50 bg-red-50/30 cursor-pointer group/cell transition-all hover:bg-red-50"
+                    onClick={handleUnclickableClick}
+                    className={`h-16 w-full p-1 border-r border-slate-100/50 cursor-not-allowed group/cell relative transition-all ${isShaking ? 'animate-shake' : ''}`}
                 >
-                    <UserX className="w-4 h-4 text-red-400 opacity-40 group-hover/cell:scale-110 transition-transform" />
-                    <span className="text-[8px] font-bold text-red-400 uppercase mt-1">ABSENT</span>
+                    <div className="w-full h-full rounded-xl border border-dashed border-red-200 bg-red-50/10 flex flex-col items-center justify-center opacity-60 group-hover/cell:opacity-85 transition-opacity">
+                        <UserX className="w-3.5 h-3.5 text-red-300" />
+                        <span className="text-[7.5px] font-bold text-red-300 uppercase mt-0.5 tracking-tight">ABSENT</span>
+                    </div>
+
+                    <CellTooltip 
+                        isAbsent={true}
+                        positionY={positionY}
+                    />
+
+                    <style>{`
+                        @keyframes shake {
+                            0%, 100% { transform: translateX(0); }
+                            10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+                            20%, 40%, 60%, 80% { transform: translateX(4px); }
+                        }
+                        .animate-shake {
+                            animation: shake 0.4s ease-in-out;
+                        }
+                    `}</style>
                 </div>
             );
         }
@@ -148,20 +207,58 @@ const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({
         // 3. Handle Holiday
         if (isHoliday) {
             return (
-                <div className="h-16 w-full flex flex-col items-center justify-center border-r border-slate-100/50 bg-slate-50/50 group/cell relative">
+                <div 
+                    onClick={handleUnclickableClick}
+                    className={`h-16 w-full flex flex-col items-center justify-center border-r border-slate-100/50 bg-slate-50/50 group/cell relative cursor-pointer ${isShaking ? 'animate-shake' : ''}`}
+                >
                     <Coffee className="w-3.5 h-3.5 text-slate-300 opacity-40" />
                     {dayStatus.source === 'EXCEPTION' && (
                         <div className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-red-400/40"></div>
                     )}
                     <span className="text-[7px] font-bold text-slate-400 uppercase mt-1 truncate max-w-[80%] px-1">{dayStatus.desc}</span>
+
+                    <CellTooltip 
+                        isHoliday={true}
+                        holidayDesc={dayStatus.desc}
+                        positionY={positionY}
+                    />
+
+                    <style>{`
+                        @keyframes shake {
+                            0%, 100% { transform: translateX(0); }
+                            10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+                            20%, 40%, 60%, 80% { transform: translateX(4px); }
+                        }
+                        .animate-shake {
+                            animation: shake 0.4s ease-in-out;
+                        }
+                    `}</style>
                 </div>
             );
         }
 
         // 4. Default Empty
         return (
-            <div className={`h-16 w-full flex items-center justify-center border-r border-slate-100/50 ${isToday ? 'bg-indigo-50/10' : 'bg-transparent'}`}>
+            <div 
+                onClick={handleUnclickableClick}
+                className={`h-16 w-full flex items-center justify-center border-r border-slate-100/50 cursor-pointer group/cell relative ${isToday ? 'bg-indigo-50/10' : 'bg-transparent'} ${isShaking ? 'animate-shake' : ''}`}
+            >
                 <div className="w-1 h-1 rounded-full bg-slate-200"></div>
+
+                <CellTooltip 
+                    positionY={positionY}
+                />
+
+                <style>{`
+                    @keyframes shake {
+                        0%, 100% { transform: translateX(0); }
+                        10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+                        20%, 40%, 60%, 80% { transform: translateX(4px); }
+                    }
+                    .animate-shake {
+                        animation: shake 0.4s ease-in-out;
+                    }
+                `}</style>
             </div>
         );
     }
@@ -190,13 +287,19 @@ const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({
         return (
             <div 
                 onClick={handleClick}
-                className="h-16 w-full flex flex-col items-center justify-center border-r border-slate-100/50 bg-red-50/30 cursor-pointer group/cell transition-all hover:bg-red-50"
+                className="h-16 w-full p-1 border-r border-slate-100/50 cursor-pointer group/cell relative transition-all"
             >
-                <UserX className="w-4 h-4 text-red-400 opacity-40 group-hover/cell:scale-110 transition-transform" />
-                <span className="text-[8px] font-bold text-red-400 uppercase mt-1">ABSENT</span>
-                {log.note?.includes('Judge') && (
-                    <span className="text-[6px] font-bold text-red-300 uppercase tracking-tighter">JUDGED</span>
-                )}
+                <div className="w-full h-full rounded-xl bg-red-50/40 border border-red-200/60 border-b-2 border-b-red-400/80 flex flex-col items-center justify-center gap-0.5 transition-all duration-200 group-hover/cell:scale-105 group-hover/cell:shadow-md group-hover/cell:bg-red-50/60">
+                    <UserX className="w-3.5 h-3.5 text-red-500 opacity-70 group-hover/cell:scale-110 transition-transform" />
+                    <span className="text-[8px] font-bold text-red-500 uppercase tracking-tight">ABSENT</span>
+                    <span className="px-1 py-0.5 mt-0.5 rounded-md bg-red-100 border border-red-200 text-[6.5px] font-extrabold text-red-600 uppercase tracking-wide scale-90 whitespace-nowrap">
+                        บันทึกแล้ว
+                    </span>
+                </div>
+                <CellTooltip 
+                    log={log}
+                    positionY={positionY}
+                />
             </div>
         );
     }
@@ -298,6 +401,13 @@ const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({
                     </div>
                 ) : null}
             </div>
+
+            <CellTooltip 
+                log={log}
+                leaveRequest={leaveRequest}
+                otRequest={otRequest}
+                positionY={positionY}
+            />
         </div>
     );
 };
@@ -313,6 +423,7 @@ const areEqual = (prevProps: TimesheetCellProps, nextProps: TimesheetCellProps) 
         prevProps.isToday === nextProps.isToday &&
         prevProps.userStartDate === nextProps.userStartDate &&
         prevProps.date.getTime() === nextProps.date.getTime() &&
+        prevProps.positionY === nextProps.positionY &&
         // Shallow compare dayStatus
         prevProps.dayStatus.status === nextProps.dayStatus.status &&
         prevProps.dayStatus.source === nextProps.dayStatus.source &&

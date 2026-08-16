@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, differenceInDays } from 'date-fns';
 import { 
@@ -7,6 +8,7 @@ import {
 } from 'lucide-react';
 import { LeaveRequest } from '../../../../types/attendance';
 import { parseReason } from '../../leave-request/request-detail/utils';
+import { getDirectDriveUrl } from '../../../../lib/imageUtils';
 
 interface HistoryItemCardProps {
     req: LeaveRequest;
@@ -289,7 +291,7 @@ export const HistoryItemCard: React.FC<HistoryItemCardProps> = ({ req, isHighlig
                                             className="group relative w-16 h-16 rounded-lg overflow-hidden border border-gray-200 cursor-pointer bg-gray-50 hover:border-indigo-400 hover:shadow-sm transition-all duration-200"
                                         >
                                             <img 
-                                                src={url} 
+                                                src={getDirectDriveUrl(url)} 
                                                 alt={`หลักฐาน-${idx + 1}`} 
                                                 referrerPolicy="no-referrer"
                                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" 
@@ -336,51 +338,55 @@ export const HistoryItemCard: React.FC<HistoryItemCardProps> = ({ req, isHighlig
             </motion.div>
 
             {/* Lightbox Modal */}
-            <AnimatePresence>
-                {expandedImg && (
-                    <motion.div 
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 bg-black/85 backdrop-blur-sm flex flex-col items-center justify-center p-4 z-[9999]"
-                        onClick={() => setExpandedImg(null)}
-                    >
+            {typeof document !== 'undefined' && createPortal(
+                <AnimatePresence>
+                    {expandedImg && (
                         <motion.div 
-                            initial={{ scale: 0.95, y: 15 }}
-                            animate={{ scale: 1, y: 0 }}
-                            exit={{ scale: 0.95, y: 15 }}
-                            transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                            className="relative max-w-3xl max-h-[85vh] w-full flex items-center justify-center rounded-2xl overflow-hidden"
-                            onClick={(e) => e.stopPropagation()}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            className="fixed inset-0 bg-black/85 backdrop-blur-sm flex flex-col items-center justify-center p-4 z-[99999]"
+                            onClick={() => setExpandedImg(null)}
                         >
-                            <img 
-                                src={expandedImg} 
-                                alt="เอกสารแนบขนาดเต็ม" 
-                                referrerPolicy="no-referrer"
-                                className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl border border-white/10" 
-                            />
+                            <motion.div 
+                                initial={{ scale: 0.95, y: 15 }}
+                                animate={{ scale: 1, y: 0 }}
+                                exit={{ scale: 0.95, y: 15 }}
+                                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                                className="relative max-w-3xl max-h-[85vh] w-full flex items-center justify-center rounded-2xl overflow-hidden"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <img 
+                                    src={getDirectDriveUrl(expandedImg)} 
+                                    alt="เอกสารแนบขนาดเต็ม" 
+                                    referrerPolicy="no-referrer"
+                                    className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl border border-white/10" 
+                                />
+                            </motion.div>
+                            
+                            {/* Control buttons */}
+                            <div className="flex gap-4 mt-4" onClick={(e) => e.stopPropagation()}>
+                                <a 
+                                    href={getDirectDriveUrl(expandedImg)} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="px-4 py-2 bg-white/15 hover:bg-white/25 border border-white/20 text-white text-xs font-semibold rounded-full flex items-center gap-2 backdrop-blur-md transition-all duration-200"
+                                >
+                                    <span>เปิดในแท็บใหม่</span>
+                                </a>
+                                <button 
+                                    type="button"
+                                    onClick={() => setExpandedImg(null)}
+                                    className="px-5 py-2 bg-white hover:bg-gray-100 text-gray-900 text-xs font-semibold rounded-full transition-all duration-200 shadow-md"
+                                >
+                                    ปิดหน้าต่าง
+                                </button>
+                            </div>
                         </motion.div>
-                        
-                        {/* Control buttons */}
-                        <div className="flex gap-4 mt-4" onClick={(e) => e.stopPropagation()}>
-                            <a 
-                                href={expandedImg} 
-                                target="_blank" 
-                                rel="noopener noreferrer"
-                                className="px-4 py-2 bg-white/15 hover:bg-white/25 border border-white/20 text-white text-xs font-semibold rounded-full flex items-center gap-2 backdrop-blur-md transition-all duration-200"
-                            >
-                                <span>เปิดในแท็บใหม่</span>
-                            </a>
-                            <button 
-                                onClick={() => setExpandedImg(null)}
-                                className="px-5 py-2 bg-white hover:bg-gray-100 text-gray-900 text-xs font-semibold rounded-full transition-all duration-200 shadow-md"
-                            >
-                                ปิดหน้าต่าง
-                            </button>
-                        </div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
+                    )}
+                </AnimatePresence>,
+                document.body
+            )}
         </>
     );
 };

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { FileText, XCircle, Clock } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
@@ -50,6 +50,7 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
     const { annualHolidays, calendarExceptions, masterOptions } = useMasterData();
     const [searchParams, setSearchParams] = useSearchParams();
     const highlightReqId = searchParams.get('highlightReqId') || searchParams.get('id');
+    const closedHighlightRef = useRef<string | null>(null);
 
     const [filterStatus, setFilterStatus] = useState<'PENDING' | 'HISTORY'>('PENDING');
     const [historySubFilter, setHistorySubFilter] = useState<HistoryFilter>('ALL');
@@ -194,7 +195,7 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
     // Auto-adjust category, filter status, and open modal based on tab or highlighted request ID
     useEffect(() => {
         const tabParam = searchParams.get('tab');
-        if (highlightReqId) {
+        if (highlightReqId && highlightReqId !== closedHighlightRef.current) {
             setActiveCategory('ALL');
             const matchingReq = combinedRequests.find(r => r.id === highlightReqId);
             if (matchingReq) {
@@ -206,10 +207,15 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
                     setSelectedRequest(matchingReq);
                 }
             }
-        } else if (tabParam === 'ot-requests') {
-            setActiveCategory('OT');
-        } else if (tabParam === 'leave-requests') {
-            setActiveCategory('LEAVE');
+        } else if (!highlightReqId) {
+            // Reset the closed ref when highlightReqId is cleared from URL
+            closedHighlightRef.current = null;
+            
+            if (tabParam === 'ot-requests') {
+                setActiveCategory('OT');
+            } else if (tabParam === 'leave-requests') {
+                setActiveCategory('LEAVE');
+            }
         }
     }, [highlightReqId, combinedRequests, searchParams, selectedRequest]);
 
@@ -475,6 +481,9 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
                         request={selectedRequest}
                         isOpen={true}
                         onClose={() => {
+                            if (highlightReqId) {
+                                closedHighlightRef.current = highlightReqId;
+                            }
                             setSelectedRequest(null);
                             setIsRejectModeRequested(false);
                             // Clear highlight parameters from URL so the modal doesn't re-open

@@ -141,6 +141,7 @@ const mapLeaveRequest = (data: any) => ({
     id: data.id,
     userId: data.user_id,
     type: data.type,
+    leaveType: data.type,
     startDate: new Date(data.start_date),
     endDate: new Date(data.end_date),
     reason: data.reason,

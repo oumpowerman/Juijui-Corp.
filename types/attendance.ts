@@ -62,6 +62,7 @@ export interface LeaveRequest {
     id: string;
     userId: string;
     type: LeaveType;
+    leaveType?: LeaveType;
     startDate: Date;
     endDate: Date;
     reason: string;

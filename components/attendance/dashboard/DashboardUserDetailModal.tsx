@@ -12,6 +12,7 @@ import { getAttendanceSummary } from '../../../lib/attendanceUtils';
 import { useUserSession } from '../../../context/UserSessionContext';
 import { useMasterData } from '../../../hooks/useMasterData';
 import { parseReason } from '../leave-request/request-detail/utils';
+import { getRegistryItem } from '../../../constants/attendanceRegistry';
 
 // Import our new subcomponents
 import { DetailModalHeader } from './modal/DetailModalHeader';
@@ -95,7 +96,7 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
         // 1. Get existing leave logs from stat.logs
         const existingLeaveLogs = stat.logs.filter(l => {
             const hasLeaveNote = l.note && (
-                l.note.includes('LEAVE') || 
+                (l.note.includes('LEAVE') && !l.note.includes('EARLY_LEAVE')) || 
                 l.note.includes('SICK') || 
                 l.note.includes('VACATION') || 
                 l.note.includes('PERSONAL') || 
@@ -112,6 +113,10 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
         (leaveRequests || []).forEach(req => {
             if (req.userId !== user.id || req.status !== 'APPROVED') return;
 
+            // ตรวจสอบว่าเป็นคำขอประเภทวันลาจริง ไม่ใช่คำขอแก้ไขเวลา (CORRECTION) หรือ SPECIAL
+            const registryItem = getRegistryItem(req.type || req.leaveType);
+            if (registryItem?.category !== 'LEAVE') return;
+
             const start = new Date(req.startDate);
             const end = new Date(req.endDate);
 
@@ -127,7 +132,7 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
                         date: dateStr,
                         status: 'LEAVE',
                         workType: 'LEAVE',
-                        note: req.reason ? `[APPROVED LEAVE: ${req.leaveType}] ${req.reason}` : `[APPROVED LEAVE: ${req.leaveType}]`,
+                        note: req.reason ? `[APPROVED LEAVE: ${req.type || req.leaveType}] ${req.reason}` : `[APPROVED LEAVE: ${req.type || req.leaveType}]`,
                         checkInTime: null,
                         checkOutTime: null,
                         createdAt: req.createdAt || new Date().toISOString()
@@ -203,6 +208,8 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
             // Check if there is an approved leave request on this date
             const matchingLeaveReq = (leaveRequests || [])?.find(req => {
                 if (req.userId !== user.id || req.status !== 'APPROVED') return false;
+                const registryItem = getRegistryItem(req.type || req.leaveType);
+                if (registryItem?.category !== 'LEAVE') return false;
                 const reqStart = format(new Date(req.startDate), 'yyyy-MM-dd');
                 const reqEnd = format(new Date(req.endDate), 'yyyy-MM-dd');
                 return dateStr >= reqStart && dateStr <= reqEnd;
@@ -251,6 +258,8 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
             const parsed = parseReason(l.note || '');
             const isHalfDay = parsed.isHalfDay || leaveRequests?.some(req => {
                 if (req.userId !== user.id || req.status !== 'APPROVED') return false;
+                const registryItem = getRegistryItem(req.type || req.leaveType);
+                if (registryItem?.category !== 'LEAVE') return false;
                 const reqStart = format(new Date(req.startDate), 'yyyy-MM-dd');
                 const reqEnd = format(new Date(req.endDate), 'yyyy-MM-dd');
                 return l.date >= reqStart && l.date <= reqEnd && (req.isHalfDay || req.is_half_day);
@@ -272,7 +281,7 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
             if (dayLog && dayLog.checkInTime) {
                 const isLeave = dayLog.status === 'LEAVE' || dayLog.workType === 'LEAVE';
                 const hasLeaveNote = dayLog.note && (
-                    dayLog.note.includes('LEAVE') || 
+                    (dayLog.note.includes('LEAVE') && !dayLog.note.includes('EARLY_LEAVE')) || 
                     dayLog.note.includes('SICK') || 
                     dayLog.note.includes('VACATION') || 
                     dayLog.note.includes('PERSONAL') || 
@@ -289,15 +298,102 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
         return presents;
     }, [stat.logs, workingDaysInMonth]);
 
-    const totalIssues = lateLogs.length + absentDates.length + leaveLogs.length;
+    const calculatedAbsents = useMemo(() => {
+        let total = 0;
+        const today = new Date();
+        workingDaysInMonth.forEach(day => {
+            const userStartDate = user.startDate ? new Date(user.startDate) : (user.createdAt ? new Date(user.createdAt) : null);
+            if (userStartDate) {
+                const dayStr = format(day, 'yyyy-MM-dd');
+                const startStr = format(userStartDate, 'yyyy-MM-dd');
+                if (dayStr < startStr) {
+                    return;
+                }
+            }
+            
+            // Check if this day is in the future
+            const isFutureDay = (day.getFullYear() > today.getFullYear()) ||
+                                (day.getFullYear() === today.getFullYear() && day.getMonth() > today.getMonth()) ||
+                                (day.getFullYear() === today.getFullYear() && day.getMonth() === today.getMonth() && day.getDate() > today.getDate());
+            if (isFutureDay) return;
+
+            const isToday = day.getDate() === today.getDate() &&
+                            day.getMonth() === today.getMonth() &&
+                            day.getFullYear() === today.getFullYear();
+
+            if (isToday) {
+                let targetStartTime = startTime; 
+
+                if (multipleShifts.enabled && multipleShifts.shiftsList) {
+                    const shifts = multipleShifts.shiftsList
+                        .split(',')
+                        .map(s => s.trim())
+                        .filter(Boolean);
+                    
+                    if (shifts.length > 0) {
+                        shifts.sort();
+                        targetStartTime = shifts[shifts.length - 1];
+                    }
+                }
+
+                let [startHour, startMin] = [10, 0];
+                if (targetStartTime && targetStartTime.includes(':')) {
+                    const parts = targetStartTime.split(':');
+                    startHour = parseInt(parts[0], 10) || 10;
+                    startMin = parseInt(parts[1], 10) || 0;
+                }
+                const currentHour = today.getHours();
+                const currentMin = today.getMinutes();
+
+                if (currentHour < startHour || (currentHour === startHour && currentMin < startMin)) {
+                    return;
+                }
+            }
+
+            const dateStr = format(day, 'yyyy-MM-dd');
+            const dayLog = stat.logs.find(l => l.date === dateStr);
+
+            // Check if there is an approved leave request on this date
+            const matchingLeaveReq = (leaveRequests || [])?.find(req => {
+                if (req.userId !== user.id || req.status !== 'APPROVED') return false;
+                const registryItem = getRegistryItem(req.type || req.leaveType);
+                if (registryItem?.category !== 'LEAVE') return false;
+                const reqStart = format(new Date(req.startDate), 'yyyy-MM-dd');
+                const reqEnd = format(new Date(req.endDate), 'yyyy-MM-dd');
+                return dateStr >= reqStart && dateStr <= reqEnd;
+            });
+
+            if (!dayLog) {
+                if (matchingLeaveReq) {
+                    const isHalf = Boolean(matchingLeaveReq.isHalfDay || matchingLeaveReq.is_half_day === true || matchingLeaveReq.is_half_day === 'true');
+                    if (isHalf) {
+                        total += 0.5;
+                    }
+                } else {
+                    total += 1.0;
+                }
+            } else if (dayLog.status === 'LEAVE' || dayLog.workType === 'LEAVE') {
+                const parsed = parseReason(dayLog.note || '');
+                const isHalf = parsed.isHalfDay || Boolean(matchingLeaveReq?.isHalfDay || matchingLeaveReq?.is_half_day === true || matchingLeaveReq?.is_half_day === 'true');
+                if (isHalf && !dayLog.checkInTime) {
+                    total += 0.5;
+                }
+            } else if (dayLog.status === 'ABSENT' || dayLog.workType === 'ABSENT') {
+                total += 1.0;
+            }
+        });
+        return total;
+    }, [workingDaysInMonth, stat.logs, user.startDate, user.createdAt, startTime, multipleShifts, leaveRequests, user.id]);
+
+    const totalIssues = lateLogs.length + Math.ceil(calculatedAbsents) + leaveLogs.length;
 
     const stats = useMemo(() => ({
         present: calculatedPresents,
         late: lateLogs.length,
-        absent: absentDates.length,
+        absent: calculatedAbsents,
         leaves: calculatedLeaves,
         otHours: totalOtHours
-    }), [calculatedPresents, lateLogs, absentDates, calculatedLeaves, totalOtHours]);
+    }), [calculatedPresents, lateLogs, calculatedAbsents, calculatedLeaves, totalOtHours]);
 
     return createPortal(
         <motion.div 
@@ -443,15 +539,39 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
                                     </h4>
                                 </div>
                                 <div className="grid grid-cols-1 gap-3">
-                                    {absentDates.map(date => (
-                                        <AttendanceRecordCard 
-                                            key={date.toString()}
-                                            date={date}
-                                            variant="absent"
-                                            badgeText="ABSENT"
-                                            onClick={() => setSelectedRecord({ type: 'ABSENT', data: { date } })}
-                                        />
-                                    ))}
+                                    {absentDates.map(date => {
+                                        const dateStr = format(date, 'yyyy-MM-dd');
+                                        const matchingLeaveReq = (leaveRequests || [])?.find(req => {
+                                            if (req.userId !== user.id || req.status !== 'APPROVED') return false;
+                                            const registryItem = getRegistryItem(req.type || req.leaveType);
+                                            if (registryItem?.category !== 'LEAVE') return false;
+                                            const reqStart = format(new Date(req.startDate), 'yyyy-MM-dd');
+                                            const reqEnd = format(new Date(req.endDate), 'yyyy-MM-dd');
+                                            return dateStr >= reqStart && dateStr <= reqEnd;
+                                        });
+
+                                        const dayLog = stat.logs.find(l => l.date === dateStr);
+                                        const isHalf = matchingLeaveReq && (matchingLeaveReq.isHalfDay || matchingLeaveReq.is_half_day === true || matchingLeaveReq.is_half_day === 'true');
+                                        
+                                        const isLogLeaveHalfAbsent = dayLog && (dayLog.status === 'LEAVE' || dayLog.workType === 'LEAVE') && (() => {
+                                            const parsed = parseReason(dayLog.note || '');
+                                            const isHalfLeave = parsed.isHalfDay || Boolean(matchingLeaveReq?.isHalfDay || matchingLeaveReq?.is_half_day === true || matchingLeaveReq?.is_half_day === 'true');
+                                            return isHalfLeave && !dayLog.checkInTime;
+                                        })();
+
+                                        const isHalfAbsent = isHalf || isLogLeaveHalfAbsent;
+
+                                        return (
+                                            <AttendanceRecordCard 
+                                                key={date.toString()}
+                                                date={date}
+                                                variant="absent"
+                                                badgeText={isHalfAbsent ? "0.5 ABSENT" : "ABSENT"}
+                                                timeLabel={isHalfAbsent ? "Missing half day (Approved Half-Day Leave)" : "No record found"}
+                                                onClick={() => setSelectedRecord({ type: 'ABSENT', data: { date } })}
+                                            />
+                                        );
+                                    })}
                                 </div>
                             </motion.section>
                         )}
@@ -489,6 +609,8 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
                                         let decoratedNote = log.note || '';
                                         const matchingReq = leaveRequests?.find(req => {
                                             if (req.userId !== user.id || req.status !== 'APPROVED') return false;
+                                            const registryItem = getRegistryItem(req.type || req.leaveType);
+                                            if (registryItem?.category !== 'LEAVE') return false;
                                             const reqStart = format(new Date(req.startDate), 'yyyy-MM-dd');
                                             const reqEnd = format(new Date(req.endDate), 'yyyy-MM-dd');
                                             return log.date >= reqStart && log.date <= reqEnd;
@@ -506,7 +628,7 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
                                                 key={log.id}
                                                 date={new Date(log.date)}
                                                 variant="leave"
-                                                badgeText={formatSpecialTypeName(extractedType)}
+                                                badgeText={`${formatSpecialTypeName(extractedType)}${matchingReq && (matchingReq.isHalfDay || matchingReq.is_half_day) ? ' (0.5)' : ''}`}
                                                 note={decoratedNote}
                                                 onClick={() => setSelectedRecord({ type: 'LEAVE', data: { ...log, note: decoratedNote } })}
                                             />

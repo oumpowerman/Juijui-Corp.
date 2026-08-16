@@ -147,7 +147,12 @@ export const useAutoJudge = (currentUser: User | null) => {
             
             // 1.1 วันหยุดและข้อยกเว้นปฏิทิน (จาก Context)
             const holidays = annualHolidays.map((h:any) => ({
-                id: h.id, name: h.name, day: h.day, month: h.month, typeKey: h.type_key, isActive: h.is_active
+                id: h.id,
+                name: h.name,
+                day: h.day,
+                month: h.month,
+                typeKey: h.typeKey !== undefined ? h.typeKey : h.type_key,
+                isActive: h.isActive !== undefined ? h.isActive : h.is_active
             }));
             const exceptions = calendarExceptions;
 

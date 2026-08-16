@@ -13,6 +13,7 @@ import { parseReason } from '../leave-request/request-detail/utils';
 import { useAnnualHolidays } from '../../../hooks/useAnnualHolidays';
 import { useCalendarExceptions } from '../../../hooks/useCalendarExceptions';
 import { eachDayOfInterval, startOfMonth, endOfMonth, isWeekend } from 'date-fns';
+import { getRegistryItem } from '../../../constants/attendanceRegistry';
 
 // Import Separated Components
 import DashboardHeader from './DashboardHeader';
@@ -284,6 +285,8 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                     const parsed = parseReason(log.note || '');
                     const isHalfDay = parsed.isHalfDay || leaveRequests?.some(req => {
                         if (req.userId !== log.userId || req.status !== 'APPROVED') return false;
+                        const registryItem = getRegistryItem(req.leaveType);
+                        if (registryItem?.category !== 'LEAVE') return false;
                         const reqStart = format(new Date(req.startDate), 'yyyy-MM-dd');
                         const reqEnd = format(new Date(req.endDate), 'yyyy-MM-dd');
                         return log.date >= reqStart && log.date <= reqEnd && (req.isHalfDay || req.is_half_day);
@@ -291,9 +294,6 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                     
                     if (isHalfDay) {
                         stat.leaves += 0.5;
-                        if (log.checkInTime) {
-                            stat.present += 0.5;
-                        }
                     } else {
                         stat.leaves += 1.0;
                     }
@@ -302,6 +302,8 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                 } else {
                     const isApprovedHalfDayLeave = leaveRequests?.some(req => {
                         if (req.userId !== log.userId || req.status !== 'APPROVED') return false;
+                        const registryItem = getRegistryItem(req.leaveType);
+                        if (registryItem?.category !== 'LEAVE') return false;
                         const reqStart = format(new Date(req.startDate), 'yyyy-MM-dd');
                         const reqEnd = format(new Date(req.endDate), 'yyyy-MM-dd');
                         return log.date >= reqStart && log.date <= reqEnd && (req.isHalfDay || req.is_half_day);
@@ -309,10 +311,7 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
 
                     if (!isProvisional && !isGpsRejected) {
                         if (isApprovedHalfDayLeave) {
-                            stat.present += 0.5;
                             stat.leaves += 0.5;
-                        } else {
-                            stat.present += 1.0;
                         }
                     }
 
@@ -339,6 +338,8 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
 
             // Map of logs by date
             const logByDateMap = new Map(stat.logs.map(l => [l.date, l]));
+
+            stat.present = 0;
 
             workingDaysInMonth.forEach(day => {
                 if (userStartDate) {
@@ -393,10 +394,29 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                 // Check if there is an approved leave request on this date
                 const matchingLeaveReq = leaveRequests?.find(req => {
                     if (req.userId !== stat.userId || req.status !== 'APPROVED') return false;
+                    const registryItem = getRegistryItem(req.leaveType);
+                    if (registryItem?.category !== 'LEAVE') return false;
                     const reqStart = format(new Date(req.startDate), 'yyyy-MM-dd');
                     const reqEnd = format(new Date(req.endDate), 'yyyy-MM-dd');
                     return dateStr >= reqStart && dateStr <= reqEnd;
                 });
+
+                if (log && log.checkInTime) {
+                    const isLeave = log.status === 'LEAVE' || log.workType === 'LEAVE';
+                    const hasLeaveNote = log.note && (
+                        (log.note.includes('LEAVE') && !log.note.includes('EARLY_LEAVE')) || 
+                        log.note.includes('SICK') || 
+                        log.note.includes('VACATION') || 
+                        log.note.includes('PERSONAL') || 
+                        log.note.includes('EMERGENCY') || 
+                        log.note.includes('UNPAID')
+                    );
+                    if (isLeave || hasLeaveNote) {
+                        stat.present += 0.5;
+                    } else {
+                        stat.present += 1.0;
+                    }
+                }
 
                 if (!log) {
                     // No attendance log exists for this working day

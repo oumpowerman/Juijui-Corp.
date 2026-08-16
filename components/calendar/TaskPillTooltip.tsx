@@ -92,10 +92,16 @@ const TaskPillTooltip: React.FC<TaskPillTooltipProps> = ({
 
             {/* Task Title */}
             <div className="space-y-1">
-                <span className="text-[10px] font-black tracking-wider text-slate-450 uppercase select-none">
-                    {viewMode === 'CONTENT' ? 'CONTENT PLAN' : 'SUB TASK'}
+                <span className={`text-[10px] font-black tracking-wider uppercase select-none ${
+                    task.type === 'PLAN' 
+                        ? 'text-fuchsia-600 bg-fuchsia-50/50 px-1.5 py-0.5 rounded-md border border-fuchsia-100/50' 
+                        : task.type === 'CONTENT' 
+                        ? 'text-indigo-600 bg-indigo-50/50 px-1.5 py-0.5 rounded-md border border-indigo-100/50'
+                        : 'text-emerald-600 bg-emerald-50/50 px-1.5 py-0.5 rounded-md border border-emerald-100/50'
+                }`}>
+                    {task.type === 'PLAN' ? '📅 PLAN / นัดหมาย' : task.type === 'CONTENT' ? '🔮 CONTENT / คอนเทนต์' : '⚙️ SUB TASK / งานย่อย'}
                 </span>
-                <h4 className="text-xs font-bold text-slate-800 line-clamp-2 leading-relaxed">
+                <h4 className="text-xs font-bold text-slate-800 line-clamp-2 leading-relaxed pt-1">
                     {task.title}
                 </h4>
             </div>

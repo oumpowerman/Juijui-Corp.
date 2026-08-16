@@ -16,6 +16,7 @@ import WeeklyView from './calendar/WeeklyView';
 import UnifiedFilterModal from './calendar/UnifiedFilterModal';
 import { useCalendarHighlights } from '../hooks/useCalendarHightlights';
 import DayHighlightModal from './calendar/DayHightlightModal';
+import PlanFormModal from './calendar/PlanFormModal';
 import StockSidePanel from './StockSidePanel';
 import DelayModal from './DelayModal';
 import AppBackground, { BackgroundTheme } from './common/AppBackground';
@@ -44,6 +45,8 @@ interface CalendarViewProps {
   isFetching?: boolean; 
   onToggleWorkbox?: () => void;
   isWorkboxOpen?: boolean;
+  onSaveTask?: (task: Task) => void;
+  onDeleteTask?: (taskId: string) => void;
 }
 
 const CalendarView: React.FC<CalendarViewProps> = ({ 
@@ -64,7 +67,9 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     onRangeChange,
     isFetching = false,
     onToggleWorkbox,
-    isWorkboxOpen
+    isWorkboxOpen,
+    onSaveTask,
+    onDeleteTask
 }) => {
   const {
       currentDate,
@@ -116,6 +121,21 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const { highlights, setHighlight, removeHighlight } = useCalendarHighlights(currentDate);
   const [highlightModalOpen, setHighlightModalOpen] = useState(false);
   const [selectedHighlightDate, setSelectedHighlightDate] = useState<Date | null>(null);
+
+  // --- Plan/Schedules Custom Form States ---
+  const [planModalOpen, setPlanModalOpen] = useState(false);
+  const [selectedPlanDate, setSelectedPlanDate] = useState<Date | null>(null);
+  const [selectedPlanData, setSelectedPlanData] = useState<Task | null>(null);
+
+  const handleTaskClick = (task: Task) => {
+      if (task.type === 'PLAN') {
+          setSelectedPlanDate(task.startDate instanceof Date ? task.startDate : new Date(task.startDate));
+          setSelectedPlanData(task);
+          setPlanModalOpen(true);
+      } else {
+          onSelectTask(task);
+      }
+  };
 
   const [displayMode, setDisplayMode] = useState<'CALENDAR' | 'BOARD'>('CALENDAR');
   const [isListModalOpen, setIsListModalOpen] = useState(false);
@@ -408,7 +428,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                 onDragLeave={handleDragLeave}
                                 onDrop={internalHandleDrop}
                                 onTaskDragStart={handleDragStart}
-                                onTaskClick={onSelectTask}
+                                onTaskClick={handleTaskClick}
                             />
                         ) : (
                             <WeeklyView 
@@ -419,7 +439,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                 filterTasks={cosmicFilterTasks}
                                 channels={channels}
                                 masterOptions={masterOptions}
-                                onTaskClick={onSelectTask}
+                                onTaskClick={handleTaskClick}
                                 onSelectDate={onSelectDate}
                                 isLandscape={isMobileLandscape}
                                 allTasks={tasks}
@@ -438,7 +458,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                 users={users}
                                 masterOptions={masterOptions}
                                 viewMode={viewMode}
-                                onEditTask={onSelectTask}
+                                onEditTask={handleTaskClick}
                                 onAddTask={(status) => onAddTask(status, viewMode)} 
                                 onUpdateStatus={onUpdateStatus}
                                 onOpenSettings={onOpenSettings}
@@ -562,6 +582,30 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             currentHighlightType={highlights.find(h => selectedHighlightDate && isSameDay(h.date, selectedHighlightDate))?.typeKey}
             onSave={(typeKey, note) => selectedHighlightDate && setHighlight(selectedHighlightDate, typeKey, note)}
             onRemove={() => selectedHighlightDate && removeHighlight(selectedHighlightDate)}
+            onAddPlan={(date) => {
+                setSelectedPlanDate(date);
+                setSelectedPlanData(null);
+                setPlanModalOpen(true);
+            }}
+        />
+
+        <PlanFormModal 
+            isOpen={planModalOpen}
+            onClose={() => setPlanModalOpen(false)}
+            date={selectedPlanDate}
+            initialData={selectedPlanData}
+            users={users}
+            currentUser={currentUser}
+            onSave={(plan) => {
+                if (onSaveTask) {
+                    onSaveTask(plan);
+                }
+            }}
+            onDelete={(planId) => {
+                if (onDeleteTask) {
+                    onDeleteTask(planId);
+                }
+            }}
         />
 
         {pendingDelayTask && (

@@ -240,7 +240,7 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
             scheduled_time: taskToSave.scheduledTime,
             assets: taskToSave.assets || [], 
             ...(isContent ? {} : { 
-                type: 'TASK', 
+                type: taskToSave.type || 'TASK', 
                 difficulty: taskToSave.difficulty || 'MEDIUM',
                 estimated_hours: taskToSave.estimatedHours || 0,
                 assignee_type: taskToSave.assigneeType,

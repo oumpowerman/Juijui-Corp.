@@ -1,6 +1,7 @@
 import React from 'react';
 import { Clock, RefreshCw, Send, MessageSquare, Sparkles, Hourglass, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { useMasterData } from '../../../../hooks/useMasterData';
 
 interface OvertimeFlowProps {
     step: 'PROMPT' | 'REASON' | 'FORGET_TIME';
@@ -37,6 +38,10 @@ export const OvertimeFlow: React.FC<OvertimeFlowProps> = ({
     forgetCheckOutTime,
     onSetForgetCheckOutTime
 }) => {
+    const { masterOptions } = useMasterData();
+    const otThresholdOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'OT_THRESHOLD_HOURS');
+    const otThreshold = otThresholdOpt?.label || '2';
+
     if (step === 'FORGET_TIME') {
         return (
             <div className="space-y-6 text-center animate-in fade-in slide-in-from-bottom-4">
@@ -104,7 +109,7 @@ export const OvertimeFlow: React.FC<OvertimeFlowProps> = ({
                 </div>
                 <div className="space-y-1">
                     <h3 className="text-xl font-bold text-violet-800">ยืนยันการบันทึก OT</h3>
-                    <p className="text-xs text-gray-500">คุณเลิกงานเกินเวลาเลิกงานมาตรฐานมามากกว่า 2 ชั่วโมง</p>
+                    <p className="text-xs text-gray-500">คุณเลิกงานเกินเวลาเลิกงานมาตรฐานมามากกว่า {otThreshold} ชั่วโมง</p>
                 </div>
 
                 <p className="text-sm font-bold text-gray-700">คุณทำงานล่วงเวลา (OT) ใช่หรือไม่?</p>

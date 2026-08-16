@@ -93,6 +93,7 @@ const mapSupabaseToTask = (data: any, type: 'CONTENT' | 'TASK' = 'CONTENT'): Tas
         sla_revert_count: data.sla_revert_count,
         is_penalized: data.is_penalized,
         last_penalized_at: data.last_penalized_at ? new Date(data.last_penalized_at) : undefined,
+        subChecklistProgress: data.sub_checklist_progress || {},
     } as any;
 };
 
@@ -194,7 +195,7 @@ const StockSidePanel: React.FC<StockSidePanelProps> = ({
                     id, title, description, status, pillar, category, content_formats, tags,
                     start_date, end_date, channel_id, created_at, updated_at, is_unscheduled, remark, scheduled_time,
                     target_platform, assignee_ids, idea_owner_ids, editor_ids, shoot_trip_id,
-                    shoot_date, is_in_shoot_queue, is_soft_finished, sla_revert_count,
+                    shoot_date, is_in_shoot_queue, is_soft_finished, sla_revert_count, sub_checklist_progress,
                     task_reviews(id, round, status, is_completed),
                     content_analytics(id, platform),
                     sponsorship_details(is_sponsored, deal_value, requirements, payment_status, is_paid, invoice_url, client_id)

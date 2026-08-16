@@ -81,7 +81,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     // Map Raw DB Data to Unified Task Type (Shared Logic)
-    const mapSupabaseToTask = useCallback((data: any, type: 'CONTENT' | 'TASK', isPartial = false): Task => {
+    const mapSupabaseToTask = useCallback((data: any, type: TaskType, isPartial = false): Task => {
         const startDateVal = data.start_date || data.startDate;
         const endDateVal = data.end_date || data.endDate;
 
@@ -107,7 +107,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
             id: data.id,
             title: data.title,
             description: data.description || '',
-            type: type, 
+            type: data.type || type, 
             status: data.status,
             priority: type === 'TASK' ? data.priority : undefined,
             tags: data.tags || [],
@@ -212,7 +212,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         `.replace(/\s+/g, '');
 
         const taskFields = `
-            id, title, status, priority, start_date, end_date, created_at, updated_at, 
+            id, title, type, status, priority, start_date, end_date, created_at, updated_at, 
             assignee_ids, content_id, show_on_board, target_position, roadmap_id, 
             sla_revert_count, difficulty, assignee_type, estimated_hours, scheduled_time,
             contents(title), task_reviews(id, round, status, is_completed)
@@ -305,7 +305,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsFetching(true);
         try {
             const taskFields = `
-                id, title, status, priority, start_date, end_date, created_at, updated_at, 
+                id, title, type, status, priority, start_date, end_date, created_at, updated_at, 
                 assignee_ids, content_id, show_on_board, target_position, roadmap_id, 
                 sla_revert_count, difficulty, assignee_type, estimated_hours, scheduled_time,
                 contents(title), task_reviews(id, round, status, is_completed)

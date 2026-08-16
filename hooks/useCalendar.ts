@@ -155,7 +155,12 @@ export const useCalendar = ({ tasks, userId, onMoveTask }: UseCalendarProps) => 
 
     // Memoize Filter Logic with Exclusion Support
     const filterTasks = useCallback((tasksToFilter: Task[]) => {
-        let filtered = tasksToFilter.filter(t => t.type === viewMode);
+        let filtered = tasksToFilter.filter(t => {
+            if (viewMode === 'CONTENT') {
+                return t.type === 'CONTENT' || t.type === 'PLAN';
+            }
+            return t.type === 'TASK';
+        });
 
         if (activeChipIds.length > 0 && Array.isArray(customChips)) {
             // Get all active chip objects

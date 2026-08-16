@@ -1,7 +1,7 @@
 
 import { User } from './core';
 
-export type TaskType = 'CONTENT' | 'TASK';
+export type TaskType = 'CONTENT' | 'TASK' | 'PLAN';
 export type Status = 'TODO' | 'DOING' | 'DONE' | 'BLOCKED' | 'IDEA' | 'SCRIPT' | 'SHOOTING' | 'EDIT_CLIP' | 'FEEDBACK' | 'EDIT_DRAFT_1' | 'FEEDBACK_1' | 'EDIT_DRAFT_2' | 'APPROVE' | 'WAITING' | 'REVISE' | 'FINAL' | string;
 export type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 export type Platform = 'YOUTUBE' | 'FACEBOOK' | 'TIKTOK' | 'INSTAGRAM' | 'OTHER' | 'ALL';

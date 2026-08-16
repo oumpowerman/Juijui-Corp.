@@ -211,6 +211,8 @@ export const ViewRouteRegistry: React.FC<ViewRouteRegistryProps> = ({
                 isFetching={isTaskFetching}
                 onToggleWorkbox={() => setIsWorkboxOpen(!isWorkboxOpen)}
                 isWorkboxOpen={isWorkboxOpen}
+                onSaveTask={handleSaveTask}
+                onDeleteTask={handleDeleteTask}
               />
             );
           case 'TEAM':

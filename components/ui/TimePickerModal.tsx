@@ -65,7 +65,7 @@ const TimePickerModal: React.FC<TimePickerModalProps> = ({ isOpen, onClose, onSe
         <AnimatePresence>
             {isOpen && (
                 <div 
-                    className="fixed inset-0 z-[11000] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
+                    className="fixed inset-0 z-[13000] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm"
                     onClick={(e) => {
                         e.stopPropagation();
                         onClose();

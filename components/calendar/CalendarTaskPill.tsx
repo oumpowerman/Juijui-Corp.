@@ -138,6 +138,16 @@ const CalendarTaskPill = React.forwardRef<HTMLDivElement, CalendarTaskPillProps>
             ? 'bg-white border-l-4 border-l-indigo-500 border-y border-r border-gray-100 text-gray-700' 
             : 'bg-white border-l-4 border-l-emerald-500 border-y border-r border-gray-100 text-gray-700';
 
+        if (t.type === 'PLAN') {
+            if (t.status === 'DONE' || t.status === 'APPROVE') {
+                styleClass = 'bg-stone-100/60 border-l-4 border-l-stone-300 border-y border-r border-stone-200/40 text-stone-400 line-through opacity-70 font-semibold';
+            } else if (t.status === 'DOING' || t.status === 'PROGRESS') {
+                styleClass = 'bg-amber-50/80 border-l-4 border-l-amber-550 border-y border-r border-amber-200/50 text-amber-950 font-black shadow-sm';
+            } else {
+                styleClass = 'bg-fuchsia-50/60 border-l-4 border-l-fuchsia-500 border-y border-r border-fuchsia-200/40 text-fuchsia-950 font-bold';
+            }
+        }
+
         if (isOverdue) {
             styleClass = isCriticalOverdue 
                 ? 'bg-slate-50 border-l-4 border-l-slate-400 border-y border-r border-slate-200 text-slate-400 opacity-60 grayscale'
@@ -217,6 +227,22 @@ const CalendarTaskPill = React.forwardRef<HTMLDivElement, CalendarTaskPillProps>
             }
         } else {
             statusLabel = task.status;
+        }
+    }
+
+    if (task.type === 'PLAN') {
+        if (task.status === 'DONE' || task.status === 'APPROVE') {
+            statusLabel = 'DONE';
+            statusColor = 'bg-emerald-50 text-emerald-700 border-emerald-200/60';
+            statusEmoji = '✅';
+        } else if (task.status === 'DOING' || task.status === 'PROGRESS') {
+            statusLabel = 'DOING';
+            statusColor = 'bg-amber-50 text-amber-700 border-amber-200/60';
+            statusEmoji = '⚡';
+        } else {
+            statusLabel = 'TODO';
+            statusColor = 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200/60';
+            statusEmoji = '📋';
         }
     }
 

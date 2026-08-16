@@ -14,44 +14,38 @@ const MidnightCheckCard: React.FC<MidnightCheckCardProps> = ({
     setTempTimeConfig,
 }) => {
     const [isCheckoutTimeOpen, setIsCheckoutTimeOpen] = useState(false);
-    const [simC, setSimC] = useState<{ active: boolean; scanning: boolean; logs: string[]; step: number }>({
+    const [simC, setSimC] = useState<{ active: boolean; messageSent: boolean; time: string }>({
         active: false,
-        scanning: false,
-        logs: [],
-        step: 0
+        messageSent: false,
+        time: ''
     });
 
+    const timeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+    React.useEffect(() => {
+        return () => {
+            if (timeoutRef.current) {
+                clearTimeout(timeoutRef.current);
+            }
+        };
+    }, []);
+
     const triggerPlanCSimulator = () => {
+        if (timeoutRef.current) {
+            clearTimeout(timeoutRef.current);
+        }
         setSimC({
             active: true,
-            scanning: true,
-            logs: ['[Server Task] เริ่มขั้นตอนการสแกนระบบตอกบัตรข้ามวัน...'],
-            step: 0
+            messageSent: false,
+            time: ''
         });
 
-        const scanSteps = [
-            '🔍 กำลังสแกนฐานข้อมูลรายวัน...',
-            '⚠️ ตรวจพบพนักงานลืมลงเวลาออกงาน: 1 คน',
-            '👤 รายชื่อ: นายสมศักดิ์ รักขยัน (คลังสินค้า)',
-            '⚡ ดำเนินการลงเวลาออกอัตโนมัติ 24:00 น.',
-            '📉 บันทึกหักคะแนนลืมลงเวลาออก (-1 คะแนน)',
-            '✅ ยิงการแจ้งเตือนเตือนสติเข้ากลุ่ม LINE เรียบร้อย',
-            '🎉 ตรวจเช็คเสร็จสิ้นอย่างสมบูรณ์แบบ!'
-        ];
-
-        let currentStep = 0;
-        const interval = setInterval(() => {
-            if (currentStep < scanSteps.length) {
-                setSimC(prev => ({
-                    ...prev,
-                    logs: [...prev.logs, scanSteps[currentStep]],
-                    step: currentStep + 1
-                }));
-                currentStep++;
-            } else {
-                clearInterval(interval);
-                setSimC(prev => ({ ...prev, scanning: false }));
-            }
+        timeoutRef.current = setTimeout(() => {
+            setSimC(prev => ({
+                ...prev,
+                messageSent: true,
+                time: tempTimeConfig.checkoutPenaltyTime || '24:00'
+            }));
         }, 1000);
     };
 
@@ -174,46 +168,107 @@ const MidnightCheckCard: React.FC<MidnightCheckCardProps> = ({
                 
                 <div className="flex items-center justify-between mb-3 pb-2 border-b border-amber-100/60 relative z-10">
                     <div className="flex items-center gap-2 text-xs font-black text-amber-800">
-                        <Monitor className="w-4 h-4 text-amber-500" /> คอนโซลจำลองการทำงาน
+                        <Monitor className="w-4 h-4 text-amber-500" /> คอนโซลจำลอง LINE API
                     </div>
                     
                     <motion.button
-                        whileHover={{ scale: simC.scanning ? 1 : 1.03, y: simC.scanning ? 0 : -1 }}
-                        whileTap={{ scale: simC.scanning ? 1 : 0.97 }}
+                        whileHover={{ scale: 1.03, y: -1 }}
+                        whileTap={{ scale: 0.97 }}
                         type="button"
                         onClick={triggerPlanCSimulator}
-                        disabled={simC.scanning}
-                        className="px-3.5 py-1.5 bg-amber-600 disabled:bg-amber-200 disabled:text-amber-400 disabled:cursor-not-allowed text-white rounded-xl text-xs font-black hover:bg-amber-700 flex items-center gap-1.5 transition-all shadow-md shadow-amber-600/10 hover:shadow-amber-600/20"
+                        className="px-3.5 py-1.5 bg-amber-600 text-white rounded-xl text-xs font-black hover:bg-amber-700 flex items-center gap-1.5 transition-all shadow-md shadow-amber-600/10 hover:shadow-amber-600/20"
                     >
-                        {simC.scanning ? '⌛ กำลังสแกน...' : '🔍 เริ่มจำลองการสแกน'}
+                        <Play className="w-3 h-3 fill-current text-white/90 animate-pulse" /> ทดสอบส่งแจ้งเตือน
                     </motion.button>
                 </div>
 
-                <div className={`relative h-[200px] bg-gradient-to-b from-amber-50 to-amber-100/20 rounded-xl p-3 text-slate-800 border border-amber-100/60 shadow-inner flex flex-col ${simC.active ? 'justify-start' : 'justify-center'} overflow-hidden font-mono`}>
+                <div className={`relative min-h-[220px] bg-slate-50/50 rounded-xl p-3.5 text-slate-800 border border-slate-100 shadow-inner flex flex-col ${simC.active ? 'justify-start' : 'justify-center'} overflow-hidden`}>
                     <AnimatePresence mode="wait">
                         {simC.active ? (
-                            <div className="space-y-1.5 text-[10.5px] leading-relaxed h-full overflow-hidden pr-1">
-                                {simC.logs.map((log, lIdx) => {
-                                    let textColor = 'text-amber-900/80';
-                                    if (log.includes('⚠️')) textColor = 'text-red-600 font-extrabold flex items-center gap-1';
-                                    else if (log.includes('👤')) textColor = 'text-indigo-600 font-extrabold pl-3';
-                                    else if (log.includes('⚡')) textColor = 'text-amber-700 font-bold pl-3';
-                                    else if (log.includes('📉')) textColor = 'text-rose-600 font-extrabold pl-3';
-                                    else if (log.includes('🎉') || log.includes('✅')) textColor = 'text-emerald-600 font-black';
-                                    return (
-                                        <motion.div 
-                                            key={lIdx} 
-                                            initial={{ opacity: 0, x: -4 }} 
-                                            animate={{ opacity: 1, x: 0 }}
-                                            transition={{ duration: 0.15 }}
-                                            className={textColor}
-                                        >
-                                            &gt; {log}
-                                        </motion.div>
-                                    );
-                                })}
-                                {simC.scanning && (
-                                    <div className="text-amber-500/70 animate-pulse pl-1">&gt; [Server Running] กำลังทำงาน...</div>
+                            <div className="w-full space-y-3">
+                                {!simC.messageSent ? (
+                                    <motion.div 
+                                        key="loading"
+                                        initial={{ opacity: 0 }}
+                                        animate={{ opacity: 1 }}
+                                        exit={{ opacity: 0 }}
+                                        className="flex flex-col items-center justify-center py-8 text-xs text-slate-600 font-bold"
+                                    >
+                                        <div className="flex gap-1.5 mb-2">
+                                            <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce"></span>
+                                            <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:0.2s]"></span>
+                                            <span className="w-2 h-2 bg-slate-400 rounded-full animate-bounce [animation-delay:0.4s]"></span>
+                                        </div>
+                                        <span className="text-[11px] font-extrabold text-slate-500 tracking-wide">กำลังประมวลข้อมูล...</span>
+                                    </motion.div>
+                                ) : (
+                                    <motion.div 
+                                        key="message"
+                                        initial={{ scale: 0.95, opacity: 0, y: 10 }}
+                                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                                        transition={{ type: "spring", stiffness: 260, damping: 20 }}
+                                        className="w-full max-w-sm mx-auto bg-white rounded-xl overflow-hidden shadow-md border border-slate-100 flex flex-col"
+                                    >
+                                        {/* Header */}
+                                        <div className="bg-[#4f46e5] px-3.5 py-2 flex items-center gap-2 text-white font-extrabold text-xs shadow-sm">
+                                            <span>⏰</span>
+                                            <span>Juijui Alert Center</span>
+                                        </div>
+                                        
+                                        {/* Body */}
+                                        <div className="p-3.5 flex flex-col bg-white">
+                                            <div className="flex items-center gap-1.5 mb-2.5">
+                                                <span className="text-gray-600 text-xs">🛠️</span>
+                                                <span className="font-extrabold text-gray-950 text-xs tracking-tight">
+                                                    แจ้งเตือน: ลืมบันทึกเวลาออกงานเมื่อวาน!
+                                                </span>
+                                            </div>
+                                            
+                                            {/* Status Box */}
+                                            <div className="bg-slate-50 border border-slate-100 rounded-lg p-2.5 mb-2.5 text-[10px] font-bold text-gray-600 space-y-1">
+                                                <div className="flex justify-between">
+                                                    <span>📅 วันที่เตือน:</span>
+                                                    <span className="text-gray-950">วันนี้</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span>⏱️ เวลากะงาน:</span>
+                                                    <span className="text-gray-950">ตามกะงานของคุณ</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span>⏳ สิ้นสุดช่วงผ่อนปรน:</span>
+                                                    <span className="text-gray-950">-</span>
+                                                </div>
+                                                <div className="flex justify-between">
+                                                    <span>⚠️ Status:</span>
+                                                    <span className="text-red-500 font-extrabold">ยังไม่พบข้อมูลเช็คเอาท์</span>
+                                                </div>
+                                            </div>
+
+                                            {/* Text Content */}
+                                            <div className="text-gray-700 font-semibold text-[10.5px] text-center leading-relaxed bg-slate-100/80 p-3 rounded-lg border border-slate-200/50">
+                                                ระบบพบบันทึกเวลาของวันที่ {new Date(Date.now() - 86400000).toISOString().split('T')[0]}<br />
+                                                ค้างโดยไม่มีเวลาออก กรุณาส่งคำขอแก้ไขเวลา<br />
+                                                (Forgot Checkout) ภายในวันนี้<br />
+                                                <span className="font-extrabold text-[#4f46e5]">เพื่อรักษาแต้มและกู้คืน HP ของคุณกลับมานะครับ</span>
+                                            </div>
+                                            
+                                            {/* Footer Info */}
+                                            <div className="flex justify-between items-center mt-3 pt-2 border-t border-slate-100 text-[9px] font-extrabold text-slate-400">
+                                                <span>ระบบลงเวลาทำงาน</span>
+                                                <span>{simC.time} น.</span>
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Action Button */}
+                                        <div className="p-2 bg-slate-50 border-t border-slate-100 text-center">
+                                            <button 
+                                                type="button"
+                                                className="w-full py-2 bg-[#4f46e5] hover:bg-[#4338ca] active:scale-[0.98] transition-all rounded-lg text-[11px] font-black text-white shadow-sm flex items-center justify-center gap-1"
+                                            >
+                                                ลงเวลาเข้างานทันที ⏱️
+                                            </button>
+                                        </div>
+                                    </motion.div>
                                 )}
                             </div>
                         ) : (
@@ -221,12 +276,12 @@ const MidnightCheckCard: React.FC<MidnightCheckCardProps> = ({
                                 key="idle"
                                 initial={{ opacity: 0 }}
                                 animate={{ opacity: 1 }}
-                                className="flex flex-col items-center justify-center py-3.5 text-xs text-amber-800/60 font-bold font-sans"
+                                className="flex flex-col items-center justify-center py-6 text-xs text-amber-800/60 font-bold font-sans"
                             >
-                                <div className="p-2 bg-white rounded-xl shadow-sm border border-amber-100 mb-1.5 text-amber-500">
+                                <div className="p-2.5 bg-white rounded-2xl shadow-sm border border-amber-100 mb-2 text-amber-500">
                                     <Sparkles className="w-5 h-5 animate-pulse" />
                                 </div>
-                                <span className="text-[10.5px] text-amber-900/60">คลิก "เริ่มจำลองการสแกน" เพื่อรันระบบตรวจสอบพนักงานลืมออกงาน</span>
+                                <span className="text-[10.5px] text-amber-900/70">คลิก "ทดสอบส่งแจ้งเตือน" เพื่อลองส่งจำลองข้อความจริง</span>
                             </motion.div>
                         )}
                     </AnimatePresence>

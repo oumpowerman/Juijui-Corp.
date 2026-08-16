@@ -65,7 +65,7 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
         const base = masterOptions.filter(o => o.type === 'PILLAR' && o.isActive);
         const filtered = !channelId
             ? base
-            : base.filter(o => !o.parentKey || o.parentKey === channelId);
+            : base.filter(o => o.parentKey === channelId);
         
         // Append current selected pillar if missing from list (e.g. legacy/deactivated option)
         const currentPillarOption = pillar ? masterOptions.find(o => o.key === pillar) : null;

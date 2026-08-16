@@ -269,8 +269,8 @@ BEGIN
                 LIMIT 1;
 
                 IF log_rec.id IS NOT NULL AND log_rec.check_in_time IS NOT NULL THEN
-                    -- User checked in! Let's check if they are late
-                    checkin_time_local := (log_rec.check_in_time AT TIME ZONE 'Asia/Bangkok')::TIME;
+                    -- User checked in! Truncate seconds to minute precision so 08:00:00 - 08:00:59 is treated as 08:00:00 (On Time)
+                    checkin_time_local := (date_trunc('minute', log_rec.check_in_time AT TIME ZONE 'Asia/Bangkok'))::TIME;
                     
                     IF is_shifts_enabled THEN
                         -- Multiple Shifts is ON: Check against last shift time without buffer
@@ -288,7 +288,7 @@ BEGIN
                             
                             -- Calculate late minutes (difference between checkin_time_local and last_shift_time)
                             late_minutes_val := EXTRACT(EPOCH FROM (checkin_time_local - last_shift_time))::INT / 60;
-                            IF late_minutes_val < 0 THEN late_minutes_val := 0; END IF;
+                            IF late_minutes_val < 1 THEN late_minutes_val := 1; END IF;
                             
                             IF late_list = '' THEN
                                 late_list := '• ' || profile_rec.full_name || ' (' || to_char(checkin_time_local, 'HH24:MI') || ' น. - สาย ' || late_minutes_val || ' นาที)';
@@ -309,10 +309,12 @@ BEGIN
                         ELSE
                             -- Late
                             late_count := late_count + 1;
+                            late_minutes_val := EXTRACT(EPOCH FROM (checkin_time_local - start_time_parsed))::INT / 60;
+                            IF late_minutes_val < 1 THEN late_minutes_val := 1; END IF;
                             IF late_list = '' THEN
-                                late_list := '• ' || profile_rec.full_name || ' (' || to_char(checkin_time_local, 'HH24:MI') || ' น.)';
+                                late_list := '• ' || profile_rec.full_name || ' (' || to_char(checkin_time_local, 'HH24:MI') || ' น. - สาย ' || late_minutes_val || ' นาที)';
                             ELSE
-                                late_list := late_list || E'\n• ' || profile_rec.full_name || ' (' || to_char(checkin_time_local, 'HH24:MI') || ' น.)';
+                                late_list := late_list || E'\n• ' || profile_rec.full_name || ' (' || to_char(checkin_time_local, 'HH24:MI') || ' น. - สาย ' || late_minutes_val || ' นาที)';
                             END IF;
                         END IF;
                     END IF;

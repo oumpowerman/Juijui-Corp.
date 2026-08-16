@@ -26,7 +26,7 @@ export function buildMonthlyBonusSummaryPayload(targetDestination: string, recor
 
   // Parse app url
   const baseAppUrl = getAppUrl();
-  const targetDeepLink = `${baseAppUrl}/?openExternalBrowser=1&view=ATTENDANCE&tab=admin`;
+  const targetDeepLink = `${baseAppUrl}/?openExternalBrowser=1&view=ATTENDANCE&tab=REPORT`;
 
   // Build the list of eligible users as Flex components
   const userContents: any[] = [];
@@ -111,7 +111,7 @@ export function buildMonthlyBonusSummaryPayload(targetDestination: string, recor
             type: "box",
             layout: "vertical",
             flex: 0,
-            alignItems: "end",
+            alignItems: "flex-end",
             contents: [
               {
                 type: "text",

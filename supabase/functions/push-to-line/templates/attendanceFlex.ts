@@ -423,6 +423,46 @@ export function buildSingleBodyContents(record: ClaimedNotificationRecord, prima
 
   if (isAttendanceAlert) {
     const reminderData = parseCheckInReminder(record.message || '', record.metadata);
+    
+    const boxContents = [
+      {
+        type: "box",
+        layout: "horizontal",
+        contents: [
+          { type: "text", text: reminderData.isPenalty ? "📅 วันที่ผิดพลาด:" : "📅 วันที่เตือน:", size: "xs", color: "#64748b", flex: 2 },
+          { type: "text", text: reminderData.isPenalty ? reminderData.targetDate : "วันนี้", size: "xs", color: "#0f172a", weight: "bold", flex: 3, align: "end" }
+        ]
+      },
+      {
+        type: "box",
+        layout: "horizontal",
+        contents: [
+          { type: "text", text: "⏱️ เวลากะงาน:", size: "xs", color: "#64748b", flex: 2 },
+          { type: "text", text: reminderData.startTime, size: "xs", color: "#0f172a", weight: "bold", flex: 3, align: "end" }
+        ]
+      }
+    ];
+
+    if (!reminderData.isPenalty) {
+      boxContents.push({
+        type: "box",
+        layout: "horizontal",
+        contents: [
+          { type: "text", text: "⏳ สิ้นสุดช่วงผ่อนปรน:", size: "xs", color: "#64748b", flex: 2 },
+          { type: "text", text: reminderData.graceLimit, size: "xs", color: "#ef4444", weight: "bold", flex: 3, align: "end" }
+        ]
+      });
+    }
+
+    boxContents.push({
+      type: "box",
+      layout: "horizontal",
+      contents: [
+        { type: "text", text: "⚠️ สถานะปัจจุบัน:", size: "xs", color: "#64748b", flex: 2 },
+        { type: "text", text: reminderData.status, size: "xs", color: reminderData.isPenalty ? "#ef4444" : "#b45309", weight: "bold", flex: 3, align: "end" }
+      ]
+    });
+
     return [
       {
         type: "text",
@@ -442,40 +482,7 @@ export function buildSingleBodyContents(record: ClaimedNotificationRecord, prima
         cornerRadius: "md",
         paddingAll: "12px",
         spacing: "xs",
-        contents: [
-          {
-            type: "box",
-            layout: "horizontal",
-            contents: [
-              { type: "text", text: "📅 วันที่เตือน:", size: "xs", color: "#64748b", flex: 2 },
-              { type: "text", text: "วันนี้", size: "xs", color: "#0f172a", weight: "bold", flex: 3, align: "end" }
-            ]
-          },
-          {
-            type: "box",
-            layout: "horizontal",
-            contents: [
-              { type: "text", text: "⏱️ เวลากะงาน:", size: "xs", color: "#64748b", flex: 2 },
-              { type: "text", text: reminderData.startTime, size: "xs", color: "#0f172a", weight: "bold", flex: 3, align: "end" }
-            ]
-          },
-          {
-            type: "box",
-            layout: "horizontal",
-            contents: [
-              { type: "text", text: "⏳ สิ้นสุดช่วงผ่อนปรน:", size: "xs", color: "#64748b", flex: 2 },
-              { type: "text", text: reminderData.graceLimit, size: "xs", color: "#ef4444", weight: "bold", flex: 3, align: "end" }
-            ]
-          },
-          {
-            type: "box",
-            layout: "horizontal",
-            contents: [
-              { type: "text", text: "⚠️ สถานะปัจจุบัน:", size: "xs", color: "#64748b", flex: 2 },
-              { type: "text", text: reminderData.status, size: "xs", color: "#b45309", weight: "bold", flex: 3, align: "end" }
-            ]
-          }
-        ]
+        contents: boxContents
       },
       {
         type: "box",
@@ -569,12 +576,35 @@ export function buildSingleBodyContents(record: ClaimedNotificationRecord, prima
 export function parseCheckInReminder(message: string, metadata?: any) {
   let startTime = 'ตามกะงานของคุณ';
   let graceLimit = '-';
-  const status = 'ยังไม่พบข้อมูลเช็คอิน';
+  let status = 'ยังไม่พบข้อมูลเช็คอิน';
   let warmReminder = 'รีบเข้าแอปมาลงเวลาก่อนถูกหักพลังชีวิต (HP) นะคะ';
+  let isPenalty = false;
+  let targetDate = 'วันนี้';
+
+  let metaObj = metadata;
+  if (typeof metadata === 'string') {
+    try {
+      metaObj = JSON.parse(metadata);
+    } catch (_) {
+      metaObj = {};
+    }
+  }
+  if (!metaObj) {
+    metaObj = {};
+  }
+
+  if (metaObj.is_penalty_alert === true || metaObj.is_penalty_alert === 'true') {
+    isPenalty = true;
+    status = 'ลืมบันทึกเวลาออก (Check-Out ค้าง)';
+  }
+
+  if (metaObj.target_date) {
+    targetDate = metaObj.target_date;
+  }
 
   // Extract start time from metadata first
-  if (metadata && metadata.target_shift_time) {
-    startTime = `${metadata.target_shift_time} น.`;
+  if (metaObj.target_shift_time) {
+    startTime = `${metaObj.target_shift_time} น.`;
   } else {
     // Extract start time, e.g., เลยเวลาเริ่มงานของวันนี้ (10:00)
     const startTimeMatch = message.match(/เวลาเริ่มงานของวันนี้\s*\(?([0-9]{2}:[0-9]{2})\)?/);
@@ -607,7 +637,9 @@ export function parseCheckInReminder(message: string, metadata?: any) {
     startTime,
     graceLimit,
     status,
-    warmReminder
+    warmReminder,
+    isPenalty,
+    targetDate
   };
 }
 

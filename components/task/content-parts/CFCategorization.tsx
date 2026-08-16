@@ -246,6 +246,7 @@ const CFCategorization: React.FC<CFCategorizationProps> = ({
                 selectedKey={pillar}
                 onSelect={setPillar}
                 colorTheme="blue"
+                emptyMessage="⚠️ ตอนนี้ยังไม่มีแกนเนื้อหา (Pillar) สำหรับช่องรายการที่คุณเลือก กรุณาติดต่อ Admin เพื่อเพิ่มแกนเนื้อหาในหน้าจัดการระบบหลังบ้านก่อนนะครับ"
             />
             
             <OptionSelectionModal 
@@ -256,6 +257,7 @@ const CFCategorization: React.FC<CFCategorizationProps> = ({
                 selectedKey={category}
                 onSelect={setCategory}
                 colorTheme="emerald"
+                emptyMessage="⚠️ ยังไม่มีหมวดหมู่ย่อยสำหรับแกนเนื้อหาที่คุณเลือก กรุณาติดต่อ Admin เพื่อเพิ่มข้อมูลหมวดหมู่ในระบบหลังบ้าน"
             />
         </>
     );

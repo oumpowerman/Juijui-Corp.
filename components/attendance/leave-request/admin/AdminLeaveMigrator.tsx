@@ -18,7 +18,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useGlobalDialog } from '../../../../context/GlobalDialogContext';
 import { useToast } from '../../../../context/ToastContext';
 import { supabase } from '../../../../lib/supabase';
-import { parseHistoricalLeaveCSV } from '../../../../services/csvService';
+import { parseHistoricalLeaveFile } from '../../../../services/csvService';
 import { User } from '../../../../types';
 
 interface AdminLeaveMigratorProps {
@@ -65,15 +65,64 @@ export const AdminLeaveMigrator: React.FC<AdminLeaveMigratorProps> = ({
         showToast('ดาวน์โหลดไฟล์ Template เรียบร้อยแล้ว', 'success');
     };
 
+    const handleDownloadJSONTemplate = () => {
+        const template = [
+            {
+                "email": "employee1@example.com",
+                "leave_type": "SICK",
+                "start_date": "12/09/2026",
+                "end_date": "13/09/2026",
+                "reason": "ปวดหัว ตัวร้อน เป็นไข้",
+                "is_half_day": false,
+                "half_day_session": ""
+            },
+            {
+                "email": "employee2@example.com",
+                "leave_type": "VACATION",
+                "start_date": "15/10/2026",
+                "end_date": "17/10/2026",
+                "reason": "พักร้อนประจำปี",
+                "is_half_day": false,
+                "half_day_session": ""
+            },
+            {
+                "email": "employee1@example.com",
+                "leave_type": "PERSONAL",
+                "start_date": "20/10/2026",
+                "end_date": "20/10/2026",
+                "reason": "ทำธุระส่วนตัว",
+                "is_half_day": true,
+                "half_day_session": "AM"
+            }
+        ];
+        const jsonContent = JSON.stringify(template, null, 2);
+        const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", "leave_import_template.json");
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showToast('ดาวน์โหลดไฟล์ JSON Template เรียบร้อยแล้ว', 'success');
+    };
+
     const processFile = async (file: File) => {
-        if (!file.name.endsWith('.csv')) {
-            showToast('กรุณาอัปโหลดไฟล์ในรูปแบบ CSV (.csv) เท่านั้น', 'error');
+        const fileName = file.name.toLowerCase();
+        const isSupported = fileName.endsWith('.csv') || 
+                            fileName.endsWith('.xlsx') || 
+                            fileName.endsWith('.xls') || 
+                            fileName.endsWith('.json');
+                            
+        if (!isSupported) {
+            showToast('กรุณาอัปโหลดไฟล์ในรูปแบบ CSV (.csv), Excel (.xlsx, .xls) หรือ JSON (.json) เท่านั้น', 'error');
             return;
         }
 
         setIsImporting(true);
         try {
-            const parsedRows = await parseHistoricalLeaveCSV(file, allUsers);
+            const parsedRows = await parseHistoricalLeaveFile(file, allUsers);
             if (parsedRows.length === 0) {
                 showToast('ไม่พบข้อมูลการลาย้อนหลังที่ถูกต้องในไฟล์ หรือข้อมูลผู้ใช้ไม่ตรงกับในระบบ', 'warning');
                 setIsImporting(false);
@@ -109,7 +158,7 @@ export const AdminLeaveMigrator: React.FC<AdminLeaveMigratorProps> = ({
         }
     };
 
-    const handleImportCSV = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
         await processFile(file);
@@ -233,12 +282,12 @@ export const AdminLeaveMigrator: React.FC<AdminLeaveMigratorProps> = ({
                                             <div className="border border-slate-100 rounded-2xl p-5 space-y-4 bg-slate-50/30">
                                                 <h4 className="font-bold text-xs text-slate-800 flex items-center gap-2">
                                                     <span className="flex items-center justify-center w-5 h-5 bg-indigo-100 text-indigo-600 text-[10px] rounded-full font-bold">1</span>
-                                                    ตรวจสอบโครงสร้างข้อมูล CSV
+                                                    ตรวจสอบโครงสร้างข้อมูล (CSV / Excel / JSON)
                                                 </h4>
                                                 
                                                 <div className="space-y-3">
                                                     <p className="text-xs text-slate-500 leading-relaxed">
-                                                        กรุณาใช้ไฟล์ CSV ที่มีโครงสร้างหัวคอลัมน์ (Headers) ดังต่อไปนี้:
+                                                        กรุณาใช้ไฟล์ที่มีโครงสร้างหัวคอลัมน์ (สำหรับ CSV/Excel) หรือคีย์ (สำหรับ JSON) ดังต่อไปนี้:
                                                     </p>
                                                     
                                                     <div className="overflow-x-auto rounded-xl border border-slate-100 bg-white">
@@ -286,13 +335,20 @@ export const AdminLeaveMigrator: React.FC<AdminLeaveMigratorProps> = ({
                                                     </div>
                                                 </div>
 
-                                                <div className="pt-2">
+                                                <div className="pt-2 flex flex-wrap gap-2">
                                                     <button
                                                         onClick={handleDownloadTemplate}
                                                         className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 rounded-xl text-xs font-bold transition-all cursor-pointer border-none"
                                                     >
                                                         <Download className="w-3.5 h-3.5" />
-                                                        ดาวน์โหลดไฟล์ต้นแบบ CSV Template
+                                                        ดาวน์โหลด CSV Template
+                                                    </button>
+                                                    <button
+                                                        onClick={handleDownloadJSONTemplate}
+                                                        className="inline-flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-all cursor-pointer border-none"
+                                                    >
+                                                        <Download className="w-3.5 h-3.5" />
+                                                        ดาวน์โหลด JSON Template
                                                     </button>
                                                 </div>
                                             </div>
@@ -339,8 +395,8 @@ export const AdminLeaveMigrator: React.FC<AdminLeaveMigratorProps> = ({
                                                         <input
                                                             ref={fileInputRef}
                                                             type="file"
-                                                            accept=".csv"
-                                                            onChange={handleImportCSV}
+                                                            accept=".csv,.xlsx,.xls,.json"
+                                                            onChange={handleImportFile}
                                                             className="hidden"
                                                             disabled={isImporting}
                                                         />
@@ -351,7 +407,7 @@ export const AdminLeaveMigrator: React.FC<AdminLeaveMigratorProps> = ({
                                                                     <div className="w-12 h-12 rounded-full border-4 border-indigo-100 border-t-indigo-600 animate-spin" />
                                                                 </div>
                                                                 <div>
-                                                                    <p className="font-semibold text-xs text-slate-800">กำลังประมวลผลไฟล์ CSV...</p>
+                                                                    <p className="font-semibold text-xs text-slate-800">กำลังประมวลผลไฟล์ข้อมูล...</p>
                                                                     <p className="text-[10px] text-slate-400 mt-1">กำลังแมปข้อมูลกับประวัติพนักงานในระบบ</p>
                                                                 </div>
                                                             </div>
@@ -361,8 +417,8 @@ export const AdminLeaveMigrator: React.FC<AdminLeaveMigratorProps> = ({
                                                                     <UploadCloud className="w-6 h-6 animate-bounce" />
                                                                 </div>
                                                                 <div className="space-y-1">
-                                                                    <p className="font-bold text-xs text-slate-700">ลากไฟล์ CSV มาวางที่นี่ หรือคลิกเพื่ออัปโหลด</p>
-                                                                    <p className="text-[10px] text-slate-400">รองรับเฉพาะรูปแบบไฟล์นามสกุล .csv เท่านั้น</p>
+                                                                    <p className="font-bold text-xs text-slate-700">ลากไฟล์ CSV, Excel หรือ JSON มาวาง หรือคลิกเพื่ออัปโหลด</p>
+                                                                    <p className="text-[10px] text-slate-400">รองรับไฟล์รูปแบบ .csv, .xlsx, .xls และ .json</p>
                                                                 </div>
                                                             </div>
                                                         )}

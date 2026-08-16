@@ -92,7 +92,8 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
     }, [stat.logs, startTime, lateBuffer, multipleShifts]);
 
     const leaveLogs = useMemo(() => {
-        return stat.logs.filter(l => {
+        // 1. Get existing leave logs from stat.logs
+        const existingLeaveLogs = stat.logs.filter(l => {
             const hasLeaveNote = l.note && (
                 l.note.includes('LEAVE') || 
                 l.note.includes('SICK') || 
@@ -102,8 +103,45 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
                 l.note.includes('UNPAID')
             );
             return l.status === 'LEAVE' || l.workType === 'LEAVE' || hasLeaveNote;
-        }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }, [stat.logs]);
+        });
+
+        const existingDates = new Set(existingLeaveLogs.map(l => l.date));
+
+        // 2. Find approved leave requests and merge them as virtual logs
+        const virtualLeaveLogs: any[] = [];
+        (leaveRequests || []).forEach(req => {
+            if (req.userId !== user.id || req.status !== 'APPROVED') return;
+
+            const start = new Date(req.startDate);
+            const end = new Date(req.endDate);
+
+            const current = new Date(start);
+            while (current <= end) {
+                const dateStr = format(current, 'yyyy-MM-dd');
+                const isInWorkingDays = workingDaysInMonth.some(d => format(d, 'yyyy-MM-dd') === dateStr);
+
+                if (isInWorkingDays && !existingDates.has(dateStr)) {
+                    virtualLeaveLogs.push({
+                        id: `virtual-leave-${req.id}-${dateStr}`,
+                        userId: user.id,
+                        date: dateStr,
+                        status: 'LEAVE',
+                        workType: 'LEAVE',
+                        note: req.reason ? `[APPROVED LEAVE: ${req.leaveType}] ${req.reason}` : `[APPROVED LEAVE: ${req.leaveType}]`,
+                        checkInTime: null,
+                        checkOutTime: null,
+                        createdAt: req.createdAt || new Date().toISOString()
+                    });
+                    existingDates.add(dateStr);
+                }
+                current.setDate(current.getDate() + 1);
+            }
+        });
+
+        return [...existingLeaveLogs, ...virtualLeaveLogs].sort((a, b) => 
+            new Date(b.date).getTime() - new Date(a.date).getTime()
+        );
+    }, [stat.logs, leaveRequests, user.id, workingDaysInMonth]);
 
     const absentDates = useMemo(() => {
         // หาค่าวันเริ่มงานจริงจาก startDate หรือวันสร้างบัญชี (createdAt)
@@ -113,7 +151,7 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
         return workingDaysInMonth.filter(day => {
             if (day > today) return false;
 
-            // ตรวจสอบวันเริ่มงาน: หากวันทำงานในเดือนนั้นๆ เกิดขึ้นก่อนวันที่พนักงานเริ่มงานจริง ให้ข้ามไป
+            // ตรวจสอบวันเริ่มงาน: หากวันทำงานในเมืองนั้นๆ เกิดขึ้นก่อนวันที่พนักงานเริ่มงานจริง ให้ข้ามไป
             if (userStartDate) {
                 const dayStr = format(day, 'yyyy-MM-dd');
                 const startStr = format(userStartDate, 'yyyy-MM-dd');
@@ -161,12 +199,31 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
 
             const dateStr = format(day, 'yyyy-MM-dd');
             const dayLog = stat.logs.find(l => l.date === dateStr);
+
+            // Check if there is an approved leave request on this date
+            const matchingLeaveReq = (leaveRequests || [])?.find(req => {
+                if (req.userId !== user.id || req.status !== 'APPROVED') return false;
+                const reqStart = format(new Date(req.startDate), 'yyyy-MM-dd');
+                const reqEnd = format(new Date(req.endDate), 'yyyy-MM-dd');
+                return dateStr >= reqStart && dateStr <= reqEnd;
+            });
+
             if (dayLog) {
                 return dayLog.status === 'ABSENT' || dayLog.workType === 'ABSENT';
             }
+
+            if (matchingLeaveReq) {
+                const isHalf = Boolean(matchingLeaveReq.isHalfDay || matchingLeaveReq.is_half_day === true || matchingLeaveReq.is_half_day === 'true');
+                if (isHalf) {
+                    // Half day leave but no check-in means absent for the other half
+                    return true;
+                }
+                return false;
+            }
+
             return true;
         }).sort((a, b) => b.getTime() - a.getTime());
-    }, [workingDaysInMonth, stat.logs, user.startDate, user.createdAt, startTime, multipleShifts]);
+    }, [workingDaysInMonth, stat.logs, user.startDate, user.createdAt, startTime, multipleShifts, leaveRequests, user.id]);
 
     // Calculate OT stats using ot_requests only
     const approvedOtRequests = useMemo(() => {
@@ -207,15 +264,40 @@ const DashboardUserDetailModal: React.FC<DashboardUserDetailModalProps> = ({
         return total;
     }, [leaveLogs, leaveRequests, user.id]);
 
+    const calculatedPresents = useMemo(() => {
+        let presents = 0;
+        workingDaysInMonth.forEach(day => {
+            const dateStr = format(day, 'yyyy-MM-dd');
+            const dayLog = stat.logs.find(l => l.date === dateStr);
+            if (dayLog && dayLog.checkInTime) {
+                const isLeave = dayLog.status === 'LEAVE' || dayLog.workType === 'LEAVE';
+                const hasLeaveNote = dayLog.note && (
+                    dayLog.note.includes('LEAVE') || 
+                    dayLog.note.includes('SICK') || 
+                    dayLog.note.includes('VACATION') || 
+                    dayLog.note.includes('PERSONAL') || 
+                    dayLog.note.includes('EMERGENCY') || 
+                    dayLog.note.includes('UNPAID')
+                );
+                if (isLeave || hasLeaveNote) {
+                    presents += 0.5;
+                } else {
+                    presents += 1.0;
+                }
+            }
+        });
+        return presents;
+    }, [stat.logs, workingDaysInMonth]);
+
     const totalIssues = lateLogs.length + absentDates.length + leaveLogs.length;
 
     const stats = useMemo(() => ({
-        present: onTimeLogs.length + lateLogs.length + leaveLogs.length,
+        present: calculatedPresents,
         late: lateLogs.length,
         absent: absentDates.length,
         leaves: calculatedLeaves,
         otHours: totalOtHours
-    }), [onTimeLogs, lateLogs, leaveLogs, absentDates, totalOtHours, calculatedLeaves]);
+    }), [calculatedPresents, lateLogs, absentDates, calculatedLeaves, totalOtHours]);
 
     return createPortal(
         <motion.div 

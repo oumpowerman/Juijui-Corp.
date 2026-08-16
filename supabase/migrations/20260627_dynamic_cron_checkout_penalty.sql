@@ -20,6 +20,10 @@ DECLARE
     is_death BOOLEAN;
     death_cnt INT;
     checkout_penalty_target_roles_val TEXT := 'BOTH';
+    shifts_enabled_val TEXT := 'false';
+    shifts_list_val TEXT := '';
+    start_time_val TEXT := '09:00';
+    mapped_shift_val TEXT := '09:00';
 BEGIN
     -- Determine yesterday's date in Thailand timezone to remain server-independent
     yesterday_date := (timezone('Asia/Bangkok'::text, now()) - '1 day'::interval)::DATE;
@@ -40,9 +44,25 @@ BEGIN
         checkout_penalty_target_roles_val := 'BOTH';
     END IF;
 
+    -- Fetch MULTIPLE_SHIFTS_ENABLED, list, and START_TIME
+    SELECT label INTO shifts_enabled_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'MULTIPLE_SHIFTS_ENABLED' LIMIT 1;
+    IF shifts_enabled_val IS NULL THEN
+        shifts_enabled_val := 'false';
+    END IF;
+
+    SELECT label INTO shifts_list_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'MULTIPLE_SHIFTS_LIST' LIMIT 1;
+    IF shifts_list_val IS NULL THEN
+        shifts_list_val := '';
+    END IF;
+
+    SELECT label INTO start_time_val FROM public.master_options WHERE type = 'WORK_CONFIG' AND key = 'START_TIME' LIMIT 1;
+    IF start_time_val IS NULL THEN
+        start_time_val := '09:00';
+    END IF;
+
     -- Loop through attendance logs from yesterday that are still WORKING and don't have check-out time
     FOR log_rec IN
-        SELECT al.id, al.user_id, al.note
+        SELECT al.id, al.user_id, al.note, al.check_in_time
         FROM public.attendance_logs al
         JOIN public.profiles p ON p.id = al.user_id
         WHERE al.date = yesterday_date
@@ -126,6 +146,13 @@ BEGIN
                     END IF;
                 END IF;
 
+                -- Determine shift time for metadata
+                IF shifts_enabled_val = 'true' AND shifts_list_val <> '' AND log_rec.check_in_time IS NOT NULL THEN
+                    mapped_shift_val := left(public.get_mapped_shift(log_rec.check_in_time, shifts_list_val)::text, 5);
+                ELSE
+                    mapped_shift_val := start_time_val;
+                END IF;
+
                 -- C. Insert Game Log (Triggers real-time notification/Toast on client)
                 INSERT INTO public.game_logs (
                     user_id,
@@ -154,6 +181,7 @@ BEGIN
                     message,
                     is_read,
                     link_path,
+                    metadata,
                     line_status
                 ) VALUES (
                     log_rec.user_id,
@@ -162,6 +190,11 @@ BEGIN
                     'ระบบพบบันทึกเวลาของวันที่ ' || yesterday_date::TEXT || ' ค้างโดยไม่มีเวลาออก กรุณาส่งคำขอแก้ไขเวลา (Forgot Checkout) ภายในวันนี้ เพื่อรักษาแต้มและกู้คืน HP ของคุณกลับมานะครับ',
                     FALSE,
                     'ATTENDANCE',
+                    jsonb_build_object(
+                        'target_date', yesterday_date::TEXT,
+                        'target_shift_time', mapped_shift_val,
+                        'is_penalty_alert', true
+                    ),
                     NULL
                 );
             END IF;

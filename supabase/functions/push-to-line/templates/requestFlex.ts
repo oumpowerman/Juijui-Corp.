@@ -20,7 +20,12 @@ export function buildFooterButtons(
   }
   const reqType = metadataObj.request_type || 'WFH';
 
-  const isAttendanceAlert = record.type === 'OVERDUE' && (
+  const isCheckoutPenalty = record.type === 'OVERDUE' && (
+    record.title?.includes('ลืมบันทึกเวลา') ||
+    record.title?.includes('ลืมตอกบัตร')
+  );
+
+  const isAttendanceAlert = !isCheckoutPenalty && record.type === 'OVERDUE' && (
     record.title?.includes('ลงเวลา') || 
     record.title?.includes('ผ่อนปรน') || 
     record.title?.includes('เช็คอิน') || 
@@ -33,7 +38,7 @@ export function buildFooterButtons(
   let tab = 'history';
   if (record.type === 'APPROVAL_REQ' || record.type === 'APPROVAL_SUMMARY') {
     tab = (reqType === 'OT' || reqType === 'OVERTIME') ? 'ot-requests' : 'leave-requests';
-  } else if (isAttendanceAlert) {
+  } else if (isAttendanceAlert || isCheckoutPenalty) {
     tab = 'CHECK_IN';
   } else {
     tab = 'history';
@@ -44,6 +49,23 @@ export function buildFooterButtons(
     : isAttendanceAlert
       ? `${baseAppUrl}/?openExternalBrowser=1&view=ATTENDANCE&tab=${tab}&action=checkin`
       : `${baseAppUrl}/?openExternalBrowser=1&view=ATTENDANCE&tab=${tab}`;
+
+  // If this is a checkout penalty, provide direct link to CHECK_IN dashboard to correct without triggering instant checkin
+  if (isCheckoutPenalty) {
+    return [
+      {
+        type: "button",
+        action: {
+          type: "uri",
+          label: "ยื่นคำขอแก้ไขเวลา",
+          uri: targetDeepLink
+        },
+        style: "primary",
+        height: "md",
+        color: "#ea580c"
+      }
+    ];
+  }
 
   // If this is an attendance alert reminder, provide direct deep link button
   if (isAttendanceAlert) {

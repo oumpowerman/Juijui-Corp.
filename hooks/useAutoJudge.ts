@@ -20,8 +20,8 @@ export const useAutoJudge = (currentUser: User | null) => {
     const { processAction } = useGamification(currentUser);
     const { config } = useGameConfig();
     const { gameLogs, notifications, isLoading } = useNotificationContext();
-    const { annualHolidays, calendarExceptions } = useMasterData();
-    const { leaveRequests, attendanceLogs } = useUserSession();
+    const { annualHolidays, calendarExceptions, isLoading: masterLoading } = useMasterData();
+    const { leaveRequests, attendanceLogs, isReady } = useUserSession();
     
     const isProcessingRef = useRef<Set<string>>(new Set());
 
@@ -81,7 +81,7 @@ export const useAutoJudge = (currentUser: User | null) => {
     };
 
     const checkAndPunish = useCallback(async () => {
-        if (!currentUser || isLoading || !currentUser.isApproved) return;
+        if (!currentUser || isLoading || masterLoading || !isReady || !currentUser.isApproved) return;
         
         // Allow check if user is active OR if the user is in DEATH status (to catch resurrection)
         if (!currentUser.isActive && currentUser.status !== 'DEATH') return;
@@ -263,16 +263,16 @@ export const useAutoJudge = (currentUser: User | null) => {
         } catch (err) {
             console.error("Auto Judge Error:", err);
         }
-    }, [currentUser, config, gameLogs, notifications, isLoading, processAction, annualHolidays, calendarExceptions, leaveRequests, attendanceLogs]);
+    }, [currentUser, config, gameLogs, notifications, isLoading, masterLoading, isReady, processAction, annualHolidays, calendarExceptions, leaveRequests, attendanceLogs]);
 
     const initialCheckDoneRef = useRef(false);
 
     useEffect(() => {
-        if (!isLoading && currentUser && !initialCheckDoneRef.current) {
+        if (!isLoading && !masterLoading && isReady && currentUser && !initialCheckDoneRef.current) {
             initialCheckDoneRef.current = true;
             checkAndPunish();
         }
-    }, [isLoading, currentUser?.id, checkAndPunish]);
+    }, [isLoading, masterLoading, isReady, currentUser?.id, checkAndPunish]);
 
     const checkAndPunishRef = useRef(checkAndPunish);
     useEffect(() => {

@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Check } from 'lucide-react';
+import { X, Check, AlertCircle } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { MasterOption } from '../../types';
 
 interface OptionSelectionModalProps {
@@ -15,10 +16,11 @@ interface OptionSelectionModalProps {
     onSelectMulti?: (keys: string[]) => void; // For multi select
     colorTheme: 'pink' | 'blue' | 'emerald';
     isMulti?: boolean;
+    emptyMessage?: string;
 }
 
 const OptionSelectionModal: React.FC<OptionSelectionModalProps> = ({ 
-    isOpen, onClose, title, options, selectedKey, selectedKeys = [], onSelect, onSelectMulti, colorTheme, isMulti = false 
+    isOpen, onClose, title, options, selectedKey, selectedKeys = [], onSelect, onSelectMulti, colorTheme, isMulti = false, emptyMessage
 }) => {
     const [localSelected, setLocalSelected] = useState<string[]>(isMulti ? selectedKeys : (selectedKey ? [selectedKey] : []));
 
@@ -33,8 +35,6 @@ const OptionSelectionModal: React.FC<OptionSelectionModalProps> = ({
             }
         }
     }, [isOpen, selectedKey, JSON.stringify(selectedKeys), isMulti]);
-
-    if (!isOpen) return null;
 
     // Theme mapping
     const themeStyles = {
@@ -61,71 +61,99 @@ const OptionSelectionModal: React.FC<OptionSelectionModalProps> = ({
     };
 
     return createPortal(
-        <div className="fixed inset-0 z-[11000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200 relative border-4 border-white">
-                
-                {/* Header */}
-                <div className={`px-5 sm:px-8 py-4 sm:py-6 border-b border-gray-100 flex justify-between items-center shrink-0 ${theme.bg}`}>
-                    <div className="min-w-0 pr-4">
-                        <h3 className={`text-lg sm:text-2xl font-bold tracking-tight truncate ${theme.text}`}>{title}</h3>
-                        <p className="text-gray-500 text-[10px] sm:text-sm font-medium opacity-80">{isMulti ? 'เลือกได้หลายรายการ' : 'เลือกรายการที่ต้องการ'}</p>
-                    </div>
-                    <button onClick={onClose} className="p-2 sm:p-2.5 bg-white/50 hover:bg-white rounded-xl sm:rounded-full transition-colors text-gray-500 shadow-sm shrink-0">
-                        <X className="w-5 h-5 sm:w-6 sm:h-6" />
-                    </button>
-                </div>
+        <AnimatePresence>
+            {isOpen && (
+                <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.2 }}
+                    className="fixed inset-0 z-[11000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+                >
+                    <motion.div 
+                        initial={{ scale: 0.95, opacity: 0, y: 15 }}
+                        animate={{ scale: 1, opacity: 1, y: 0 }}
+                        exit={{ scale: 0.95, opacity: 0, y: 15 }}
+                        transition={{ type: "spring", duration: 0.35, bounce: 0.12 }}
+                        className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col h-[70vh] max-h-[600px] min-h-[400px] relative border-4 border-white"
+                    >
+                        
+                        {/* Header */}
+                        <div className={`px-5 sm:px-8 py-4 sm:py-6 border-b border-gray-100 flex justify-between items-center shrink-0 ${theme.bg}`}>
+                            <div className="min-w-0 pr-4">
+                                <h3 className={`text-lg sm:text-2xl font-bold tracking-tight truncate ${theme.text}`}>{title}</h3>
+                                <p className="text-gray-500 text-[10px] sm:text-sm font-medium opacity-80">{isMulti ? 'เลือกได้หลายรายการ' : 'เลือกรายการที่ต้องการ'}</p>
+                            </div>
+                            <button onClick={onClose} className="p-2 sm:p-2.5 bg-white/50 hover:bg-white rounded-xl sm:rounded-full transition-colors text-gray-500 shadow-sm shrink-0">
+                                <X className="w-5 h-5 sm:w-6 sm:h-6" />
+                            </button>
+                        </div>
 
-                {/* Grid */}
-                <div className="p-4 sm:p-6 overflow-y-auto bg-[#f8fafc] scrollbar-thin scrollbar-thumb-gray-200 flex-1">
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 pb-2">
-                        {options.map(option => {
-                            const isSelected = localSelected.includes(option.key);
-                            return (
-                                <button
-                                    key={option.id}
-                                    onClick={() => handleToggle(option.key)}
-                                    className={`
-                                        relative flex flex-col items-start p-4 sm:p-5 rounded-2xl border-2 text-left transition-all duration-200 group
-                                        ${isSelected 
-                                            ? `bg-white ${theme.border} ${theme.activeRing} ring-2 shadow-lg scale-[1.02] z-10` 
-                                            : 'bg-white border-transparent shadow-sm hover:border-gray-200 hover:shadow-md hover:-translate-y-1'
-                                        }
-                                    `}
-                                >
-                                    <div className="flex justify-between w-full items-start mb-2">
-                                        <div className={`w-3 h-3 rounded-full ${option.color.split(' ')[0].replace('text-', 'bg-') || 'bg-gray-200'}`}></div>
-                                        {isSelected && <div className={`p-1 rounded-full ${theme.activeBg} ${theme.text}`}><Check className="w-3 h-3 stroke-[4px]" /></div>}
+                        {/* Content Area */}
+                        <div className="p-4 sm:p-6 overflow-y-auto bg-[#f8fafc] scrollbar-thin scrollbar-thumb-gray-200 flex-1 flex flex-col justify-center">
+                            {options.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center py-12 px-6 text-center flex-1">
+                                    <div className={`w-16 h-16 rounded-full ${theme.bg} ${theme.text} flex items-center justify-center mb-4 animate-bounce`}>
+                                        <AlertCircle className="w-8 h-8" />
                                     </div>
-                                    
-                                    <h4 className={`font-bold text-lg leading-tight mb-1 ${isSelected ? theme.text : 'text-gray-700'}`}>
-                                        {option.label}
-                                    </h4>
-                                    
-                                    {option.description && (
-                                        <p className="text-xs text-gray-400 font-medium leading-relaxed line-clamp-3">
-                                            {option.description}
-                                        </p>
-                                    )}
-                                </button>
-                            );
-                        })}
-                    </div>
-                </div>
+                                    <h4 className="font-bold text-gray-700 text-lg mb-2">ไม่พบรายการตัวเลือก</h4>
+                                    <p className="text-sm text-gray-500 max-w-md leading-relaxed font-medium">
+                                        {emptyMessage || "ขณะนี้ยังไม่มีตัวเลือกในระบบ กรุณาตรวจสอบข้อมูลกับผู้ดูแลระบบ"}
+                                    </p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 pb-2 w-full mt-auto mb-auto">
+                                    {options.map(option => {
+                                        const isSelected = localSelected.includes(option.key);
+                                        return (
+                                            <button
+                                                key={option.id}
+                                                onClick={() => handleToggle(option.key)}
+                                                className={`
+                                                    relative flex flex-col items-start p-4 sm:p-5 rounded-2xl border-2 text-left transition-all duration-200 group
+                                                    ${isSelected 
+                                                        ? `bg-white ${theme.border} ${theme.activeRing} ring-2 shadow-lg scale-[1.02] z-10` 
+                                                        : 'bg-white border-transparent shadow-sm hover:border-gray-200 hover:shadow-md hover:-translate-y-1'
+                                                    }
+                                                `}
+                                            >
+                                                <div className="flex justify-between w-full items-start mb-2">
+                                                    <div className={`w-3 h-3 rounded-full ${option.color.split(' ')[0].replace('text-', 'bg-') || 'bg-gray-200'}`}></div>
+                                                    {isSelected && <div className={`p-1 rounded-full ${theme.activeBg} ${theme.text}`}><Check className="w-3 h-3 stroke-[4px]" /></div>}
+                                                </div>
+                                                
+                                                <h4 className={`font-bold text-lg leading-tight mb-1 ${isSelected ? theme.text : 'text-gray-700'}`}>
+                                                    {option.label}
+                                                </h4>
+                                                
+                                                {option.description && (
+                                                    <p className="text-xs text-gray-400 font-medium leading-relaxed line-clamp-3">
+                                                        {option.description}
+                                                    </p>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
 
-                {/* Footer for Multi-Select */}
-                {isMulti && (
-                    <div className="px-5 sm:px-8 py-3 sm:py-4 bg-white border-t border-gray-100 flex justify-between sm:justify-end items-center gap-3">
-                        <span className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase">เลือกแล้ว {localSelected.length} รายการ</span>
-                        <button 
-                            onClick={handleConfirm}
-                            className={`px-5 sm:px-6 py-2 sm:py-2.5 rounded-xl text-white font-bold shadow-lg transition-all active:scale-95 text-xs sm:text-sm ${theme.btn}`}
-                        >
-                            ยืนยัน
-                        </button>
-                    </div>
-                )}
-            </div>
-        </div>,
+                        {/* Footer for Multi-Select */}
+                        {isMulti && (
+                            <div className="px-5 sm:px-8 py-3 sm:py-4 bg-white border-t border-gray-100 flex justify-between sm:justify-end items-center gap-3 shrink-0">
+                                <span className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase">เลือกแล้ว {localSelected.length} รายการ</span>
+                                <button 
+                                    onClick={handleConfirm}
+                                    className={`px-5 sm:px-6 py-2 sm:py-2.5 rounded-xl text-white font-bold shadow-lg transition-all active:scale-95 text-xs sm:text-sm ${theme.btn}`}
+                                >
+                                    ยืนยัน
+                                </button>
+                            </div>
+                        )}
+                    </motion.div>
+                </motion.div>
+            )}
+        </AnimatePresence>,
         document.body
     );
 };

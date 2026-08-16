@@ -4,7 +4,7 @@ import { format } from 'date-fns';
 import { ChevronLeft, ChevronRight, Search, Table, BarChart3, Calendar, Minimize2, SlidersHorizontal } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import FilterDropdown from '../../common/FilterDropdown';
-import CustomDatePicker from '../../common/CustomDatePicker';
+import DatePickerModal, { formatDisplayDate } from '../../ui/DatePickerModal';
 
 interface DashboardHeaderProps {
     currentMonth: Date;
@@ -49,7 +49,9 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     isToolsExpanded,
     setIsToolsExpanded
 }) => {
-    const [isFullyExpanded, setIsFullyExpanded] = React.useState(false);
+    const [isFullyExpanded, setIsFullyExpanded] = React.useState(isToolsExpanded);
+    const [isStartDatePickerOpen, setIsStartDatePickerOpen] = React.useState(false);
+    const [isEndDatePickerOpen, setIsEndDatePickerOpen] = React.useState(false);
 
     React.useEffect(() => {
         if (!isToolsExpanded) {
@@ -131,27 +133,47 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                                     <div className="flex items-center gap-1.5 bg-gray-50 p-1 rounded-xl flex-1 min-w-0">
                                         <span className="pl-2 text-[9px] font-bold text-gray-400 uppercase tracking-wider select-none whitespace-nowrap">เริ่ม</span>
                                         <div className="flex-1 min-w-0">
-                                            <CustomDatePicker
-                                                selected={customStartDate}
-                                                onChange={(date) => {
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsStartDatePickerOpen(true)}
+                                                className="w-full text-left px-2 py-1.5 text-xs text-gray-700 bg-transparent hover:bg-gray-100 rounded-lg transition-all focus:outline-none whitespace-nowrap overflow-hidden text-ellipsis flex items-center gap-1.5 select-none"
+                                            >
+                                                <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                                <span className="truncate">{formatDisplayDate(customStartDate)}</span>
+                                            </button>
+                                            <DatePickerModal
+                                                isOpen={isStartDatePickerOpen}
+                                                onClose={() => setIsStartDatePickerOpen(false)}
+                                                selectedDate={customStartDate}
+                                                onSelect={(date) => {
                                                     if (date) {
                                                         setCustomStartDate(date);
                                                         if (customEndDate && date > customEndDate) {
                                                             setCustomEndDate(date);
                                                         }
                                                     }
+                                                    setIsStartDatePickerOpen(false);
                                                 }}
-                                                placeholderText="วันเริ่มต้น"
-                                                size="sm"
                                             />
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-1.5 bg-gray-50 p-1 rounded-xl flex-1 min-w-0">
                                         <span className="pl-2 text-[9px] font-bold text-gray-400 uppercase tracking-wider select-none whitespace-nowrap">สิ้นสุด</span>
                                         <div className="flex-1 min-w-0">
-                                            <CustomDatePicker
-                                                selected={customEndDate}
-                                                onChange={(date) => {
+                                            <button
+                                                type="button"
+                                                onClick={() => setIsEndDatePickerOpen(true)}
+                                                className="w-full text-left px-2 py-1.5 text-xs text-gray-700 bg-transparent hover:bg-gray-100 rounded-lg transition-all focus:outline-none whitespace-nowrap overflow-hidden text-ellipsis flex items-center gap-1.5 select-none"
+                                            >
+                                                <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                                <span className="truncate">{formatDisplayDate(customEndDate)}</span>
+                                            </button>
+                                            <DatePickerModal
+                                                isOpen={isEndDatePickerOpen}
+                                                onClose={() => setIsEndDatePickerOpen(false)}
+                                                selectedDate={customEndDate}
+                                                minDate={customStartDate}
+                                                onSelect={(date) => {
                                                     if (date) {
                                                         if (customStartDate && date < customStartDate) {
                                                             setCustomEndDate(customStartDate);
@@ -159,9 +181,8 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
                                                             setCustomEndDate(date);
                                                         }
                                                     }
+                                                    setIsEndDatePickerOpen(false);
                                                 }}
-                                                placeholderText="วันสิ้นสุด"
-                                                size="sm"
                                             />
                                         </div>
                                     </div>

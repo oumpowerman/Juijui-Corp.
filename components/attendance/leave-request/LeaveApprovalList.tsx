@@ -491,6 +491,7 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
                                 const next = new URLSearchParams(prev);
                                 next.delete('highlightReqId');
                                 next.delete('id');
+                                next.delete('tab');
                                 return next;
                             }, { replace: true });
                         }}

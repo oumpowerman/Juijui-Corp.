@@ -465,6 +465,8 @@ export const ApprovalItemCard = React.forwardRef<HTMLDivElement, ApprovalItemCar
                 setShouldGlow(false);
             }, 3000);
             return () => clearTimeout(timer);
+        } else {
+            setShouldGlow(false);
         }
     }, [isHighlighted]);
 

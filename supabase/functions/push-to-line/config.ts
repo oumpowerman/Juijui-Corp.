@@ -15,6 +15,7 @@ export const TYPE_CONFIG: Record<string, TypeConfig> = {
   'GAME_PENALTY': { color: '#ef4444', emoji: '📉', label: 'โดนหักคะแนน' },
   'GAME_REWARD': { color: '#eab308', emoji: '🎁', label: 'ได้รับรางวัล' },
   'APPROVAL_REQ': { color: '#3b82f6', emoji: '📋', label: 'คำขออนุมัติ' },
+  'OT_REQUEST': { color: '#1e1b4b', emoji: '🌙', label: 'คำขอทำงานล่วงเวลา (OT)' },
   'APPROVAL_SUMMARY': { color: '#0ea5e9', emoji: '✅', label: 'สรุปการพิจารณา' },
   'NEW_ASSIGNMENT': { color: '#8b5cf6', emoji: '⚡', label: 'งานใหม่เข้า' },
   'REVIEW': { color: '#a855f7', emoji: '🔍', label: 'ส่งตรวจงาน' },

@@ -20,6 +20,7 @@ import {
   buildSingleBodyContents,
   buildBatchBodyContents
 } from './templates/attendanceFlex.ts';
+import { buildOTRequestBodyContents } from './templates/otRequestFlex.ts';
 import { buildMonthlyBonusSummaryPayload } from './templates/bonusSummaryFlex.ts';
 import { buildDailySummaryPayload } from './templates/SummaryFlex.ts';
 import { buildMonthlyOTSummaryPayload } from './templates/otSummaryFlex.ts';
@@ -150,14 +151,28 @@ Deno.serve(async (req: any) => {
           const isBatch = claimedRecords.length > 1;
           
           let effectiveType = record.type;
-          const isAttendanceAlert = record.type === 'OVERDUE' && (
-            record.title?.includes('ลงเวลา') || 
-            record.title?.includes('ผ่อนปรน') || 
-            record.title?.includes('เช็คอิน') || 
-            record.link_path === 'ATTENDANCE'
-          );
-          if (isAttendanceAlert) {
-            effectiveType = 'ATTENDANCE_ALERT';
+          let metaObj = record.metadata || {};
+          if (typeof metaObj === 'string') {
+            try {
+              metaObj = JSON.parse(metaObj);
+            } catch (_) {
+              metaObj = {};
+            }
+          }
+          const isOTRequest = record.type === 'APPROVAL_REQ' && metaObj.request_type === 'OT';
+
+          if (isOTRequest) {
+            effectiveType = 'OT_REQUEST';
+          } else {
+            const isAttendanceAlert = record.type === 'OVERDUE' && (
+              record.title?.includes('ลงเวลา') || 
+              record.title?.includes('ผ่อนปรน') || 
+              record.title?.includes('เช็คอิน') || 
+              record.link_path === 'ATTENDANCE'
+            );
+            if (isAttendanceAlert) {
+              effectiveType = 'ATTENDANCE_ALERT';
+            }
           }
 
           const primaryConfig = isBatch
@@ -166,7 +181,9 @@ Deno.serve(async (req: any) => {
 
           const bodyContents = isBatch
             ? buildBatchBodyContents(claimedRecords)
-            : buildSingleBodyContents(record, primaryConfig);
+            : (effectiveType === 'OT_REQUEST'
+                ? buildOTRequestBodyContents(record, primaryConfig)
+                : buildSingleBodyContents(record, primaryConfig));
 
           const baseAppUrl = getAppUrl();
           const footerButtons = buildFooterButtons(baseAppUrl, record, isInteractive);

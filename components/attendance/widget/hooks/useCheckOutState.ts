@@ -39,6 +39,27 @@ export const useCheckOutState = ({
     const { config } = useGameConfig();
     const { otRequests, leaveRequests, currentUserProfile } = useUserSession();
 
+    const hasPendingHalfDayLeave = useMemo(() => {
+        if (!leaveRequests || !Array.isArray(leaveRequests)) return false;
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        return leaveRequests.some((req: any) => {
+            const isHalfDay = req.isHalfDay === true || req.is_half_day === true;
+            const isPending = req.status === 'PENDING' || req.status === 'pending';
+            if (!isHalfDay || !isPending) return false;
+            
+            const reqDate = req.date || req.startDate || req.start_date;
+            if (reqDate === todayStr) return true;
+            
+            const createdAtVal = req.createdAt || req.created_at;
+            if (createdAtVal) {
+                if (typeof createdAtVal === 'string') return createdAtVal.startsWith(todayStr);
+                if (createdAtVal instanceof Date) return format(createdAtVal, 'yyyy-MM-dd') === todayStr;
+                return String(createdAtVal).startsWith(todayStr);
+            }
+            return false;
+        });
+    }, [leaveRequests]);
+
     // Dynamically retrieve early leave interval and rate from Game Config, Master Options, or safe fallbacks
     const earlyLeaveInterval = parseFloat(
         config?.PENALTY_RATES?.HP_PENALTY_EARLY_LEAVE_INTERVAL?.toString() || 
@@ -604,5 +625,6 @@ export const useCheckOutState = ({
         handleRequestSubmit,
         handleAcceptPenaltySubmit,
         showAlert,
+        hasPendingHalfDayLeave,
     };
 };

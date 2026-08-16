@@ -357,7 +357,17 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                             is_read: false,
                             link_path: 'ATTENDANCE',
                             related_id: insertedOt?.id || null,
-                            metadata: { request_type: 'OT' }
+                            metadata: {
+                                request_type: 'OT',
+                                employee_name: currentUser.name,
+                                date: startDateStr,
+                                start_time: startTime,
+                                end_time: endTime,
+                                duration: otHours,
+                                is_fixed: isFixedOt,
+                                ot_type: otType,
+                                reason: displayReason
+                            }
                         }));
                         await supabase.from('notifications').insert(otNotifs);
                     }

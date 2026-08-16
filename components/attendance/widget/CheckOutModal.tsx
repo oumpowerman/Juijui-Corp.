@@ -91,6 +91,7 @@ export const CheckOutModal: React.FC<CheckOutModalProps> = ({
         handleRequestSubmit,
         handleAcceptPenaltySubmit,
         showAlert,
+        hasPendingHalfDayLeave,
     } = state;
 
     return createPortal(
@@ -156,6 +157,29 @@ export const CheckOutModal: React.FC<CheckOutModalProps> = ({
                                                 onRetry={checkLocation}
                                                 workType={workType}
                                             />
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+
+                                <AnimatePresence initial={false}>
+                                    {hasPendingHalfDayLeave && checkOutStatus === 'EARLY_LEAVE' && (
+                                        <motion.div
+                                            key="pending-half-day-warning"
+                                            initial={{ opacity: 0, height: 0, scale: 0.95 }}
+                                            animate={{ opacity: 1, height: 'auto', scale: 1 }}
+                                            exit={{ opacity: 0, height: 0, scale: 0.95 }}
+                                            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+                                            className="overflow-hidden"
+                                        >
+                                            <div className="flex gap-3 bg-amber-50 border border-amber-200 rounded-[2rem] p-4 text-amber-800">
+                                                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5 stroke-[2.2]" />
+                                                <div className="text-left">
+                                                    <h4 className="font-bold text-amber-950 text-xs">ตรวจพบใบลาครึ่งวันของคุณยังไม่ได้รับการอนุมัติ</h4>
+                                                    <p className="text-[11px] text-amber-800 leading-relaxed font-medium mt-1">
+                                                        ระบบพบคำขอลาครึ่งวันที่อยู่ระหว่างรอการพิจารณา เพื่อรักษาความถูกต้องของบันทึกเวลาทำงานและป้องกันสถานะกลับก่อนเวลา (Early Leave) กรุณาติดต่อผู้มีอำนาจเพื่ออนุมัติใบลาของคุณก่อนทำการออกงาน
+                                                    </p>
+                                                </div>
+                                            </div>
                                         </motion.div>
                                     )}
                                 </AnimatePresence>

@@ -601,7 +601,7 @@ export async function approveStandardLeave({
 
     const { data: existingLogs } = await supabase
         .from('attendance_logs')
-        .select('date, note')
+        .select('date, note, check_in_time, check_out_time, work_type, status')
         .eq('user_id', request.userId)
         .in('date', dateStrings);
 
@@ -614,7 +614,13 @@ export async function approveStandardLeave({
             type: 'LEAVE',
             reason: request.reason,
             existingNote: existing?.note,
-            leaveType: request.type
+            leaveType: request.type,
+            isHalfDay: request.isHalfDay || (request as any).is_half_day || false,
+            halfDaySession: request.halfDaySession || (request as any).half_day_session || null,
+            checkInTime: existing?.check_in_time,
+            checkOutTime: existing?.check_out_time,
+            existingWorkType: existing?.work_type,
+            existingStatus: existing?.status
         });
     });
 

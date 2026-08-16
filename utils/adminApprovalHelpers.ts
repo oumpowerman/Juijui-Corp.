@@ -118,6 +118,9 @@ export interface AttendanceCorrectionPayloadOptions {
     isLate?: boolean;
     existingWorkType?: string;
     targetWorkType?: 'OFFICE' | 'WFH' | 'SITE' | string;
+    isHalfDay?: boolean;
+    halfDaySession?: 'AM' | 'PM' | null | string;
+    existingStatus?: string;
 }
 
 /**
@@ -135,7 +138,10 @@ export function buildAttendanceCorrectionPayload({
     leaveType = '',
     isLate = false,
     existingWorkType,
-    targetWorkType
+    targetWorkType,
+    isHalfDay = false,
+    halfDaySession = null,
+    existingStatus
 }: AttendanceCorrectionPayloadOptions) {
     let resolvedWorkType = targetWorkType || 'OFFICE';
     if (!targetWorkType) {
@@ -185,13 +191,30 @@ export function buildAttendanceCorrectionPayload({
 
         return payload;
     } else { // LEAVE
-        return {
-            user_id: userId,
-            date: date,
-            work_type: 'LEAVE',
-            status: 'LEAVE',
-            note: mergeAttendanceNotes(existingNote, `[APPROVED LEAVE: ${leaveType}] ${reason}`)
-        };
+        if (isHalfDay && checkInTime) {
+            const halfDayTag = halfDaySession === 'AM' ? '[HALF_DAY:AM]' : '[HALF_DAY:PM]';
+            const leaveNote = `${halfDayTag} [APPROVED LEAVE: ${leaveType}] ${reason}`;
+            const finalNote = mergeAttendanceNotes(existingNote, leaveNote);
+            return {
+                user_id: userId,
+                date: date,
+                check_in_time: checkInTime,
+                check_out_time: checkOutTime || null,
+                work_type: existingWorkType || 'OFFICE',
+                status: existingStatus || 'WORKING',
+                note: finalNote
+            };
+        } else {
+            const halfDayPrefix = isHalfDay ? (halfDaySession === 'AM' ? '[HALF_DAY:AM] ' : '[HALF_DAY:PM] ') : '';
+            const leaveNote = `${halfDayPrefix}[APPROVED LEAVE: ${leaveType}] ${reason}`;
+            return {
+                user_id: userId,
+                date: date,
+                work_type: 'LEAVE',
+                status: 'LEAVE',
+                note: mergeAttendanceNotes(existingNote, leaveNote)
+            };
+        }
     }
 }
 

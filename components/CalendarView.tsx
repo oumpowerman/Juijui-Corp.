@@ -420,6 +420,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                 highlights={highlights}
                                 masterOptions={masterOptions}
                                 channels={channels}
+                                users={users}
                                 getTasksForDay={getTasksForDay}
                                 filterTasks={cosmicFilterTasks}
                                 onDayClick={handleDayClick}

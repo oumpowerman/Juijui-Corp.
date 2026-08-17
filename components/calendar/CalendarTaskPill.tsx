@@ -1,5 +1,5 @@
 import React, { memo, useMemo, useState, useEffect } from 'react';
-import { Task, ChipConfig, MasterOption, Channel } from '../../types';
+import { Task, ChipConfig, MasterOption, Channel, User } from '../../types';
 import { COLOR_THEMES } from '../../constants';
 import { getHexFromColorClass } from '../../utils/color';
 import { TaskDisplayMode } from '../CalendarView';
@@ -25,6 +25,7 @@ interface CalendarTaskPillProps {
     dayOfWeek?: number;
     cellDate?: Date;
     isFirstWeek?: boolean;
+    users?: User[];
     onDragStart: (e: React.DragEvent, taskId: string) => void;
     onClick: (task: Task) => void;
 }
@@ -42,6 +43,7 @@ const CalendarTaskPill = React.forwardRef<HTMLDivElement, CalendarTaskPillProps>
     dayOfWeek,
     cellDate,
     isFirstWeek = false,
+    users = [],
     onDragStart,
     onClick
 }, ref) => {
@@ -140,11 +142,11 @@ const CalendarTaskPill = React.forwardRef<HTMLDivElement, CalendarTaskPillProps>
 
         if (t.type === 'PLAN') {
             if (t.status === 'DONE' || t.status === 'APPROVE') {
-                styleClass = 'bg-stone-100/60 border-l-4 border-l-stone-300 border-y border-r border-stone-200/40 text-stone-400 line-through opacity-70 font-semibold';
+                styleClass = 'bg-stone-50/30 border-dashed border-2 border-stone-300 text-stone-400 line-through opacity-60 font-semibold';
             } else if (t.status === 'DOING' || t.status === 'PROGRESS') {
-                styleClass = 'bg-amber-50/80 border-l-4 border-l-amber-550 border-y border-r border-amber-200/50 text-amber-950 font-black shadow-sm';
+                styleClass = 'bg-amber-50/30 border-dashed border-2 border-amber-300 text-amber-900 font-bold shadow-sm';
             } else {
-                styleClass = 'bg-fuchsia-50/60 border-l-4 border-l-fuchsia-500 border-y border-r border-fuchsia-200/40 text-fuchsia-950 font-bold';
+                styleClass = 'bg-fuchsia-50/30 border-dashed border-2 border-fuchsia-300 text-fuchsia-950 font-bold';
             }
         }
 
@@ -154,7 +156,7 @@ const CalendarTaskPill = React.forwardRef<HTMLDivElement, CalendarTaskPillProps>
                 : 'bg-red-50 border-l-4 border-l-red-500 border-y border-r border-red-100 text-red-900';
         }
 
-        if (t.channelId && channels && !isOverdue) {
+        if (t.channelId && channels && !isOverdue && t.type !== 'PLAN') {
             const channel = channels.find(c => c.id === t.channelId);
             if (channel && channel.color) {
                 if (!channel.color.startsWith('#')) {
@@ -289,7 +291,7 @@ const CalendarTaskPill = React.forwardRef<HTMLDivElement, CalendarTaskPillProps>
             borderLeftColor: activeHexColor,
             borderLeftWidth: '4px',
         } : { 
-            borderLeftColor: !isOverdue && (task.channelId && channels?.find(c => c.id === task.channelId)?.color?.startsWith('#')) 
+            borderLeftColor: !isOverdue && task.type !== 'PLAN' && (task.channelId && channels?.find(c => c.id === task.channelId)?.color?.startsWith('#')) 
                 ? channels.find(c => c.id === task.channelId)?.color 
                 : undefined
         };
@@ -342,6 +344,7 @@ const CalendarTaskPill = React.forwardRef<HTMLDivElement, CalendarTaskPillProps>
                         endDateObj={endDateObj}
                         statusLabel={statusLabel}
                         statusColor={statusColor}
+                        users={users}
                     />
                 )}
             </AnimatePresence>

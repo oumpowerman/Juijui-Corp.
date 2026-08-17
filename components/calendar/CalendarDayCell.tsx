@@ -1,7 +1,7 @@
 
 import React, { memo } from 'react';
 import { format, isSameMonth, isToday, isSameDay, isSameWeek } from 'date-fns';
-import { Task, ChipConfig, CalendarHighlight, MasterOption, Channel } from '../../types';
+import { Task, ChipConfig, CalendarHighlight, MasterOption, Channel, User } from '../../types';
 import CalendarTaskPill from './CalendarTaskPill';
 import { TaskDisplayMode } from '../CalendarView';
 import { AnimatePresence } from 'framer-motion';
@@ -17,6 +17,7 @@ interface CalendarDayCellProps {
     activeChipIds: string[];
     customChips: ChipConfig[];
     isFirstWeek?: boolean; // Added
+    users?: User[];
     
     // Highlights
     highlight?: CalendarHighlight;
@@ -46,6 +47,7 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
     highlight,
     masterOptions,
     channels,
+    users = [],
     onDayClick,
     onContextMenu,
     onDragOver,
@@ -173,6 +175,7 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
                                 dayOfWeek={day.getDay()}
                                 cellDate={day}
                                 isFirstWeek={isFirstWeek}
+                                users={users}
                                 onDragStart={onTaskDragStart}
                                 onClick={onTaskClick}
                             />
@@ -209,6 +212,7 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
                                 dayOfWeek={day.getDay()}
                                 cellDate={day}
                                 isFirstWeek={isFirstWeek}
+                                users={users}
                                 onDragStart={onTaskDragStart}
                                 onClick={onTaskClick}
                             />

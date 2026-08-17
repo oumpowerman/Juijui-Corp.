@@ -284,7 +284,7 @@ const PlanFormModal: React.FC<PlanFormModalProps> = ({
                                                 onDelete(initialData.id);
                                                 onClose();
                                             }}
-                                            className="px-4 py-2.5 text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 font-bold rounded-xl text-sm flex items-center gap-1.5 transition-colors active:scale-[0.98]"
+                                            className="px-4 py-2.5 text-rose-600 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 font-medium rounded-xl text-sm flex items-center gap-1.5 transition-colors active:scale-[0.98]"
                                         >
                                             <Trash2 className="w-4 h-4" />
                                             ลบแพลน
@@ -294,14 +294,14 @@ const PlanFormModal: React.FC<PlanFormModalProps> = ({
                                         <button
                                             type="button"
                                             onClick={onClose}
-                                            className="flex-1 sm:flex-initial px-5 py-2.5 text-gray-500 hover:text-gray-700 font-bold hover:bg-gray-100 rounded-xl text-sm transition-colors active:scale-[0.98]"
+                                            className="flex-1 sm:flex-initial px-5 py-2.5 text-gray-500 hover:text-gray-700 font-medium hover:bg-gray-100 rounded-xl text-sm transition-colors active:scale-[0.98]"
                                         >
                                             ยกเลิก
                                         </button>
                                         <button
                                             type="submit"
                                             disabled={isSaving || !title.trim()}
-                                            className="flex-1 sm:flex-initial px-6 py-2.5 bg-fuchsia-600 hover:bg-fuchsia-700 disabled:opacity-50 text-white font-bold rounded-xl text-sm flex items-center justify-center gap-1.5 transition-colors shadow-md shadow-fuchsia-100 active:scale-[0.98]"
+                                            className="flex-1 sm:flex-initial px-6 py-2.5 bg-fuchsia-600 hover:bg-fuchsia-700 disabled:opacity-50 text-white font-medium rounded-xl text-sm flex items-center justify-center gap-1.5 transition-colors shadow-md shadow-fuchsia-100 active:scale-[0.98]"
                                         >
                                             บันทึก
                                         </button>

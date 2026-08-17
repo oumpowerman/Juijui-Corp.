@@ -1,8 +1,8 @@
 import React, { memo, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { format } from 'date-fns';
-import { AlertCircle, Clock8, Film } from 'lucide-react';
-import { Task, Channel } from '../../types';
+import { AlertCircle, Clock8, Film, AlignLeft } from 'lucide-react';
+import { Task, Channel, User } from '../../types';
 
 interface TaskPillTooltipProps {
     task: Task;
@@ -18,6 +18,7 @@ interface TaskPillTooltipProps {
     endDateObj: Date | null;
     statusLabel: string;
     statusColor: string;
+    users?: User[];
 }
 
 const TaskPillTooltip: React.FC<TaskPillTooltipProps> = ({
@@ -34,6 +35,7 @@ const TaskPillTooltip: React.FC<TaskPillTooltipProps> = ({
     endDateObj,
     statusLabel,
     statusColor,
+    users = [],
 }) => {
     const tooltipPosition = useMemo(() => {
         if (dayOfWeek === 0) {
@@ -59,6 +61,11 @@ const TaskPillTooltip: React.FC<TaskPillTooltipProps> = ({
             xValue: '-50%',
         };
     }, [dayOfWeek, isFirstWeek]);
+
+    const assignees = useMemo(() => {
+        if (!task.assigneeIds || !Array.isArray(task.assigneeIds)) return [];
+        return users.filter(u => task.assigneeIds?.includes(u.id));
+    }, [users, task.assigneeIds]);
 
     return (
         <motion.div
@@ -151,6 +158,57 @@ const TaskPillTooltip: React.FC<TaskPillTooltipProps> = ({
                     </div>
                 )}
             </div>
+
+            {/* PLAN Description / รายละเอียดของแพลนงาน */}
+            {task.type === 'PLAN' && task.description && task.description.trim() !== '' && (
+                <>
+                    <div className="h-px bg-slate-100" />
+                    <div className="space-y-1">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider select-none flex items-center gap-1">
+                            <AlignLeft className="w-3 h-3 text-fuchsia-500" />
+                            รายละเอียดแพลนงาน:
+                        </div>
+                        <p className="text-[11px] text-slate-600 font-medium leading-relaxed whitespace-pre-wrap max-h-[80px] overflow-y-auto bg-fuchsia-50/20 p-2 rounded-lg border border-fuchsia-100/30">
+                            {task.description}
+                        </p>
+                    </div>
+                </>
+            )}
+
+            {/* PLAN Participants / Assignees */}
+            {task.type === 'PLAN' && assignees.length > 0 && (
+                <>
+                    <div className="h-px bg-slate-100" />
+                    <div className="space-y-1.5 pb-0.5">
+                        <div className="text-[10px] font-bold text-slate-400 uppercase select-none">
+                            ผู้ร่วม PLAN / นัดหมาย:
+                        </div>
+                        <div className="flex flex-col gap-1 max-h-[100px] overflow-y-auto pr-1">
+                            {assignees.map(user => (
+                                <div key={user.id} className="flex items-center gap-1.5 py-0.5">
+                                    <div className="w-5 h-5 rounded-full bg-fuchsia-100 border border-fuchsia-200/50 flex items-center justify-center overflow-hidden shrink-0">
+                                        {user.avatarUrl ? (
+                                            <img 
+                                                src={user.avatarUrl} 
+                                                alt={user.name} 
+                                                className="w-full h-full object-cover"
+                                                referrerPolicy="no-referrer"
+                                            />
+                                        ) : (
+                                            <span className="text-[9px] font-black text-fuchsia-700 uppercase">
+                                                {user.name.charAt(0)}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <span className="text-[11px] font-medium text-slate-700 truncate">
+                                        {user.name}
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                </>
+            )}
 
             {/* Aesthetic Footer Decor Tip */}
             <div className="text-[9px] text-slate-400 italic text-center border-t border-slate-50 pt-2 shrink-0">

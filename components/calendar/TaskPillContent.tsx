@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { motion } from 'framer-motion';
-import { AlertCircle, Clock8, Zap, Film, Calendar } from 'lucide-react';
+import { AlertCircle, Clock8, Zap, Film } from 'lucide-react';
 import { Task } from '../../types';
 import { TaskDisplayMode } from '../CalendarView';
 
@@ -114,7 +114,6 @@ const TaskPillContent: React.FC<TaskPillContentProps> = ({
                     {overdueIndicator}
                     {isInsightOverdue && <AlertCircle className="w-3 h-3 text-rose-500 shrink-0" />}
                     {hasAnalyticsIndicator}
-                    {task.type === 'PLAN' && <Calendar className="w-3 h-3 text-fuchsia-600 shrink-0" />}
                     <span className="truncate flex-1 font-bold">{task.title}</span>
                 </div>
             );
@@ -128,7 +127,6 @@ const TaskPillContent: React.FC<TaskPillContentProps> = ({
                      ) : isOverdue ? overdueIndicator : <div className={`w-2 h-2 rounded-full shrink-0 ${getTaskDotClass(task)}`}></div>}
                      {isInsightOverdue && <AlertCircle className="w-3 h-3 text-rose-500 shrink-0" />}
                      {hasAnalyticsIndicator}
-                     {task.type === 'PLAN' && <Calendar className="w-3.5 h-3.5 text-fuchsia-600 shrink-0" />}
                      <span className="truncate flex-1 font-bold">{task.title}</span>
                 </div>
             );
@@ -143,7 +141,6 @@ const TaskPillContent: React.FC<TaskPillContentProps> = ({
                      {isOverdue ? overdueIndicator : (statusEmoji && <span className="text-[12px] shrink-0">{statusEmoji}</span>)}
                      {isInsightOverdue && <AlertCircle className="w-3 h-3 text-rose-500 shrink-0" />}
                      {hasAnalyticsIndicator}
-                     {task.type === 'PLAN' && <Calendar className="w-3.5 h-3.5 text-fuchsia-600 shrink-0" />}
                      <span className="truncate flex-1 font-bold">{task.title}</span>
                 </div>
             );
@@ -159,12 +156,11 @@ const TaskPillContent: React.FC<TaskPillContentProps> = ({
                             <AlertCircle className="w-3.5 h-3.5 text-rose-600 animate-pulse" />
                         </div>
                     )}
-                    {task.type === 'PLAN' && <Calendar className="w-3.5 h-3.5 text-fuchsia-600 shrink-0" />}
                     <span className="truncate flex-1 font-bold">{task.title}</span>
                     {hasAnalyticsIndicator}
                     {statusLabel && (
                         <span className={`
-                            text-[9px] font-medium uppercase tracking-wider shrink-0 px-2 py-0.5 rounded-md border
+                            text-[9px] font-black uppercase tracking-wider shrink-0 px-2 py-0.5 rounded-md border
                             ${isOverdue ? (isCriticalOverdue ? 'STUCK' : 'OVERDUE') : statusColor}
                             ${!isExpanded ? 'hidden lg:inline-block' : ''}
                             shadow-sm

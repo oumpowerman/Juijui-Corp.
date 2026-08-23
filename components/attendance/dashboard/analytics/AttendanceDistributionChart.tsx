@@ -94,7 +94,7 @@ const AttendanceDistributionChart: React.FC<AttendanceDistributionChartProps> = 
                         <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: d.color }} />
                         <div className="min-w-0">
                             <p className="text-[11px] font-bold text-slate-500 truncate">{d.name}</p>
-                            <p className="text-sm font-bold text-slate-800 leading-none">{d.value} <span className="text-[10px] font-normal text-slate-400">วัน</span></p>
+                            <p className="text-sm font-bold text-slate-800 leading-none">{d.value} <span className="text-[10px] font-normal text-slate-400">ครั้ง</span></p>
                         </div>
                     </div>
                 ))}

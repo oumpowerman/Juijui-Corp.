@@ -21,11 +21,16 @@ export function buildFooterButtons(
   const reqType = metadataObj.request_type || 'WFH';
 
   const isCheckoutPenalty = record.type === 'OVERDUE' && (
-    record.title?.includes('ลืมบันทึกเวลา') ||
-    record.title?.includes('ลืมตอกบัตร')
+    (record.title?.includes('ลืมบันทึกเวลา') || record.title?.includes('ลืมตอกบัตร')) &&
+    !record.title?.includes('อย่าลืม')
   );
 
-  const isAttendanceAlert = !isCheckoutPenalty && record.type === 'OVERDUE' && (
+  const isCheckoutReminder = record.type === 'OVERDUE' && (
+    record.title?.includes('อย่าลืมตอกบัตร') ||
+    record.title?.includes('เลิกงาน')
+  );
+
+  const isAttendanceAlert = !isCheckoutPenalty && !isCheckoutReminder && record.type === 'OVERDUE' && (
     record.title?.includes('ลงเวลา') || 
     record.title?.includes('ผ่อนปรน') || 
     record.title?.includes('เช็คอิน') || 
@@ -38,7 +43,7 @@ export function buildFooterButtons(
   let tab = 'history';
   if (record.type === 'APPROVAL_REQ' || record.type === 'APPROVAL_SUMMARY') {
     tab = (reqType === 'OT' || reqType === 'OVERTIME') ? 'ot-requests' : 'leave-requests';
-  } else if (isAttendanceAlert || isCheckoutPenalty) {
+  } else if (isAttendanceAlert || isCheckoutPenalty || isCheckoutReminder) {
     tab = 'CHECK_IN';
   } else {
     tab = 'history';
@@ -49,6 +54,23 @@ export function buildFooterButtons(
     : isAttendanceAlert
       ? `${baseAppUrl}/?openExternalBrowser=1&view=ATTENDANCE&tab=${tab}&action=checkin`
       : `${baseAppUrl}/?openExternalBrowser=1&view=ATTENDANCE&tab=${tab}`;
+
+  // If this is a checkout reminder (Plan E), provide direct link button to check out with primary brand color (Indigo)
+  if (isCheckoutReminder) {
+    return [
+      {
+        type: "button",
+        action: {
+          type: "uri",
+          label: "ลงเวลาออกงานทันที ⏱️",
+          uri: targetDeepLink
+        },
+        style: "primary",
+        height: "md",
+        color: "#4f46e5"
+      }
+    ];
+  }
 
   // If this is a checkout penalty, provide direct link to CHECK_IN dashboard to correct without triggering instant checkin
   if (isCheckoutPenalty) {

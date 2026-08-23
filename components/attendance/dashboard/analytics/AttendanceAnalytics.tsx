@@ -27,6 +27,8 @@ interface AttendanceAnalyticsProps {
     currentMonth: Date;
     getGrade: (stat: UserStat) => { grade: string; color: string };
     onUserClick: (user: User, stat: UserStat) => void;
+    shiftsEnabled?: boolean;
+    shiftsList?: string;
 }
 
 const AttendanceAnalytics: React.FC<AttendanceAnalyticsProps> = ({
@@ -36,7 +38,9 @@ const AttendanceAnalytics: React.FC<AttendanceAnalyticsProps> = ({
     startTime,
     lateBuffer,
     getGrade,
-    onUserClick
+    onUserClick,
+    shiftsEnabled = false,
+    shiftsList = ''
 }) => {
     // Framer Motion Animation Variants
     const containerVariants: Variants = {
@@ -83,7 +87,12 @@ const AttendanceAnalytics: React.FC<AttendanceAnalyticsProps> = ({
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
                 {/* Bar Chart: Check-In Distribution */}
                 <motion.div variants={itemVariants} className="lg:col-span-5 h-full">
-                    <CheckInTimeDistribution userStats={userStats} startTime={startTime} />
+                    <CheckInTimeDistribution 
+                        userStats={userStats} 
+                        startTime={startTime} 
+                        shiftsEnabled={shiftsEnabled}
+                        shiftsList={shiftsList}
+                    />
                 </motion.div>
 
                 {/* Leaderboards */}

@@ -9,6 +9,7 @@ import {
 import { useGameConfig } from '../../../context/GameConfigContext';
 import { useMasterData } from '../../../hooks/useMasterData';
 import { DEFAULT_GAME_CONFIG } from '../../../lib/gameLogic';
+import { BRAND_CONFIG } from '../../../config/brand';
 
 interface Props {
     isOpen: boolean;
@@ -19,6 +20,12 @@ interface Props {
 
 const StatBadge = ({ type, value }: { type: 'XP' | 'HP' | 'COIN', value: number }) => {
     if (value === 0) return null;
+    
+    // ตรวจสอบจาก BRAND_CONFIG หากตั้งค่าเป็น 2 ให้ปิดการแสดงผล XP และ COIN
+    if (BRAND_CONFIG.showXpAndCoinMode === 2 && (type === 'XP' || type === 'COIN')) {
+        return null;
+    }
+    
     const isPositive = value > 0;
     const prefix = isPositive ? '+' : '';
     

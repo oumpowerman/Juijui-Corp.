@@ -609,7 +609,7 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
         try {
             const payload: any = {};
             if (updates.name) payload.full_name = updates.name;
-            if (updates.position) payload.position = updates.position;
+            if (updates.position !== undefined) payload.position = updates.position;
             if (updates.role) payload.role = updates.role;
             if (updates.employmentType !== undefined) payload.employment_type = updates.employmentType;
             if (updates.workDays) payload.work_days = updates.workDays;

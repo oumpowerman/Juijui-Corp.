@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import FilterDropdown from '../../../../common/FilterDropdown';
 import { MasterOption, User, EmploymentType } from '../../../../../types';
 import { useTeam } from '../../../../../hooks/useTeam';
 import { 
@@ -87,6 +88,26 @@ export const PositionFamilyTreeTab: React.FC<PositionFamilyTreeTabProps> = ({ ma
             .filter(o => o.type === 'POSITION')
             .sort((a, b) => a.sortOrder - b.sortOrder);
     }, [masterOptions]);
+
+    const dropdownOptions = useMemo(() => {
+        const list = [
+            { key: '', label: '-- ยังไม่เลือกตำแหน่ง --' },
+            ...positionOptions.map((pos) => ({
+                key: pos.label,
+                label: `${pos.label} (${pos.key})`
+            }))
+        ];
+
+        // หากสมาชิกมีตำแหน่งเดิมอยู่แล้วแต่ไม่อยู่ในระบบ Position Options ให้เพิ่มตัวเลือกนั้นเข้าไปด้วย
+        if (selectedPosKey && !positionOptions.some(pos => pos.label === selectedPosKey)) {
+            list.push({
+                key: selectedPosKey,
+                label: `${selectedPosKey} (ตำแหน่งเดิม/กำหนดเอง)`
+            });
+        }
+
+        return list;
+    }, [positionOptions, selectedPosKey]);
 
     // Group members by position
     const groupedData = useMemo(() => {
@@ -178,7 +199,8 @@ export const PositionFamilyTreeTab: React.FC<PositionFamilyTreeTabProps> = ({ ma
 
     const handleOpenEdit = (user: User) => {
         setEditingMember(user);
-        setSelectedPosKey(user.position || '');
+        const matched = positionOptions.find(p => p.key === user.position || p.label === user.position);
+        setSelectedPosKey(matched ? matched.label : user.position || '');
         setSelectedEmpType(user.employmentType || 'FULL_TIME');
     };
 
@@ -456,121 +478,121 @@ export const PositionFamilyTreeTab: React.FC<PositionFamilyTreeTabProps> = ({ ma
             </div>
 
             {/* Quick Edit Modal */}
-            <AnimatePresence>
-                {editingMember && createPortal(
-                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
-                        <motion.div
-                            initial={{ opacity: 0, scale: 0.95 }}
-                            animate={{ opacity: 1, scale: 1 }}
-                            exit={{ opacity: 0, scale: 0.95 }}
-                            className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-lg w-full p-6 relative overflow-hidden"
-                        >
-                            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
-                                <div className="flex items-center gap-3">
-                                    <img
-                                        src={editingMember.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
-                                        alt={editingMember.name}
-                                        className="w-10 h-10 rounded-xl object-cover"
-                                    />
-                                    <div>
-                                        <h3 className="font-bold text-slate-800 text-base">ปรับตำแหน่ง & สถานะงาน</h3>
-                                        <p className="text-xs text-slate-500">{editingMember.name} {editingMember.nickname ? `(${editingMember.nickname})` : ''}</p>
+            {typeof document !== 'undefined' && createPortal(
+                <AnimatePresence>
+                    {editingMember && (
+                        <div className="fixed inset-0 z-[100] flex items-start sm:items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm overflow-y-auto">
+                            <motion.div
+                                initial={{ opacity: 0, scale: 0.95 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                exit={{ opacity: 0, scale: 0.95 }}
+                                className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-lg w-full p-6 relative flex flex-col overflow-visible my-auto"
+                            >
+                                <div className="flex items-center justify-between pb-4 border-b border-slate-100 shrink-0">
+                                    <div className="flex items-center gap-3">
+                                        <img
+                                            src={editingMember.avatarUrl || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150'}
+                                            alt={editingMember.name}
+                                            className="w-10 h-10 rounded-xl object-cover"
+                                        />
+                                        <div>
+                                            <h3 className="font-bold text-slate-800 text-base">ปรับตำแหน่ง & สถานะงาน</h3>
+                                            <p className="text-xs text-slate-500">{editingMember.name} {editingMember.nickname ? `(${editingMember.nickname})` : ''}</p>
+                                        </div>
                                     </div>
-                                </div>
-                                <button
-                                    onClick={() => setEditingMember(null)}
-                                    className="p-2 rounded-full text-slate-400 hover:bg-slate-100 transition-colors"
-                                >
-                                    <X className="w-5 h-5" />
-                                </button>
-                            </div>
-
-                            <div className="py-6 space-y-5">
-                                {/* Position Selector */}
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-600 mb-2">
-                                        ตำแหน่งงาน (Position)
-                                    </label>
-                                    <select
-                                        value={selectedPosKey}
-                                        onChange={(e) => setSelectedPosKey(e.target.value)}
-                                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium text-slate-800 focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-500"
+                                    <button
+                                        onClick={() => setEditingMember(null)}
+                                        className="p-2 rounded-full text-slate-400 hover:bg-slate-100 transition-colors"
                                     >
-                                        <option value="">-- ยังไม่เลือกตำแหน่ง --</option>
-                                        {positionOptions.map((pos) => (
-                                            <option key={pos.id} value={pos.label}>
-                                                {pos.label} ({pos.key})
-                                            </option>
-                                        ))}
-                                    </select>
-                                    <p className="text-[11px] text-slate-400 mt-1">
-                                        * คุณสามารถเลือกตำแหน่งจาก Master Data ที่กำหนดไว้ได้ทันที
-                                    </p>
+                                        <X className="w-5 h-5" />
+                                    </button>
                                 </div>
 
-                                {/* Employment Type Selector */}
-                                <div>
-                                    <label className="block text-xs font-bold text-slate-600 mb-2">
-                                        สถานะการทำงาน (Employment Status)
-                                    </label>
-                                    <div className="grid grid-cols-2 gap-2">
-                                        {Object.entries(EMPLOYMENT_TYPE_CONFIG).map(([key, cfg]) => {
-                                            const isSelected = selectedEmpType === key;
-                                            const Icon = cfg.icon;
-                                            return (
-                                                <button
-                                                    key={key}
-                                                    type="button"
-                                                    onClick={() => setSelectedEmpType(key as EmploymentType)}
-                                                    className={`p-3 rounded-xl border text-left flex items-center gap-2.5 transition-all ${
-                                                        isSelected
-                                                            ? 'bg-teal-50 border-teal-500 text-teal-900 shadow-sm ring-1 ring-teal-500'
-                                                            : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
-                                                    }`}
-                                                >
-                                                    <div
-                                                        className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold ${cfg.badgeBg}`}
+                                <div className="py-6 space-y-5 flex-1 overflow-visible">
+                                    {/* Position Selector */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-600 mb-2">
+                                            ตำแหน่งงาน (Position)
+                                        </label>
+                                        <FilterDropdown
+                                            label="เลือกตำแหน่งงาน"
+                                            placeholder="-- ยังไม่เลือกตำแหน่ง --"
+                                            options={dropdownOptions}
+                                            value={selectedPosKey}
+                                            onChange={(val) => setSelectedPosKey(val)}
+                                            showAllOption={false}
+                                            clearable={false}
+                                            activeColorClass="bg-teal-50 border-teal-200 text-teal-700 shadow-[0_0_15px_rgba(13,148,136,0.15)]"
+                                        />
+                                        <p className="text-[11px] text-slate-400 mt-1">
+                                            * คุณสามารถค้นหาและเลือกตำแหน่งจาก Master Data ที่กำหนดไว้ได้ทันที
+                                        </p>
+                                    </div>
+
+                                    {/* Employment Type Selector */}
+                                    <div>
+                                        <label className="block text-xs font-bold text-slate-600 mb-2">
+                                            สถานะการทำงาน (Employment Status)
+                                        </label>
+                                        <div className="grid grid-cols-2 gap-2">
+                                            {Object.entries(EMPLOYMENT_TYPE_CONFIG).map(([key, cfg]) => {
+                                                const isSelected = selectedEmpType === key;
+                                                const Icon = cfg.icon;
+                                                return (
+                                                    <button
+                                                        key={key}
+                                                        type="button"
+                                                        onClick={() => setSelectedEmpType(key as EmploymentType)}
+                                                        className={`p-3 rounded-xl border text-left flex items-center gap-2.5 transition-all ${
+                                                            isSelected
+                                                                ? 'bg-teal-50 border-teal-500 text-teal-900 shadow-sm ring-1 ring-teal-500'
+                                                                : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                                                        }`}
                                                     >
-                                                        <Icon className="w-4 h-4" />
-                                                    </div>
-                                                    <div>
-                                                        <div className="text-xs font-bold">{cfg.label}</div>
-                                                    </div>
-                                                </button>
-                                            );
-                                        })}
+                                                        <div
+                                                            className={`w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-bold ${cfg.badgeBg}`}
+                                                        >
+                                                            <Icon className="w-4 h-4" />
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-xs font-bold">{cfg.label}</div>
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* Footer Buttons */}
-                            <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
-                                <button
-                                    onClick={() => setEditingMember(null)}
-                                    className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
-                                >
-                                    ยกเลิก
-                                </button>
-                                <button
-                                    onClick={handleSaveEdit}
-                                    disabled={isSaving}
-                                    className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl shadow-lg shadow-teal-600/30 transition-all flex items-center gap-2"
-                                >
-                                    {isSaving ? (
-                                        <span>บันทึก...</span>
-                                    ) : (
-                                        <>
-                                            <Check className="w-4 h-4" />
-                                            <span>บันทึกการเปลี่ยนแปลง</span>
-                                        </>
-                                    )}
-                                </button>
-                            </div>
-                        </motion.div>
-                    </div>,
-                    document.body
-                )}
-            </AnimatePresence>
+                                {/* Footer Buttons */}
+                                <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3 shrink-0">
+                                    <button
+                                        onClick={() => setEditingMember(null)}
+                                        className="px-4 py-2 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-100 transition-colors"
+                                    >
+                                        ยกเลิก
+                                    </button>
+                                    <button
+                                        onClick={handleSaveEdit}
+                                        disabled={isSaving}
+                                        className="px-6 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold rounded-xl shadow-lg shadow-teal-600/30 transition-all flex items-center gap-2"
+                                    >
+                                        {isSaving ? (
+                                            <span>บันทึก...</span>
+                                        ) : (
+                                            <>
+                                                <Check className="w-4 h-4" />
+                                                <span>บันทึกการเปลี่ยนแปลง</span>
+                                            </>
+                                        )}
+                                    </button>
+                                </div>
+                            </motion.div>
+                        </div>
+                    )}
+                </AnimatePresence>,
+                document.body
+            )}
         </div>
     );
 };

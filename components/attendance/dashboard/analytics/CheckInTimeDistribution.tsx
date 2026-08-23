@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 import { ResponsiveContainer, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip } from 'recharts';
 import { Clock } from 'lucide-react';
 import { AttendanceLog } from '../../../../types/attendance';
+import { getMatchedShiftSlot } from '../../../../lib/attendanceUtils';
 
 interface UserStat {
     userId: string;
@@ -17,9 +18,16 @@ interface UserStat {
 interface CheckInTimeDistributionProps {
     userStats: UserStat[];
     startTime: string;
+    shiftsEnabled?: boolean;
+    shiftsList?: string;
 }
 
-const CheckInTimeDistribution: React.FC<CheckInTimeDistributionProps> = ({ userStats, startTime }) => {
+const CheckInTimeDistribution: React.FC<CheckInTimeDistributionProps> = ({ 
+    userStats, 
+    startTime,
+    shiftsEnabled = false,
+    shiftsList = ''
+}) => {
     const distributionData = useMemo(() => {
         let beforeTime = 0;
         let lateLessThan15 = 0;
@@ -28,19 +36,34 @@ const CheckInTimeDistribution: React.FC<CheckInTimeDistributionProps> = ({ userS
         let lateMoreThan60 = 0;
 
         const [startHour, startMinute] = startTime.split(':').map(Number);
+        const shiftsArray = shiftsList.split(',').map(s => s.trim()).filter(Boolean);
 
         userStats.forEach(stat => {
             stat.logs.forEach(log => {
                 if (log.checkInTime && log.status !== 'LEAVE' && log.workType !== 'LEAVE') {
                     const checkInDate = new Date(log.checkInTime);
-                    const targetTime = new Date(checkInDate);
-                    targetTime.setHours(startHour, startMinute, 0, 0);
+                    let diffMin = 0;
 
-                    const diffMin = (checkInDate.getTime() - targetTime.getTime()) / (1000 * 60);
+                    if (shiftsEnabled && shiftsArray.length > 0) {
+                        const matched = getMatchedShiftSlot(checkInDate, shiftsArray, 0, true);
+                        diffMin = matched.lateMinutes;
 
-                    if (diffMin <= 0) {
-                        beforeTime++;
-                    } else if (diffMin <= 15) {
+                        if (diffMin === 0) {
+                            beforeTime++;
+                            return;
+                        }
+                    } else {
+                        const targetTime = new Date(checkInDate);
+                        targetTime.setHours(startHour, startMinute, 0, 0);
+                        diffMin = (checkInDate.getTime() - targetTime.getTime()) / (1000 * 60);
+
+                        if (diffMin <= 0) {
+                            beforeTime++;
+                            return;
+                        }
+                    }
+
+                    if (diffMin <= 15) {
                         lateLessThan15++;
                     } else if (diffMin <= 30) {
                         late15to30++;
@@ -60,7 +83,7 @@ const CheckInTimeDistribution: React.FC<CheckInTimeDistributionProps> = ({ userS
             { range: 'สาย 30-60 นาที', count: late30to60, fill: '#D97706' },
             { range: 'สาย > 1 ชม.', count: lateMoreThan60, fill: '#EF4444' }
         ];
-    }, [userStats, startTime]);
+    }, [userStats, startTime, shiftsEnabled, shiftsList]);
 
     const customTooltipStyle = {
         background: 'rgba(255, 255, 255, 0.95)',
@@ -78,7 +101,11 @@ const CheckInTimeDistribution: React.FC<CheckInTimeDistributionProps> = ({ userS
                     การกระจายตัวของเวลาเข้างาน (Check-In)
                 </h3>
                 <p className="text-[11px] font-bold text-slate-400 mt-1">
-                    อ้างอิงจากเวลาทำงานหลัก <span className="text-indigo-600 font-bold">{startTime} น.</span>
+                    {shiftsEnabled ? (
+                        <>อ้างอิงจากกะการทำงาน <span className="text-indigo-600 font-bold">{shiftsList} น.</span></>
+                    ) : (
+                        <>อ้างอิงจากเวลาทำงานหลัก <span className="text-indigo-600 font-bold">{startTime} น.</span></>
+                    )}
                 </p>
             </div>
 

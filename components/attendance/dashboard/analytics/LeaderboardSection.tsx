@@ -98,9 +98,6 @@ const LeaderboardSection: React.FC<LeaderboardSectionProps> = ({
                                         </div>
                                     </div>
                                     <div className="text-right shrink-0">
-                                        <span className={`px-2 py-0.5 rounded-lg text-[9px] font-bold ${gradeInfo.color}`}>
-                                            Grade {gradeInfo.grade}
-                                        </span>
                                         <p className="text-[10px] font-bold text-slate-500 mt-1">มา {item.stat.present} วัน</p>
                                     </div>
                                 </div>
@@ -154,7 +151,6 @@ const LeaderboardSection: React.FC<LeaderboardSectionProps> = ({
                                                 </span>
                                             )}
                                         </div>
-                                        <p className="text-[10px] font-bold text-slate-400 mt-1">คะแนนหักรวม {(item.stat.late * 1.5 + item.stat.absent * 2.5).toFixed(1)}</p>
                                     </div>
                                 </div>
                             );

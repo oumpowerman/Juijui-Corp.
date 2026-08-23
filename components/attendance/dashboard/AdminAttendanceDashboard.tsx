@@ -749,6 +749,8 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                                 currentMonth={currentMonth}
                                 getGrade={getGrade}
                                 onUserClick={(user, stat) => setSelectedUser({ user, stat })}
+                                shiftsEnabled={multipleShifts.enabled}
+                                shiftsList={multipleShifts.shiftsList}
                             />
                         </Suspense>
                     </motion.div>

@@ -1,6 +1,6 @@
 import React from 'react';
-import { motion, DragControls } from 'framer-motion';
-import { Film, FileEdit, CheckCircle2, ArrowRight, Loader2, Clock, GripVertical, Trash2, MapPin, Calendar, AlertTriangle, FileText, Check } from 'lucide-react';
+import { motion, AnimatePresence, DragControls } from 'framer-motion';
+import { Film, FileEdit, CheckCircle2, ArrowRight, Loader2, Clock, GripVertical, Trash2, MapPin, Calendar, AlertTriangle, FileText, Check, RotateCcw } from 'lucide-react';
 import { MergedQueueItem } from './types';
 import { Channel, Task, MasterOption } from '../../../../types';
 
@@ -61,9 +61,9 @@ const QueueItemRow: React.FC<QueueItemRowProps> = ({
                 else if (onEditScript) onEditScript(item.id);
             }}
             className={`
-                group flex flex-col p-3.5 md:p-4 md:grid md:grid-cols-[36px_50px_45px_45px_1fr_160px_120px_100px] items-start md:items-center gap-3 md:gap-4 transition-all cursor-pointer border-b border-slate-100
+                group flex flex-col p-3.5 md:p-4 md:grid md:grid-cols-[36px_50px_110px_45px_1fr_160px_120px_90px] items-start md:items-center gap-3 md:gap-4 transition-all cursor-pointer border-b border-slate-100
                 ${isSelected ? 'bg-indigo-50/70 hover:bg-indigo-50/90' : 'bg-white hover:bg-slate-50'}
-                ${isFinished && !isSelected ? 'opacity-60' : ''}
+                ${isFinished && !isSelected ? 'opacity-65' : ''}
                 ${isContent ? 'border-l-4 border-l-amber-400' : 'border-l-4 border-l-blue-400'}
             `}
         >
@@ -103,27 +103,82 @@ const QueueItemRow: React.FC<QueueItemRowProps> = ({
                         </span>
                     </div>
 
-                    {/* 2. Soft-Finished Status Toggle Checkbox */}
-                    <div className="flex justify-center shrink-0">
-                        <button
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                isFinished ? onToggleFinished(item) : onMarkAsDone(item);
-                            }}
-                            disabled={isProcessing}
-                            className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
-                                isFinished 
-                                    ? (isContent ? 'bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-100' : 'bg-blue-500 border-blue-500 text-white shadow-lg shadow-blue-100')
-                                    : 'border-slate-200 hover:border-indigo-400 text-transparent'
-                            }`}
-                            title={isFinished ? 'ทำเครื่องหมายว่ายังไม่เสร็จ' : 'ทำเครื่องหมายว่าถ่ายเสร็จแล้ว'}
-                        >
-                            {isProcessing ? (
-                                <Loader2 className="w-3 h-3 animate-spin text-slate-400" />
+                    {/* 2. Interactive Progress Badge (ถ่ายเสร็จแล้ว ⇄ รอถ่าย) with Framer Motion */}
+                    <div className="flex justify-center shrink-0 w-[84px]">
+                        <AnimatePresence mode="wait" initial={false}>
+                            {isFinished ? (
+                                <motion.button
+                                    key="finished-btn"
+                                    type="button"
+                                    layout
+                                    initial={{ scale: 0.8, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    exit={{ scale: 0.8, opacity: 0 }}
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.92 }}
+                                    transition={{ type: "spring", stiffness: 450, damping: 25 }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onToggleFinished(item);
+                                    }}
+                                    disabled={isProcessing}
+                                    className="group/btn w-full flex items-center justify-center gap-1.5 px-2 py-1 rounded-xl text-[11px] font-kanit font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-300 transition-colors shadow-xs"
+                                    title="คลิกเพื่อยกเลิกสถานะเสร็จ (สลับกลับมารอถ่าย)"
+                                >
+                                    {isProcessing ? (
+                                        <Loader2 className="w-3 h-3 animate-spin text-emerald-600" />
+                                    ) : (
+                                        <>
+                                            <motion.div
+                                                initial={{ rotate: -45, scale: 0.5 }}
+                                                animate={{ rotate: 0, scale: 1 }}
+                                                className="shrink-0"
+                                            >
+                                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 group-hover/btn:hidden" />
+                                                <RotateCcw className="w-3.5 h-3.5 text-amber-600 hidden group-hover/btn:inline" />
+                                            </motion.div>
+                                            <span className="group-hover/btn:hidden">เสร็จแล้ว</span>
+                                            <span className="hidden group-hover/btn:inline font-bold">รอถ่าย</span>
+                                        </>
+                                    )}
+                                </motion.button>
                             ) : (
-                                <CheckCircle2 className="w-4 h-4" />
+                                <motion.button
+                                    key="pending-btn"
+                                    type="button"
+                                    layout
+                                    initial={{ scale: 0.8, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 1 }}
+                                    exit={{ scale: 0.8, opacity: 0 }}
+                                    whileHover={{ scale: 1.05 }}
+                                    whileTap={{ scale: 0.92 }}
+                                    transition={{ type: "spring", stiffness: 450, damping: 25 }}
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        onToggleFinished(item);
+                                    }}
+                                    disabled={isProcessing}
+                                    className="group/btn w-full flex items-center justify-center gap-1.5 px-2 py-1 rounded-xl text-[11px] font-kanit font-medium bg-slate-100 text-slate-600 border border-slate-200 hover:bg-emerald-600 hover:text-white hover:border-emerald-600 transition-colors shadow-xs"
+                                    title="คลิกเมื่อถ่ายทำเสร็จแล้ว"
+                                >
+                                    {isProcessing ? (
+                                        <Loader2 className="w-3 h-3 animate-spin text-slate-400" />
+                                    ) : (
+                                        <>
+                                            <motion.div
+                                                initial={{ scale: 0.5 }}
+                                                animate={{ scale: 1 }}
+                                                className="shrink-0"
+                                            >
+                                                <Clock className="w-3.5 h-3.5 text-slate-400 group-hover/btn:text-white" />
+                                            </motion.div>
+                                            <span className="group-hover/btn:hidden">รอถ่าย</span>
+                                            <span className="hidden group-hover/btn:inline font-medium text-white">ติ๊กเสร็จ</span>
+                                        </>
+                                    )}
+                                </motion.button>
                             )}
-                        </button>
+                        </AnimatePresence>
                     </div>
 
                     {/* 3. Type Icon (Desktop Only Slot) */}
@@ -142,7 +197,7 @@ const QueueItemRow: React.FC<QueueItemRowProps> = ({
                     {/* 4. Title & Info */}
                     <div className="min-w-0 md:pl-2 flex-1">
                         <div className="flex items-center gap-2">
-                            <h4 className={`text-[14px] md:text-[15px] font-kanit font-bold text-slate-800 truncate transition-colors ${isContent ? 'group-hover:text-amber-600' : 'group-hover:text-blue-600'} ${isFinished ? 'line-through decoration-indigo-500 decoration-2 text-slate-400' : ''}`}>
+                            <h4 className={`text-[14px] md:text-[15px] font-kanit font-bold text-slate-800 truncate transition-colors ${isContent ? 'group-hover:text-amber-600' : 'group-hover:text-blue-600'} ${isFinished ? 'line-through decoration-emerald-500 decoration-2 text-slate-400' : ''}`}>
                                 {item.title}
                             </h4>
                             {item.scriptId && onEditScript && (
@@ -165,7 +220,7 @@ const QueueItemRow: React.FC<QueueItemRowProps> = ({
                                     <span className="text-[9px] font-bold text-slate-500">{channel.name}</span>
                                 </div>
                             )}
-                            <span className={`text-[9px] font-black px-1.5 py-0.5 rounded-lg border uppercase tracking-wider scale-90 origin-left ${statusInfo.color.replace('bg-', 'bg-opacity-10 text-opacity-100 ').replace('text-', 'border-')}`}>
+                            <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-lg border uppercase tracking-wider scale-90 origin-left ${statusInfo.color.replace('bg-', 'bg-opacity-10 text-opacity-100 ').replace('text-', 'border-')}`}>
                                 {statusInfo.label}
                             </span>
                         </div>
@@ -206,7 +261,7 @@ const QueueItemRow: React.FC<QueueItemRowProps> = ({
                         <span className="text-[11px] md:text-[12px] font-kanit font-bold text-slate-700 truncate">{item.shootLocation}</span>
                     </div>
                 ) : (
-                    <div className="hidden md:flex items-center gap-1.5 text-[10px] font-kanit font-bold text-slate-300 italic group-hover:text-amber-400 transition-colors pl-2">
+                    <div className="hidden md:flex items-center gap-1.5 text-[10px] font-kanit font-medium text-slate-300 italic group-hover:text-amber-400 transition-colors pl-2">
                         <AlertTriangle className="w-3 h-3 shrink-0" />
                         <span>ยังไม่ได้ระบุ</span>
                     </div>
@@ -218,10 +273,10 @@ const QueueItemRow: React.FC<QueueItemRowProps> = ({
                 {item.shootTimeStart ? (
                     <div className="bg-indigo-50 border border-indigo-100 px-3 py-1.5 md:py-2 rounded-xl flex items-center gap-2 shadow-sm group-hover:bg-indigo-600 group-hover:text-white transition-all w-fit">
                         <Clock className={`w-3.5 h-3.5 shrink-0 ${isFinished ? 'text-indigo-300' : 'text-indigo-600 group-hover:text-white'}`} />
-                        <span className="text-[12px] md:text-[13px] font-black">{item.shootTimeStart}</span>
+                        <span className="text-[12px] md:text-[13px] font-medium">{item.shootTimeStart}</span>
                     </div>
                 ) : (
-                    <div className="hidden md:flex items-center gap-1.5 text-[10px] font-kanit font-bold text-slate-300 italic group-hover:text-indigo-400 transition-colors pl-2">
+                    <div className="hidden md:flex items-center gap-1.5 text-[10px] font-kanit font-medium text-slate-300 italic group-hover:text-indigo-400 transition-colors pl-2">
                         <Clock className="w-3.5 h-3.5 shrink-0" />
                         <span>รอระบุเวลา</span>
                     </div>

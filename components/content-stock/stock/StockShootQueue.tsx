@@ -84,6 +84,18 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({
         filteredItems.filter(i => !i.isSoftFinished).length
     , [filteredItems]);
 
+    const selectedItems = useMemo(() => {
+        return filteredItems.filter(i => selectedIdsInView.includes(i.id));
+    }, [filteredItems, selectedIdsInView]);
+
+    const selectedFinishedCount = useMemo(() => {
+        return selectedItems.filter(i => i.isSoftFinished).length;
+    }, [selectedItems]);
+
+    const selectedUnfinishedCount = useMemo(() => {
+        return selectedItems.filter(i => !i.isSoftFinished).length;
+    }, [selectedItems]);
+
     // Keep a stable ref of queue items to avoid real-time connection teardowns on state edits
     const queueItemsRef = useRef(queueItems);
     useEffect(() => {
@@ -617,19 +629,36 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-2">
-                                {/* Mark Finished / Unfinished */}
-                                <button
-                                    onClick={() => handleBatchToggleFinishSelected(true)}
-                                    className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600/90 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all active:scale-95"
-                                    title="ทำเครื่องหมายว่าถ่ายเสร็จแล้วทั้งหมดที่เลือก"
-                                >
-                                    <CheckCircle2 className="w-3.5 h-3.5" />
-                                    <span>ถ่ายเสร็จแล้ว</span>
-                                </button>
+                            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                                {/* Contextual Button: Revert / Mark as Incomplete */}
+                                {selectedFinishedCount > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleBatchToggleFinishSelected(false)}
+                                        className="flex items-center gap-1.5 px-3 py-2 bg-amber-600/95 hover:bg-amber-600 text-white rounded-xl text-xs font-bold transition-all active:scale-95 shadow-md shadow-amber-950/20"
+                                        title="ยกเลิกสถานะถ่ายเสร็จ (เปลี่ยนเป็นรอถ่าย) สำหรับรายการที่เลือก"
+                                    >
+                                        <RotateCcw className="w-3.5 h-3.5" />
+                                        <span>ยกเลิกเสร็จ ({selectedFinishedCount})</span>
+                                    </button>
+                                )}
+
+                                {/* Contextual Button: Mark Finished */}
+                                {selectedUnfinishedCount > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleBatchToggleFinishSelected(true)}
+                                        className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600/95 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all active:scale-95 shadow-md shadow-emerald-950/20"
+                                        title="ทำเครื่องหมายว่าถ่ายเสร็จแล้วสำหรับรายการที่เลือก"
+                                    >
+                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                        <span>ถ่ายเสร็จแล้ว ({selectedUnfinishedCount})</span>
+                                    </button>
+                                )}
 
                                 {/* Batch Remove Button */}
                                 <button
+                                    type="button"
                                     onClick={handleBatchRemoveSelected}
                                     className="flex items-center gap-1.5 px-3 py-2 bg-rose-600/90 hover:bg-rose-600 text-white rounded-xl text-xs font-bold transition-all active:scale-95 shadow-lg shadow-rose-950/40"
                                     title="นำรายการที่เลือกออกจากคิวถ่ายทำทั้งหมด"
@@ -640,6 +669,7 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({
 
                                 {/* Close / Deselect */}
                                 <button
+                                    type="button"
                                     onClick={handleClearSelection}
                                     className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-all"
                                     title="ยกเลิกการเลือก"

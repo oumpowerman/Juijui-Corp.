@@ -1,6 +1,6 @@
 import React from 'react';
-import { motion } from 'framer-motion';
-import { Film, FileEdit, FileText, CheckCircle2, Info, ArrowRight, Loader2, Trash2, MapPin, Clock, AlertTriangle, Calendar, Check } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Film, FileEdit, FileText, CheckCircle2, Info, ArrowRight, Loader2, Trash2, MapPin, Clock, AlertTriangle, Calendar, Check, RotateCcw } from 'lucide-react';
 import { MergedQueueItem } from './types';
 import { Channel, Task, ScriptSummary, MasterOption } from '../../../../types';
 
@@ -234,36 +234,63 @@ const QueueItemCard: React.FC<QueueItemCardProps> = ({
                         )}
                     </div>
 
-                    <button
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            isFinished ? onToggleFinished(item) : onMarkAsDone(item);
-                        }}
-                        disabled={isProcessing}
-                        className={`
-                            flex items-center gap-2 px-4 py-2 rounded-xl
-                            font-bold text-xs transition-all
-                            ${isProcessing 
-                                ? 'bg-gray-200 text-gray-400 cursor-not-allowed' 
-                                : isFinished
-                                    ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
-                                    : 'bg-indigo-600 text-white shadow-sm hover:bg-indigo-700 active:scale-95'}
-                        `}
-                    >
-                        {isProcessing ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                        ) : isFinished ? (
-                            <>
-                                <ArrowRight className="w-3.5 h-3.5 rotate-180" />
-                                ยกเลิก
-                            </>
+                    <AnimatePresence mode="wait" initial={false}>
+                        {isFinished ? (
+                            <motion.button
+                                key="card-finished"
+                                type="button"
+                                layout
+                                initial={{ scale: 0.85, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0.85, opacity: 0 }}
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                transition={{ type: "spring", stiffness: 450, damping: 25 }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onToggleFinished(item);
+                                }}
+                                disabled={isProcessing}
+                                className="flex items-center gap-1.5 px-4 py-2 rounded-xl font-medium text-xs bg-amber-100 text-amber-800 hover:bg-amber-200 border border-amber-200 shadow-xs transition-colors"
+                            >
+                                {isProcessing ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                    <>
+                                        <RotateCcw className="w-3.5 h-3.5" />
+                                        <span>แก้เป็นรอถ่าย</span>
+                                    </>
+                                )}
+                            </motion.button>
                         ) : (
-                            <>
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                                ถ่ายเสร็จแล้ว
-                            </>
+                            <motion.button
+                                key="card-pending"
+                                type="button"
+                                layout
+                                initial={{ scale: 0.85, opacity: 0 }}
+                                animate={{ scale: 1, opacity: 1 }}
+                                exit={{ scale: 0.85, opacity: 0 }}
+                                whileHover={{ scale: 1.05 }}
+                                whileTap={{ scale: 0.95 }}
+                                transition={{ type: "spring", stiffness: 450, damping: 25 }}
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    onToggleFinished(item);
+                                }}
+                                disabled={isProcessing}
+                                className="flex items-center gap-1.5 px-4 py-2 rounded-xl font-medium text-xs bg-indigo-600 text-white shadow-sm hover:bg-indigo-700 transition-colors"
+                            >
+                                {isProcessing ? (
+                                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                ) : (
+                                    <>
+                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                        <span>ถ่ายเสร็จแล้ว</span>
+                                    </>
+                                )}
+                            </motion.button>
                         )}
-                    </button>
+                    </AnimatePresence>
                 </div>
             </div>
         </motion.div>

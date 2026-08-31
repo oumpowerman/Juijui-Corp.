@@ -64,7 +64,7 @@ const QueueHeader: React.FC<QueueHeaderProps> = ({
     }, []);
 
     return (
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white/60 backdrop-blur-md p-4 md:p-5 rounded-2xl border border-white/80 shadow-sm">
+        <div className="relative z-20 flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 bg-white/80 backdrop-blur-md p-4 md:p-5 rounded-2xl border border-white/80 shadow-sm">
             {/* Title and Summary Badges */}
             <div className="flex items-center gap-3">
                 <div className="p-2.5 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl text-white shadow-md shadow-indigo-100">

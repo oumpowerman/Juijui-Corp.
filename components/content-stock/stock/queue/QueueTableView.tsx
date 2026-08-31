@@ -115,7 +115,7 @@ const QueueTableView: React.FC<QueueTableViewProps> = ({
     return (
         <div className="bg-white/60 backdrop-blur-md rounded-3xl border border-white/80 overflow-hidden shadow-sm">
             {/* Unified Grid Header */}
-            <div className="hidden md:grid grid-cols-[36px_50px_45px_45px_1fr_160px_120px_100px] items-center gap-4 px-4 md:px-6 py-3.5 bg-slate-900 border-b border-white/10 text-[11px] font-kanit font-bold text-slate-400 uppercase tracking-widest">
+            <div className="hidden md:grid grid-cols-[36px_50px_110px_45px_1fr_160px_120px_90px] items-center gap-4 px-4 md:px-6 py-3.5 bg-slate-900 border-b border-white/10 text-[11px] font-kanit font-bold text-slate-400 uppercase tracking-widest">
                 {/* Select All Checkbox */}
                 <div className="flex justify-center">
                     <button
@@ -135,7 +135,7 @@ const QueueTableView: React.FC<QueueTableViewProps> = ({
                     </button>
                 </div>
                 <div className="flex justify-center">ลำดับ</div>
-                <div className="flex justify-center">สถานะ</div>
+                <div className="flex justify-center">ความคืบหน้า</div>
                 <div className="flex justify-center">ประเภท</div>
                 <div className="pl-2">รายการที่ต้องถ่ายทำ</div>
                 <div className="pl-4">สถานที่ถ่ายทำ</div>

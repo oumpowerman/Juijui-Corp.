@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { User, PayrollCycle, PayrollSlip } from '../types';
 import MentorTip from '../components/MentorTip';
-import { DollarSign, FileText, PieChart, Wallet, Plus, Calendar, MapPin, RefreshCw, ArrowRight, Loader2, ArrowLeft, ChevronLeft, ChevronRight, Globe } from 'lucide-react';
+import { DollarSign, FileText, PieChart, Wallet, Plus, Calendar, MapPin, RefreshCw, ArrowRight, Loader2, ArrowLeft, ChevronLeft, ChevronRight, Globe, Coins } from 'lucide-react';
+import AppBackground, { BackgroundTheme } from '../components/common/AppBackground';
 import { useFinance } from '../hooks/useFinance';
 import { useMasterData } from '../hooks/useMasterData';
 import { useTasks } from '../hooks/useTasks'; 
@@ -12,6 +13,7 @@ import TransactionList from '../components/finance/TransactionList';
 import TransactionModal from '../components/finance/TransactionModal';
 import ShootTripManager from '../components/finance/ShootTripManager'; 
 import LocationIntelligence from '../components/finance/location/LocationIntelligence'; // NEW IMPORT
+import SponsorshipManager from '../components/finance/sponsorship/SponsorshipManager';
 
 // Payroll Imports
 import { usePayroll } from '../hooks/usePayroll';
@@ -23,7 +25,7 @@ interface FinanceRouterProps {
     users?: User[]; // Accept users list
 }
 
-type FinanceTab = 'DASHBOARD' | 'TRANSACTIONS' | 'TRIPS' | 'LOCATIONS' | 'SALARY';
+type FinanceTab = 'DASHBOARD' | 'TRANSACTIONS' | 'SPONSORS' | 'TRIPS' | 'LOCATIONS' | 'SALARY';
 
 const FinanceRouter: React.FC<FinanceRouterProps> = ({ currentUser, users = [] }) => {
     // Default tab logic: Admin -> Dashboard, Member -> Salary
@@ -102,10 +104,11 @@ const FinanceRouter: React.FC<FinanceRouterProps> = ({ currentUser, users = [] }
     };
 
     return (
-        <div className="space-y-6 animate-in fade-in duration-500 pb-20">
-            
-            {/* Conditional Header: Hide if in Payroll Editor Mode to give more space */}
-            {!activePayrollCycle && (
+        <AppBackground theme="pastel-emerald" pattern="grid" className="p-4 md:p-8 min-h-screen">
+            <div className="relative z-10 space-y-6 animate-in fade-in duration-500 pb-20">
+                
+                {/* Conditional Header: Hide if in Payroll Editor Mode to give more space */}
+                {!activePayrollCycle && (
                 <>
                 <MentorTip variant="green" messages={[
                     "ระบบบัญชีรองรับการเลือกช่วงเวลาแบบกำหนดเองแล้วนะ!",
@@ -188,6 +191,12 @@ const FinanceRouter: React.FC<FinanceRouterProps> = ({ currentUser, users = [] }
                         >
                             <FileText className="w-4 h-4" /> รายการ
                         </button>
+                        <button 
+                            onClick={() => setCurrentTab('SPONSORS')}
+                            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'SPONSORS' ? 'bg-amber-50 text-amber-600' : 'text-gray-500 hover:text-gray-700'}`}
+                        >
+                            <Coins className="w-4 h-4 text-amber-500" /> งานสปอนเซอร์ / ลูกค้า
+                        </button>
                         <div className="w-px h-6 bg-gray-200 mx-1 self-center"></div>
                         <button 
                             onClick={() => setCurrentTab('TRIPS')}
@@ -232,6 +241,10 @@ const FinanceRouter: React.FC<FinanceRouterProps> = ({ currentUser, users = [] }
                         pagination={pagination}
                         isLoading={isLoading}
                     />
+                )}
+
+                {isAdmin && currentTab === 'SPONSORS' && !activePayrollCycle && (
+                    <SponsorshipManager />
                 )}
 
                 {isAdmin && currentTab === 'TRIPS' && !activePayrollCycle && (
@@ -283,7 +296,8 @@ const FinanceRouter: React.FC<FinanceRouterProps> = ({ currentUser, users = [] }
                     users={users} 
                 />
             )}
-        </div>
+            </div>
+        </AppBackground>
     );
 };
 

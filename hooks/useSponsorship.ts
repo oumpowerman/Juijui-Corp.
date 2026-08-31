@@ -70,11 +70,38 @@ export function useSponsorship(taskId?: string) {
         try {
             const newClient = await sponsorshipService.createClient(clientData);
             await fetchClients();
+            showToast('เพิ่มลูกค้าใหม่สำเร็จ 🎉', 'success');
             return newClient;
         } catch (err) {
             console.error('Failed to create client:', err);
             showToast('สร้างลูกค้าไม่สำเร็จ', 'error');
             return null;
+        }
+    };
+
+    const updateClient = async (clientId: string, clientData: Partial<Client>) => {
+        try {
+            const updated = await sponsorshipService.updateClient(clientId, clientData);
+            await fetchClients();
+            showToast('อัปเดตข้อมูลลูกค้าแล้ว ✅', 'success');
+            return updated;
+        } catch (err) {
+            console.error('Failed to update client:', err);
+            showToast('แก้ไขข้อมูลลูกค้าไม่สำเร็จ', 'error');
+            return null;
+        }
+    };
+
+    const deleteClient = async (clientId: string) => {
+        try {
+            await sponsorshipService.deleteClient(clientId);
+            await fetchClients();
+            showToast('ลบลูกค้าเรียบร้อยแล้ว', 'info');
+            return true;
+        } catch (err) {
+            console.error('Failed to delete client:', err);
+            showToast('ลบลูกค้าไม่สำเร็จ', 'error');
+            return false;
         }
     };
 
@@ -93,6 +120,8 @@ export function useSponsorship(taskId?: string) {
         saveDetails,
         deleteDetails,
         createClient,
+        updateClient,
+        deleteClient,
         refreshClients: fetchClients
     };
 }

@@ -56,7 +56,19 @@ const ContentForm: React.FC<ContentFormProps> = ({
     
     // Sponsorship state
     const { sponsorship: existingSponsorship } = useSponsorship(initialData?.id);
-    const [sponsorshipData, setSponsorshipData] = useState<Partial<SponsorshipDetail> | null>(null);
+    const effectiveInitialSponsorship = existingSponsorship || initialData?.sponsorship || null;
+    const [sponsorshipData, setSponsorshipData] = useState<Partial<SponsorshipDetail> | null>(() => {
+        if (initialData?.sponsorship) {
+            return initialData.sponsorship;
+        }
+        return null;
+    });
+
+    useEffect(() => {
+        if (existingSponsorship) {
+            setSponsorshipData(existingSponsorship);
+        }
+    }, [existingSponsorship]);
 
     const tagInputRef = useRef<CollapsibleTagInputRef>(null);
 
@@ -100,8 +112,13 @@ const ContentForm: React.FC<ContentFormProps> = ({
                 ...task,
                 sponsorship: sponsorshipData ? {
                     ...sponsorshipData,
+                    isSponsored: Boolean(sponsorshipData.isSponsored),
                     taskId: task.id || initialData?.id || ''
-                } : undefined
+                } : (initialData?.sponsorship ? {
+                    ...initialData.sponsorship,
+                    isSponsored: false,
+                    taskId: task.id || initialData?.id || ''
+                } : undefined)
             };
             onSave(taskWithSponsorship as Task);
         },
@@ -515,7 +532,7 @@ const ContentForm: React.FC<ContentFormProps> = ({
                             {/* Sponsorship Section */}
                             <CFSponsorship 
                                 taskId={initialData?.id}
-                                initialData={existingSponsorship}
+                                initialData={effectiveInitialSponsorship}
                                 onChange={setSponsorshipData}
                             />
 

@@ -180,6 +180,7 @@ export const sponsorshipService = {
 
     if (error) throw error;
     if (!data) throw new Error('Failed to create client: No data returned');
+    clientsCache = null; // Clear cache
     return {
       id: data.id,
       name: data.name,
@@ -189,5 +190,139 @@ export const sponsorshipService = {
       logoUrl: data.logo_url,
       isActive: data.is_active
     } as Client;
+  },
+
+  async updateClient(clientId: string, client: Partial<Client>) {
+    const payload: any = {
+      updated_at: new Date().toISOString()
+    };
+    if (client.name !== undefined) payload.name = client.name;
+    if (client.contactPerson !== undefined) payload.contact_person = client.contactPerson;
+    if (client.email !== undefined) payload.email = client.email;
+    if (client.phone !== undefined) payload.phone = client.phone;
+    if (client.logoUrl !== undefined) payload.logo_url = client.logoUrl;
+    if (client.isActive !== undefined) payload.is_active = client.isActive;
+
+    const { data, error } = await supabase
+      .from('clients')
+      .update(payload)
+      .eq('id', clientId)
+      .select()
+      .maybeSingle();
+
+    if (error) throw error;
+    clientsCache = null; // Clear cache
+    return data ? {
+      id: data.id,
+      name: data.name,
+      contactPerson: data.contact_person,
+      email: data.email,
+      phone: data.phone,
+      logoUrl: data.logo_url,
+      isActive: data.is_active
+    } as Client : null;
+  },
+
+  async deleteClient(clientId: string) {
+    // Soft delete / deactivate so historical records are preserved
+    const { error } = await supabase
+      .from('clients')
+      .update({ is_active: false })
+      .eq('id', clientId);
+
+    if (error) throw error;
+    clientsCache = null;
+    return true;
+  },
+
+  async getAllSponsorshipDeals() {
+    const { data, error } = await supabase
+      .from('sponsorship_details')
+      .select(`
+        *,
+        client:clients(*)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    if (!data || data.length === 0) return [];
+
+    const taskIds = Array.from(new Set(data.map((item: any) => item.task_id).filter(Boolean)));
+    const tasksMap: Record<string, any> = {};
+
+    if (taskIds.length > 0) {
+      try {
+        const [contentsRes, tasksRes] = await Promise.all([
+          supabase
+            .from('contents')
+            .select('id, title, status, shoot_date, end_date, content_formats, channel_id')
+            .in('id', taskIds),
+          supabase
+            .from('tasks')
+            .select('id, title, status, end_date, channel_id')
+            .in('id', taskIds)
+        ]);
+
+        if (contentsRes.data) {
+          contentsRes.data.forEach((c: any) => {
+            tasksMap[c.id] = {
+              id: c.id,
+              title: c.title,
+              status: c.status,
+              type: 'CONTENT',
+              plannedDate: c.shoot_date || c.end_date,
+              channelId: c.channel_id,
+              targetPlatforms: c.content_formats || []
+            };
+          });
+        }
+
+        if (tasksRes.data) {
+          tasksRes.data.forEach((t: any) => {
+            if (!tasksMap[t.id]) {
+              tasksMap[t.id] = {
+                id: t.id,
+                title: t.title,
+                status: t.status,
+                type: 'TASK',
+                plannedDate: t.end_date,
+                channelId: t.channel_id,
+                targetPlatforms: []
+              };
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('Could not fetch linked tasks for sponsorships:', err);
+      }
+    }
+
+    return data.map((item: any) => {
+      const linkedTask = item.task_id ? tasksMap[item.task_id] : null;
+
+      return {
+        id: item.id,
+        taskId: item.task_id,
+        clientId: item.client_id,
+        isSponsored: item.is_sponsored,
+        dealValue: Number(item.deal_value) || 0,
+        requirements: item.requirements,
+        paymentStatus: item.payment_status || (item.is_paid ? 'PAID' : 'UNPAID'),
+        isPaid: Boolean(item.is_paid),
+        invoiceUrl: item.invoice_url,
+        createdAt: item.created_at,
+        updatedAt: item.updated_at,
+        client: item.client ? {
+          id: item.client.id,
+          name: item.client.name,
+          contactPerson: item.client.contact_person,
+          email: item.client.email,
+          phone: item.client.phone,
+          logoUrl: item.client.logo_url,
+          isActive: item.client.is_active
+        } : null,
+        task: linkedTask
+      };
+    });
   }
 };

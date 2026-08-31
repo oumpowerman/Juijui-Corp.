@@ -353,12 +353,11 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
                 }
 
                 // --- 🚀 NEW: Sponsorship Detail Save ---
-                if (isContent && task.sponsorship) {
-                    if (task.sponsorship.isSponsored) {
+                if (isContent && task.sponsorship !== undefined) {
+                    if (task.sponsorship && task.sponsorship.isSponsored) {
                         await sponsorshipService.saveSponsorshipDetail(task.id, task.sponsorship);
                     } else {
-                        // If it was sponsored but now unticked, maybe we should delete or keep?
-                        // For now, let's just delete if it's explicitly set to false
+                        // If it was sponsored but now unticked, delete from database
                         await sponsorshipService.deleteSponsorshipDetail(task.id);
                     }
                 }

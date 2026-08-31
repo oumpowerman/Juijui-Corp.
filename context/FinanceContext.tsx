@@ -47,7 +47,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const [totalCount, setTotalCount] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
 
-    const mapTransaction = useCallback((item: any): FinanceTransaction => {
+    const mapTransaction = useCallback((item: any, projectTitleOverride?: string): FinanceTransaction => {
         const catOpt = masterOptions.find(o => o.key === item.category_key && (o.type === 'FINANCE_IN_CAT' || o.type === 'FINANCE_OUT_CAT'));
         
         return {
@@ -75,7 +75,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
             taxId: item.tax_id,
             targetUserId: item.target_user_id,
 
-            projectTitle: item.contents?.title,
+            projectTitle: projectTitleOverride || item.contents?.title,
             creator: item.profiles ? { name: item.profiles.full_name, avatarUrl: item.profiles.avatar_url } : undefined,
             targetUser: item.target_user ? { name: item.target_user.full_name, avatarUrl: item.target_user.avatar_url } : undefined,
             categoryLabel: catOpt?.label || item.category_key,
@@ -151,7 +151,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         try {
             const { data, count, error } = await supabase
                 .from('finance_transactions')
-                .select(`*, profiles:created_by (full_name, avatar_url), target_user:target_user_id (full_name, avatar_url), contents (title)`, { count: 'exact' })
+                .select(`*, profiles:created_by (full_name, avatar_url), target_user:target_user_id (full_name, avatar_url)`, { count: 'exact' })
                 .gte('date', start)
                 .lte('date', end)
                 .order('date', { ascending: false })
@@ -159,7 +159,34 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
             if (error) throw error;
             if (data) {
-                setTransactions(data.map(mapTransaction));
+                const projectIds = Array.from(new Set(data.map((item: any) => item.project_id).filter(Boolean)));
+                const projectTitleMap: Record<string, string> = {};
+
+                if (projectIds.length > 0) {
+                    try {
+                        const [contentsRes, tasksRes] = await Promise.all([
+                            supabase.from('contents').select('id, title').in('id', projectIds),
+                            supabase.from('tasks').select('id, title').in('id', projectIds)
+                        ]);
+
+                        if (contentsRes.data) {
+                            contentsRes.data.forEach((c: any) => {
+                                projectTitleMap[c.id] = c.title;
+                            });
+                        }
+                        if (tasksRes.data) {
+                            tasksRes.data.forEach((t: any) => {
+                                if (!projectTitleMap[t.id]) {
+                                    projectTitleMap[t.id] = t.title;
+                                }
+                            });
+                        }
+                    } catch (e) {
+                        console.warn("Could not fetch project titles", e);
+                    }
+                }
+
+                setTransactions(data.map((item: any) => mapTransaction(item, item.project_id ? projectTitleMap[item.project_id] : undefined)));
                 setTotalCount(count || 0);
             }
         } catch (err) {

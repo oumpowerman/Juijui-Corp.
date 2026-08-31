@@ -20,6 +20,21 @@ const CFSponsorship: React.FC<CFSponsorshipProps> = ({ taskId, onChange, initial
     const [paymentStatus, setPaymentStatus] = useState(initialData?.paymentStatus ?? 'UNPAID');
     const [invoiceUrl, setInvoiceUrl] = useState(initialData?.invoiceUrl ?? '');
 
+    // Sync state when initialData changes or loads asynchronously
+    useEffect(() => {
+        if (initialData) {
+            setIsSponsored(initialData.isSponsored ?? false);
+            setClientId(initialData.clientId ?? '');
+            setDealValue(initialData.dealValue ?? 0);
+            setRequirements(initialData.requirements ?? '');
+            setPaymentStatus(initialData.paymentStatus ?? 'UNPAID');
+            setInvoiceUrl(initialData.invoiceUrl ?? '');
+            if (initialData.client?.name) {
+                setSearchQuery(initialData.client.name);
+            }
+        }
+    }, [initialData]);
+
     // Lazy Fetch Clients: Only when sponsored is active
     useEffect(() => {
         if (isSponsored && clients.length === 0) {
@@ -28,15 +43,14 @@ const CFSponsorship: React.FC<CFSponsorshipProps> = ({ taskId, onChange, initial
     }, [isSponsored, fetchClients, clients.length]);
 
     // UI States for Smart Search
-    // ... rest of the state
-    const [searchQuery, setSearchQuery] = useState('');
+    const [searchQuery, setSearchQuery] = useState(initialData?.client?.name ?? '');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
     const [isClientModalOpen, setIsClientModalOpen] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
 
     const selectedClient = React.useMemo(() => 
-        clients.find(c => c.id === clientId),
-        [clients, clientId]
+        clients.find(c => c.id === clientId) || (initialData?.client && initialData.client.id === clientId ? initialData.client : undefined),
+        [clients, clientId, initialData?.client]
     );
 
     useEffect(() => {
@@ -48,19 +62,23 @@ const CFSponsorship: React.FC<CFSponsorshipProps> = ({ taskId, onChange, initial
     useEffect(() => {
         if (isSponsored) {
             onChange({
-                isSponsored,
+                isSponsored: true,
                 clientId: clientId || undefined,
                 dealValue,
                 requirements,
                 paymentStatus,
                 isPaid: paymentStatus === 'PAID',
                 invoiceUrl,
-                taskId: taskId || ''
+                taskId: taskId || '',
+                client: selectedClient || initialData?.client
             });
         } else {
-            onChange(null);
+            onChange({
+                isSponsored: false,
+                taskId: taskId || ''
+            });
         }
-    }, [isSponsored, clientId, dealValue, requirements, paymentStatus, invoiceUrl, taskId]);
+    }, [isSponsored, clientId, dealValue, requirements, paymentStatus, invoiceUrl, taskId, selectedClient, initialData?.client]);
 
     // Handle outside click for dropdown
     useEffect(() => {

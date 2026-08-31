@@ -13,6 +13,7 @@ interface ShootQueueContextType {
     checkAndRefreshIfNeeded: (includeScripts: boolean) => Promise<void>;
     updateLocalItem: (id: string, updates: Partial<MergedQueueItem>) => void;
     removeItemLocally: (id: string) => void;
+    batchRemoveFromQueue: (ids: string[]) => Promise<void>;
     injectSingleItem: (id: string, type: 'CONTENT' | 'SCRIPT') => Promise<void>;
 }
 
@@ -195,6 +196,45 @@ export const ShootQueueProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         });
     }, []);
 
+    const batchRemoveFromQueue = useCallback(async (ids: string[]) => {
+        if (!ids || ids.length === 0) return;
+        const targetSet = new Set(ids);
+        const itemsToRemove = itemsRef.current.filter(i => targetSet.has(i.id));
+        if (itemsToRemove.length === 0) return;
+
+        // Optimistic local state update
+        setQueueItemsState(prev => {
+            const filtered = prev.filter(item => !targetSet.has(item.id));
+            itemsRef.current = filtered;
+            return filtered;
+        });
+
+        const contentIds = itemsToRemove.filter(i => i.type === 'CONTENT').map(i => i.id);
+        const scriptIds = itemsToRemove.filter(i => i.type === 'SCRIPT').map(i => i.id);
+
+        try {
+            if (contentIds.length > 0) {
+                const { error: contentErr } = await supabase
+                    .from('contents')
+                    .update({ is_in_shoot_queue: false })
+                    .in('id', contentIds);
+                if (contentErr) throw contentErr;
+            }
+            if (scriptIds.length > 0) {
+                const { error: scriptErr } = await supabase
+                    .from('scripts')
+                    .update({ is_in_shoot_queue: false })
+                    .in('id', scriptIds);
+                if (scriptErr) throw scriptErr;
+            }
+        } catch (err) {
+            console.error('Batch remove from queue failed:', err);
+            // Fallback: Re-sync state from server
+            refreshQueue(true);
+            throw err;
+        }
+    }, [refreshQueue]);
+
     // Highly efficient single-item fetching & injection
     const injectSingleItem = useCallback(async (id: string, type: 'CONTENT' | 'SCRIPT') => {
         try {
@@ -326,8 +366,9 @@ export const ShootQueueProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         checkAndRefreshIfNeeded,
         updateLocalItem,
         removeItemLocally,
+        batchRemoveFromQueue,
         injectSingleItem
-    }), [queueItems, lastFingerprint, isLoading, setQueueItems, refreshQueue, checkAndRefreshIfNeeded, updateLocalItem, removeItemLocally, injectSingleItem]);
+    }), [queueItems, lastFingerprint, isLoading, setQueueItems, refreshQueue, checkAndRefreshIfNeeded, updateLocalItem, removeItemLocally, batchRemoveFromQueue, injectSingleItem]);
 
     return (
         <ShootQueueContext.Provider value={value}>

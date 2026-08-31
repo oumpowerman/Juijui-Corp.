@@ -9,6 +9,8 @@ interface QueueGridViewProps {
     channels: Channel[];
     masterOptions: MasterOption[];
     isProcessing: string | null;
+    selectedIds: string[];
+    onToggleSelect: (id: string) => void;
     onEditContent: (task: Task) => void;
     onEditScript?: (scriptId: string) => void;
     onToggleFinished: (item: MergedQueueItem) => void;
@@ -22,6 +24,8 @@ const QueueGridView: React.FC<QueueGridViewProps> = ({
     channels,
     masterOptions,
     isProcessing,
+    selectedIds,
+    onToggleSelect,
     onEditContent,
     onEditScript,
     onToggleFinished,
@@ -41,6 +45,8 @@ const QueueGridView: React.FC<QueueGridViewProps> = ({
                         masterOptions={masterOptions}
                         isFinished={item.isSoftFinished}
                         isProcessing={isProcessing === item.id}
+                        isSelected={selectedIds.includes(item.id)}
+                        onToggleSelect={onToggleSelect}
                         onEditContent={onEditContent}
                         onEditScript={onEditScript}
                         onToggleFinished={onToggleFinished}

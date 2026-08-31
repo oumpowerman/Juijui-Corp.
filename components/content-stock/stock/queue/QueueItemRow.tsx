@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, DragControls } from 'framer-motion';
-import { Film, FileEdit, CheckCircle2, ArrowRight, Loader2, Clock, GripVertical, Trash2, MapPin, Calendar, AlertTriangle, FileText } from 'lucide-react';
+import { Film, FileEdit, CheckCircle2, ArrowRight, Loader2, Clock, GripVertical, Trash2, MapPin, Calendar, AlertTriangle, FileText, Check } from 'lucide-react';
 import { MergedQueueItem } from './types';
 import { Channel, Task, MasterOption } from '../../../../types';
 
@@ -11,6 +11,8 @@ interface QueueItemRowProps {
     masterOptions: MasterOption[];
     isFinished: boolean;
     isProcessing: boolean;
+    isSelected?: boolean;
+    onToggleSelect?: (id: string) => void;
     onEditContent: (task: Task) => void;
     onEditScript?: (scriptId: string) => void;
     onToggleFinished: (item: MergedQueueItem) => void;
@@ -27,6 +29,8 @@ const QueueItemRow: React.FC<QueueItemRowProps> = ({
     masterOptions,
     isFinished,
     isProcessing,
+    isSelected = false,
+    onToggleSelect,
     onEditContent,
     onEditScript,
     onToggleFinished,
@@ -57,28 +61,49 @@ const QueueItemRow: React.FC<QueueItemRowProps> = ({
                 else if (onEditScript) onEditScript(item.id);
             }}
             className={`
-                group flex flex-col p-4 md:grid md:grid-cols-[60px_45px_45px_1fr_160px_120px_100px] items-start md:items-center gap-3 md:gap-4 bg-white hover:bg-slate-50 transition-all cursor-pointer border-b border-slate-100
-                ${isFinished ? 'opacity-60' : ''}
+                group flex flex-col p-3.5 md:p-4 md:grid md:grid-cols-[36px_50px_45px_45px_1fr_160px_120px_100px] items-start md:items-center gap-3 md:gap-4 transition-all cursor-pointer border-b border-slate-100
+                ${isSelected ? 'bg-indigo-50/70 hover:bg-indigo-50/90' : 'bg-white hover:bg-slate-50'}
+                ${isFinished && !isSelected ? 'opacity-60' : ''}
                 ${isContent ? 'border-l-4 border-l-amber-400' : 'border-l-4 border-l-blue-400'}
             `}
         >
             {/* Top row for Mobile / Start of Grid for Desktop */}
             <div className="flex items-center justify-between w-full md:contents">
-                <div className="flex items-center gap-3 md:contents">
+                <div className="flex items-center gap-2.5 md:contents">
+                    {/* 0. Multi-select Checkbox */}
+                    <div className="flex items-center justify-center shrink-0">
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onToggleSelect?.(item.id);
+                            }}
+                            className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all ${
+                                isSelected 
+                                    ? 'bg-indigo-600 border-indigo-600 text-white shadow-sm' 
+                                    : 'border-slate-300 hover:border-indigo-400 bg-white'
+                            }`}
+                            title={isSelected ? 'ยกเลิกเลือกรายการนี้' : 'เลือกรายการนี้'}
+                        >
+                            {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                        </button>
+                    </div>
+
                     {/* 1. Drag Handle & Sequence */}
-                    <div className="flex items-center justify-center gap-2 shrink-0">
+                    <div className="flex items-center justify-center gap-1.5 shrink-0">
                         <div 
                             className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-indigo-500 transition-colors p-1"
                             onPointerDown={(e) => dragControls?.start(e)}
+                            onClick={(e) => e.stopPropagation()}
                         >
-                            <GripVertical className="w-5 h-5 md:w-4 md:h-4" />
+                            <GripVertical className="w-4 h-4" />
                         </div>
                         <span className="text-[12px] font-black font-mono text-slate-400">
                             {String(sequenceNumber).padStart(2, '0')}
                         </span>
                     </div>
 
-                    {/* 2. Checkbox/Status */}
+                    {/* 2. Soft-Finished Status Toggle Checkbox */}
                     <div className="flex justify-center shrink-0">
                         <button
                             onClick={(e) => {
@@ -91,6 +116,7 @@ const QueueItemRow: React.FC<QueueItemRowProps> = ({
                                     ? (isContent ? 'bg-amber-500 border-amber-500 text-white shadow-lg shadow-amber-100' : 'bg-blue-500 border-blue-500 text-white shadow-lg shadow-blue-100')
                                     : 'border-slate-200 hover:border-indigo-400 text-transparent'
                             }`}
+                            title={isFinished ? 'ทำเครื่องหมายว่ายังไม่เสร็จ' : 'ทำเครื่องหมายว่าถ่ายเสร็จแล้ว'}
                         >
                             {isProcessing ? (
                                 <Loader2 className="w-3 h-3 animate-spin text-slate-400" />
@@ -103,11 +129,11 @@ const QueueItemRow: React.FC<QueueItemRowProps> = ({
                     {/* 3. Type Icon (Desktop Only Slot) */}
                     <div className="hidden md:flex justify-center">
                         {isContent ? (
-                            <div className="p-2 bg-amber-50 text-amber-600 rounded-xl">
+                            <div className="p-2 bg-amber-50 text-amber-600 rounded-xl" title="Content Stock (คลิป)">
                                 <Film className="w-4 h-4" />
                             </div>
                         ) : (
-                            <div className="p-2 bg-blue-50 text-blue-600 rounded-xl">
+                            <div className="p-2 bg-blue-50 text-blue-600 rounded-xl" title="Script Hub (บทสคริปต์)">
                                 <FileEdit className="w-4 h-4" />
                             </div>
                         )}
@@ -135,7 +161,7 @@ const QueueItemRow: React.FC<QueueItemRowProps> = ({
                         <div className="flex items-center gap-2 mt-1">
                             {channel && (
                                 <div className="flex items-center gap-1 px-1.5 py-0.5 bg-slate-100 rounded-full border border-slate-200 scale-90 origin-left">
-                                    <div className="w-1 h-1 rounded-full" style={{ backgroundColor: channel.color.split(' ')[0].replace('bg-', '') }} />
+                                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: channel.color.split(' ')[0].replace('bg-', '') }} />
                                     <span className="text-[9px] font-bold text-slate-500">{channel.name}</span>
                                 </div>
                             )}
@@ -210,7 +236,7 @@ const QueueItemRow: React.FC<QueueItemRowProps> = ({
                             e.stopPropagation();
                             onOpenPlanning(item);
                         }}
-                        className="p-2.5 bg-indigo-50 text-indigo-600 hover:bg-slate-900 hover:text-white rounded-xl transition-all border border-indigo-100 shadow-sm active:scale-90"
+                        className="p-2 bg-indigo-50 text-indigo-600 hover:bg-slate-900 hover:text-white rounded-xl transition-all border border-indigo-100 shadow-sm active:scale-90"
                         title="จัดตารางถ่ายทำ"
                     >
                         <Calendar className="w-4 h-4" />
@@ -221,7 +247,7 @@ const QueueItemRow: React.FC<QueueItemRowProps> = ({
                         e.stopPropagation();
                         onRemove(item);
                     }}
-                    className="p-2.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all active:scale-90"
+                    className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all active:scale-90"
                     title="นำออกจากคิวถ่ายทำ"
                 >
                     <Trash2 className="w-4 h-4" />

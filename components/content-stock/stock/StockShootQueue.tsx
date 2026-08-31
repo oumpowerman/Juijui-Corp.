@@ -1,8 +1,20 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Task, ScriptSummary, Channel, User, MasterOption } from '../../../types';
+import { Task, Channel, User, MasterOption } from '../../../types';
 import { supabase } from '../../../lib/supabase';
-import { Loader2, Video, Film, Clapperboard, Sparkles } from 'lucide-react';
+import { 
+    Loader2, 
+    Video, 
+    Film, 
+    Clapperboard, 
+    Sparkles, 
+    Trash2, 
+    CheckCircle2, 
+    X, 
+    CheckSquare, 
+    RotateCcw,
+    ArrowRight
+} from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '../../../context/ToastContext';
 import { useGlobalDialog } from '../../../context/GlobalDialogContext';
@@ -23,7 +35,13 @@ interface StockShootQueueProps {
     onEditScript?: (scriptId: string) => void;
 }
 
-const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, masterOptions, onEditContent, onEditScript }) => {
+const StockShootQueue: React.FC<StockShootQueueProps> = ({ 
+    channels, 
+    users, 
+    masterOptions, 
+    onEditContent, 
+    onEditScript 
+}) => {
     const { showToast } = useToast();
     const { showConfirm, showLoading, hideLoading } = useGlobalDialog();
     const { 
@@ -34,6 +52,7 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
         checkAndRefreshIfNeeded,
         updateLocalItem,
         removeItemLocally,
+        batchRemoveFromQueue,
         injectSingleItem
     } = useShootQueueContext();
 
@@ -43,6 +62,7 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
     const [viewMode, setViewMode] = useState<QueueViewMode>('TABLE');
     const [planningItem, setPlanningItem] = useState<MergedQueueItem | null>(null);
     const [isRedirecting, setIsRedirecting] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
     // Filter queue items on the UI level rather than refetching to save network egress
     const filteredItems = useMemo(() => {
@@ -50,12 +70,22 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
         return queueItems.filter(item => item.type !== 'SCRIPT');
     }, [queueItems, includeScripts]);
 
+    // Ensure selectedIds only contains items currently existing in the view
+    const selectedIdsInView = useMemo(() => {
+        const itemIdsSet = new Set(filteredItems.map(i => i.id));
+        return selectedIds.filter(id => itemIdsSet.has(id));
+    }, [selectedIds, filteredItems]);
+
     const finishedCount = useMemo(() => 
-        filteredItems.filter(i => i.isSoftFinished).map(i => i.id).length
+        filteredItems.filter(i => i.isSoftFinished).length
+    , [filteredItems]);
+
+    const unfinishedCount = useMemo(() => 
+        filteredItems.filter(i => !i.isSoftFinished).length
     , [filteredItems]);
 
     // Keep a stable ref of queue items to avoid real-time connection teardowns on state edits
-    const queueItemsRef = React.useRef(queueItems);
+    const queueItemsRef = useRef(queueItems);
     useEffect(() => {
         queueItemsRef.current = queueItems;
     }, [queueItems]);
@@ -63,8 +93,6 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
     useEffect(() => {
         // Smart fingerprinted background check on mount
         checkAndRefreshIfNeeded(true);
-
-        console.log('[StockShootQueue] Establishing lazy Realtime subscription...');
 
         const channel = supabase.channel('shoot-queue-lazy-realtime')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'contents' }, (payload) => {
@@ -74,6 +102,7 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
 
                 if (eventType === 'DELETE') {
                     removeItemLocally(oldRec.id);
+                    setSelectedIds(prev => prev.filter(id => id !== oldRec.id));
                     return;
                 }
 
@@ -82,19 +111,15 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
                 const wasInQueueLocal = queueItemsRef.current.some(item => item.id === newRec.id);
 
                 if (!isNowInQueue && !wasInQueueLocal) {
-                    // Item has nothing to do with the shoot queue, and we don't have it locally. Avoid doing anything!
                     return;
                 }
 
                 if (!isNowInQueue) {
-                    // Item was taken out of the queue, remove locally
                     removeItemLocally(newRec.id);
+                    setSelectedIds(prev => prev.filter(id => id !== newRec.id));
                 } else if (!wasInQueueLocal) {
-                    // --- 3. SINGLE-ITEM INJECTION ---
-                    // Item entered the queue, query ONLY this single row!
                     injectSingleItem(newRec.id, 'CONTENT');
                 } else {
-                    // Item is already in queue and was updated, sync its attributes
                     updateLocalItem(newRec.id, {
                         title: newRec.title,
                         status: newRec.status,
@@ -114,10 +139,10 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
 
                 if (eventType === 'DELETE') {
                     removeItemLocally(oldRec.id);
+                    setSelectedIds(prev => prev.filter(id => id !== oldRec.id));
                     return;
                 }
 
-                // --- 1. LOCAL GUARD FILTER ---
                 const isNowInQueue = !!newRec.is_in_shoot_queue;
                 const wasInQueueLocal = queueItemsRef.current.some(item => item.id === newRec.id || item.scriptId === newRec.id);
 
@@ -127,8 +152,8 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
 
                 if (!isNowInQueue) {
                     removeItemLocally(newRec.id);
+                    setSelectedIds(prev => prev.filter(id => id !== newRec.id));
                 } else if (!wasInQueueLocal) {
-                    // --- 3. SINGLE-ITEM INJECTION ---
                     injectSingleItem(newRec.id, 'SCRIPT');
                 } else {
                     updateLocalItem(newRec.id, {
@@ -146,13 +171,31 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
             .subscribe();
 
         return () => {
-            console.log('[StockShootQueue] Unsubscribing from lazy Realtime channel to preserve network resources.');
             supabase.removeChannel(channel);
         };
     }, [checkAndRefreshIfNeeded, injectSingleItem, updateLocalItem, removeItemLocally]);
 
+    // Selection Handlers
+    const handleToggleSelect = (id: string) => {
+        setSelectedIds(prev => 
+            prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+        );
+    };
+
+    const handleSelectAll = () => {
+        if (selectedIdsInView.length === filteredItems.length && filteredItems.length > 0) {
+            setSelectedIds([]);
+        } else {
+            setSelectedIds(filteredItems.map(i => i.id));
+        }
+    };
+
+    const handleClearSelection = () => {
+        setSelectedIds([]);
+    };
+
+    // Reorder Handlers
     const handleReorder = async (newItems: MergedQueueItem[]) => {
-        // Optimistic update in context
         setQueueItems(newItems.map((item, index) => ({ ...item, sort_order: index })));
 
         try {
@@ -168,10 +211,11 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
         } catch (err) {
             console.error('Reorder update failed:', err);
             showToast('จัดลำดับไม่สำเร็จ', 'error');
-            refreshQueue(true); // Revert from server
+            refreshQueue(true);
         }
     };
 
+    // Single item removal
     const handleRemoveFromQueue = async (item: MergedQueueItem) => {
         const confirmed = await showConfirm(
             `คุณต้องการนำรายการ "${item.title}" ออกจากคิวถ่ายทำใช่หรือไม่?`,
@@ -180,6 +224,7 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
 
         if (confirmed) {
             removeItemLocally(item.id);
+            setSelectedIds(prev => prev.filter(id => id !== item.id));
 
             try {
                 const table = item.type === 'CONTENT' ? 'contents' : 'scripts';
@@ -193,8 +238,125 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
             } catch (err) {
                 console.error('Remove from queue failed:', err);
                 showToast('นำออกจากคิวไม่สำเร็จ', 'error');
-                refreshQueue(true); // Revert
+                refreshQueue(true);
             }
+        }
+    };
+
+    // Mechanism 1: Quick Action - Clear Unfinished items in one click
+    const handleClearUnfinished = async () => {
+        const unfinished = filteredItems.filter(i => !i.isSoftFinished);
+        if (unfinished.length === 0) {
+            showToast('ไม่มีรายการที่ยังไม่เสร็จในคิวถ่ายทำ', 'info');
+            return;
+        }
+
+        const confirmed = await showConfirm(
+            `คุณต้องการนำรายการที่ยังถ่ายไม่เสร็จทั้งหมด (${unfinished.length} รายการ) ออกจากคิวถ่ายทำใช่หรือไม่?`,
+            'ยืนยันล้างรายการที่ยังไม่เสร็จ'
+        );
+
+        if (confirmed) {
+            showLoading('กำลังนำรายการที่ยังไม่เสร็จออกจากคิว...');
+            try {
+                const idsToRemove = unfinished.map(i => i.id);
+                await batchRemoveFromQueue(idsToRemove);
+                setSelectedIds(prev => prev.filter(id => !idsToRemove.includes(id)));
+                showToast(`นำรายการที่ยังไม่เสร็จ ${unfinished.length} รายการออกจากคิวเรียบร้อย ✨`, 'success');
+            } catch (err) {
+                console.error('Clear unfinished queue failed:', err);
+                showToast('เกิดข้อผิดพลาดในการล้างรายการที่ยังไม่เสร็จ', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+    };
+
+    // Mechanism 1: Quick Action - Clear All items in queue
+    const handleClearAll = async () => {
+        if (filteredItems.length === 0) return;
+
+        const confirmed = await showConfirm(
+            `คุณต้องการนำรายการทั้งหมดในคิว (${filteredItems.length} รายการ) ออกจากคิวถ่ายทำใช่หรือไม่?`,
+            'ยืนยันล้างคิวถ่ายทำทั้งหมด'
+        );
+
+        if (confirmed) {
+            showLoading('กำลังล้างคิวถ่ายทำทั้งหมด...');
+            try {
+                const idsToRemove = filteredItems.map(i => i.id);
+                await batchRemoveFromQueue(idsToRemove);
+                setSelectedIds([]);
+                showToast('ล้างคิวถ่ายทำทั้งหมดเรียบร้อย ✨', 'success');
+            } catch (err) {
+                console.error('Clear all queue failed:', err);
+                showToast('เกิดข้อผิดพลาดในการล้างคิว', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+    };
+
+    // Mechanism 2: Batch Remove Selected items
+    const handleBatchRemoveSelected = async () => {
+        if (selectedIdsInView.length === 0) return;
+
+        const confirmed = await showConfirm(
+            `คุณต้องการนำรายการที่เลือก (${selectedIdsInView.length} รายการ) ออกจากคิวถ่ายทำใช่หรือไม่?`,
+            'ยืนยันการนำออกที่เลือก'
+        );
+
+        if (confirmed) {
+            showLoading('กำลังนำรายการที่เลือกออกจากคิว...');
+            try {
+                await batchRemoveFromQueue(selectedIdsInView);
+                setSelectedIds(prev => prev.filter(id => !selectedIdsInView.includes(id)));
+                showToast(`นำรายการที่เลือก ${selectedIdsInView.length} รายการออกจากคิวเรียบร้อย ✨`, 'success');
+            } catch (err) {
+                console.error('Batch remove selected failed:', err);
+                showToast('เกิดข้อผิดพลาดในการนำรายการออก', 'error');
+            } finally {
+                hideLoading();
+            }
+        }
+    };
+
+    // Mechanism 2: Batch Mark Finished / Unfinished for selected items
+    const handleBatchToggleFinishSelected = async (markFinished: boolean) => {
+        if (selectedIdsInView.length === 0) return;
+
+        showLoading(markFinished ? 'กำลังทำเครื่องหมายว่าถ่ายเสร็จ...' : 'กำลังยกเลิกสถานะถ่ายเสร็จ...');
+        try {
+            const itemsToUpdate = filteredItems.filter(i => selectedIdsInView.includes(i.id));
+            const contentIds = itemsToUpdate.filter(i => i.type === 'CONTENT').map(i => i.id);
+            const scriptIds = itemsToUpdate.filter(i => i.type === 'SCRIPT').map(i => i.id);
+
+            // Optimistic update
+            itemsToUpdate.forEach(item => {
+                updateLocalItem(item.id, { isSoftFinished: markFinished });
+            });
+
+            if (contentIds.length > 0) {
+                const { error: contentErr } = await supabase
+                    .from('contents')
+                    .update({ is_soft_finished: markFinished })
+                    .in('id', contentIds);
+                if (contentErr) throw contentErr;
+            }
+            if (scriptIds.length > 0) {
+                const { error: scriptErr } = await supabase
+                    .from('scripts')
+                    .update({ is_soft_finished: markFinished })
+                    .in('id', scriptIds);
+                if (scriptErr) throw scriptErr;
+            }
+            showToast(`อัปเดตสถานะ ${selectedIdsInView.length} รายการเรียบร้อย ✨`, 'success');
+        } catch (err) {
+            console.error('Batch toggle finish failed:', err);
+            showToast('อัปเดตสถานะไม่สำเร็จ', 'error');
+            refreshQueue(true);
+        } finally {
+            hideLoading();
         }
     };
 
@@ -228,6 +390,7 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
         }
     };
 
+    // Batch Process Completed items into Next Pipeline Stage
     const handleBatchProcess = async () => {
         if (finishedCount === 0 || isBatchProcessing) return;
         
@@ -283,6 +446,7 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
 
             // Local update to remove processed items
             setQueueItems(queueItems.filter(i => !itemsToProcess.some(p => p.id === i.id)));
+            setSelectedIds(prev => prev.filter(id => !itemsToProcess.some(p => p.id === id)));
             showToast(`ประมวลผลสำเร็จ ${itemsToProcess.length} รายการ! 🎬`, 'success');
         } catch (err) {
             console.error('Batch process failed:', err);
@@ -359,18 +523,27 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
     }
 
     return (
-        <div className="space-y-6">
+        <div className="space-y-6 pb-20">
+            {/* Header with Quick Actions & Filters */}
             <QueueHeader 
                 includeScripts={includeScripts}
                 setIncludeScripts={setIncludeScripts}
                 viewMode={viewMode}
                 setViewMode={setViewMode}
+                totalCount={filteredItems.length}
                 finishedCount={finishedCount}
+                unfinishedCount={unfinishedCount}
+                selectedCount={selectedIdsInView.length}
                 isBatchProcessing={isBatchProcessing}
                 onBatchProcess={handleBatchProcess}
                 onSortByTime={handleSortByTime}
+                onClearUnfinished={handleClearUnfinished}
+                onClearAll={handleClearAll}
+                onSelectAll={handleSelectAll}
+                isAllSelected={filteredItems.length > 0 && selectedIdsInView.length === filteredItems.length}
             />
 
+            {/* Empty State */}
             {filteredItems.length === 0 ? (
                 <div className="bg-white/40 backdrop-blur-md rounded-3xl border border-white/60 p-16 text-center flex flex-col items-center justify-center">
                     <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-6">
@@ -388,6 +561,8 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
                         channels={channels}
                         masterOptions={masterOptions}
                         isProcessing={isProcessing}
+                        selectedIds={selectedIdsInView}
+                        onToggleSelect={handleToggleSelect}
                         onEditContent={onEditContent}
                         onEditScript={handleEditScript}
                         onToggleFinished={toggleFinished}
@@ -401,6 +576,9 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
                         channels={channels}
                         masterOptions={masterOptions}
                         isProcessing={isProcessing}
+                        selectedIds={selectedIdsInView}
+                        onToggleSelect={handleToggleSelect}
+                        onSelectAll={handleSelectAll}
                         onEditContent={onEditContent}
                         onEditScript={handleEditScript}
                         onToggleFinished={toggleFinished}
@@ -412,6 +590,69 @@ const StockShootQueue: React.FC<StockShootQueueProps> = ({ channels, users, mast
                 )
             )}
 
+            {/* Floating Multi-Select Batch Action Bar */}
+            <AnimatePresence>
+                {selectedIdsInView.length > 0 && (
+                    <motion.div
+                        initial={{ opacity: 0, y: 50, scale: 0.95 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, y: 50, scale: 0.95 }}
+                        className="fixed bottom-6 inset-x-4 max-w-2xl mx-auto z-40"
+                    >
+                        <div className="bg-slate-900/95 backdrop-blur-xl text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-white/20 flex flex-wrap items-center justify-between gap-3">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center font-black text-xs text-white">
+                                    {selectedIdsInView.length}
+                                </div>
+                                <div>
+                                    <p className="text-xs font-bold text-slate-200">
+                                        เลือกอยู่ {selectedIdsInView.length} จาก {filteredItems.length} รายการ
+                                    </p>
+                                    <button
+                                        onClick={handleSelectAll}
+                                        className="text-[11px] text-indigo-400 hover:text-indigo-300 underline font-medium"
+                                    >
+                                        {selectedIdsInView.length === filteredItems.length ? 'ยกเลิกเลือกทั้งหมด' : 'เลือกทั้งหมดในคิว'}
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-2">
+                                {/* Mark Finished / Unfinished */}
+                                <button
+                                    onClick={() => handleBatchToggleFinishSelected(true)}
+                                    className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600/90 hover:bg-emerald-600 text-white rounded-xl text-xs font-bold transition-all active:scale-95"
+                                    title="ทำเครื่องหมายว่าถ่ายเสร็จแล้วทั้งหมดที่เลือก"
+                                >
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                    <span>ถ่ายเสร็จแล้ว</span>
+                                </button>
+
+                                {/* Batch Remove Button */}
+                                <button
+                                    onClick={handleBatchRemoveSelected}
+                                    className="flex items-center gap-1.5 px-3 py-2 bg-rose-600/90 hover:bg-rose-600 text-white rounded-xl text-xs font-bold transition-all active:scale-95 shadow-lg shadow-rose-950/40"
+                                    title="นำรายการที่เลือกออกจากคิวถ่ายทำทั้งหมด"
+                                >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <span>นำออกจากคิว ({selectedIdsInView.length})</span>
+                                </button>
+
+                                {/* Close / Deselect */}
+                                <button
+                                    onClick={handleClearSelection}
+                                    className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-all"
+                                    title="ยกเลิกการเลือก"
+                                >
+                                    <X className="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+
+            {/* Shoot Planning Modal */}
             {planningItem && (
                 <ShootPlanningModal 
                     isOpen={!!planningItem}

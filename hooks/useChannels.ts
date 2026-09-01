@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { Channel } from '../types';
 import { useToast } from '../context/ToastContext';
@@ -8,7 +8,7 @@ export const useChannels = () => {
     const [channels, setChannels] = useState<Channel[]>([]);
     const { showToast } = useToast();
 
-    const fetchChannels = async () => {
+    const fetchChannels = useCallback(async () => {
         try {
             // Order by created_at to keep list stable
             const { data, error } = await supabase
@@ -26,7 +26,7 @@ export const useChannels = () => {
                 })));
             }
         } catch (err) { console.error('Fetch channels failed', err); }
-    };
+    }, []);
 
     // Realtime Subscription
     useEffect(() => {

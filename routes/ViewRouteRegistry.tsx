@@ -381,7 +381,13 @@ export const ViewRouteRegistry: React.FC<ViewRouteRegistryProps> = ({
               />
             );
           case 'FINANCE':
-            return <FinanceRouter currentUser={currentUserProfile} users={activeUsers} />;
+            return (
+              <FinanceRouter 
+                currentUser={currentUserProfile} 
+                users={activeUsers} 
+                onSelectTask={handleOpenTaskById}
+              />
+            );
 
           case 'NEXUS':
             return <NexusHub currentUser={currentUserProfile} />;

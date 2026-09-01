@@ -1,265 +1,119 @@
-// ==========================================
-// 1. ตั้งค่า LINE & Google Sheet
-// ==========================================
-const LINE_TOKEN = 'jVg8IfsLJqeqgwHOLlOldl2w6/bJJEdZyaoR2JulfGz+y8x6H2tXTf4awRrrTx656Z9HPhaVO6umy/nGeHsyLKuSW/FTgtKHlMhBdvd9d+dMruYvZ+Ji8whW+nr8NPqRDAM3eDRlD6ENFORZtXQ4HwdB04t89/1O/w1cDnyilFU=';
-const SHEET_ID = '1KJTRLhTo5todnehSHhqxoO3cCm_3fGJtZzFRBjTN6rE';
-
-// ==========================================
-// 2. ตั้งค่าเชื่อมต่อระบบ Supabase & ข้อมูลองค์กร
-// ==========================================
-const SUPABASE_URL = 'https://ajkycqazreebczqjsfpv.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFqa3ljcWF6cmVlYmN6cWpzZnB2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0OTM5MjMsImV4cCI6MjA4NDA2OTkyM30.VscG53hy5tT5_oT297RECiVzaCcCw51AYWQeme_PDRo'; // หรือ Service Role Key
-
-// 🏢 2.1 ผูก Line GroupId เข้ากับชื่อช่อง (Channel)
-// * นำ GroupId มาจาก Col G ในชีตที่บอทเคยบันทึกไว้ได้เลยครับ
-const GROUP_TO_CHANNEL = {
-  'Ce03b54f4a2864b41811e133bba87c785': { name: 'ช่อง King Of Funny', channelId: 'e6622963-f0c0-40f8-9b5a-86ec1543c3bc' },
-  'C1234567890abcdef2': { name: 'ช่อง B', channelId: 'UUID_OF_CHANNEL_B' },
-  'C1234567890abcdef3': { name: 'ช่อง C', channelId: 'UUID_OF_CHANNEL_C' },
-  // สามารถเพิ่มกลุ่มอื่นๆ ได้ที่นี่
-  'DEFAULT': { name: 'ช่อง A', channelId: 'UUID_OF_CHANNEL_A' } // ค่าเริ่มต้นกรณีส่งนอกกลุ่ม
-};
-
-// 👥 2.2 แมปชื่อเล่นในไลน์ ➔ User ID ในระบบ (เพื่อให้ขึ้น Avatar คนทำในเว็บ)
-const USER_MAPPING = {
-  'อุ้ม': '90abe409-fda5-4376-b890-8736d85edc65',
-  'ป้าง': 'b3dd5da2-5e10-4038-83d9-4096f0d02829',
-  // เพิ่มชื่อเล่นทีมงานได้ตามต้องการ
-};
-
-// ==========================================
-// 📩 3. รับข้อความจาก LINE Webhook (doPost)
-// ==========================================
-function doPost(e) {
-  try {
-    if (!e || !e.postData || !e.postData.contents) {
-      return ContentService.createTextOutput("OK");
-    }
-
-    const data = JSON.parse(e.postData.contents);
-    if (!data.events || data.events.length === 0) return ContentService.createTextOutput("OK");
-
-    const event = data.events[0];
-
-    if (event.type === 'message' && event.message.type === 'text') {
-      const userMessage = event.message.text.trim();
-      const replyToken = event.replyToken;
-      const groupId = event.source.groupId || ''; 
-      const sheet = SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
-
-      // 1. ฟังก์ชันขอคู่มือ
-      if (userMessage === 'ขอคู่มือ' || userMessage === '#คู่มือ' || userMessage === 'คู่มือ') {
-        const manualText = 
-          "📖 คู่มือการสั่งงานบอทข่าวประจำทีม\n\n" +
-          "1. ส่งข่าวเข้ากองกลาง (แอดมิน):\n" +
-          "👉 พิมพ์: #บรีฟ [ลิงก์ข่าว] [บรีฟเพิ่มเติม]\n" +
-          "ตัวอย่าง: #บรีฟ https://tiktok.com/... ดราม่าข่าวด่วน\n\n" +
-          "2. รับงานไปเขียนสคริปต์ (ครีเอทีฟ):\n" +
-          "👉 พิมพ์: #รับงาน [รหัสงาน] [ชื่อตัวเอง]\n" +
-          "ตัวอย่าง: #รับงาน N001 เจได\n\n" +
-          "3. ส่งคลิปที่ตัดเสร็จ (ตัดต่อ):\n" +
-          "👉 พิมพ์: #ส่งงาน [รหัสงาน] [ลิงก์ไดรฟ์/คลิป]\n" +
-          "ตัวอย่าง: #ส่งงาน N001 https://drive.google.com/...\n\n" +
-          "4. ตรวจงานผ่าน (แอดมิน):\n" +
-          "👉 พิมพ์: #ผ่าน [รหัสงาน]\n\n" +
-          "⏰ ระบบจะดึงงานที่มีคนรับผิดชอบแล้ว เข้าคลังคลิปในเว็บทุกคืนครับ";
-        
-        replyMsg(replyToken, manualText);
-        return ContentService.createTextOutput("OK");
-      }
-
-      // 2. ฟังก์ชัน #บรีฟ (โยนงาน)
-      if (userMessage.startsWith('#บรีฟ')) {
-        const content = userMessage.replace('#บรีฟ', '').trim();
-        const jobId = 'N' + (sheet.getLastRow()).toString().padStart(3, '0');
-        const timestamp = new Date();
-
-        // 👈 ดึงชื่อช่องอัตโนมัติจาก Group ID ที่ส่งมา
-        const channelConfig = GROUP_TO_CHANNEL[groupId] || GROUP_TO_CHANNEL['DEFAULT'];
-        const channelName = channelConfig.name;
-
-        // บันทึกลง Sheet: Col A ถึง Col I
-        // [รหัสงาน, วันที่, ข้อมูลบรีฟ, สถานะ, ผู้รับผิดชอบ, ลิงก์งานเสร็จ, GroupId, ช่อง, สถานะซิงค์]
-        sheet.appendRow([jobId, timestamp, content, 'รอรับงาน', '', '', groupId, channelName, '']);
-        replyMsg(replyToken, `📝 บันทึกงาน ${jobId} (สำหรับ: ${channelName}) แล้ว!\nใครพร้อมรับบรีฟ พิมพ์: #รับงาน ${jobId} [ชื่อตัวเอง] ได้เลยครับ`);
-      }
-      // 3. ฟังก์ชัน #รับงาน
-      else if (userMessage.startsWith('#รับงาน')) {
-        const parts = userMessage.split(' ');
-        const jobId = parts[1];
-        const name = parts.slice(2).join(' ') || 'ทีมงาน';
-        if (jobId) {
-          updateSheet(jobId, 'กำลังทำสคริปต์', name, '');
-          replyMsg(replyToken, `👍 รับทราบ! ${name} รับผิดชอบงาน ${jobId} แล้วครับ`);
-        }
-      }
-      // 4. ฟังก์ชัน #ส่งงาน
-      else if (userMessage.startsWith('#ส่งงาน')) {
-        const parts = userMessage.split(' ');
-        const jobId = parts[1];
-        const link = parts.slice(2).join(' ');
-        if (jobId) {
-          updateSheet(jobId, 'รอตรวจ', '', link);
-          replyMsg(replyToken, `🎬 งาน ${jobId} ส่งงานแล้ว!\nแอดมินตรวจคลิปได้ที่: ${link}`);
-        }
-      }
-      // 5. ฟังก์ชัน #ผ่าน
-      else if (userMessage.startsWith('#ผ่าน')) {
-        const parts = userMessage.split(' ');
-        const jobId = parts[1];
-        if (jobId) {
-          updateSheet(jobId, 'เสร็จสิ้น', '', '');
-          replyMsg(replyToken, `🎉 เยี่ยมมาก! งาน ${jobId} ตรวจผ่านแล้ว`);
-        }
-      }
-    }
-  } catch (err) {
-    console.error("Error:", err.toString());
-  }
-
-  return ContentService.createTextOutput("OK");
-}
-
-// อัปเดตข้อมูลในชีต
-function updateSheet(jobId, status, worker, link) {
-  const sheet = SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
-  const data = sheet.getDataRange().getValues();
-  for (let i = 1; i < data.length; i++) {
-    if (data[i][0] === jobId) {
-      const row = i + 1;
-      if (status) sheet.getRange(row, 4).setValue(status);
-      if (worker) sheet.getRange(row, 5).setValue(worker);
-      if (link) sheet.getRange(row, 6).setValue(link);
-      break;
-    }
-  }
-}
-
-// ==========================================
-// 🌙 4. ฟังก์ชันซิงค์เข้าคลังคลิป Supabase (รันทุกคืน)
-// ==========================================
-function syncContentsToSupabase() {
-  const sheet = SpreadsheetApp.openById(SHEET_ID).getSheets()[0];
-  const data = sheet.getDataRange().getValues();
+export const BRAND_CONFIG = {
+  name: 'Test-Kontent OS',
+  companyName: 'Kontent OS Co., Ltd.',
+  title: 'Kontent OS',
+  tagline: 'เปลี่ยนความวุ่นวายหลังบ้านให้เป็นระบบระเบียบ',
+  description: 'แพลตฟอร์มบริหารจัดการงานสร้างสรรค์ที่เน้น Workflow ของครีเอเตอร์โดยเฉพาะ',
+  supportEmail: 'support@kontentos.ai',
+  website: 'https://kontentos.ai',
+  copyright: '© 2024 Kontent OS. All rights reserved.',
+  madeBy: 'Made with ♥ by Content Creator for Creator',
+  projectPlaceholder: 'เริ่มต้นวางแผนกลยุทธ์ของคุณด้วยเครื่องมือ Kontent OS โดยกดปุ่มสร้างโครงการใหม่ด้านบน',
   
-  const rowsToInsert = [];
-  const rowsIndexToUpdate = [];
+  // โหมดหน้าแรกเมื่อไม่ได้เข้าสู่ระบบ
+  // 1 = แสดงหน้า LandingPage (ค่าเริ่มต้น)
+  // 2 = แสดงหน้า AuthPage ทันทีเพื่อความสะดวกรวดเร็ว
+  initialRouteMode: 1,
 
-  for (let i = 1; i < data.length; i++) {
-    const row = data[i];
-    const jobId = row[0];        // Col A: รหัสงาน
-    const createdAt = row[1];    // Col B: วันที่
-    const briefContent = row[2]; // Col C: บรีฟและลิงก์
-    const sheetStatus = (row[3] || '').toString().trim();  // Col D: สถานะ
-    const worker = (row[4] || '').toString().trim();       // Col E: ผู้รับผิดชอบ
-    const doneLink = (row[5] || '').toString().trim();     // Col F: ลิงก์งานเสร็จ
-    const groupId = (row[6] || '').toString().trim();      // Col G: GroupId
-    const channelName = (row[7] || '').toString().trim();  // Col H: ช่อง
-    const syncStatus = row[8];   // Col I: สถานะซิงค์เว็บ (index 8)
+  // โหมดการแสดงปุ่มเข้าสู่ระบบด้วย Google
+  // 1 = แสดงปุ่มเข้าสู่ระบบด้วย Google
+  // 2 = ไม่แสดง (ซ่อน/คอมเมนต์ไว้ชั่วคราว)
+  showGoogleLoginMode: 2,
+    
+  // โหมดการแสดงผล WorkBox (กล่องเก็บงาน)
+  // 1 = แสดง (ค่าเริ่มต้น)
+  // 2 = ไม่แสดง (ซ่อน/ปิดการแสดงผล)
+  showWorkboxMode: 2,
 
-    // ข้ามแถวที่ไม่มีรหัสงาน หรือซิงค์ไปแล้ว
-    if (!jobId || syncStatus === 'SYNCED') continue;
+  // โหมดการแสดงผลผู้ช่วย JuiJui Bot (AI)
+  // 1 = แสดง (ค่าเริ่มต้น)
+  // 2 = ไม่แสดง (ซ่อน/ปิดการแสดงผล)
+  showJuiJuiAiMode: 2,
 
-    // 🔒 เงื่อนไขสำคัญ: ต้องมีผู้รับผิดชอบแล้ว หรือสถานะไม่ใช่ "รอรับงาน"
-    const hasWorker = worker !== '' && worker !== '-';
-    const isAccepted = sheetStatus !== '' && sheetStatus !== 'รอรับงาน';
+  // โหมดการแสดงผลหลอดเลือด (HP Bar) และ Badge ใน LiveClock
+  // 1 = แสดงหลอดเลือดแบบปกติ (เริ่มต้นหลอดเต็ม 100%) และแสดง Badge HP ปกติ (ติดลบแสดงไอคอนหัวกะโหลกกระดอนสีเข้มดูน่ากลัว)
+  // 2 = แสดงหลอดเลือดแบบสะสมความเสียหาย (เริ่มต้นหลอด 0%) และแสดง Badge เป็นตัวเลขล้วน โดยแสดงค่าติดลบในธีมสีชมพูอ่อนเป็นมิตรไม่น่ากลัว
+  hpDisplayMode: 2,
 
-    if (!hasWorker && !isAccepted) {
-      // ข้ามไปก่อน รอมีคนมารับงานในวันหลัง
-      continue;
-    }
+  // โหมดของระบบ Gamification และการตาย (Death System)
+  // 1 = ทำงานเต็มรูปแบบ (คำนวณคะแนน หัก HP บล็อกหน้าจอเมื่อ HP <= 0 หรือเข้าสู่สถานะ DEATH)
+  // 2 = ปิดระบบการลงโทษและการล็อกหน้าจอทั้งหมด (ข้าม Logic HP <= 0 และข้ามการจำกัดหน้าจอทุกรูปแบบ)
+  gamificationMode: 2,
 
-    // 🔄 แปลงสถานะในชีตเป็นสถานะในตาราง contents
-    let contentStatus = 'SCRIPT';
-    if (sheetStatus === 'รอตรวจ') contentStatus = 'REVIEW';
-    else if (sheetStatus === 'เสร็จสิ้น') contentStatus = 'DONE';
+  // โหมดนับสาย (Late Calculation Mode)
+  // 1 = โหมดปกติ (มี Buffer)
+  // 2 = โหมดเข้มงวด (ไม่มี Buffer + อ้างอิงตาราง Multiple Shifts ทันที)
+  lateCalculationMode: 1,
 
-    // 📺 หา Channel ID จาก GroupId หรือ ChannelName
-    const groupConf = GROUP_TO_CHANNEL[groupId] || GROUP_TO_CHANNEL['DEFAULT'];
-    const channelId = groupConf ? groupConf.channelId : null;
+  // สวิตช์เปิดใช้งานกฎการเข้าสายแบบ 4 ระดับ (ถ้า false จะทำงานเป็นโหมด 1 ดั้งเดิม 100%)
+  enableFourStageLateRules: true,
 
-    // 👥 หา User ID ของผู้รับผิดชอบ
-    const matchedUserId = USER_MAPPING[worker] || null;
-    const assigneeIds = matchedUserId ? [matchedUserId] : [];
+  // กำหนดเกณฑ์วินัย 4 ระดับแบบรวมศูนย์ (ไม่กระจายตัวเลข Hardcode)
+  fourStageLateConfig: {
+    stage1MaxMins: 5,   // 1 - 5 นาที: ไม่หัก HP, เลิกงาน 17:00 น. ได้
+    stage2MaxMins: 30,  // 6 - 30 นาที: หักนาทีละ 1 HP, เลิกงาน 17:00 น. ได้
+    stage3MaxMins: 60,  // 31 - 60 นาที: หักนาทีละ 1 HP, ต้องอยู่ชดเชยเวลาสะสม
+    stage4BaseHp: 300,  // 61 นาทีขึ้นไป: หักตั้งต้น 300 HP + หักเพิ่มนาทีละ 1 HP (รวมนาทีที่สายจริงทั้งหมด)
+    hpPerMinuteRate: 1, // อัตราหัก 1 HP ต่อนาที
+  },
 
-    // หัวข้อคอนเทนต์
-    const cleanBrief = (briefContent || '').toString().trim();
-    const shortTitle = cleanBrief.length > 60 
-      ? cleanBrief.substring(0, 60) + '...' 
-      : cleanBrief || `งานข่าว ${jobId}`;
+  // โหมดแสดงเกรด (Grade Display Mode)
+  // 1 = แสดงผลปกติ (Show Grade Column)
+  // 2 = ปิดการแสดงผลทั้งหมดของคอลัมน์ Grade (Hide Grade Column)
+  showGradeMode: 2,
 
-    // รายละเอียดคอนเทนต์
-    let fullDesc = `📌 รหัสงาน: ${jobId}\n`;
-    if (channelName) fullDesc += `📺 ช่อง: ${channelName}\n`;
-    if (cleanBrief) fullDesc += `📝 บรีฟ: ${cleanBrief}\n`;
-    if (worker) fullDesc += `👤 ผู้รับผิดชอบ: ${worker}\n`;
-    if (doneLink) fullDesc += `🔗 ลิงก์ส่งงาน: ${doneLink}\n`;
-    fullDesc += `\n(นำเข้าจาก LINE Bot เมื่อ ${new Date().toLocaleString('th-TH')})`;
+  // โหมดการแสดงผล HP Badge บนหน้าอัปโหลดโปรไฟล์ (Profile Avatar Uploader)
+  // 1 = แสดง HP Badge (ค่าเริ่มต้น)
+  // 2 = ไม่แสดง HP Badge (ซ่อน)
+  showProfileHpBadgeMode: 2,
 
-    rowsToInsert.push({
-      title: `[${jobId}] ${shortTitle}`,
-      description: fullDesc,
-      status: contentStatus,
-      channel_id: channelId,              // 👈 ผูกกับ Channel ID ของช่อง A/B/C
-      assignee_ids: assigneeIds,          // 👈 ใส่ ID ผู้รับผิดชอบ
-      is_unscheduled: true,               // 👈 เข้าหน้า ContentStock อัตโนมัติ
-      tags: ['LINE_BOT', jobId, channelName, worker].filter(Boolean),
-      type: 'CONTENT',
-      created_at: createdAt ? new Date(createdAt).toISOString() : new Date().toISOString(),
-      updated_at: new Date().toISOString()
-    });
+  // โหมดการแสดงผลแถบสถานะ AI (AI Status Badge) ที่ท้าย Sidebar
+  // 1 = แสดง (ค่าเริ่มต้น)
+  // 2 = ไม่แสดง (ซ่อน/ปิดการแสดงผล)
+  showSidebarAiStatusMode: 2,
 
-    rowsIndexToUpdate.push(i + 1);
-  }
+  // โหมดซ่อนแท็บลงเวลา (CHECK_IN) และประวัติ (HISTORY) สำหรับ ADMIN
+  // 1 = แสดงตามปกติ (ค่าเริ่มต้น)
+  // 2 = ซ่อนแท็บทั้งสองนี้ไม่ให้ ADMIN เห็น (ทำให้ ADMIN เห็นเฉพาะแท็บตรวจสอบทีม, คำขออนุมัติ, รายงาน)
+  hideAdminCheckInAndHistoryMode: 2,
 
-  if (rowsToInsert.length === 0) {
-    console.log("ℹ️ ไม่มีงานที่มีผู้รับผิดชอบพร้อมซิงค์ในคืนนี้");
-    return;
-  }
+  // โหมดซ่อนผู้ใช้ที่เป็น ADMIN ออกจากตารางรายงานลงเวลาทำงานและสถิติ ขาด ลา มาสาย ของทีม
+  // 1 = แสดง ADMIN ตามปกติ (ค่าเริ่มต้น)
+  // 2 = ซ่อน ADMIN ออกจากตารางและตัวเลขสถิติภาพรวม (ทำให้ตารางแสดงเฉพาะระดับ MEMBER เท่านั้น)
+  hideAdminFromAttendanceDashboardMode: 2,
+  
+  // โหมดแสดงรายการคำขออนุมัติเข้าร่วมทีมในหน้าตารางลงเวลาทำงาน (AdminWeeklyTimesheet)
+  // 1 = ไม่แสดง (แสดงเฉพาะในหน้า TeamView ปกติ)
+  // 2 = แสดง (เพิ่มกล่องรออนุมัติก่อนถึง TimesheetHeader)
+  showPendingMembersInTimesheetMode: 2,
 
-  // ส่งข้อมูลเข้าตาราง contents ใน Supabase
-  const endpoint = `${SUPABASE_URL}/rest/v1/contents`;
-  const options = {
-    method: 'post',
-    headers: {
-      'apikey': SUPABASE_ANON_KEY,
-      'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
-      'Content-Type': 'application/json',
-      'Prefer': 'return=minimal'
-    },
-    payload: JSON.stringify(rowsToInsert),
-    muteHttpExceptions: true
-  };
+  // โหมดการทำงานการลงเวลาสำหรับคอมพิวเตอร์ (Computer / PC Lock Mode)
+  // 1 = อนุญาตให้เข้างาน/ลงเวลาผ่านคอมพิวเตอร์ได้ (ปลดล็อก)
+  // 2 = ล็อกการลงเวลาผ่านคอมพิวเตอร์ (ล็อกให้ลงผ่านมือถือ/แท็บเล็ตเท่านั้น)
+  allowDesktopCheckInMode: 2,
 
-  try {
-    const response = UrlFetchApp.fetch(endpoint, options);
-    const statusCode = response.getResponseCode();
+  // โหมดแสดงผล XP และ COIN ในคู่มือกฎกติกา (AttendanceRulesModal)
+  // 1 = แสดงผลตามปกติ (ค่าเริ่มต้น)
+  // 2 = ซ่อนข้อมูลที่เกี่ยวข้องกับ XP และ COIN ออกทั้งหมด
+  showXpAndCoinMode: 2,
 
-    if (statusCode === 200 || statusCode === 201) {
-      // มาร์กว่า SYNCED ใน Col I (คอลัมน์ที่ 9)
-      rowsIndexToUpdate.forEach(rowNum => {
-        sheet.getRange(rowNum, 9).setValue('SYNCED');
-      });
-      console.log(`✅ ซิงค์เข้าคลังคลิปสำเร็จ: ${rowsToInsert.length} งาน`);
-    } else {
-      console.error("❌ Supabase Error:", response.getContentText());
-    }
-  } catch (error) {
-    console.error("❌ Network Error:", error.toString());
-  }
-}
+  // โหมดแสดงตัวเลือก Work From Home (WFH Option Mode)
+  // 1 = แสดงตัวเลือก WFH ในแอปพลิเคชันทั้งหมดตามปกติ (แบบดั้งเดิม)
+  // 2 = ซ่อนตัวเลือกและปุ่ม WFH ทั้งหมดในระบบ (ทั้งหน้าตอกบัตรเช้า และหน้าแจ้งลืมตอกบัตร)
+  showWfhOptionMode: 2,
 
-// 📨 ฟังก์ชันส่งข้อความ LINE
-function replyMsg(replyToken, text) {
-  UrlFetchApp.fetch('https://api.line.me/v2/bot/message/reply', {
-    'headers': {
-      'Content-Type': 'application/json; charset=UTF-8',
-      'Authorization': 'Bearer ' + LINE_TOKEN,
-    },
-    'method': 'post',
-    'payload': JSON.stringify({
-      'replyToken': replyToken,
-      'messages': [{'type': 'text', 'text': text}]
-    })
-  });
-}
+  // โหมดการแสดงผลคะแนน HP ในไฟล์ LiveClock.tsx (นาฬิกาหน้าลงเวลา)
+  // 1 = แสดงผลคะแนน HP ปกติ (ค่าเริ่มต้น)
+  // 2 = ปิดการแสดงผลทั้งหมดของคะแนน HP (ซ่อนไม่ให้เห็นคะแนน HP ในหน้านี้)
+  showLiveClockHpMode: 2,
+
+  // โหมดการยื่นคำขอเข้าสายเมื่อมาสาย (Late Appeal Mode)
+  // 1 = แสดงและอนุญาตให้ยื่นคำขอเข้าสายได้ตามปกติ (ค่าเริ่มต้น)
+  // 2 = ปิดการแสดงผลและปิดการยื่นคำขอเข้าสายทั้งหมด (ซ่อน/เปลี่ยนปุ่ม และปรับข้อความออก)
+  allowLateAppealMode: 2,
+
+    // โหมดระดับพลังชีวิตตั้งต้นเมื่อยื่นใบสมัครสำเร็จ
+  // 1 = เริ่มต้นที่ 100 HP (ค่าเริ่มต้นปกติ)
+  // 2 = เริ่มต้นที่ 0 HP (สำหรับสายเริ่มจากศูนย์ และสามารถติดลบลงไปเรื่อย ๆ ได้ตามกติกาสะสมความเสียหาย)
+  initialHpMode: 2,
+};

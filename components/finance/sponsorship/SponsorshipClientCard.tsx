@@ -9,6 +9,7 @@ interface SponsorshipClientCardProps {
     stats: ClientDealStats;
     onEdit: (client: Client) => void;
     onDelete: (clientId: string) => void;
+    onViewDetails?: (client: Client) => void;
 }
 
 export const SponsorshipClientCard = React.forwardRef<HTMLDivElement, SponsorshipClientCardProps>(({
@@ -16,7 +17,14 @@ export const SponsorshipClientCard = React.forwardRef<HTMLDivElement, Sponsorshi
     stats,
     onEdit,
     onDelete,
+    onViewDetails,
 }, ref) => {
+    const handleCardClick = () => {
+        if (onViewDetails) {
+            onViewDetails(client);
+        }
+    };
+
     return (
         <motion.div
             ref={ref}
@@ -25,13 +33,16 @@ export const SponsorshipClientCard = React.forwardRef<HTMLDivElement, Sponsorshi
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.92, y: -10 }}
             whileHover={{ y: -4, transition: { duration: 0.2 } }}
-            className="bg-white rounded-3xl p-5 border border-slate-200/90 shadow-xs hover:shadow-md hover:border-amber-300/80 transition-all flex flex-col justify-between group relative"
+            onClick={handleCardClick}
+            className={`bg-white rounded-3xl p-5 border border-slate-200/90 shadow-xs hover:shadow-md hover:border-amber-400/90 transition-all flex flex-col justify-between group relative ${
+                onViewDetails ? 'cursor-pointer' : ''
+            }`}
         >
             <div>
                 {/* Header with Logo, Info and Action Buttons */}
                 <div className="flex items-start justify-between gap-3 mb-4">
                     <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden shrink-0 shadow-2xs group-hover:border-amber-200 transition-colors">
+                        <div className="w-12 h-12 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden shrink-0 shadow-2xs group-hover:border-amber-300 group-hover:shadow-xs transition-all">
                             {client.logoUrl ? (
                                 <img 
                                     src={client.logoUrl} 
@@ -61,7 +72,10 @@ export const SponsorshipClientCard = React.forwardRef<HTMLDivElement, Sponsorshi
                         <motion.button
                             whileTap={{ scale: 0.9 }}
                             whileHover={{ scale: 1.1 }}
-                            onClick={() => onEdit(client)}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onEdit(client);
+                            }}
                             className="p-2 rounded-xl text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors cursor-pointer"
                             title="แก้ไขข้อมูลลูกค้า"
                         >
@@ -70,7 +84,10 @@ export const SponsorshipClientCard = React.forwardRef<HTMLDivElement, Sponsorshi
                         <motion.button
                             whileTap={{ scale: 0.9 }}
                             whileHover={{ scale: 1.1 }}
-                            onClick={() => onDelete(client.id)}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onDelete(client.id);
+                            }}
                             className="p-2 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
                             title="ลบ / ซ่อนลูกค้า"
                         >
@@ -84,6 +101,7 @@ export const SponsorshipClientCard = React.forwardRef<HTMLDivElement, Sponsorshi
                     {client.phone ? (
                         <a 
                             href={`tel:${client.phone}`} 
+                            onClick={(e) => e.stopPropagation()}
                             className="flex items-center gap-2 text-slate-600 hover:text-indigo-600 transition-colors truncate group/phone"
                         >
                             <Phone className="w-3 h-3 text-slate-400 group-hover/phone:text-indigo-500 shrink-0" />
@@ -99,6 +117,7 @@ export const SponsorshipClientCard = React.forwardRef<HTMLDivElement, Sponsorshi
                     {client.email ? (
                         <a 
                             href={`mailto:${client.email}`} 
+                            onClick={(e) => e.stopPropagation()}
                             className="flex items-center gap-2 text-slate-600 hover:text-indigo-600 transition-colors truncate group/email"
                         >
                             <Mail className="w-3 h-3 text-slate-400 group-hover/email:text-indigo-500 shrink-0" />
@@ -113,11 +132,16 @@ export const SponsorshipClientCard = React.forwardRef<HTMLDivElement, Sponsorshi
                 </div>
             </div>
 
-            {/* Financial Summary for this Client */}
+            {/* Financial Summary for this Client + CTA */}
             <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
                 <div>
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">งานที่ทำร่วมกัน</p>
-                    <p className="text-sm font-black text-slate-700">{stats.totalDeals} คอนเทนต์</p>
+                    <p className="text-sm font-black text-slate-700 flex items-center gap-1.5">
+                        {stats.totalDeals} คอนเทนต์
+                        <span className="text-[10px] font-semibold text-indigo-600 group-hover:underline flex items-center">
+                            ดูประวัติ <ArrowUpRight className="w-2.5 h-2.5" />
+                        </span>
+                    </p>
                 </div>
                 <div className="text-right">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">ยอดดีลรวม</p>

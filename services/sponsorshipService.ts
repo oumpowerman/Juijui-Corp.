@@ -297,11 +297,12 @@ export const sponsorshipService = {
       }
     }
 
-    return data.map((item: any) => {
+    return data.map((item: any, idx: number) => {
       const linkedTask = item.task_id ? tasksMap[item.task_id] : null;
+      const uniqueId = item.id || (item.task_id ? `deal-${item.task_id}` : `deal-idx-${idx}-${Date.now()}`);
 
       return {
-        id: item.id,
+        id: uniqueId,
         taskId: item.task_id,
         clientId: item.client_id,
         isSponsored: item.is_sponsored,

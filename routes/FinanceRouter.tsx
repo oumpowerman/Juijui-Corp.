@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { User, PayrollCycle, PayrollSlip } from '../types';
 import MentorTip from '../components/MentorTip';
 import { DollarSign, FileText, PieChart, Wallet, Plus, Calendar, MapPin, RefreshCw, ArrowRight, Loader2, ArrowLeft, ChevronLeft, ChevronRight, Globe, Coins } from 'lucide-react';
@@ -23,15 +24,20 @@ import PayrollEditor from '../components/finance/payroll/PayrollEditor';
 interface FinanceRouterProps {
     currentUser: User;
     users?: User[]; // Accept users list
+    onSelectTask?: (taskId: string) => void;
 }
 
 type FinanceTab = 'DASHBOARD' | 'TRANSACTIONS' | 'SPONSORS' | 'TRIPS' | 'LOCATIONS' | 'SALARY';
 
-const FinanceRouter: React.FC<FinanceRouterProps> = ({ currentUser, users = [] }) => {
+const FinanceRouter: React.FC<FinanceRouterProps> = ({ currentUser, users = [], onSelectTask }) => {
     // Default tab logic: Admin -> Dashboard, Member -> Salary
     const isAdmin = currentUser.role === 'ADMIN';
     const [currentTab, setCurrentTab] = useState<FinanceTab>(isAdmin ? 'DASHBOARD' : 'SALARY');
     
+    // Container ref for smooth scroll management
+    const containerRef = useRef<HTMLDivElement>(null);
+    const tabNavRef = useRef<HTMLDivElement>(null);
+
     // Date Range State
     const [startDate, setStartDate] = useState(startOfMonth(new Date()));
     const [endDate, setEndDate] = useState(endOfMonth(new Date()));
@@ -70,6 +76,26 @@ const FinanceRouter: React.FC<FinanceRouterProps> = ({ currentUser, users = [] }
         }
     }, [startDate, endDate, pagination.page, isAdmin]);
 
+    // Seamless Tab Switching Handler with Scroll Management
+    const handleSwitchTab = useCallback((nextTab: FinanceTab) => {
+        if (currentTab === nextTab) return;
+        
+        // Find the scrollable container (either window or parent main container in AppShell)
+        const scrollableParent = containerRef.current?.closest('main')?.firstElementChild as HTMLElement | null;
+        const currentScrollTop = scrollableParent ? scrollableParent.scrollTop : window.scrollY;
+
+        // If scrolled down beyond initial view, smooth scroll up to tab bar/content start
+        if (currentScrollTop > 140) {
+            if (scrollableParent) {
+                scrollableParent.scrollTo({ top: 0, behavior: 'smooth' });
+            } else {
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        }
+
+        setCurrentTab(nextTab);
+    }, [currentTab]);
+
     const handleMonthQuickChange = (offset: number) => {
         const currentMid = new Date((startDate.getTime() + endDate.getTime()) / 2);
         const newMid = addMonths(currentMid, offset);
@@ -104,8 +130,8 @@ const FinanceRouter: React.FC<FinanceRouterProps> = ({ currentUser, users = [] }
     };
 
     return (
-        <AppBackground theme="pastel-emerald" pattern="grid" className="p-4 md:p-8 min-h-screen">
-            <div className="relative z-10 space-y-6 animate-in fade-in duration-500 pb-20">
+        <AppBackground theme="pastel-emerald" pattern="grid" className="min-h-full">
+            <div ref={containerRef} className="relative z-10 p-4 md:p-8 space-y-6 animate-in fade-in duration-500 pb-20">
                 
                 {/* Conditional Header: Hide if in Payroll Editor Mode to give more space */}
                 {!activePayrollCycle && (
@@ -176,114 +202,166 @@ const FinanceRouter: React.FC<FinanceRouterProps> = ({ currentUser, users = [] }
                     )}
                 </div>
 
-                {/* Navigation Tabs (Admin Only) */}
+                {/* Sticky Navigation Tabs (Admin Only) */}
                 {isAdmin && (
-                    <div className="flex p-1 bg-white rounded-xl border border-gray-200 w-fit overflow-x-auto max-w-full">
-                        <button 
-                            onClick={() => setCurrentTab('DASHBOARD')}
-                            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'DASHBOARD' ? 'bg-emerald-50 text-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}
-                        >
-                            <PieChart className="w-4 h-4" /> ภาพรวม
-                        </button>
-                        <button 
-                            onClick={() => setCurrentTab('TRANSACTIONS')}
-                            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'TRANSACTIONS' ? 'bg-emerald-50 text-emerald-600' : 'text-gray-500 hover:text-gray-700'}`}
-                        >
-                            <FileText className="w-4 h-4" /> รายการ
-                        </button>
-                        <button 
-                            onClick={() => setCurrentTab('SPONSORS')}
-                            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'SPONSORS' ? 'bg-amber-50 text-amber-600' : 'text-gray-500 hover:text-gray-700'}`}
-                        >
-                            <Coins className="w-4 h-4 text-amber-500" /> งานสปอนเซอร์ / ลูกค้า
-                        </button>
-                        <div className="w-px h-6 bg-gray-200 mx-1 self-center"></div>
-                        <button 
-                            onClick={() => setCurrentTab('TRIPS')}
-                            className={`relative px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'TRIPS' ? 'bg-orange-50 text-orange-600' : 'text-gray-500 hover:text-gray-700'}`}
-                        >
-                            <MapPin className="w-4 h-4" /> จัดการกองถ่าย
-                            {/* Notification Badge */}
-                            {potentialTrips.length > 0 && (
-                                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] text-white ring-2 ring-white">
-                                    {potentialTrips.length}
-                                </span>
-                            )}
-                        </button>
-                        <button 
-                            onClick={() => setCurrentTab('LOCATIONS')}
-                            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'LOCATIONS' ? 'bg-indigo-50 text-indigo-600' : 'text-gray-500 hover:text-gray-700'}`}
-                        >
-                            <Globe className="w-4 h-4" /> แผนที่การถ่าย (Loc Intel)
-                        </button>
-                        <div className="w-px h-6 bg-gray-200 mx-1 self-center"></div>
-                        <button 
-                            onClick={() => setCurrentTab('SALARY')}
-                            className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'SALARY' ? 'bg-blue-50 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
-                        >
-                            <Wallet className="w-4 h-4" /> เงินเดือน
-                        </button>
+                    <div ref={tabNavRef} className="sticky top-0 z-20 -mx-4 md:-mx-8 px-4 md:px-8 py-2.5 bg-emerald-50/80 backdrop-blur-md border-b border-emerald-100/60 shadow-[0_4px_20px_-8px_rgba(0,0,0,0.06)] transition-all">
+                        <div className="flex p-1 bg-white/95 backdrop-blur-sm rounded-xl border border-gray-200/90 shadow-sm w-fit overflow-x-auto max-w-full">
+                            <button 
+                                onClick={() => handleSwitchTab('DASHBOARD')}
+                                className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'DASHBOARD' ? 'bg-emerald-50 text-emerald-600 shadow-xs' : 'text-gray-500 hover:text-gray-700'}`}
+                            >
+                                <PieChart className="w-4 h-4" /> ภาพรวม
+                            </button>
+                            <button 
+                                onClick={() => handleSwitchTab('TRANSACTIONS')}
+                                className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'TRANSACTIONS' ? 'bg-emerald-50 text-emerald-600 shadow-xs' : 'text-gray-500 hover:text-gray-700'}`}
+                            >
+                                <FileText className="w-4 h-4" /> รายการ
+                            </button>
+                            <button 
+                                onClick={() => handleSwitchTab('SPONSORS')}
+                                className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'SPONSORS' ? 'bg-amber-50 text-amber-600 shadow-xs' : 'text-gray-500 hover:text-gray-700'}`}
+                            >
+                                <Coins className="w-4 h-4 text-amber-500" /> งานสปอนเซอร์ / ลูกค้า
+                            </button>
+                            <div className="w-px h-6 bg-gray-200 mx-1 self-center"></div>
+                            <button 
+                                onClick={() => handleSwitchTab('TRIPS')}
+                                className={`relative px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'TRIPS' ? 'bg-orange-50 text-orange-600 shadow-xs' : 'text-gray-500 hover:text-gray-700'}`}
+                            >
+                                <MapPin className="w-4 h-4" /> จัดการกองถ่าย
+                                {/* Notification Badge */}
+                                {potentialTrips.length > 0 && (
+                                    <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] text-white ring-2 ring-white">
+                                        {potentialTrips.length}
+                                    </span>
+                                )}
+                            </button>
+                            <button 
+                                onClick={() => handleSwitchTab('LOCATIONS')}
+                                className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'LOCATIONS' ? 'bg-indigo-50 text-indigo-600 shadow-xs' : 'text-gray-500 hover:text-gray-700'}`}
+                            >
+                                <Globe className="w-4 h-4" /> แผนที่การถ่าย (Loc Intel)
+                            </button>
+                            <div className="w-px h-6 bg-gray-200 mx-1 self-center"></div>
+                            <button 
+                                onClick={() => handleSwitchTab('SALARY')}
+                                className={`px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 transition-all whitespace-nowrap ${currentTab === 'SALARY' ? 'bg-blue-50 text-blue-600 shadow-xs' : 'text-gray-500 hover:text-gray-700'}`}
+                            >
+                                <Wallet className="w-4 h-4" /> เงินเดือน
+                            </button>
+                        </div>
                     </div>
                 )}
                 </>
             )}
 
-            {/* Content Area */}
-            <div className="min-h-[400px]">
-                {isAdmin && currentTab === 'DASHBOARD' && !activePayrollCycle && (
-                    <FinanceDashboard stats={stats} transactions={transactions} />
-                )}
+            {/* Seamless Content Area with min-height & AnimatePresence for smooth transitions */}
+            <div className="min-h-[calc(100vh-280px)]">
+                <AnimatePresence mode="wait">
+                    {isAdmin && currentTab === 'DASHBOARD' && !activePayrollCycle && (
+                        <motion.div
+                            key="tab-dashboard"
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -6 }}
+                            transition={{ duration: 0.18, ease: 'easeOut' }}
+                        >
+                            <FinanceDashboard stats={stats} transactions={transactions} />
+                        </motion.div>
+                    )}
 
-                {isAdmin && currentTab === 'TRANSACTIONS' && !activePayrollCycle && (
-                    <TransactionList 
-                        transactions={transactions}
-                        onDelete={handleDeleteTransaction}
-                        pagination={pagination}
-                        isLoading={isLoading}
-                    />
-                )}
+                    {isAdmin && currentTab === 'TRANSACTIONS' && !activePayrollCycle && (
+                        <motion.div
+                            key="tab-transactions"
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -6 }}
+                            transition={{ duration: 0.18, ease: 'easeOut' }}
+                        >
+                            <TransactionList 
+                                transactions={transactions}
+                                onDelete={handleDeleteTransaction}
+                                pagination={pagination}
+                                isLoading={isLoading}
+                            />
+                        </motion.div>
+                    )}
 
-                {isAdmin && currentTab === 'SPONSORS' && !activePayrollCycle && (
-                    <SponsorshipManager />
-                )}
+                    {isAdmin && currentTab === 'SPONSORS' && !activePayrollCycle && (
+                        <motion.div
+                            key="tab-sponsors"
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -6 }}
+                            transition={{ duration: 0.18, ease: 'easeOut' }}
+                        >
+                            <SponsorshipManager onSelectTask={onSelectTask} />
+                        </motion.div>
+                    )}
 
-                {isAdmin && currentTab === 'TRIPS' && !activePayrollCycle && (
-                    <ShootTripManager 
-                        masterOptions={masterOptions}
-                        tasks={tasks}
-                    />
-                )}
+                    {isAdmin && currentTab === 'TRIPS' && !activePayrollCycle && (
+                        <motion.div
+                            key="tab-trips"
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -6 }}
+                            transition={{ duration: 0.18, ease: 'easeOut' }}
+                        >
+                            <ShootTripManager 
+                                masterOptions={masterOptions}
+                                tasks={tasks}
+                            />
+                        </motion.div>
+                    )}
 
-                {isAdmin && currentTab === 'LOCATIONS' && !activePayrollCycle && (
-                    <LocationIntelligence />
-                )}
+                    {isAdmin && currentTab === 'LOCATIONS' && !activePayrollCycle && (
+                        <motion.div
+                            key="tab-locations"
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -6 }}
+                            transition={{ duration: 0.18, ease: 'easeOut' }}
+                        >
+                            <LocationIntelligence />
+                        </motion.div>
+                    )}
 
-                {currentTab === 'SALARY' && (
-                    activePayrollCycle ? (
-                        <PayrollEditor 
-                            cycle={activePayrollCycle}
-                            slips={currentSlips}
-                            allUsers={users} 
-                            currentUser={currentUser}
-                            isSeniorHR={isSeniorHR}
-                            onBack={() => setActivePayrollCycle(null)}
-                            onUpdateSlip={updateSlip}
-                            onDeleteSlip={deleteSlip} 
-                            onCreateSlip={createSlip} 
-                            onFinalize={() => finalizeCycle(activePayrollCycle.id)}
-                            onSendToReview={(date) => sendToReview(activePayrollCycle.id, date)}
-                            onRespondToSlip={respondToSlip}
-                        />
-                    ) : (
-                        <PayrollCycleList 
-                            cycles={cycles}
-                            onSelect={handleOpenCycle}
-                            onCreate={handleCreateCycle}
-                            onDelete={deleteCycle}
-                            canCreate={isSeniorHR}
-                        />
-                    )
-                )}
+                    {currentTab === 'SALARY' && (
+                        <motion.div
+                            key={activePayrollCycle ? `tab-payroll-editor-${activePayrollCycle.id}` : "tab-salary-list"}
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -6 }}
+                            transition={{ duration: 0.18, ease: 'easeOut' }}
+                        >
+                            {activePayrollCycle ? (
+                                <PayrollEditor 
+                                    cycle={activePayrollCycle}
+                                    slips={currentSlips}
+                                    allUsers={users} 
+                                    currentUser={currentUser}
+                                    isSeniorHR={isSeniorHR}
+                                    onBack={() => setActivePayrollCycle(null)}
+                                    onUpdateSlip={updateSlip}
+                                    onDeleteSlip={deleteSlip} 
+                                    onCreateSlip={createSlip} 
+                                    onFinalize={() => finalizeCycle(activePayrollCycle.id)}
+                                    onSendToReview={(date) => sendToReview(activePayrollCycle.id, date)}
+                                    onRespondToSlip={respondToSlip}
+                                />
+                            ) : (
+                                <PayrollCycleList 
+                                    cycles={cycles}
+                                    onSelect={handleOpenCycle}
+                                    onCreate={handleCreateCycle}
+                                    onDelete={deleteCycle}
+                                    canCreate={isSeniorHR}
+                                />
+                            )}
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </div>
 
             {isAdmin && (

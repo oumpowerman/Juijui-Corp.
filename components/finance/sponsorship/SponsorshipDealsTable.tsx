@@ -70,10 +70,11 @@ export const SponsorshipDealsTable: React.FC<SponsorshipDealsTableProps> = ({
                         <AnimatePresence>
                             {deals.map((deal, index) => {
                                 const isPaid = deal.paymentStatus === 'PAID' || deal.isPaid;
+                                const rowKey = deal.id ? `deal-${deal.id}-${index}` : `deal-idx-${index}`;
 
                                 return (
                                     <motion.tr 
-                                        key={deal.id}
+                                        key={rowKey}
                                         initial={{ opacity: 0, y: 8 }}
                                         animate={{ opacity: 1, y: 0 }}
                                         exit={{ opacity: 0 }}

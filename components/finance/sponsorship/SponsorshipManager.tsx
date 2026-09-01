@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Client } from '../../../types/task';
+import { Client } from '../../../types';
 import { useSponsorship } from '../../../hooks/useSponsorship';
+import { useChannels } from '../../../hooks/useChannels';
 import { sponsorshipService } from '../../../services/sponsorshipService';
 import { SponsorshipDealItem, SponsorshipMetrics, ClientDealStats } from './types';
 import SponsorshipMetricsCards from './SponsorshipMetricsCards';
@@ -9,6 +10,7 @@ import SponsorshipFilterToolbar from './SponsorshipFilterToolbar';
 import SponsorshipClientsGrid from './SponsorshipClientsGrid';
 import SponsorshipDealsTable from './SponsorshipDealsTable';
 import SponsorshipClientModal from './SponsorshipClientModal';
+import SponsorshipClientDetailModal from './SponsorshipClientDetailModal';
 
 interface SponsorshipManagerProps {
     onSelectTask?: (taskId: string) => void;
@@ -23,6 +25,8 @@ const SponsorshipManager: React.FC<SponsorshipManagerProps> = ({ onSelectTask })
         deleteClient, 
         fetchClients 
     } = useSponsorship();
+
+    const { channels, fetchChannels } = useChannels();
     
     // Deals state
     const [deals, setDeals] = useState<SponsorshipDealItem[]>([]);
@@ -35,9 +39,12 @@ const SponsorshipManager: React.FC<SponsorshipManagerProps> = ({ onSelectTask })
     const [searchQuery, setSearchQuery] = useState('');
     const [paymentFilter, setPaymentFilter] = useState<'ALL' | 'PAID' | 'UNPAID'>('ALL');
     
-    // Client Modal State
+    // Client Edit / Create Modal State
     const [isClientModalOpen, setIsClientModalOpen] = useState(false);
     const [selectedClientForEdit, setSelectedClientForEdit] = useState<Client | null>(null);
+
+    // Client Drill-down Detail Modal State
+    const [selectedClientForDetail, setSelectedClientForDetail] = useState<Client | null>(null);
 
     // Fetch all sponsorship deals
     const loadDeals = useCallback(async () => {
@@ -55,7 +62,8 @@ const SponsorshipManager: React.FC<SponsorshipManagerProps> = ({ onSelectTask })
     useEffect(() => {
         fetchClients();
         loadDeals();
-    }, [fetchClients, loadDeals]);
+        fetchChannels();
+    }, [fetchClients, loadDeals, fetchChannels]);
 
     // Compute Metrics
     const metrics: SponsorshipMetrics = useMemo(() => {
@@ -135,6 +143,31 @@ const SponsorshipManager: React.FC<SponsorshipManagerProps> = ({ onSelectTask })
         });
     }, [deals, searchQuery, paymentFilter]);
 
+    // Selected client's specific deals & stats for drill-down modal
+    const selectedClientDeals = useMemo(() => {
+        if (!selectedClientForDetail) return [];
+        return deals.filter(d => d.clientId === selectedClientForDetail.id);
+    }, [deals, selectedClientForDetail]);
+
+    const selectedClientStats = useMemo(() => {
+        if (!selectedClientForDetail) {
+            return { totalDeals: 0, totalValue: 0, paidValue: 0, unpaidValue: 0 };
+        }
+        return clientStatsMap.get(selectedClientForDetail.id) || {
+            totalDeals: 0,
+            totalValue: 0,
+            paidValue: 0,
+            unpaidValue: 0,
+        };
+    }, [clientStatsMap, selectedClientForDetail]);
+
+    // Click on a deal to view ContentDetail via Global Task Modal
+    const handleTaskClick = (taskId: string) => {
+        if (onSelectTask) {
+            onSelectTask(taskId);
+        }
+    };
+
     // Modal Handlers
     const handleOpenAddModal = () => {
         setSelectedClientForEdit(null);
@@ -157,6 +190,9 @@ const SponsorshipManager: React.FC<SponsorshipManagerProps> = ({ onSelectTask })
 
     const handleDeleteClient = async (clientId: string) => {
         await deleteClient(clientId);
+        if (selectedClientForDetail?.id === clientId) {
+            setSelectedClientForDetail(null);
+        }
         await loadDeals();
     };
 
@@ -205,6 +241,7 @@ const SponsorshipManager: React.FC<SponsorshipManagerProps> = ({ onSelectTask })
                             onAddClient={handleOpenAddModal}
                             onEditClient={handleOpenEditModal}
                             onDeleteClient={handleDeleteClient}
+                            onViewDetails={(client) => setSelectedClientForDetail(client)}
                         />
                     </motion.div>
                 ) : (
@@ -218,13 +255,29 @@ const SponsorshipManager: React.FC<SponsorshipManagerProps> = ({ onSelectTask })
                         <SponsorshipDealsTable
                             deals={filteredDeals}
                             isLoading={isDealsLoading}
-                            onSelectTask={onSelectTask}
+                            onSelectTask={handleTaskClick}
                         />
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            {/* 4. Client Create / Edit / Delete Modal */}
+            {/* 4. Client Drill-Down Detail Modal (Viewing all clips & revenues for this client) */}
+            <AnimatePresence>
+                {selectedClientForDetail && (
+                    <SponsorshipClientDetailModal
+                        isOpen={!!selectedClientForDetail}
+                        onClose={() => setSelectedClientForDetail(null)}
+                        client={selectedClientForDetail}
+                        deals={selectedClientDeals}
+                        stats={selectedClientStats}
+                        channels={channels}
+                        onSelectTask={handleTaskClick}
+                        onEditClient={handleOpenEditModal}
+                    />
+                )}
+            </AnimatePresence>
+
+            {/* 5. Client Create / Edit / Delete Modal */}
             <SponsorshipClientModal
                 isOpen={isClientModalOpen}
                 onClose={() => setIsClientModalOpen(false)}

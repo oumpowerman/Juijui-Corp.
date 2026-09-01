@@ -13,6 +13,7 @@ interface SponsorshipClientsGridProps {
     onAddClient: () => void;
     onEditClient: (client: Client) => void;
     onDeleteClient: (clientId: string) => void;
+    onViewDetails?: (client: Client) => void;
 }
 
 export const SponsorshipClientsGrid: React.FC<SponsorshipClientsGridProps> = ({
@@ -23,6 +24,7 @@ export const SponsorshipClientsGrid: React.FC<SponsorshipClientsGridProps> = ({
     onAddClient,
     onEditClient,
     onDeleteClient,
+    onViewDetails,
 }) => {
     if (isLoading) {
         return (
@@ -82,6 +84,7 @@ export const SponsorshipClientsGrid: React.FC<SponsorshipClientsGridProps> = ({
                             stats={stats}
                             onEdit={onEditClient}
                             onDelete={onDeleteClient}
+                            onViewDetails={onViewDetails}
                         />
                     );
                 })}

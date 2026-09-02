@@ -15,6 +15,36 @@ export const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2
     return R * c; // Distance in meters
 };
 
+/**
+ * Promisified browser geolocation helper
+ */
+export const getCurrentLocation = (timeoutMs: number = 10000): Promise<{ lat: number; lng: number; accuracy: number }> => {
+    return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+            reject(new Error("อุปกรณ์ของคุณไม่รองรับการดึงพิกัด Geolocation"));
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                resolve({
+                    lat: pos.coords.latitude,
+                    lng: pos.coords.longitude,
+                    accuracy: pos.coords.accuracy || 10
+                });
+            },
+            (err) => {
+                reject(err);
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: timeoutMs,
+                maximumAge: 10000
+            }
+        );
+    });
+};
+
 // Default Office Location (Example: Bangkok Center)
 // TODO: Move this to Admin Config
 export const OFFICE_COORDS = {

@@ -1,14 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     X, Clock, MapPin, FileText, CheckCircle2, AlertTriangle, 
     ExternalLink, Copy, Check, ShieldCheck, Zap, Calendar, Image as ImageIcon,
-    AlertCircle, Building2, Home, Briefcase
+    AlertCircle, Building2, Home, Briefcase, Sparkles, Navigation, Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import th from 'date-fns/locale/th';
 import { parseReason, getTypeName as getLeaveTypeName, formatSpecialTypeName } from '../../leave-request/request-detail/utils';
 import { AttendanceStatusBadge, AttendanceConditionBadges, AttendanceReasonBox, AttendanceProvisionalBanner } from '../../shared/AttendanceBadges';
+import { AttendanceCheckpoint } from '../../../../types/attendance';
+import { attendanceService } from '../../../../services/attendanceService';
 
 export type DetailRecordType = 'ATTENDANCE' | 'LEAVE' | 'OT' | 'ABSENT';
 
@@ -27,6 +29,39 @@ export { formatSpecialTypeName };
 export const RecordDetailModal: React.FC<RecordDetailModalProps> = ({ record, onClose }) => {
     const [copiedGps, setCopiedGps] = useState<string | null>(null);
     const [previewImage, setPreviewImage] = useState<string | null>(null);
+    const [checkpoints, setCheckpoints] = useState<AttendanceCheckpoint[]>([]);
+    const [isLoadingCheckpoints, setIsLoadingCheckpoints] = useState(false);
+
+    // Fetch checkpoints if attendance record exists
+    useEffect(() => {
+        if (!record || record.type !== 'ATTENDANCE' || !record.data) {
+            setCheckpoints([]);
+            return;
+        }
+
+        const fetchCheckpoints = async () => {
+            const attendanceId = record.data.id;
+            const userId = record.data.userId || record.data.user_id;
+            if (!attendanceId && !userId) return;
+
+            setIsLoadingCheckpoints(true);
+            try {
+                if (attendanceId) {
+                    const list = await attendanceService.getCheckpointsByAttendanceId(attendanceId);
+                    setCheckpoints(list);
+                } else if (userId) {
+                    const list = await attendanceService.getTodayCheckpoints(userId);
+                    setCheckpoints(list);
+                }
+            } catch (error) {
+                console.error("Error loading checkpoints for record detail:", error);
+            } finally {
+                setIsLoadingCheckpoints(false);
+            }
+        };
+
+        fetchCheckpoints();
+    }, [record]);
 
     if (!record) return null;
 
@@ -239,7 +274,7 @@ export const RecordDetailModal: React.FC<RecordDetailModalProps> = ({ record, on
                                     {/* Reasons / Full Notes */}
                                     <AttendanceReasonBox parsed={parsed} rawNote={note} />
 
-                                    {/* Proof Image / Selfie */}
+                                     {/* Proof Image / Selfie */}
                                     {photoUrl && (
                                         <div className="p-4 bg-slate-50 border border-slate-100 rounded-2xl space-y-2">
                                             <p className="text-xs font-bold text-slate-600 flex items-center gap-1.5">
@@ -255,6 +290,121 @@ export const RecordDetailModal: React.FC<RecordDetailModalProps> = ({ record, on
                                             </div>
                                         </div>
                                     )}
+
+                                    {/* 🚩 Field Checkpoints & Shoot Reports Timeline */}
+                                    {isLoadingCheckpoints ? (
+                                        <div className="p-4 bg-slate-50/70 border border-slate-100 rounded-2xl flex items-center justify-center gap-2 text-xs text-slate-500 font-medium">
+                                            <Loader2 className="w-4 h-4 animate-spin text-indigo-600" /> กำลังโหลดประวัติการรายงานออกกอง...
+                                        </div>
+                                    ) : (checkpoints && checkpoints.length > 0) ? (
+                                        <div className="p-4 bg-gradient-to-br from-indigo-50/40 via-cyan-50/30 to-slate-50 border border-indigo-100/80 rounded-2xl space-y-3">
+                                            <div className="flex items-center justify-between border-b border-indigo-100/60 pb-2">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="p-1.5 bg-indigo-600 text-white rounded-lg">
+                                                        <MapPin className="w-3.5 h-3.5" />
+                                                    </div>
+                                                    <div>
+                                                        <h4 className="text-xs font-bold text-slate-800 flex items-center gap-1">
+                                                            ไทม์ไลน์จุดออกกอง / รายงานระหว่างวัน
+                                                            <Sparkles className="w-3 h-3 text-amber-500 fill-amber-500" />
+                                                        </h4>
+                                                        <p className="text-[10px] text-slate-500">บันทึก TimeStamp ทั้งหมด {checkpoints.length} จุด</p>
+                                                    </div>
+                                                </div>
+                                                <span className="text-[10px] font-bold text-indigo-700 bg-indigo-100/70 px-2 py-0.5 rounded-full">
+                                                    {checkpoints.length} Checkpoints
+                                                </span>
+                                            </div>
+
+                                            {/* Timeline Steps */}
+                                            <div className="space-y-3 pt-1">
+                                                {checkpoints.map((cp, idx) => {
+                                                    const cpTime = cp.checkpointTime || cp.checkpoint_time;
+                                                    const timeFormatted = cpTime ? format(new Date(cpTime), 'HH:mm') : '--:--';
+                                                    const cpGpsStr = (cp.latitude && cp.longitude) ? `${cp.latitude.toFixed(5)}, ${cp.longitude.toFixed(5)}` : null;
+                                                    const cpKey = `checkpoint_${cp.id || idx}`;
+
+                                                    return (
+                                                        <div key={cp.id || idx} className="relative pl-6 pb-2 last:pb-0">
+                                                            {/* Step Line */}
+                                                            {idx < checkpoints.length - 1 && (
+                                                                <div className="absolute left-2.5 top-6 bottom-0 w-0.5 bg-indigo-200" />
+                                                            )}
+                                                            {/* Step Marker Dot */}
+                                                            <div className="absolute left-0 top-0.5 w-5 h-5 rounded-full bg-gradient-to-tr from-indigo-600 to-cyan-500 text-white flex items-center justify-center text-[10px] font-bold shadow-xs">
+                                                                {idx + 1}
+                                                            </div>
+
+                                                            <div className="bg-white p-3 rounded-xl border border-indigo-100/70 shadow-2xs space-y-1.5">
+                                                                <div className="flex items-center justify-between gap-2">
+                                                                    <span className="text-xs font-bold text-slate-800">
+                                                                        {cp.locationName || cp.location_name}
+                                                                    </span>
+                                                                    <span className="text-[11px] font-mono font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-lg flex items-center gap-1">
+                                                                        <Clock className="w-3 h-3 text-indigo-500" /> {timeFormatted} น.
+                                                                    </span>
+                                                                </div>
+
+                                                                {/* GPS Link */}
+                                                                {cpGpsStr && (
+                                                                    <div className="flex items-center justify-between text-[11px] text-slate-500 bg-slate-50 p-1.5 rounded-lg">
+                                                                        <span className="flex items-center gap-1">
+                                                                            <Navigation className="w-3 h-3 text-cyan-600" />
+                                                                            <span className="font-mono">{cpGpsStr}</span>
+                                                                        </span>
+                                                                        <div className="flex items-center gap-1.5">
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleCopyGps(cpGpsStr, cpKey)}
+                                                                                className="p-1 hover:bg-indigo-100 rounded text-indigo-600 transition-colors cursor-pointer"
+                                                                                title="คัดลอกพิกัด"
+                                                                            >
+                                                                                {copiedGps === cpKey ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                                                                            </button>
+                                                                            <a
+                                                                                href={`https://www.google.com/maps?q=${cp.latitude},${cp.longitude}`}
+                                                                                target="_blank"
+                                                                                rel="noopener noreferrer"
+                                                                                className="text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-0.5"
+                                                                            >
+                                                                                แผนที่ <ExternalLink className="w-2.5 h-2.5" />
+                                                                            </a>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+
+                                                                {/* Note */}
+                                                                {cp.note && (
+                                                                    <p className="text-xs text-slate-600 leading-relaxed font-medium bg-amber-50/40 p-2 rounded-lg border border-amber-100/50">
+                                                                        📝 {cp.note}
+                                                                    </p>
+                                                                )}
+
+                                                                {/* Photo Thumbnail */}
+                                                                {(cp.photoUrl || cp.photo_url) && (
+                                                                    <div className="pt-1">
+                                                                        <div 
+                                                                            onClick={() => setPreviewImage(cp.photoUrl || cp.photo_url || null)}
+                                                                            className="relative rounded-lg overflow-hidden border border-slate-200 aspect-video max-h-36 bg-black/5 cursor-pointer group hover:opacity-90 transition-opacity"
+                                                                        >
+                                                                            <img
+                                                                                src={cp.photoUrl || cp.photo_url}
+                                                                                alt={`Checkpoint ${idx + 1}`}
+                                                                                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                                                            />
+                                                                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white text-[11px] font-bold gap-1">
+                                                                                <ImageIcon className="w-4 h-4" /> คลิกดูรูปขยาย
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ) : null}
                                 </>
                             );
                         })()}

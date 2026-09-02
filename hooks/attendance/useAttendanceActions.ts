@@ -486,12 +486,12 @@ export const useAttendanceActions = (userId: string) => {
                 { enabled: isShiftsEnabled, shiftsList }
             );
 
-            // Check if there is an approved half-day leave today
+            // Check if there is an approved or pending half-day leave today
             const { data: todayLeavesCheckout } = await supabase
                 .from('leave_requests')
                 .select('id, is_half_day, half_day_session, status')
                 .eq('user_id', userId)
-                .eq('status', 'APPROVED')
+                .in('status', ['APPROVED', 'PENDING'])
                 .eq('is_half_day', true)
                 .lte('start_date', todayDateStr)
                 .gte('end_date', todayDateStr);

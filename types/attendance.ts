@@ -42,6 +42,26 @@ export interface AttendanceLog {
     checkOutLocationName?: string;
 }
 
+export interface AttendanceCheckpoint {
+    id: string;
+    attendanceId?: string;
+    attendance_id?: string;
+    userId: string;
+    user_id?: string;
+    checkpointTime: string | Date;
+    checkpoint_time?: string;
+    locationName: string;
+    location_name?: string;
+    latitude?: number;
+    longitude?: number;
+    accuracy?: number;
+    note?: string;
+    photoUrl?: string;
+    photo_url?: string;
+    createdAt?: string | Date;
+    created_at?: string;
+}
+
 export interface AttendanceStats {
     totalDays: number;
     lateDays: number;

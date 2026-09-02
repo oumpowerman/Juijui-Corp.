@@ -292,5 +292,111 @@ export const attendanceService = {
             isHalfDay: r.is_half_day,
             halfDaySession: r.half_day_session
         }));
+    },
+
+    /**
+     * Records a new field / shoot checkpoint.
+     */
+    async createCheckpoint(checkpoint: {
+        attendance_id?: string;
+        user_id: string;
+        location_name: string;
+        latitude?: number;
+        longitude?: number;
+        accuracy?: number;
+        note?: string;
+        photo_url?: string;
+    }) {
+        const payload: any = {
+            attendance_id: checkpoint.attendance_id || null,
+            user_id: checkpoint.user_id,
+            location_name: checkpoint.location_name,
+            latitude: checkpoint.latitude ?? null,
+            longitude: checkpoint.longitude ?? null,
+            accuracy: checkpoint.accuracy ?? null,
+            note: checkpoint.note || null,
+            photo_url: checkpoint.photo_url || null,
+            checkpoint_time: new Date().toISOString()
+        };
+
+        const { data, error } = await supabase
+            .from('attendance_checkpoints')
+            .insert(payload)
+            .select()
+            .single();
+
+        if (error) {
+            console.error("Error creating attendance checkpoint:", error);
+            throw error;
+        }
+        return data;
+    },
+
+    /**
+     * Gets checkpoints for a specific attendance log ID.
+     */
+    async getCheckpointsByAttendanceId(attendanceId: string) {
+        if (!attendanceId) return [];
+        const { data, error } = await supabase
+            .from('attendance_checkpoints')
+            .select('*')
+            .eq('attendance_id', attendanceId)
+            .order('checkpoint_time', { ascending: true });
+
+        if (error) {
+            console.error("Error fetching checkpoints for attendance:", error);
+            return [];
+        }
+        return (data || []).map((cp: any) => ({
+            id: cp.id,
+            attendanceId: cp.attendance_id,
+            userId: cp.user_id,
+            checkpointTime: cp.checkpoint_time,
+            locationName: cp.location_name,
+            latitude: cp.latitude,
+            longitude: cp.longitude,
+            accuracy: cp.accuracy,
+            note: cp.note,
+            photoUrl: cp.photo_url,
+            createdAt: cp.created_at
+        }));
+    },
+
+    /**
+     * Gets today's checkpoints for a user.
+     */
+    async getTodayCheckpoints(userId: string, attendanceId?: string) {
+        if (!userId) return [];
+        let query = supabase
+            .from('attendance_checkpoints')
+            .select('*')
+            .eq('user_id', userId);
+
+        if (attendanceId) {
+            query = query.eq('attendance_id', attendanceId);
+        } else {
+            const startOfDay = new Date();
+            startOfDay.setHours(0, 0, 0, 0);
+            query = query.gte('checkpoint_time', startOfDay.toISOString());
+        }
+
+        const { data, error } = await query.order('checkpoint_time', { ascending: true });
+        if (error) {
+            console.error("Error fetching today checkpoints:", error);
+            return [];
+        }
+        return (data || []).map((cp: any) => ({
+            id: cp.id,
+            attendanceId: cp.attendance_id,
+            userId: cp.user_id,
+            checkpointTime: cp.checkpoint_time,
+            locationName: cp.location_name,
+            latitude: cp.latitude,
+            longitude: cp.longitude,
+            accuracy: cp.accuracy,
+            note: cp.note,
+            photoUrl: cp.photo_url,
+            createdAt: cp.created_at
+        }));
     }
 };

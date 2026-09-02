@@ -11,7 +11,7 @@ interface BoardViewProps {
     channels: Channel[];
     users: User[];
     masterOptions: MasterOption[];
-    viewMode: 'CONTENT' | 'TASK'; // Added prop
+    viewMode: 'CONTENT' | 'TASK' | 'PLAN'; // Added prop
     onEditTask: (task: Task) => void;
     onAddTask: (status: Status) => void;
     onUpdateStatus: (task: Task, newStatus: Status) => void;

@@ -1,7 +1,7 @@
 import React from 'react';
-import { Radio, Clapperboard, Activity } from 'lucide-react';
+import { Radio, Clapperboard, Activity, Users } from 'lucide-react';
 
-export type TabType = 'CHANNELS' | 'FORMATS' | 'STATUSES';
+export type TabType = 'CHANNELS' | 'FORMATS' | 'STATUSES' | 'ASSIGNEES';
 
 interface FilterTabHeaderProps {
     activeTab: TabType;
@@ -9,8 +9,10 @@ interface FilterTabHeaderProps {
     tempChannelIdsCount: number;
     tempFormatsCount: number;
     tempStatusesCount: number;
+    tempAssigneesCount?: number;
     handleSelectAllCurrent: () => void;
     handleClearAllCurrent: () => void;
+    viewMode?: 'CONTENT' | 'TASK' | 'PLAN';
 }
 
 const FilterTabHeader: React.FC<FilterTabHeaderProps> = ({
@@ -19,13 +21,35 @@ const FilterTabHeader: React.FC<FilterTabHeaderProps> = ({
     tempChannelIdsCount,
     tempFormatsCount,
     tempStatusesCount,
+    tempAssigneesCount = 0,
     handleSelectAllCurrent,
-    handleClearAllCurrent
+    handleClearAllCurrent,
+    viewMode = 'CONTENT'
 }) => {
     return (
         <div className="px-6 py-4 border-b border-stone-200 bg-stone-50/50 flex flex-wrap gap-3 items-center justify-between">
             <div className="flex gap-1.5 bg-stone-100 p-1 rounded-2xl border border-stone-200/60 shadow-inner">
-                {/* Tab 1: Channels */}
+                {/* Tab: Assignees (Visible in TASK mode or general) */}
+                <button
+                    onClick={() => setActiveTab('ASSIGNEES')}
+                    className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
+                        activeTab === 'ASSIGNEES'
+                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10'
+                            : 'text-stone-500 hover:text-stone-800 hover:bg-stone-200/50'
+                    }`}
+                >
+                    <Users className="w-3.5 h-3.5" />
+                    สมาชิกผู้รับผิดชอบ
+                    {tempAssigneesCount > 0 && (
+                        <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded-full font-bold transition-colors ${
+                            activeTab === 'ASSIGNEES' ? 'bg-indigo-700 text-white' : 'bg-stone-200 text-stone-700'
+                        }`}>
+                            {tempAssigneesCount}
+                        </span>
+                    )}
+                </button>
+
+                {/* Tab: Channels */}
                 <button
                     onClick={() => setActiveTab('CHANNELS')}
                     className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
@@ -45,7 +69,7 @@ const FilterTabHeader: React.FC<FilterTabHeaderProps> = ({
                     )}
                 </button>
 
-                {/* Tab 2: Formats */}
+                {/* Tab: Formats */}
                 <button
                     onClick={() => setActiveTab('FORMATS')}
                     className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${
@@ -65,7 +89,7 @@ const FilterTabHeader: React.FC<FilterTabHeaderProps> = ({
                     )}
                 </button>
 
-                {/* Tab 3: Statuses */}
+                {/* Tab: Statuses */}
                 <button
                     onClick={() => setActiveTab('STATUSES')}
                     className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all duration-200 ${

@@ -7,7 +7,8 @@ interface TaskAnimateWrapperProps {
     isExpanded: boolean;
     onDragStart: (e: React.DragEvent) => void;
     onClick: (e: React.MouseEvent) => void;
-    onMouseEnter: () => void;
+    onMouseEnter: (e: React.MouseEvent) => void;
+    onMouseMove?: (e: React.MouseEvent) => void;
     onMouseLeave: () => void;
     rootStyle: React.CSSProperties;
     rootClassName: string;
@@ -21,6 +22,7 @@ const TaskAnimateWrapper = React.forwardRef<HTMLDivElement, TaskAnimateWrapperPr
     onDragStart,
     onClick,
     onMouseEnter,
+    onMouseMove,
     onMouseLeave,
     rootStyle,
     rootClassName,
@@ -78,6 +80,7 @@ const TaskAnimateWrapper = React.forwardRef<HTMLDivElement, TaskAnimateWrapperPr
             onDragStart={onDragStart as any}
             onClick={onClick}
             onMouseEnter={onMouseEnter}
+            onMouseMove={onMouseMove}
             onMouseLeave={onMouseLeave}
             initial={animVariants.initial}
             animate={animVariants.animate}

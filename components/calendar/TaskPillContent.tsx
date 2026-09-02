@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { motion } from 'framer-motion';
-import { AlertCircle, Clock8, Zap, Film } from 'lucide-react';
+import { AlertCircle, Clock8, Zap, Film, Sparkles, Repeat, Lock, Users } from 'lucide-react';
 import { Task } from '../../types';
 import { TaskDisplayMode } from '../CalendarView';
 
@@ -18,6 +18,7 @@ interface TaskPillContentProps {
 }
 
 const getTaskDotClass = (t: Task) => {
+    if (t.type === 'PLAN') return 'bg-fuchsia-500 ring-1 ring-fuchsia-300';
     if (t.status === 'DONE' || t.status === 'APPROVE') return 'bg-green-500';
     if (t.status === 'TODO' || t.status === 'IDEA') return 'bg-gray-400';
     if (t.status === 'BLOCKED') return 'bg-red-500';
@@ -36,6 +37,15 @@ const TaskPillContent: React.FC<TaskPillContentProps> = ({
     statusEmoji,
     isExpanded,
 }) => {
+    const isPlan = task.type === 'PLAN';
+    const isRoutine = isPlan && (task.isRoutine || task.isMonthlyRecurring || task.recurrence === 'MONTHLY');
+    const isSharedPlan = isPlan && task.assigneeIds && task.assigneeIds.length > 1;
+
+    const planIcon = isPlan && (
+        <span className="shrink-0 flex items-center justify-center text-fuchsia-600" title={isRoutine ? 'รูทีนประจำเดือน' : 'แพลนงาน / นัดหมาย'}>
+            {isRoutine ? <Repeat className="w-3 h-3" /> : <Sparkles className="w-3 h-3" />}
+        </span>
+    );
     const analyticsStatus = task.analyticsStatus || (task.hasAnalytics ? 'COMPLETE' : 'NONE');
 
     const hasAnalyticsIndicator = (analyticsStatus === 'COMPLETE' || analyticsStatus === 'PARTIAL') && (
@@ -124,7 +134,7 @@ const TaskPillContent: React.FC<TaskPillContentProps> = ({
                          <span title="มีคิวลงคลิปวันนี้" className="shrink-0 flex items-center">
                              <Film className="w-3.5 h-3.5 text-rose-500 animate-pulse" />
                          </span>
-                     ) : isOverdue ? overdueIndicator : <div className={`w-2 h-2 rounded-full shrink-0 ${getTaskDotClass(task)}`}></div>}
+                     ) : isOverdue ? overdueIndicator : isPlan ? planIcon : <div className={`w-2 h-2 rounded-full shrink-0 ${getTaskDotClass(task)}`}></div>}
                      {isInsightOverdue && <AlertCircle className="w-3 h-3 text-rose-500 shrink-0" />}
                      {hasAnalyticsIndicator}
                      <span className="truncate flex-1 font-bold">{task.title}</span>
@@ -138,7 +148,7 @@ const TaskPillContent: React.FC<TaskPillContentProps> = ({
                              <Film className="w-3 h-3 text-rose-500 animate-pulse" />
                          </span>
                      )}
-                     {isOverdue ? overdueIndicator : (statusEmoji && <span className="text-[12px] shrink-0">{statusEmoji}</span>)}
+                     {isPlan ? planIcon : (isOverdue ? overdueIndicator : (statusEmoji && <span className="text-[12px] shrink-0">{statusEmoji}</span>))}
                      {isInsightOverdue && <AlertCircle className="w-3 h-3 text-rose-500 shrink-0" />}
                      {hasAnalyticsIndicator}
                      <span className="truncate flex-1 font-bold">{task.title}</span>
@@ -150,6 +160,7 @@ const TaskPillContent: React.FC<TaskPillContentProps> = ({
             return (
                 <>
                     {isUnfinishedContent && unfinishedContentIndicator}
+                    {isPlan && planIcon}
                     {overdueIndicator}
                     {isInsightOverdue && (
                         <div className="shrink-0 flex items-center justify-center w-5 h-5 bg-rose-100 rounded-full" title="Missing Analytics Insight">
@@ -158,7 +169,21 @@ const TaskPillContent: React.FC<TaskPillContentProps> = ({
                     )}
                     <span className="truncate flex-1 font-bold">{task.title}</span>
                     {hasAnalyticsIndicator}
-                    {statusLabel && (
+                    {isPlan ? (
+                        <span className={`
+                            text-[9px] font-black uppercase tracking-wider shrink-0 px-2 py-0.5 rounded-md border
+                            ${isRoutine 
+                                ? 'bg-fuchsia-100 text-fuchsia-900 border-fuchsia-200' 
+                                : isSharedPlan 
+                                    ? 'bg-indigo-50 text-indigo-800 border-indigo-200' 
+                                    : 'bg-fuchsia-50 text-fuchsia-800 border-fuchsia-200'
+                            }
+                            ${!isExpanded ? 'hidden lg:inline-block' : ''}
+                            shadow-xs
+                        `}>
+                            {isRoutine ? 'รูทีน' : isSharedPlan ? 'แพลนทีม' : 'แพลน'}
+                        </span>
+                    ) : statusLabel ? (
                         <span className={`
                             text-[9px] font-black uppercase tracking-wider shrink-0 px-2 py-0.5 rounded-md border
                             ${isOverdue ? (isCriticalOverdue ? 'STUCK' : 'OVERDUE') : statusColor}
@@ -167,7 +192,7 @@ const TaskPillContent: React.FC<TaskPillContentProps> = ({
                         `}>
                             {isOverdue ? (isCriticalOverdue ? 'STUCK' : 'OVERDUE') : statusLabel}
                         </span>
-                    )}
+                    ) : null}
                 </>
             );
     }

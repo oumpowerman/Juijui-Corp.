@@ -17,7 +17,26 @@ export const useCalendar = ({ tasks, userId, onMoveTask }: UseCalendarProps) => 
     const [isExpanded, setIsExpanded] = useState(false);
 
     // --- Filter State ---
-    const [viewMode, setViewMode] = useState<'CONTENT' | 'TASK'>('CONTENT');
+    const [viewMode, setViewMode] = useState<'CONTENT' | 'TASK' | 'PLAN'>('CONTENT');
+    const [showPlanOverlay, setShowPlanOverlay] = useState<boolean>(() => {
+        try {
+            const saved = localStorage.getItem('calendar_plan_overlay');
+            return saved !== null ? saved === 'true' : true; // Default ON
+        } catch {
+            return true;
+        }
+    });
+
+    const togglePlanOverlay = useCallback(() => {
+        setShowPlanOverlay(prev => {
+            const next = !prev;
+            try {
+                localStorage.setItem('calendar_plan_overlay', String(next));
+            } catch {}
+            return next;
+        });
+    }, []);
+
     const [filterChannelId, setFilterChannelId] = useState<string>('ALL');
     
     const [activeChipIds, setActiveChipIds] = useState<string[]>([]);
@@ -157,9 +176,33 @@ export const useCalendar = ({ tasks, userId, onMoveTask }: UseCalendarProps) => 
     const filterTasks = useCallback((tasksToFilter: Task[]) => {
         let filtered = tasksToFilter.filter(t => {
             if (viewMode === 'CONTENT') {
-                return t.type === 'CONTENT' || t.type === 'PLAN';
+                if (t.type === 'CONTENT') return true;
+                if (showPlanOverlay && t.type === 'PLAN') {
+                    // Privacy check: If user is logged in, check assigneeIds
+                    if (userId && t.assigneeIds && t.assigneeIds.length > 0) {
+                        return t.assigneeIds.includes(userId);
+                    }
+                    return true;
+                }
+                return false;
             }
-            return t.type === 'TASK';
+            if (viewMode === 'PLAN') {
+                if (t.type !== 'PLAN') return false;
+                // Privacy / Visibility: If user is logged in, show only plans assigned to or created by them
+                if (userId && t.assigneeIds && t.assigneeIds.length > 0) {
+                    return t.assigneeIds.includes(userId);
+                }
+                return true;
+            }
+            // In TASK Mode
+            if (t.type === 'TASK') return true;
+            if (showPlanOverlay && t.type === 'PLAN') {
+                if (userId && t.assigneeIds && t.assigneeIds.length > 0) {
+                    return t.assigneeIds.includes(userId);
+                }
+                return true;
+            }
+            return false;
         });
 
         if (activeChipIds.length > 0 && Array.isArray(customChips)) {
@@ -178,21 +221,101 @@ export const useCalendar = ({ tasks, userId, onMoveTask }: UseCalendarProps) => 
                 }
 
                 // 2. Inclusion Logic: If there are include chips, MUST match AT LEAST ONE
-                // If no include chips selected (only exclude selected), show everything remaining.
                 if (includeChips.length > 0) {
                     const isIncluded = includeChips.some(chip => checkMatch(t, chip));
-                    if (!isIncluded) return false;
+                    if (!isIncluded && t.type !== 'PLAN') return false;
                 }
 
                 return true;
             });
         }
         return filtered;
-    }, [viewMode, activeChipIds, customChips]);
+    }, [viewMode, showPlanOverlay, activeChipIds, customChips, userId]);
 
     const getTasksForDay = useCallback((day: Date) => {
-        return tasks.filter(task => isSameDay(day, task.endDate) && !task.isUnscheduled);
-    }, [tasks]);
+        return tasks.filter(task => {
+            if (task.isUnscheduled) return false;
+
+            const isMatchingPlan = (t: Task) => {
+                if (userId && t.assigneeIds && t.assigneeIds.length > 0 && !t.assigneeIds.includes(userId)) {
+                    return false;
+                }
+
+                if (t.isMonthlyRecurring || t.recurrence === 'MONTHLY') {
+                    const dayNum = day.getDate();
+                    const sDay = t.routineStartDay !== undefined 
+                        ? t.routineStartDay 
+                        : (t.startDate ? new Date(t.startDate).getDate() : dayNum);
+                    const eDay = t.routineEndDay !== undefined 
+                        ? t.routineEndDay 
+                        : (t.endDate ? new Date(t.endDate).getDate() : sDay);
+                    
+                    if (sDay <= eDay) {
+                        return dayNum >= sDay && dayNum <= eDay;
+                    } else {
+                        // Wraps around month boundary
+                        return dayNum >= sDay || dayNum <= eDay;
+                    }
+                }
+
+                // One-time date range
+                if (t.startDate && t.endDate) {
+                    const tStart = new Date(t.startDate);
+                    tStart.setHours(0, 0, 0, 0);
+                    const tEnd = new Date(t.endDate);
+                    tEnd.setHours(23, 59, 59, 999);
+                    const d = new Date(day);
+                    d.setHours(12, 0, 0, 0);
+                    return d >= tStart && d <= tEnd;
+                }
+
+                if (t.endDate) return isSameDay(day, new Date(t.endDate));
+                if (t.startDate) return isSameDay(day, new Date(t.startDate));
+                return false;
+            };
+
+            const isMatchingTask = (t: Task) => {
+                if (t.startDate && t.endDate) {
+                    const tStart = new Date(t.startDate);
+                    tStart.setHours(0, 0, 0, 0);
+                    const tEnd = new Date(t.endDate);
+                    tEnd.setHours(23, 59, 59, 999);
+                    const d = new Date(day);
+                    d.setHours(12, 0, 0, 0);
+                    return d >= tStart && d <= tEnd;
+                }
+                if (t.endDate) return isSameDay(day, new Date(t.endDate));
+                if (t.startDate) return isSameDay(day, new Date(t.startDate));
+                return false;
+            };
+            
+            if (viewMode === 'CONTENT') {
+                if (task.type === 'CONTENT') {
+                    return isSameDay(day, new Date(task.endDate));
+                }
+                if (showPlanOverlay && task.type === 'PLAN') {
+                    return isMatchingPlan(task);
+                }
+                return false;
+            }
+
+            // In PLAN Mode: Support monthly recurring routines and multi-day spans
+            if (viewMode === 'PLAN') {
+                if (task.type !== 'PLAN') return false;
+                return isMatchingPlan(task);
+            }
+
+            // In TASK Mode: calculate date range [startDate, endDate]
+            if (task.type === 'TASK') {
+                return isMatchingTask(task);
+            }
+            if (showPlanOverlay && task.type === 'PLAN') {
+                return isMatchingPlan(task);
+            }
+
+            return false;
+        });
+    }, [tasks, viewMode, showPlanOverlay, userId]);
 
     const saveChip = async (chip: ChipConfig) => {
         if (!userId) return;
@@ -339,6 +462,9 @@ export const useCalendar = ({ tasks, userId, onMoveTask }: UseCalendarProps) => 
     return {
         currentDate,
         viewMode,
+        showPlanOverlay,
+        setShowPlanOverlay,
+        togglePlanOverlay,
         filterChannelId,
         activeChipIds,
         customChips: Array.isArray(customChips) ? customChips : [],

@@ -14,7 +14,7 @@ interface MobileWeeklyViewProps {
     tasksForSelectedDay: Task[];
     getTasksCountForDay: (day: Date) => number;
     onSelectDate: (date: Date, type?: any) => void;
-    viewMode: 'CONTENT' | 'TASK';
+    viewMode: 'CONTENT' | 'TASK' | 'PLAN';
     channels: Channel[];
     masterOptions: MasterOption[];
     onTaskClick: (task: Task) => void;

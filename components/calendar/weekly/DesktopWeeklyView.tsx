@@ -46,7 +46,7 @@ interface WeeklyColumnProps {
     day: Date;
     tasks: Task[];
     onSelectDate: (date: Date, type?: any) => void;
-    viewMode: 'CONTENT' | 'TASK';
+    viewMode: 'CONTENT' | 'TASK' | 'PLAN';
     channels: Channel[];
     masterOptions: MasterOption[];
     onTaskClick: (task: Task) => void;
@@ -119,7 +119,7 @@ interface DesktopWeeklyViewProps {
     days: Date[];
     getSortedTasksForDay: (day: Date) => Task[];
     onSelectDate: (date: Date, type?: any) => void;
-    viewMode: 'CONTENT' | 'TASK';
+    viewMode: 'CONTENT' | 'TASK' | 'PLAN';
     channels: Channel[];
     masterOptions: MasterOption[];
     onTaskClick: (task: Task) => void;

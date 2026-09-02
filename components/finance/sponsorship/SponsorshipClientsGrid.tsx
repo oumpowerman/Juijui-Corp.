@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Building2, Plus, Loader2 } from 'lucide-react';
 import { Client } from '../../../types/task';
 import { ClientDealStats } from './types';
 import SponsorshipClientCard from './SponsorshipClientCard';
+import SponsorshipPagination from './SponsorshipPagination';
 
 interface SponsorshipClientsGridProps {
     clients: Client[];
@@ -16,6 +17,8 @@ interface SponsorshipClientsGridProps {
     onViewDetails?: (client: Client) => void;
 }
 
+const PAGE_SIZE = 9; // 3x3 grid
+
 export const SponsorshipClientsGrid: React.FC<SponsorshipClientsGridProps> = ({
     clients,
     clientStatsMap,
@@ -26,6 +29,18 @@ export const SponsorshipClientsGrid: React.FC<SponsorshipClientsGridProps> = ({
     onDeleteClient,
     onViewDetails,
 }) => {
+    const [currentPage, setCurrentPage] = useState(1);
+
+    // Reset page to 1 whenever search query or list changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, clients.length]);
+
+    const paginatedClients = useMemo(() => {
+        const startIndex = (currentPage - 1) * PAGE_SIZE;
+        return clients.slice(startIndex, startIndex + PAGE_SIZE);
+    }, [clients, currentPage]);
+
     if (isLoading) {
         return (
             <div className="py-24 text-center flex flex-col items-center justify-center space-y-3 bg-white rounded-3xl border border-slate-200 shadow-xs">
@@ -64,32 +79,43 @@ export const SponsorshipClientsGrid: React.FC<SponsorshipClientsGridProps> = ({
     }
 
     return (
-        <motion.div 
-            layout
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
-        >
-            <AnimatePresence mode="popLayout">
-                {clients.map((client) => {
-                    const stats = clientStatsMap.get(client.id) || {
-                        totalDeals: 0,
-                        totalValue: 0,
-                        paidValue: 0,
-                        unpaidValue: 0,
-                    };
+        <div className="space-y-4">
+            <motion.div 
+                layout
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
+            >
+                <AnimatePresence mode="popLayout">
+                    {paginatedClients.map((client) => {
+                        const stats = clientStatsMap.get(client.id) || {
+                            totalDeals: 0,
+                            totalValue: 0,
+                            paidValue: 0,
+                            unpaidValue: 0,
+                        };
 
-                    return (
-                        <SponsorshipClientCard
-                            key={client.id}
-                            client={client}
-                            stats={stats}
-                            onEdit={onEditClient}
-                            onDelete={onDeleteClient}
-                            onViewDetails={onViewDetails}
-                        />
-                    );
-                })}
-            </AnimatePresence>
-        </motion.div>
+                        return (
+                            <SponsorshipClientCard
+                                key={client.id}
+                                client={client}
+                                stats={stats}
+                                onEdit={onEditClient}
+                                onDelete={onDeleteClient}
+                                onViewDetails={onViewDetails}
+                            />
+                        );
+                    })}
+                </AnimatePresence>
+            </motion.div>
+
+            {/* Pagination Controls */}
+            <SponsorshipPagination
+                currentPage={currentPage}
+                totalItems={clients.length}
+                pageSize={PAGE_SIZE}
+                onPageChange={setCurrentPage}
+                itemLabel="แบรนด์"
+            />
+        </div>
     );
 };
 

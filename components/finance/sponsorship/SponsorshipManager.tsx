@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { startOfMonth, endOfMonth, subMonths, addMonths, startOfYear, endOfYear } from 'date-fns';
 import { Client } from '../../../types';
 import { useSponsorship } from '../../../hooks/useSponsorship';
 import { useChannels } from '../../../hooks/useChannels';
 import { sponsorshipService } from '../../../services/sponsorshipService';
 import { SponsorshipDealItem, SponsorshipMetrics, ClientDealStats } from './types';
 import SponsorshipMetricsCards from './SponsorshipMetricsCards';
+import SponsorshipDateFilter, { DateFilterPreset } from './SponsorshipDateFilter';
 import SponsorshipFilterToolbar from './SponsorshipFilterToolbar';
 import SponsorshipClientsGrid from './SponsorshipClientsGrid';
 import SponsorshipDealsTable from './SponsorshipDealsTable';
@@ -38,6 +40,12 @@ const SponsorshipManager: React.FC<SponsorshipManagerProps> = ({ onSelectTask })
     // Filter & Search state
     const [searchQuery, setSearchQuery] = useState('');
     const [paymentFilter, setPaymentFilter] = useState<'ALL' | 'PAID' | 'UNPAID'>('ALL');
+
+    // Date Range Filter state (Default: เดือนนี้กับย้อนหลัง 2 เดือน = 3 เดือนล่าสุด)
+    const [datePreset, setDatePreset] = useState<DateFilterPreset>('LAST_3_MONTHS');
+    const [startDate, setStartDate] = useState<Date | null>(() => startOfMonth(subMonths(new Date(), 2)));
+    const [endDate, setEndDate] = useState<Date | null>(() => endOfMonth(new Date()));
+    const [currentMonthAnchor, setCurrentMonthAnchor] = useState<Date>(new Date());
     
     // Client Edit / Create Modal State
     const [isClientModalOpen, setIsClientModalOpen] = useState(false);
@@ -46,11 +54,14 @@ const SponsorshipManager: React.FC<SponsorshipManagerProps> = ({ onSelectTask })
     // Client Drill-down Detail Modal State
     const [selectedClientForDetail, setSelectedClientForDetail] = useState<Client | null>(null);
 
-    // Fetch all sponsorship deals
-    const loadDeals = useCallback(async () => {
+    // Fetch sponsorship deals by date range
+    const loadDeals = useCallback(async (start?: Date | null, end?: Date | null) => {
         setIsDealsLoading(true);
         try {
-            const data = await sponsorshipService.getAllSponsorshipDeals();
+            const data = await sponsorshipService.getAllSponsorshipDeals(
+                start || undefined, 
+                end || undefined
+            );
             setDeals(data as SponsorshipDealItem[]);
         } catch (err) {
             console.error('Failed to fetch sponsorship deals:', err);
@@ -59,11 +70,68 @@ const SponsorshipManager: React.FC<SponsorshipManagerProps> = ({ onSelectTask })
         }
     }, []);
 
+    // Initial Load & re-fetch whenever startDate or endDate changes
     useEffect(() => {
         fetchClients();
-        loadDeals();
         fetchChannels();
-    }, [fetchClients, loadDeals, fetchChannels]);
+    }, [fetchClients, fetchChannels]);
+
+    useEffect(() => {
+        loadDeals(startDate, endDate);
+    }, [startDate, endDate, loadDeals]);
+
+    // Handle Preset Changes
+    const handlePresetChange = (preset: DateFilterPreset) => {
+        setDatePreset(preset);
+        const now = new Date();
+
+        if (preset === 'THIS_MONTH') {
+            const start = startOfMonth(now);
+            const end = endOfMonth(now);
+            setStartDate(start);
+            setEndDate(end);
+            setCurrentMonthAnchor(now);
+        } else if (preset === 'LAST_MONTH') {
+            const prevMonth = subMonths(now, 1);
+            const start = startOfMonth(prevMonth);
+            const end = endOfMonth(prevMonth);
+            setStartDate(start);
+            setEndDate(end);
+            setCurrentMonthAnchor(prevMonth);
+        } else if (preset === 'LAST_3_MONTHS') {
+            const start = startOfMonth(subMonths(now, 2));
+            const end = endOfMonth(now);
+            setStartDate(start);
+            setEndDate(end);
+            setCurrentMonthAnchor(now);
+        } else if (preset === 'THIS_YEAR') {
+            const start = startOfYear(now);
+            const end = endOfYear(now);
+            setStartDate(start);
+            setEndDate(end);
+            setCurrentMonthAnchor(now);
+        } else if (preset === 'ALL') {
+            setStartDate(null);
+            setEndDate(null);
+        }
+    };
+
+    // Handle Custom Date Range from picker
+    const handleCustomRangeChange = (start: Date, end: Date) => {
+        setDatePreset('CUSTOM');
+        setStartDate(start);
+        setEndDate(end);
+        setCurrentMonthAnchor(start);
+    };
+
+    // Handle Month Stepper Navigation (<, >)
+    const handleMonthNavigate = (offset: number) => {
+        const newAnchor = addMonths(currentMonthAnchor, offset);
+        setCurrentMonthAnchor(newAnchor);
+        setDatePreset('CUSTOM');
+        setStartDate(startOfMonth(newAnchor));
+        setEndDate(endOfMonth(newAnchor));
+    };
 
     // Compute Metrics
     const metrics: SponsorshipMetrics = useMemo(() => {
@@ -185,7 +253,7 @@ const SponsorshipManager: React.FC<SponsorshipManagerProps> = ({ onSelectTask })
         } else {
             await createClient(clientData);
         }
-        await loadDeals();
+        await loadDeals(startDate, endDate);
     };
 
     const handleDeleteClient = async (clientId: string) => {
@@ -193,7 +261,7 @@ const SponsorshipManager: React.FC<SponsorshipManagerProps> = ({ onSelectTask })
         if (selectedClientForDetail?.id === clientId) {
             setSelectedClientForDetail(null);
         }
-        await loadDeals();
+        await loadDeals(startDate, endDate);
     };
 
     return (
@@ -201,7 +269,7 @@ const SponsorshipManager: React.FC<SponsorshipManagerProps> = ({ onSelectTask })
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.25 }}
-            className="space-y-6"
+            className="space-y-4"
         >
             {/* 1. Summary Metric KPI Cards */}
             <SponsorshipMetricsCards
@@ -210,7 +278,19 @@ const SponsorshipManager: React.FC<SponsorshipManagerProps> = ({ onSelectTask })
                 onAddClient={handleOpenAddModal}
             />
 
-            {/* 2. Controls & Tab Toolbar */}
+            {/* 2. Date Range & Month Filter Bar */}
+            <SponsorshipDateFilter
+                preset={datePreset}
+                startDate={startDate}
+                endDate={endDate}
+                currentMonthAnchor={currentMonthAnchor}
+                onPresetChange={handlePresetChange}
+                onCustomRangeChange={handleCustomRangeChange}
+                onMonthNavigate={handleMonthNavigate}
+                isLoading={isDealsLoading}
+            />
+
+            {/* 3. Controls & Tab Toolbar */}
             <SponsorshipFilterToolbar
                 subTab={subTab}
                 onTabChange={setSubTab}
@@ -223,7 +303,7 @@ const SponsorshipManager: React.FC<SponsorshipManagerProps> = ({ onSelectTask })
                 onAddClient={handleOpenAddModal}
             />
 
-            {/* 3. Sub-View Animated Content */}
+            {/* 4. Sub-View Animated Content */}
             <AnimatePresence mode="wait">
                 {subTab === 'CLIENTS' ? (
                     <motion.div

@@ -2,6 +2,7 @@
 import { GameActionType, GameActionResult, Difficulty, GameConfig } from '../types';
 import { differenceInDays, isBefore, format } from 'date-fns';
 import th from 'date-fns/locale/th/index.js';
+import { BRAND_CONFIG } from '../config/brand';
 
 // --- DEFAULT FALLBACK CONFIGURATION ---
 // Used when DB is offline or loading
@@ -329,14 +330,56 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
             let detailsStr = `${rule.xp > 0 ? `+${rule.xp} XP` : ''} ${rule.hp < 0 ? `${rule.hp} HP` : ''}`.trim();
             
             if (status === 'LATE') {
-                const lateModeDynamic = penalties.LATE_MODE_DYNAMIC !== undefined ? penalties.LATE_MODE_DYNAMIC : 0;
-                if (lateModeDynamic === 1) {
+                const masterOptions = context.masterOptions;
+                const enableOpt = masterOptions?.find((o: any) => o.type === 'WORK_CONFIG' && o.key === 'ENABLE_FOUR_STAGE_LATE');
+                const enableFourStage = enableOpt ? enableOpt.label === 'true' : ((BRAND_CONFIG as any).enableFourStageLateRules ?? true);
+
+                if (enableFourStage) {
+                    const stage1MaxOpt = masterOptions?.find((o: any) => o.type === 'WORK_CONFIG' && o.key === 'LATE_STAGE1_MAX');
+                    const stage2Opt = masterOptions?.find((o: any) => o.type === 'WORK_CONFIG' && o.key === 'LATE_STAGE2_MAX');
+                    const stage3Opt = masterOptions?.find((o: any) => o.type === 'WORK_CONFIG' && o.key === 'LATE_STAGE3_MAX');
+                    const stage4BaseHpOpt = masterOptions?.find((o: any) => o.type === 'WORK_CONFIG' && o.key === 'LATE_STAGE4_BASE_HP');
+                    const hpPerMinuteRateOpt = masterOptions?.find((o: any) => o.type === 'WORK_CONFIG' && o.key === 'LATE_HP_PER_MINUTE');
+
+                    const stage1MaxMins = stage1MaxOpt ? Number(stage1MaxOpt.label) : 5;
+                    const stage2MaxMins = stage2Opt ? Number(stage2Opt.label) : 30;
+                    const stage3MaxMins = stage3Opt ? Number(stage3Opt.label) : 60;
+                    const stage4BaseHp = stage4BaseHpOpt ? Number(stage4BaseHpOpt.label) : 300;
+                    const hpPerMinuteRate = hpPerMinuteRateOpt ? Number(hpPerMinuteRateOpt.label) : 1;
+
                     const lateMinutes = context.lateMinutes || 0;
-                    const interval = penalties.HP_PENALTY_LATE_INTERVAL || 10;
-                    const rate = penalties.HP_PENALTY_LATE_RATE || 1;
-                    const penalty = Math.ceil(lateMinutes / interval) * rate;
-                    hpChange = -penalty;
-                    detailsStr = `-${penalty} HP (สาย ${lateMinutes} นาที) ${rule.xp > 0 ? `+${rule.xp} XP` : ''}`.trim();
+                    const rate = penalties.HP_PENALTY_LATE_RATE || hpPerMinuteRate || 1;
+
+                    if (lateMinutes <= stage1MaxMins) {
+                        // Stage 1 (1 - 5 mins): No HP penalty
+                        hpChange = 0;
+                        detailsStr = `0 HP (สาย ${lateMinutes} นาที - ช่วงอนุโลมพิเศษ) ${rule.xp > 0 ? `+${rule.xp} XP` : ''}`.trim();
+                    } else if (lateMinutes <= stage2MaxMins) {
+                        // Stage 2 (6 - 30 mins): rate * lateMinutes
+                        const penalty = lateMinutes * rate;
+                        hpChange = -penalty;
+                        detailsStr = `-${penalty} HP (สาย ${lateMinutes} นาที) ${rule.xp > 0 ? `+${rule.xp} XP` : ''}`.trim();
+                    } else if (lateMinutes <= stage3MaxMins) {
+                        // Stage 3 (31 - 60 mins): rate * lateMinutes
+                        const penalty = lateMinutes * rate;
+                        hpChange = -penalty;
+                        detailsStr = `-${penalty} HP (สาย ${lateMinutes} นาที) ${rule.xp > 0 ? `+${rule.xp} XP` : ''}`.trim();
+                    } else {
+                        // Stage 4 (61+ mins): baseHp + lateMinutes * rate
+                        const penalty = stage4BaseHp + (lateMinutes * rate);
+                        hpChange = -penalty;
+                        detailsStr = `-${penalty} HP (สาย ${lateMinutes} นาที - ปรับหนัก ${stage4BaseHp} + ${lateMinutes * rate}) ${rule.xp > 0 ? `+${rule.xp} XP` : ''}`.trim();
+                    }
+                } else {
+                    const lateModeDynamic = penalties.LATE_MODE_DYNAMIC !== undefined ? penalties.LATE_MODE_DYNAMIC : 0;
+                    if (lateModeDynamic === 1) {
+                        const lateMinutes = context.lateMinutes || 0;
+                        const interval = penalties.HP_PENALTY_LATE_INTERVAL || 10;
+                        const rate = penalties.HP_PENALTY_LATE_RATE || 1;
+                        const penalty = Math.ceil(lateMinutes / interval) * rate;
+                        hpChange = -penalty;
+                        detailsStr = `-${penalty} HP (สาย ${lateMinutes} นาที) ${rule.xp > 0 ? `+${rule.xp} XP` : ''}`.trim();
+                    }
                 }
             }
             
@@ -346,9 +389,27 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
             let msg = '';
             if (status === 'LATE') {
                 const lateMinutes = context.lateMinutes || 0;
-                msg = `เข้างานสาย${timeStr}${lateMinutes > 0 ? ` (สาย ${lateMinutes} นาที)` : ''}${dateStr}`;
+                const masterOptions = context.masterOptions;
+                const enableOpt = masterOptions?.find((o: any) => o.type === 'WORK_CONFIG' && o.key === 'ENABLE_FOUR_STAGE_LATE');
+                const enableFourStage = enableOpt ? enableOpt.label === 'true' : ((BRAND_CONFIG as any).enableFourStageLateRules ?? true);
+
+                let stage1MaxMins = 5;
+                if (enableFourStage) {
+                    const stage1MaxOpt = masterOptions?.find((o: any) => o.type === 'WORK_CONFIG' && o.key === 'LATE_STAGE1_MAX');
+                    stage1MaxMins = stage1MaxOpt ? Number(stage1MaxOpt.label) : 5;
+                }
+
+                if (enableFourStage && lateMinutes <= stage1MaxMins) {
+                    msg = `เข้างานสาย${timeStr}${lateMinutes > 0 ? ` (สาย ${lateMinutes} นาที - ช่วงอนุโลมพิเศษ)` : ''}${dateStr}`;
+                } else {
+                    msg = `เข้างานสาย${timeStr}${lateMinutes > 0 ? ` (สาย ${lateMinutes} นาที)` : ''}${dateStr}`;
+                }
             } else if (status === 'APPEAL') {
-                msg = `เข้างาน (รออนุมัติสาย)${timeStr}`;
+                if (context.isLate) {
+                    msg = `เข้างาน (รออนุมัติสาย)${timeStr}`;
+                } else {
+                    msg = `เข้างาน (รออนุมัติ Onsite)${timeStr}`;
+                }
             } else {
                 msg = `เข้างานตรงเวลา${timeStr}`;
             }
@@ -395,14 +456,52 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
             let hpChange = rule.hp;
             let detailsStr = `${rule.hp} HP`;
             
-            const lateModeDynamic = penalties.LATE_MODE_DYNAMIC !== undefined ? penalties.LATE_MODE_DYNAMIC : 0;
-            if (lateModeDynamic === 1) {
+            const masterOptions = context.masterOptions;
+            const enableOpt = masterOptions?.find((o: any) => o.type === 'WORK_CONFIG' && o.key === 'ENABLE_FOUR_STAGE_LATE');
+            const enableFourStage = enableOpt ? enableOpt.label === 'true' : ((BRAND_CONFIG as any).enableFourStageLateRules ?? true);
+
+            if (enableFourStage) {
+                const stage1MaxOpt = masterOptions?.find((o: any) => o.type === 'WORK_CONFIG' && o.key === 'LATE_STAGE1_MAX');
+                const stage2Opt = masterOptions?.find((o: any) => o.type === 'WORK_CONFIG' && o.key === 'LATE_STAGE2_MAX');
+                const stage3Opt = masterOptions?.find((o: any) => o.type === 'WORK_CONFIG' && o.key === 'LATE_STAGE3_MAX');
+                const stage4BaseHpOpt = masterOptions?.find((o: any) => o.type === 'WORK_CONFIG' && o.key === 'LATE_STAGE4_BASE_HP');
+                const hpPerMinuteRateOpt = masterOptions?.find((o: any) => o.type === 'WORK_CONFIG' && o.key === 'LATE_HP_PER_MINUTE');
+
+                const stage1MaxMins = stage1MaxOpt ? Number(stage1MaxOpt.label) : 5;
+                const stage2MaxMins = stage2Opt ? Number(stage2Opt.label) : 30;
+                const stage3MaxMins = stage3Opt ? Number(stage3Opt.label) : 60;
+                const stage4BaseHp = stage4BaseHpOpt ? Number(stage4BaseHpOpt.label) : 300;
+                const hpPerMinuteRate = hpPerMinuteRateOpt ? Number(hpPerMinuteRateOpt.label) : 1;
+
                 const lateMinutes = context.lateMinutes || 0;
-                const interval = penalties.HP_PENALTY_LATE_INTERVAL || 10;
-                const rate = penalties.HP_PENALTY_LATE_RATE || 1;
-                const penalty = Math.ceil(lateMinutes / interval) * rate;
-                hpChange = -penalty;
-                detailsStr = `-${penalty} HP (สาย ${lateMinutes} นาที)`;
+                const rate = penalties.HP_PENALTY_LATE_RATE || hpPerMinuteRate || 1;
+
+                if (lateMinutes <= stage1MaxMins) {
+                    hpChange = 0;
+                    detailsStr = `0 HP (สาย ${lateMinutes} นาที - ช่วงอนุโลมพิเศษ)`;
+                } else if (lateMinutes <= stage2MaxMins) {
+                    const penalty = lateMinutes * rate;
+                    hpChange = -penalty;
+                    detailsStr = `-${penalty} HP (สาย ${lateMinutes} นาที)`;
+                } else if (lateMinutes <= stage3MaxMins) {
+                    const penalty = lateMinutes * rate;
+                    hpChange = -penalty;
+                    detailsStr = `-${penalty} HP (สาย ${lateMinutes} นาที)`;
+                } else {
+                    const penalty = stage4BaseHp + (lateMinutes * rate);
+                    hpChange = -penalty;
+                    detailsStr = `-${penalty} HP (สาย ${lateMinutes} นาที - ปรับหนัก ${stage4BaseHp} + ${lateMinutes * rate})`;
+                }
+            } else {
+                const lateModeDynamic = penalties.LATE_MODE_DYNAMIC !== undefined ? penalties.LATE_MODE_DYNAMIC : 0;
+                if (lateModeDynamic === 1) {
+                    const lateMinutes = context.lateMinutes || 0;
+                    const interval = penalties.HP_PENALTY_LATE_INTERVAL || 10;
+                    const rate = penalties.HP_PENALTY_LATE_RATE || 1;
+                    const penalty = Math.ceil(lateMinutes / interval) * rate;
+                    hpChange = -penalty;
+                    detailsStr = `-${penalty} HP (สาย ${lateMinutes} นาที)`;
+                }
             }
 
             const dateStr = context.date ? ` (${formatDate(context.date)})` : '';
@@ -517,15 +616,27 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
 
         case 'ATTENDANCE_UNAUTHORIZED_WFH':
         case 'ATTENDANCE_UNAUTHORIZED_ONSITE': {
-            const penalty = penalties.HP_PENALTY_UNAUTHORIZED_WFH || 5;
+            const penalty = (penalties.HP_PENALTY_UNAUTHORIZED_WFH !== undefined && penalties.HP_PENALTY_UNAUTHORIZED_WFH !== null)
+                ? Number(penalties.HP_PENALTY_UNAUTHORIZED_WFH)
+                : 5;
             const isSite = action === 'ATTENDANCE_UNAUTHORIZED_ONSITE' || context?.workType === 'SITE' || context?.type === 'ONSITE' || context?.workType === 'ONSITE';
             const workTypeLabel = isSite ? 'On-site (ปฏิบัติงานนอกสถานที่)' : 'WFH';
+            
+            const isNoPenalty = penalty === 0;
+            const message = isNoPenalty 
+                ? `บันทึกพิกัด! เช็คอิน ${workTypeLabel} นอกพื้นที่สำนักงาน`
+                : `หักคะแนน! เช็คอิน ${workTypeLabel} โดยไม่ได้ขออนุญาตล่วงหน้า`;
+            
+            const details = isNoPenalty
+                ? `0 HP (ไม่มีโทษหักคะแนน)`
+                : `-${penalty} HP`;
+
             return {
                 xp: 0,
                 hp: -penalty,
                 coins: 0,
-                message: `หักคะแนน! เช็คอิน ${workTypeLabel} โดยไม่ได้ขออนุญาตล่วงหน้า`,
-                details: `-${penalty} HP`
+                message: message,
+                details: details
             };
         }
 

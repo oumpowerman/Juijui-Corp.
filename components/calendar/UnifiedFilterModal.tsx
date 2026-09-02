@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, SlidersHorizontal } from 'lucide-react';
-import { Channel, ChipConfig } from '../../types';
+import { Channel, ChipConfig, User } from '../../types';
 import { MasterOption } from '../../types/task';
 
 // Modular component imports
@@ -10,6 +10,7 @@ import FilterTabHeader, { TabType } from './parts/FilterTabHeader';
 import ChannelFilterGrid from './parts/ChannelFilterGrid';
 import FormatFilterGrid from './parts/FormatFilterGrid';
 import StatusFilterGrid from './parts/StatusFilterGrid';
+import AssigneeFilterGrid from './parts/AssigneeFilterGrid';
 import FilterFooter from './parts/FilterFooter';
 
 interface UnifiedFilterModalProps {
@@ -17,17 +18,25 @@ interface UnifiedFilterModalProps {
     onClose: () => void;
     channels: Channel[];
     masterOptions: MasterOption[];
+    users?: User[];
     
     // Selected states
     selectedChannelIds: string[];
     selectedFormats: string[];
     selectedStatuses: string[];
+    selectedAssigneeIds?: string[];
+    
+    // Initial tab focus
+    initialTab?: TabType;
+    viewMode?: 'CONTENT' | 'TASK' | 'PLAN';
+    taskCountsByUser?: Record<string, number>;
     
     // Apply callback
     onApplyFilters: (filters: {
         channelIds: string[];
         formats: string[];
         statuses: string[];
+        assigneeIds?: string[];
     }) => void;
 
     // Pinning Support
@@ -41,21 +50,27 @@ const UnifiedFilterModal: React.FC<UnifiedFilterModalProps> = ({
     onClose,
     channels = [],
     masterOptions = [],
+    users = [],
     selectedChannelIds = [],
     selectedFormats = [],
     selectedStatuses = [],
+    selectedAssigneeIds = [],
+    initialTab,
+    viewMode = 'CONTENT',
+    taskCountsByUser = {},
     onApplyFilters,
     customChips = [],
     onSaveChip,
     onDeleteChip
 }) => {
     // Current active tab
-    const [activeTab, setActiveTab] = useState<TabType>('CHANNELS');
+    const [activeTab, setActiveTab] = useState<TabType>(initialTab || (viewMode === 'TASK' ? 'ASSIGNEES' : 'CHANNELS'));
 
     // Temporary selections for each category (committed on Confirm)
     const [tempChannelIds, setTempChannelIds] = useState<string[]>([]);
     const [tempFormats, setTempFormats] = useState<string[]>([]);
     const [tempStatuses, setTempStatuses] = useState<string[]>([]);
+    const [tempAssigneeIds, setTempAssigneeIds] = useState<string[]>([]);
 
     // Sync state when modal opens
     useEffect(() => {
@@ -63,8 +78,14 @@ const UnifiedFilterModal: React.FC<UnifiedFilterModalProps> = ({
             setTempChannelIds(selectedChannelIds);
             setTempFormats(selectedFormats);
             setTempStatuses(selectedStatuses);
+            setTempAssigneeIds(selectedAssigneeIds);
+            if (initialTab) {
+                setActiveTab(initialTab);
+            } else if (viewMode === 'TASK') {
+                setActiveTab('ASSIGNEES');
+            }
         }
-    }, [isOpen, selectedChannelIds, selectedFormats, selectedStatuses]);
+    }, [isOpen, selectedChannelIds, selectedFormats, selectedStatuses, selectedAssigneeIds, initialTab, viewMode]);
 
     // Filter master options for active formats and statuses
     const formatOptions = masterOptions.filter(o => o.type === 'FORMAT' && o.isActive);
@@ -89,9 +110,17 @@ const UnifiedFilterModal: React.FC<UnifiedFilterModalProps> = ({
         );
     };
 
+    const toggleAssignee = (userId: string) => {
+        setTempAssigneeIds(prev =>
+            prev.includes(userId) ? prev.filter(x => x !== userId) : [...prev, userId]
+        );
+    };
+
     // Bulk selection actions for current active tab
     const handleSelectAllCurrent = () => {
-        if (activeTab === 'CHANNELS') {
+        if (activeTab === 'ASSIGNEES') {
+            setTempAssigneeIds(users.map(u => u.id));
+        } else if (activeTab === 'CHANNELS') {
             setTempChannelIds(channels.map(c => c.id));
         } else if (activeTab === 'FORMATS') {
             setTempFormats(formatOptions.map(o => o.key));
@@ -101,7 +130,9 @@ const UnifiedFilterModal: React.FC<UnifiedFilterModalProps> = ({
     };
 
     const handleClearAllCurrent = () => {
-        if (activeTab === 'CHANNELS') {
+        if (activeTab === 'ASSIGNEES') {
+            setTempAssigneeIds([]);
+        } else if (activeTab === 'CHANNELS') {
             setTempChannelIds([]);
         } else if (activeTab === 'FORMATS') {
             setTempFormats([]);
@@ -114,18 +145,20 @@ const UnifiedFilterModal: React.FC<UnifiedFilterModalProps> = ({
         setTempChannelIds([]);
         setTempFormats([]);
         setTempStatuses([]);
+        setTempAssigneeIds([]);
     };
 
     const handleConfirm = () => {
         onApplyFilters({
             channelIds: tempChannelIds,
             formats: tempFormats,
-            statuses: tempStatuses
+            statuses: tempStatuses,
+            assigneeIds: tempAssigneeIds
         });
         onClose();
     };
 
-    const totalSelectedCount = tempChannelIds.length + tempFormats.length + tempStatuses.length;
+    const totalSelectedCount = tempChannelIds.length + tempFormats.length + tempStatuses.length + tempAssigneeIds.length;
 
     const modalContent = (
         <AnimatePresence>
@@ -146,7 +179,7 @@ const UnifiedFilterModal: React.FC<UnifiedFilterModalProps> = ({
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.96, y: 12 }}
                         transition={{ duration: 0.22, ease: 'easeOut' }}
-                        className="relative w-full max-w-4xl h-[640px] max-h-[85vh] bg-stone-50 border border-stone-200 rounded-3xl shadow-[0_20px_60px_rgba(28,25,23,0.12)] overflow-hidden flex flex-col"
+                        className="relative w-full max-w-4xl h-[660px] max-h-[88vh] bg-stone-50 border border-stone-200 rounded-3xl shadow-[0_20px_60px_rgba(28,25,23,0.12)] overflow-hidden flex flex-col"
                     >
                         {/* Header Section */}
                         <div className="p-6 border-b border-stone-200 flex items-center justify-between bg-white sticky top-0 z-10 shadow-[0_1px_3px_rgba(28,25,23,0.02)]">
@@ -164,7 +197,7 @@ const UnifiedFilterModal: React.FC<UnifiedFilterModalProps> = ({
                                         )}
                                     </h2>
                                     <p className="text-xs text-stone-500 mt-0.5">
-                                        คัดกรองงานบนปฏิทินด้วยช่องรายการ รูปแบบเนื้อหา และสถานะความคืบหน้า
+                                        คัดกรองงานด้วยผู้รับผิดชอบ, ช่องรายการ, รูปแบบเนื้อหา และสถานะ
                                     </p>
                                 </div>
                             </div>
@@ -183,13 +216,29 @@ const UnifiedFilterModal: React.FC<UnifiedFilterModalProps> = ({
                             tempChannelIdsCount={tempChannelIds.length}
                             tempFormatsCount={tempFormats.length}
                             tempStatusesCount={tempStatuses.length}
+                            tempAssigneesCount={tempAssigneeIds.length}
                             handleSelectAllCurrent={handleSelectAllCurrent}
                             handleClearAllCurrent={handleClearAllCurrent}
+                            viewMode={viewMode}
                         />
 
                         {/* Filter Options Area */}
                         <div className="flex-1 overflow-y-auto p-6 space-y-4 bg-stone-100/30 min-h-[300px]">
                             <AnimatePresence mode="wait">
+                                {/* Assignees Grid */}
+                                {activeTab === 'ASSIGNEES' && (
+                                    <AssigneeFilterGrid
+                                        key="assignees"
+                                        users={users}
+                                        selectedAssigneeIds={tempAssigneeIds}
+                                        toggleAssignee={toggleAssignee}
+                                        taskCountsByUser={taskCountsByUser}
+                                        customChips={customChips}
+                                        onSaveChip={onSaveChip}
+                                        onDeleteChip={onDeleteChip}
+                                    />
+                                )}
+
                                 {/* Channels Grid */}
                                 {activeTab === 'CHANNELS' && (
                                     <ChannelFilterGrid
@@ -248,3 +297,4 @@ const UnifiedFilterModal: React.FC<UnifiedFilterModalProps> = ({
 };
 
 export default UnifiedFilterModal;
+

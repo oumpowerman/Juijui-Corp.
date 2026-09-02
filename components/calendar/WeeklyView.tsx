@@ -12,7 +12,7 @@ import { WeeklyTaskCard } from './weekly/WeeklyTaskCard';
 
 interface WeeklyViewProps {
     currentDate: Date;
-    viewMode: 'CONTENT' | 'TASK';
+    viewMode: 'CONTENT' | 'TASK' | 'PLAN';
     taskDisplayMode: TaskDisplayMode;
     getTasksForDay: (day: Date) => Task[];
     filterTasks: (tasks: Task[]) => Task[];

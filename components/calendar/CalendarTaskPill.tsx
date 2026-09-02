@@ -48,6 +48,7 @@ const CalendarTaskPill = React.forwardRef<HTMLDivElement, CalendarTaskPillProps>
     onClick
 }, ref) => {
     const [isHovered, setIsHovered] = useState(false);
+    const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
     const [isMobile, setIsMobile] = useState(false);
 
     useEffect(() => {
@@ -308,8 +309,17 @@ const CalendarTaskPill = React.forwardRef<HTMLDivElement, CalendarTaskPillProps>
                 e.stopPropagation();
                 onClick(task);
             }}
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
+            onMouseEnter={(e) => {
+                setIsHovered(true);
+                setMousePos({ x: e.clientX, y: e.clientY });
+            }}
+            onMouseMove={(e) => {
+                setMousePos({ x: e.clientX, y: e.clientY });
+            }}
+            onMouseLeave={() => {
+                setIsHovered(false);
+                setMousePos(null);
+            }}
             rootStyle={rootStyle}
             rootClassName={rootClassName}
         >
@@ -329,7 +339,7 @@ const CalendarTaskPill = React.forwardRef<HTMLDivElement, CalendarTaskPillProps>
             )}
 
             <AnimatePresence>
-                {isHovered && (
+                {isHovered && mousePos && (
                     <TaskPillTooltip
                         task={task}
                         viewMode={viewMode}
@@ -345,6 +355,7 @@ const CalendarTaskPill = React.forwardRef<HTMLDivElement, CalendarTaskPillProps>
                         statusLabel={statusLabel}
                         statusColor={statusColor}
                         users={users}
+                        mousePos={mousePos}
                     />
                 )}
             </AnimatePresence>

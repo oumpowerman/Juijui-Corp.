@@ -19,6 +19,7 @@ import DayHighlightModal from './calendar/DayHightlightModal';
 import PlanFormModal from './calendar/PlanFormModal';
 import StockSidePanel from './StockSidePanel';
 import DelayModal from './DelayModal';
+import PastelWaveBackground from './dashboard/member/PastelWaveBackground';
 import AppBackground, { BackgroundTheme } from './common/AppBackground';
 import MobileLandscapeWrapper from './common/MobileLandscapeWrapper';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
@@ -82,6 +83,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
       nextMonth, prevMonth,
       nextWeek, prevWeek,
       goToToday,
+      showPlanOverlay, setShowPlanOverlay, togglePlanOverlay,
       filterTasks, getTasksForDay,
       saveChip, deleteChip,
       handleDragStart, handleDragOver, handleDrop: internalHandleDrop, setDragOverDate, dragOverDate,
@@ -158,18 +160,96 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [selectedCosmicChannelIds, setSelectedCosmicChannelIds] = useState<string[]>([]);
   const [selectedCosmicFormats, setSelectedCosmicFormats] = useState<string[]>([]);
   const [selectedCosmicStatuses, setSelectedCosmicStatuses] = useState<string[]>([]);
+  const [selectedCosmicAssigneeIds, setSelectedCosmicAssigneeIds] = useState<string[]>([]);
   const [isCosmicFilterOpen, setIsCosmicFilterOpen] = useState(false);
+
+  // --- TASK Mode Filters (Smart Default to current user, Quick Status & Urgency) ---
+  const [taskAssigneeScope, setTaskAssigneeScope] = useState<'ONLY_ME' | 'ALL' | string>('ONLY_ME');
+  const [selectedPosition, setSelectedPosition] = useState<string>('ALL');
+  const [selectedTaskStatuses, setSelectedTaskStatuses] = useState<string[]>([]);
+  const [isUrgentOnly, setIsUrgentOnly] = useState(false);
+  const [isDueSoonOnly, setIsDueSoonOnly] = useState(false);
+
+  // Auto-default to current user when switching into TASK mode
+  useEffect(() => {
+      if (viewMode === 'TASK') {
+          setTaskAssigneeScope('ONLY_ME');
+      }
+  }, [viewMode]);
+
+  // Toggle helpers for Task mode chips
+  const handleToggleTaskStatus = React.useCallback((status: string) => {
+      setSelectedTaskStatuses(prev => 
+          prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
+      );
+  }, []);
+
+  const handleToggleUrgentOnly = React.useCallback(() => {
+      setIsUrgentOnly(prev => !prev);
+  }, []);
+
+  const handleToggleDueSoonOnly = React.useCallback(() => {
+      setIsDueSoonOnly(prev => !prev);
+  }, []);
 
   // Wrap filterTasks with cosmic & detailed filter logic
   const cosmicFilterTasks = React.useCallback((tasksToFilter: Task[]) => {
       let filtered = filterTasks(tasksToFilter);
 
-      // 1. Channel Filter
+      // In TASK Mode: Apply Assignee Scope & Position Filters & Quick Task filters
+      if (viewMode === 'TASK') {
+          // 1. Assignee Scope Filter (Default: ONLY_ME)
+          if (taskAssigneeScope === 'ONLY_ME') {
+              if (currentUser?.id) {
+                  filtered = filtered.filter(t => t.assigneeIds && t.assigneeIds.includes(currentUser.id));
+              }
+          } else if (taskAssigneeScope !== 'ALL') {
+              filtered = filtered.filter(t => t.assigneeIds && t.assigneeIds.includes(taskAssigneeScope));
+          }
+
+          // 2. Position / Role Filter
+          if (selectedPosition && selectedPosition !== 'ALL') {
+              const userIdsWithPos = users.filter(u => u.position === selectedPosition).map(u => u.id);
+              filtered = filtered.filter(t => {
+                  if (t.targetPosition && t.targetPosition === selectedPosition) return true;
+                  if (t.assigneeIds && t.assigneeIds.some(uid => userIdsWithPos.includes(uid))) return true;
+                  return false;
+              });
+          }
+
+          // 3. Task Status Quick Filter
+          if (selectedTaskStatuses.length > 0) {
+              filtered = filtered.filter(t => t.status && selectedTaskStatuses.includes(t.status));
+          }
+
+          // 4. Urgent Only Filter (Urgent or Critical)
+          if (isUrgentOnly) {
+              filtered = filtered.filter(t => t.priority === 'HIGH' || t.priority === 'URGENT' || (t as any).isUrgent);
+          }
+
+          // 5. Due Soon Only Filter (due within next 3 days)
+          if (isDueSoonOnly) {
+              const now = new Date().getTime();
+              const threeDaysFromNow = now + 3 * 24 * 60 * 60 * 1000;
+              filtered = filtered.filter(t => {
+                  if (!t.endDate || t.status === 'DONE' || t.status === 'CANCELLED') return false;
+                  const taskEnd = new Date(t.endDate).getTime();
+                  return taskEnd >= (now - 24 * 60 * 60 * 1000) && taskEnd <= threeDaysFromNow;
+              });
+          }
+      }
+
+      // 6. Assignee Filter from Cosmic Modal (if selected)
+      if (selectedCosmicAssigneeIds.length > 0) {
+          filtered = filtered.filter(t => t.assigneeIds && t.assigneeIds.some(uid => selectedCosmicAssigneeIds.includes(uid)));
+      }
+
+      // 7. Channel Filter (Only if active)
       if (selectedCosmicChannelIds.length > 0) {
           filtered = filtered.filter(t => t.channelId && selectedCosmicChannelIds.includes(t.channelId));
       }
 
-      // 2. Format Filter
+      // 8. Format Filter (Only if active)
       if (selectedCosmicFormats.length > 0) {
           filtered = filtered.filter(t => {
               if (!t.contentFormats) return false;
@@ -180,13 +260,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           });
       }
 
-      // 3. Status Filter
+      // 9. Status Filter (Only if active)
       if (selectedCosmicStatuses.length > 0) {
           filtered = filtered.filter(t => t.status && selectedCosmicStatuses.includes(t.status));
       }
 
       return filtered;
-  }, [filterTasks, selectedCosmicChannelIds, selectedCosmicFormats, selectedCosmicStatuses]);
+  }, [filterTasks, viewMode, taskAssigneeScope, currentUser?.id, selectedPosition, users, selectedTaskStatuses, isUrgentOnly, isDueSoonOnly, selectedCosmicAssigneeIds, selectedCosmicChannelIds, selectedCosmicFormats, selectedCosmicStatuses]);
 
   // 🚀 Lazy-load completed tasks for the active calendar date range
   const { fetchCompletedTasks } = useTaskContext();
@@ -252,12 +332,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   };
 
 
-  const bgTheme = useMemo(() => {
-    const themes: BackgroundTheme[] = [
-      'pastel-pink', 'pastel-blue', 'pastel-green', 'pastel-purple', 'pastel-orange', 'pastel-yellow', 'pastel-teal'
-    ];
-    return themes[Math.floor(Math.random() * themes.length)];
-  }, []);
+  const bgTheme = useMemo<BackgroundTheme>(() => {
+    if (viewMode === 'CONTENT') return 'pastel-pink';
+    if (viewMode === 'PLAN') return 'pastel-purple';
+    return 'pastel-blue';
+  }, [viewMode]);
 
   const containerClasses = isExpanded 
     ? "relative min-h-screen overflow-x-hidden p-2 md:p-6 pb-16 animate-in zoom-in-95 duration-300" 
@@ -267,8 +346,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     <AppBackground 
       theme={bgTheme} 
       pattern="dots" 
-      className={isExpanded ? "p-2 md:p-6 min-h-screen" : "p-2 sm:p-4 md:p-8 h-full md:min-h-screen flex flex-col overflow-hidden md:overflow-visible"}
+      className={isExpanded ? "p-2 md:p-6 min-h-screen relative overflow-hidden" : "p-2 sm:p-4 md:p-8 h-full md:min-h-screen flex flex-col overflow-hidden md:overflow-visible relative"}
     >
+      {/* Dynamic Mode-Synced Pastel Wave Fluid Background */}
+      <PastelWaveBackground mode={viewMode} enabled={true} />
+
       <div className={containerClasses}>
         {isExpanded && (
            <button 
@@ -325,9 +407,22 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               filterChannelId={filterChannelId}
               setFilterChannelId={setFilterChannelId}
               channels={channels}
+              users={users}
+              masterOptions={masterOptions}
+              currentUser={currentUser}
+              taskAssigneeScope={taskAssigneeScope}
+              onTaskAssigneeScopeChange={setTaskAssigneeScope}
+              selectedPosition={selectedPosition}
+              onSelectedPositionChange={setSelectedPosition}
               onSelectDate={(date, type) => {
                   const targetType = type || viewMode; 
-                  onSelectDate(date, targetType); 
+                  if (targetType === 'PLAN') {
+                      setSelectedPlanDate(date);
+                      setSelectedPlanData(null);
+                      setPlanModalOpen(true);
+                  } else {
+                      onSelectDate(date, targetType); 
+                  }
               }}
               displayMode={displayMode}
               setDisplayMode={setDisplayMode}
@@ -354,14 +449,26 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
            <CalendarSecondaryHeader 
               show={showFilters}
+              viewMode={viewMode}
+              currentUser={currentUser}
               users={users}
+              tasks={tasks}
               onClose={toggleFilters}
               activeChipIds={activeChipIds}
               toggleChip={toggleChip}
               customChips={customChips || []}
               channels={channels}
-              onManageFilters={() => setIsCosmicFilterOpen(true)} onOpenCosmicFilter={() => setIsCosmicFilterOpen(true)}
-              activeFiltersCount={selectedCosmicChannelIds.length + selectedCosmicFormats.length + selectedCosmicStatuses.length}
+              onManageFilters={() => setIsCosmicFilterOpen(true)}
+              onOpenCosmicFilter={() => setIsCosmicFilterOpen(true)}
+              activeFiltersCount={selectedCosmicChannelIds.length + selectedCosmicFormats.length + selectedCosmicStatuses.length + selectedCosmicAssigneeIds.length}
+              taskAssigneeScope={taskAssigneeScope}
+              onTaskAssigneeScopeChange={(scope) => setTaskAssigneeScope(scope)}
+              selectedTaskStatuses={selectedTaskStatuses}
+              onToggleTaskStatus={handleToggleTaskStatus}
+              isUrgentOnly={isUrgentOnly}
+              onToggleUrgentOnly={handleToggleUrgentOnly}
+              isDueSoonOnly={isDueSoonOnly}
+              onToggleDueSoonOnly={handleToggleDueSoonOnly}
               unreadCount={unreadCount}
               onOpenNotifications={onOpenNotifications}
               onOpenSettings={onOpenSettings}
@@ -378,6 +485,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               }}
               isWorkboxOpen={!!isWorkboxOpen}
               isStockOpen={isStockOpen}
+              showPlanOverlay={showPlanOverlay}
+              onTogglePlanOverlay={togglePlanOverlay}
               taskDisplayMode={taskDisplayMode}
               setTaskDisplayMode={setTaskDisplayMode}
               isExpanded={isExpanded}
@@ -421,6 +530,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                                 masterOptions={masterOptions}
                                 channels={channels}
                                 users={users}
+                                allTasks={tasks}
                                 getTasksForDay={getTasksForDay}
                                 filterTasks={cosmicFilterTasks}
                                 onDayClick={handleDayClick}
@@ -562,13 +672,30 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             onClose={() => setIsCosmicFilterOpen(false)}
             channels={channels}
             masterOptions={masterOptions}
+            users={users}
+            viewMode={viewMode}
+            taskCountsByUser={(() => {
+                const counts: Record<string, number> = {};
+                tasks.forEach(t => {
+                    if (t.status !== 'DONE' && t.status !== 'CANCELLED' && t.assigneeIds) {
+                        t.assigneeIds.forEach(uid => {
+                            counts[uid] = (counts[uid] || 0) + 1;
+                        });
+                    }
+                });
+                return counts;
+            })()}
             selectedChannelIds={selectedCosmicChannelIds}
             selectedFormats={selectedCosmicFormats}
             selectedStatuses={selectedCosmicStatuses}
+            selectedAssigneeIds={selectedCosmicAssigneeIds}
             onApplyFilters={(filters) => {
                 setSelectedCosmicChannelIds(filters.channelIds);
                 setSelectedCosmicFormats(filters.formats);
                 setSelectedCosmicStatuses(filters.statuses);
+                if (filters.assigneeIds) {
+                    setSelectedCosmicAssigneeIds(filters.assigneeIds);
+                }
             }}
             customChips={customChips || []}
             onSaveChip={saveChip}

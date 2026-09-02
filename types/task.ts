@@ -200,6 +200,14 @@ export interface Task {
     analyticsStatus?: 'NONE' | 'PARTIAL' | 'COMPLETE' | string;
     subChecklistProgress?: Record<string, boolean>;
     _isPartial?: boolean;
+
+    // Routine & Personal Plan Fields
+    isRoutine?: boolean;
+    isMonthlyRecurring?: boolean;
+    recurrence?: 'NONE' | 'MONTHLY' | 'DAILY' | 'WEEKLY' | string;
+    routineStartDay?: number; // 1-31
+    routineEndDay?: number;   // 1-31
+    colorTheme?: string;
 }
 
 export interface ChipConfig {
@@ -208,7 +216,7 @@ export interface ChipConfig {
     type: FilterType;
     value: string;
     colorTheme: string;
-    scope?: 'CONTENT' | 'TASK';
+    scope?: 'CONTENT' | 'TASK' | 'PLAN';
     mode?: 'INCLUDE' | 'EXCLUDE';
 }
 

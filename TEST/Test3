@@ -1,656 +1,629 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { createPortal } from 'react-dom';
-import { History, RefreshCw, ShieldAlert, MapPin, ArrowRight } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import LeaveRequestModal from '../leave-request/LeaveRequestModal';
-import { LeaveType, LeaveUsage, LeaveRequest, LocationDef } from '../../../types/attendance';
-import { setHours, setMinutes, addMinutes, addHours, isWithinInterval } from 'date-fns';
-import { useMasterData } from '../../../hooks/useMasterData';
-import { useCheckInLocation } from '../../../hooks/attendance/useCheckInLocation';
-import { OFFICE_COORDS } from '../../../lib/locationUtils';
-import { BRAND_CONFIG } from '../../../config/brand';
 
-interface ForgotCheckInControlProps {
-    startTime: string; // "HH:mm" from MasterData
-    lateBuffer: number; // Minutes
-    isCheckedIn: boolean;
-    onSubmit: (type: LeaveType, start: Date, end: Date, reason: string, files?: File[], linkedRemoteType?: 'WFH' | 'ONSITE') => Promise<boolean>;
-    leaveUsage?: LeaveUsage;
-    todayActiveLeave?: LeaveRequest | null;
-    availableLocations?: LocationDef[];
-    isDesktop?: boolean;
-}
+import { useState } from 'react';
+import { supabase } from '../../lib/supabase';
+import { WorkLocation, AttendanceLog, LeaveType } from '../../types/attendance';
+import { useToast } from '../../context/ToastContext';
+import { format } from 'date-fns';
+import { useGamification } from '../useGamification';
+import { calculateCheckOutStatus, checkIsLate, getLateMinutes, mergeAttendanceNotes, getMatchedShiftSlot, resolveAttendanceLogStatus, getEffectiveStartTime, getICTTime } from '../../lib/attendanceUtils';
+import { useMasterData } from '../useMasterData';
+import { attendanceService } from '../../services/attendanceService';
+import { useUserSession } from '../../context/UserSessionContext';
+import { 
+    getHalfDayOffset, 
+    calculatePMShiftDetails, 
+    timeToMinutes 
+} from '../../utils/shiftCalculator';
 
-const ForgotCheckInControl: React.FC<ForgotCheckInControlProps> = ({
-    startTime,
-    lateBuffer,
-    isCheckedIn,
-    onSubmit,
-    leaveUsage,
-    todayActiveLeave,
-    availableLocations = [],
-    isDesktop = false
-}) => {
+export const useAttendanceActions = (userId: string) => {
     const { masterOptions } = useMasterData();
-    const isWfhEnabled = BRAND_CONFIG.showWfhOptionMode !== 2;
+    const [isActionLoading, setIsActionLoading] = useState(false);
+    const { showToast } = useToast();
+    const { processAction } = useGamification();
+    const { refreshAttendance, refreshLeaves } = useUserSession();
+    const todayDateStr = format(new Date(), 'yyyy-MM-dd');
 
-    const [isVisible, setIsVisible] = useState(false);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-
-    const [gpsCheckStatus, setGpsCheckStatus] = useState<'IDLE' | 'SCANNING' | 'SECURE_ERROR' | 'OFFSITE_ALERT' | 'SUCCESS_TRANSITION' | 'READY_FORM' | 'DETECTED_LINK'>('IDLE');
-    const [gpsErrorReason, setGpsErrorReason] = useState('');
-    const [distanceFromOffice, setDistanceFromOffice] = useState<number | null>(null);
-    const [selectedRemoteType, setSelectedRemoteType] = useState<'WFH' | 'ONSITE' | undefined>(undefined);
-    const [isInOffice, setIsInOffice] = useState(false);
-    const [progress, setProgress] = useState(0);
-    const [countdown, setCountdown] = useState(3);
-
-    const formatDistance = (distanceMeters: number | null): string => {
-        if (distanceMeters === null) return '0 ม.';
-        if (distanceMeters < 1000) {
-            return `${Math.round(distanceMeters)} ม.`;
-        }
-        return `${(distanceMeters / 1000).toFixed(2)} กม.`;
-    };
-
-    useEffect(() => {
-        if (gpsCheckStatus !== 'SUCCESS_TRANSITION') {
-            setProgress(0);
-            setCountdown(3);
-            return;
-        }
-
-        let startTimestamp: number | null = null;
-        const duration = 3000; // 3 seconds
-        let animationFrameId: number;
-
-        const updateProgress = (timestamp: number) => {
-            if (!startTimestamp) startTimestamp = timestamp;
-            const elapsed = timestamp - startTimestamp;
-            const percent = Math.min((elapsed / duration) * 100, 100);
-            setProgress(percent);
-
-            const remainingSeconds = Math.max(Math.ceil((duration - elapsed) / 1000), 0);
-            setCountdown(remainingSeconds);
-
-            if (elapsed < duration) {
-                animationFrameId = requestAnimationFrame(updateProgress);
-            } else {
-                setGpsCheckStatus('READY_FORM');
-                setIsModalOpen(true);
-            }
-        };
-
-        animationFrameId = requestAnimationFrame(updateProgress);
-
-        return () => {
-            if (animationFrameId) {
-                cancelAnimationFrame(animationFrameId);
-            }
-        };
-    }, [gpsCheckStatus]);
-
-    const targets = useMemo(() => {
-        if (availableLocations && availableLocations.length > 0) {
-            return availableLocations;
-        }
-
-        const latOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'OFFICE_LAT');
-        const lngOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'OFFICE_LNG');
-        const radOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'OFFICE_RADIUS');
-
-        return [{
-            id: 'def',
-            name: 'Office (Default)',
-            lat: latOpt && latOpt.label && !isNaN(parseFloat(latOpt.label)) ? parseFloat(latOpt.label) : OFFICE_COORDS.lat,
-            lng: lngOpt && lngOpt.label && !isNaN(parseFloat(lngOpt.label)) ? parseFloat(lngOpt.label) : OFFICE_COORDS.lng,
-            radiusMeters: radOpt && radOpt.label && !isNaN(parseFloat(radOpt.label)) ? parseFloat(radOpt.label) : OFFICE_COORDS.radiusMeters,
-            type: 'WORK_LOCATION'
-        }];
-    }, [availableLocations, masterOptions]);
-
-    const { locationState, isGpsSecure, gpsThreatReason, checkLocation } = useCheckInLocation(targets);
-
-    useEffect(() => {
-        const checkVisibility = () => {
-            // If already checked in, hide the button
-            if (isCheckedIn) {
-                setIsVisible(false);
-                return;
-            }
-
-            const shiftsEnabledOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && (o.key === 'MULTIPLE_SHIFTS_ENABLED' || o.key === 'MULTIPLE_SHIFTS_ENABLE'));
-            const shiftsListOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'MULTIPLE_SHIFTS_LIST');
+    const checkIn = async (
+        workType: WorkLocation, 
+        file?: File, 
+        location?: { lat: number, lng: number },
+        locationName?: string,
+        note?: string,
+        externalUploadFn?: (file: File) => Promise<string | null>,
+        isAppeal: boolean = false,
+        proofUrlParam?: string | null,
+        isApprovedWFH: boolean = false,
+        isProvisionalOnsite: boolean = false,
+        provisionalReason?: string,
+        approvedLateTime?: string,
+        pendingLateTime?: string,
+        pendingLateReason?: string,
+        isGpsAppeal: boolean = false,
+        gpsAppealReason?: string
+    ) => {
+        setIsActionLoading(true);
+        try {
+            const now = new Date();
+            const configData = masterOptions.filter(o => o.type === 'WORK_CONFIG');
+            const startTimeStr = configData?.find(c => c.key === 'START_TIME')?.label || '10:00';
+            const buffer = parseInt(configData?.find(c => c.key === 'LATE_BUFFER')?.label || '15');
+            
+            const shiftsEnabledOpt = configData?.find(o => o.key === 'MULTIPLE_SHIFTS_ENABLED');
+            const shiftsListOpt = configData?.find(o => o.key === 'MULTIPLE_SHIFTS_LIST');
             const isShiftsEnabled = shiftsEnabledOpt?.label === 'true';
 
-            let earliestStartTimeStr = startTime;
-            let latestStartTimeStr = startTime;
+            let matchedShift = null;
+            
+            // Query today's approved half-day leaves for this user
+            const { data: todayLeaves } = await supabase
+                .from('leave_requests')
+                .select('id, is_half_day, half_day_session, status')
+                .eq('user_id', userId)
+                .eq('status', 'APPROVED')
+                .eq('is_half_day', true)
+                .lte('start_date', todayDateStr)
+                .gte('end_date', todayDateStr);
 
-            if (isShiftsEnabled && shiftsListOpt?.label) {
-                const shiftsList = shiftsListOpt.label.split(',').map(s => s.trim()).filter(Boolean);
-                if (shiftsList.length > 0) {
-                    const sortedShifts = [...shiftsList].sort((a, b) => {
-                        const [ah, am] = a.split(':').map(Number);
-                        const [bh, bm] = b.split(':').map(Number);
-                        return (ah * 60 + am) - (bh * 60 + bm);
-                    });
-                    earliestStartTimeStr = sortedShifts[0];
-                    latestStartTimeStr = sortedShifts[sortedShifts.length - 1];
-                }
-            }
+            const amHalfDayLeave = todayLeaves && todayLeaves.find(l => l.half_day_session === 'AM');
+            const pmHalfDayLeave = todayLeaves && todayLeaves.find(l => l.half_day_session === 'PM');
 
-            if (!earliestStartTimeStr || !latestStartTimeStr) return;
+            const minHoursStr = configData?.find(c => c.key === 'MIN_HOURS')?.label || '9';
+            const minHours = parseFloat(minHoursStr);
+            const offset = getHalfDayOffset(minHours);
 
-            const now = new Date();
-            const [earliestHour, earliestMinute] = earliestStartTimeStr.split(':').map(Number);
-            const earliestWorkStartTime = setMinutes(setHours(now, earliestHour), earliestMinute);
-            const showAfterTime = addMinutes(earliestWorkStartTime, lateBuffer);
+            let effectiveStartTime = startTimeStr;
+            let isLate = false;
 
-            const [latestHour, latestMinute] = latestStartTimeStr.split(':').map(Number);
-            const latestWorkStartTime = setMinutes(setHours(now, latestHour), latestMinute);
-
-            const limitHoursOpt = masterOptions?.find(o => o.type === 'WORK_CONFIG' && o.key === 'FORGOT_CHECKIN_LIMIT_HOURS');
-            const limitHours = limitHoursOpt && limitHoursOpt.label && !isNaN(parseInt(limitHoursOpt.label, 10))
-                ? parseInt(limitHoursOpt.label, 10)
-                : 12;
-
-            const hideAfterTime = addHours(latestWorkStartTime, limitHours);
-
-            try {
-                // Check if NOW is within the window (Starts after first shift buffer, ends dynamic limit hours after last shift)
-                const shouldShow = isWithinInterval(now, { start: showAfterTime, end: hideAfterTime });
-                setIsVisible(shouldShow);
-            } catch (e) {
-                // Handle edge cases where interval might be invalid (rare)
-                setIsVisible(false);
-            }
-        };
-
-        // Initial Check
-        checkVisibility();
-
-        // Re-check every minute
-        const interval = setInterval(checkVisibility, 60000);
-        return () => clearInterval(interval);
-    }, [startTime, lateBuffer, isCheckedIn, masterOptions]);
-
-    useEffect(() => {
-        if (gpsCheckStatus === 'SCANNING') {
-            if (!isGpsSecure) {
-                setGpsErrorReason(gpsThreatReason || 'ตรวจพบพิกัดผิดปกติหรือการเปิดใช้ Fake GPS');
-                setGpsCheckStatus('SECURE_ERROR');
-            }
-        }
-    }, [isGpsSecure, gpsThreatReason, gpsCheckStatus]);
-
-    useEffect(() => {
-        if (gpsCheckStatus === 'SCANNING' && locationState.status === 'ERROR') {
-            setGpsErrorReason(gpsThreatReason || 'ไม่สามารถดึงข้อมูลพิกัดได้ กรุณาเปิด GPS และอนุญาตสิทธิ์');
-            setGpsCheckStatus('SECURE_ERROR');
-        }
-    }, [locationState.status, gpsThreatReason, gpsCheckStatus]);
-
-    const handleStartForgotCheckIn = () => {
-        setGpsCheckStatus('SCANNING');
-        setSelectedRemoteType(undefined);
-        setDistanceFromOffice(null);
-        setIsInOffice(false);
-        
-        checkLocation(
-            (matches, primaryMatch) => {
-                // Inside Office!
-                setIsInOffice(true);
-                setSelectedRemoteType(undefined);
-                setGpsCheckStatus('SUCCESS_TRANSITION');
-            },
-            (minDistance) => {
-                // Outside Office!
-                setDistanceFromOffice(minDistance);
-                setIsInOffice(false);
-                
-                // Smart Decider: check if user has approved/pending WFH or ONSITE request today
-                if (todayActiveLeave && 
-                    ((isWfhEnabled && todayActiveLeave.type === 'WFH') || todayActiveLeave.type === 'ONSITE') &&
-                    (todayActiveLeave.status === 'APPROVED' || todayActiveLeave.status === 'PENDING')
-                ) {
-                    setSelectedRemoteType(todayActiveLeave.type);
-                    setGpsCheckStatus('DETECTED_LINK');
+            if (amHalfDayLeave) {
+                // Calculate dynamic afternoon start
+                let pmStartTime = '13:00';
+                if (isShiftsEnabled) {
+                    const shiftsList = shiftsListOpt?.label ? shiftsListOpt.label.split(',').map(s => s.trim()) : ['08:00', '08:30', '09:00'];
+                    const { hour, minute } = getICTTime(now);
+                    const timeStr = `${hour}:${minute}`;
+                    const { matchedPMStart } = calculatePMShiftDetails(timeStr, shiftsList, minHours);
+                    pmStartTime = matchedPMStart;
                 } else {
-                    setGpsCheckStatus('OFFSITE_ALERT');
+                    const startMins = timeToMinutes(startTimeStr);
+                    const pmMins = (startMins + offset * 60) % 1440;
+                    const pmH = Math.floor(pmMins / 60);
+                    const pmM = pmMins % 60;
+                    pmStartTime = `${pmH.toString().padStart(2, '0')}:${pmM.toString().padStart(2, '0')}`;
+                }
+                effectiveStartTime = pmStartTime;
+                isLate = checkIsLate(now, pmStartTime, buffer);
+            } else {
+                if (isShiftsEnabled) {
+                    const shiftsList = shiftsListOpt?.label ? shiftsListOpt.label.split(',').map(s => s.trim()) : ['08:00', '08:30', '09:00'];
+                    matchedShift = getMatchedShiftSlot(now, shiftsList, buffer);
+                }
+                effectiveStartTime = approvedLateTime || (pendingLateTime && checkIsLate(now, pendingLateTime, buffer) ? pendingLateTime : (matchedShift ? matchedShift.targetStartTime : startTimeStr));
+                isLate = matchedShift ? (matchedShift.isLate || matchedShift.isBlocked) : checkIsLate(now, effectiveStartTime, buffer);
+            }
+
+            let finalCheckInTime = now;
+            let actualCheckInTag = '';
+
+            if (isShiftsEnabled && matchedShift && !matchedShift.isLate && !matchedShift.isBlocked) {
+                const [sh, sm] = matchedShift.targetStartTime.split(':').map(Number);
+                const normalizedDate = new Date(now);
+                normalizedDate.setHours(sh, sm, 0, 0);
+                // Keep the actual check-in time to log the real check-in time, do not normalize
+                // finalCheckInTime = normalizedDate;
+
+                const actH = String(now.getHours()).padStart(2, '0');
+                const actM = String(now.getMinutes()).padStart(2, '0');
+                const actS = String(now.getSeconds()).padStart(2, '0');
+                actualCheckInTag = `[ACTUAL_CHECK_IN:${actH}:${actM}:${actS}]`;
+            }
+
+            let proofUrl = proofUrlParam !== undefined ? proofUrlParam : null;
+            if (proofUrlParam === undefined && file) {
+                if (externalUploadFn) {
+                    try {
+                        proofUrl = await externalUploadFn(file);
+                    } catch (extErr) {
+                        console.warn("External upload failed", extErr);
+                        proofUrl = null;
+                    }
+                }
+                if (!proofUrl) {
+                    const fileExt = file.name.split('.').pop();
+                    const fileName = `attendance-${userId}-${Date.now()}.${fileExt}`;
+                    const { error: uploadError } = await supabase.storage.from('chat-files').upload(`proofs/${fileName}`, file);
+                    if (!uploadError) {
+                        const { data: urlData } = supabase.storage.from('chat-files').getPublicUrl(`proofs/${fileName}`);
+                        proofUrl = urlData.publicUrl;
+                    }
                 }
             }
-        );
-    };
 
-    const handleSubmit = async (type: LeaveType, start: Date, end: Date, reason: string, files?: File[]) => {
-        let finalReason = reason;
-        if (distanceFromOffice !== null && distanceFromOffice > 0) {
-            const distanceKm = (distanceFromOffice / 1000).toFixed(2);
-            finalReason = `[DISTANCE:${distanceKm}] ${finalReason}`;
-        }
-
-        const effectiveRemoteType = selectedRemoteType || (
-            todayActiveLeave && ((isWfhEnabled && todayActiveLeave.type === 'WFH') || todayActiveLeave.type === 'ONSITE')
-                ? todayActiveLeave.type as 'WFH' | 'ONSITE'
-                : undefined
-        );
-
-        if (effectiveRemoteType && !finalReason.includes('[REMOTE:')) {
-            finalReason = `[REMOTE:${effectiveRemoteType}] ${finalReason}`;
-        }
-
-        const success = await onSubmit(type, start, end, finalReason, files, effectiveRemoteType);
-        if (success) {
-            setIsModalOpen(false);
-            setGpsCheckStatus('IDLE');
-        }
-        return success;
-    };
-
-    if (!isVisible) return null;
-
-    return (
-        <>
-            <motion.button 
-                disabled={isDesktop}
-                whileHover={isDesktop ? undefined : { scale: 1.02 }}
-                whileTap={isDesktop ? undefined : { scale: 0.98 }}
-                onClick={isDesktop ? undefined : handleStartForgotCheckIn}
-                className={`py-2 px-4 border rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2
-                    ${isDesktop
-                        ? 'bg-slate-50 border-slate-200 text-slate-300 cursor-not-allowed shadow-none'
-                        : 'bg-white border-gray-200 text-gray-400 hover:text-indigo-500 hover:border-indigo-200 cursor-pointer'
+            let incomingNote = note || '';
+            const meta = [];
+            if (matchedShift || amHalfDayLeave || pmHalfDayLeave || isShiftsEnabled) {
+                meta.push(`[TARGET_SHIFT:${effectiveStartTime}]`);
+            }
+            if (amHalfDayLeave) {
+                meta.push('[HALF_DAY:AM]');
+            }
+            if (pmHalfDayLeave) {
+                meta.push('[HALF_DAY:PM]');
+            }
+            if (actualCheckInTag) {
+                meta.push(actualCheckInTag);
+            }
+            
+            let finalIsAppeal = isAppeal;
+            if (approvedLateTime) {
+                const isLatePastApproved = checkIsLate(now, approvedLateTime, 0);
+                if (isLatePastApproved) {
+                    finalIsAppeal = false;
+                    meta.push(`[LATE_PAST_APPROVED]`);
+                    incomingNote = `${incomingNote} [สายเกินคำขอเข้าสาย: ได้รับอนุมัติให้สายได้ถึง ${approvedLateTime} น. แต่เช็คอินจริง ${format(now, 'HH:mm')} น.]`.trim();
+                } else {
+                    finalIsAppeal = false;
+                }
+            } else if (pendingLateTime) {
+                const isLatePastPending = checkIsLate(now, pendingLateTime, 0);
+                if (isLatePastPending) {
+                    finalIsAppeal = false;
+                    meta.push(`[LATE_PAST_PENDING]`);
+                    incomingNote = `${incomingNote} [สายเกินกว่าที่ยื่นคำขอ: ขอสายได้ถึง ${pendingLateTime} น. แต่เช็คอินจริง ${format(now, 'HH:mm')} น.]`.trim();
+                } else {
+                    finalIsAppeal = true;
+                    meta.push(`[APPEAL_PENDING]`);
+                    meta.push(`[PROVISIONAL_LATE_ENTRY: Pending approval for ${pendingLateTime}]`);
+                    if (pendingLateReason) {
+                        meta.push(`[REASON: ${pendingLateReason}]`);
                     }
-                `}
-            >
-                <History className="w-4 h-4" /> ลืมลงเวลาเข้า?
-            </motion.button>
+                }
+            } else if (isAppeal) {
+                meta.push(`[APPEAL_PENDING]`);
+            }
 
-            {/* Render scanning/alert/error dialog via Portal */}
-            {createPortal(
-                <AnimatePresence>
-                    {gpsCheckStatus !== 'IDLE' && gpsCheckStatus !== 'READY_FORM' && (
-                        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 overscroll-none">
-                            <motion.div 
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: 1 }}
-                                exit={{ opacity: 0 }}
-                                transition={{ duration: 0.2, ease: 'easeOut' }}
-                                className="absolute inset-0 bg-black/60 backdrop-blur-sm" 
-                                onClick={() => setGpsCheckStatus('IDLE')} 
-                            />
-                            
-                            <motion.div 
-                                layout
-                                initial={{ opacity: 0, scale: 0.92, y: 16 }}
-                                animate={{ opacity: 1, scale: 1, y: 0 }}
-                                exit={{ opacity: 0, scale: 0.95, y: 12 }}
-                                transition={{ 
-                                    opacity: { duration: 0.25 },
-                                    scale: { type: 'spring', stiffness: 350, damping: 28 },
-                                    y: { type: 'spring', stiffness: 350, damping: 28 },
-                                    layout: { type: 'spring', stiffness: 300, damping: 30 }
-                                }}
-                                className="relative bg-white w-full max-w-md min-h-[380px] rounded-[2rem] shadow-2xl p-6 border-4 border-white ring-1 ring-gray-100/50 flex flex-col items-center justify-between text-center overflow-hidden"
-                            >
-                                <AnimatePresence mode="wait">
-                                    {gpsCheckStatus === 'SCANNING' && (
-                                        <motion.div
-                                            key="scanning"
-                                            initial={{ opacity: 0, scale: 0.95 }}
-                                            animate={{ opacity: 1, scale: 1 }}
-                                            exit={{ opacity: 0, scale: 0.95 }}
-                                            transition={{ duration: 0.2 }}
-                                            className="space-y-6 py-6 w-full flex flex-col items-center justify-center flex-1"
-                                        >
-                                            {/* Beautiful Animated Radar Scanner container */}
-                                            <div className="relative flex items-center justify-center w-40 h-40">
-                                                {/* Pulsing rings */}
-                                                <motion.div 
-                                                    animate={{ scale: [1, 2], opacity: [0.6, 0] }}
-                                                    transition={{ repeat: Infinity, duration: 2.2, ease: "easeOut" }}
-                                                    className="absolute inset-0 bg-indigo-100/70 rounded-full"
-                                                />
-                                                <motion.div 
-                                                    animate={{ scale: [1, 1.6], opacity: [0.5, 0] }}
-                                                    transition={{ repeat: Infinity, duration: 2.2, delay: 0.7, ease: "easeOut" }}
-                                                    className="absolute inset-0 bg-indigo-200/50 rounded-full"
-                                                />
-                                                <motion.div 
-                                                    animate={{ scale: [1, 1.2], opacity: [0.4, 0] }}
-                                                    transition={{ repeat: Infinity, duration: 2.2, delay: 1.4, ease: "easeOut" }}
-                                                    className="absolute inset-0 bg-indigo-300/30 rounded-full"
-                                                />
-                                                {/* Scanning concentric radar lines */}
-                                                <div className="absolute inset-2 border border-indigo-100/50 rounded-full" />
-                                                <div className="absolute inset-8 border border-dashed border-indigo-200/40 rounded-full" />
-                                                <div className="absolute inset-14 border border-indigo-100/20 rounded-full" />
-                                                
-                                                {/* Rotating sweeps */}
-                                                <motion.div 
-                                                    animate={{ rotate: 360 }}
-                                                    transition={{ repeat: Infinity, duration: 2.8, ease: "linear" }}
-                                                    className="absolute inset-0 border-t-2 border-r border-indigo-400/40 rounded-full"
-                                                    style={{ borderRightColor: 'transparent', borderBottomColor: 'transparent', borderLeftColor: 'transparent' }}
-                                                />
+            if (workType === 'WFH' && !isApprovedWFH) {
+                meta.push(`[PROVISIONAL_WFH]`);
+                meta.push(`[UNAUTHORIZED_WFH]`);
+            }
+            if (workType === 'SITE' && isProvisionalOnsite) {
+                meta.push(`[PROVISIONAL_ONSITE]`);
+                meta.push(`[UNAUTHORIZED_ONSITE]`);
+            }
+            if (isGpsAppeal) {
+                meta.push(`[PROVISIONAL_GPS_SPOOF_APPEAL]`);
+                meta.push(`[GPS_SPOOF_APPEAL_PENDING]`);
+            }
+            if (meta.length > 0) incomingNote = `${incomingNote} ${meta.join(' ')}`.trim();
 
-                                                {/* Center pulsing core badge */}
-                                                <motion.div 
-                                                    animate={{ scale: [0.95, 1.05, 0.95] }}
-                                                    transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
-                                                    className="relative w-18 h-18 bg-gradient-to-tr from-indigo-600 to-violet-500 text-white rounded-full flex items-center justify-center shadow-lg shadow-indigo-300/50"
-                                                >
-                                                    <motion.div
-                                                        animate={{ rotate: -360 }}
-                                                        transition={{ repeat: Infinity, duration: 4, ease: "linear" }}
-                                                    >
-                                                        <RefreshCw className="w-8 h-8" />
-                                                    </motion.div>
-                                                </motion.div>
-                                            </div>
+            // FETCH FRESH LOG DATA TO PREVENT OVERWRITE
+            const { data: existingLog } = await supabase
+                .from('attendance_logs')
+                .select('note, attachment_urls')
+                .eq('user_id', userId)
+                .eq('date', todayDateStr)
+                .maybeSingle();
 
-                                            <div className="space-y-2 max-w-sm">
-                                                <h3 className="text-lg font-bold text-gray-800 tracking-tight flex items-center justify-center gap-2">
-                                                    <motion.span
-                                                        animate={{ opacity: [1, 0.5, 1] }}
-                                                        transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}
-                                                        className="w-2.5 h-2.5 bg-indigo-500 rounded-full"
-                                                    />
-                                                    กำลังตรวจสอบพิกัด (GPS Scan)
-                                                </h3>
-                                                <p className="text-xs text-gray-400 font-medium px-4 leading-relaxed">
-                                                    ระบบกำลังตรวจสอบความปลอดภัยเพื่อยืนยันพิกัดปัจจุบันของคุณ และตรวจจับแอปพลิเคชันตำแหน่งจำลอง...
-                                                </p>
-                                            </div>
-                                        </motion.div>
-                                    )}
+            const finalNote = mergeAttendanceNotes(existingLog?.note, incomingNote);
+            const existingAttachments: string[] = Array.isArray(existingLog?.attachment_urls) ? existingLog.attachment_urls : [];
+            const updatedAttachments = proofUrl && !existingAttachments.includes(proofUrl)
+                ? [...existingAttachments, proofUrl]
+                : existingAttachments;
 
-                                    {gpsCheckStatus === 'SECURE_ERROR' && (
-                                        <motion.div
-                                            key="secure_error"
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            exit={{ opacity: 0, y: -10 }}
-                                            transition={{ duration: 0.2 }}
-                                            className="space-y-6 py-2 w-full flex flex-col items-center justify-between flex-1"
-                                        >
-                                            <div className="w-16 h-16 bg-red-50 text-red-500 rounded-full flex items-center justify-center mx-auto shadow-inner">
-                                                <ShieldAlert className="w-8 h-8" />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <h3 className="text-lg font-bold text-red-600">สแกนพิกัดไม่สำเร็จ</h3>
-                                                <p className="text-xs text-gray-500 font-medium px-2 leading-relaxed whitespace-pre-wrap">
-                                                    {gpsErrorReason || 'ระบบตรวจพบการพยายามใช้แอปสวมสิทธิ์พิกัดปลอมหรือจำลอง GPS'}
-                                                </p>
-                                            </div>
-                                            <button 
-                                                onClick={() => setGpsCheckStatus('IDLE')}
-                                                className="w-full py-3 bg-red-500 hover:bg-red-600 text-white rounded-2xl text-xs font-bold transition-all active:scale-95 cursor-pointer"
-                                            >
-                                                ตกลง
-                                            </button>
-                                        </motion.div>
-                                    )}
+            const payload: any = {
+                user_id: userId,
+                date: todayDateStr,
+                check_in_time: finalCheckInTime.toISOString(),
+                work_type: workType,
+                status: 'WORKING',
+                note: finalNote,
+                attachment_urls: updatedAttachments,
+                location_lat: location?.lat,
+                location_lng: location?.lng,
+                location_name: locationName || 'Unknown Location'
+            };
 
-                                    {gpsCheckStatus === 'DETECTED_LINK' && (
-                                        <motion.div
-                                            key="detected_link"
-                                            initial={{ opacity: 0, scale: 0.95 }}
-                                            animate={{ opacity: 1, scale: 1 }}
-                                            exit={{ opacity: 0, scale: 0.95 }}
-                                            transition={{ duration: 0.2 }}
-                                            className="space-y-5 py-2 w-full flex flex-col items-center justify-between flex-1"
-                                        >
-                                            <div className="space-y-4 flex flex-col items-center">
-                                                <div className="relative flex items-center justify-center mt-2">
-                                                    <div className="absolute w-20 h-20 bg-indigo-50 rounded-full animate-ping opacity-60" />
-                                                    <div className="relative w-16 h-16 bg-gradient-to-tr from-indigo-500 to-violet-500 text-white rounded-full flex items-center justify-center shadow-lg shadow-indigo-200">
-                                                        {todayActiveLeave?.type === 'WFH' ? (
-                                                            <span className="text-2xl">🏡</span>
-                                                        ) : (
-                                                            <span className="text-2xl">📍</span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                                <div className="space-y-2 px-1">
-                                                    <h3 className="text-lg font-bold text-gray-800">พบคำขอปฏิบัติงานล่วงหน้า</h3>
-                                                    <p className="text-xs text-gray-500 font-medium px-4 leading-relaxed">
-                                                        ระบบตรวจพบคำขอ <span className="font-bold text-indigo-600">{todayActiveLeave?.type === 'WFH' ? 'Work From Home (WFH)' : 'ปฏิบัติงานนอกสถานที่ (On-site)'}</span> ของคุณในวันนี้เรียบร้อยแล้ว ({todayActiveLeave?.status === 'APPROVED' ? 'อนุมัติแล้ว' : 'รอพิจารณา'})
-                                                    </p>
-                                                    <p className="text-[11px] text-indigo-600 font-semibold bg-indigo-50/70 rounded-2xl py-2.5 px-4 mx-2 leading-relaxed">
-                                                        💡 ระบบจะผูกคำขอลืมลงเวลานี้เข้ากับรูปแบบงานดังกล่าวโดยอัตโนมัติ คุณไม่ต้องยื่นคำขอปฏิบัติงานซ้ำซ้อนอีกรอบครับ
-                                                    </p>
-                                                </div>
-                                            </div>
+            const { error } = await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
+            if (error) throw error;
 
-                                            <div className="space-y-2.5 w-full px-2 pt-2">
-                                                <motion.button
-                                                    whileHover={{ scale: 1.02 }}
-                                                    whileTap={{ scale: 0.98 }}
-                                                    onClick={() => {
-                                                        setGpsCheckStatus('READY_FORM');
-                                                        setIsModalOpen(true);
-                                                    }}
-                                                    className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-xs font-bold shadow-lg shadow-indigo-100 transition-all cursor-pointer flex items-center justify-center gap-1.5"
-                                                >
-                                                    ดำเนินการต่อ <ArrowRight className="w-4 h-4" />
-                                                </motion.button>
-                                                <button 
-                                                    onClick={() => setGpsCheckStatus('IDLE')}
-                                                    className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-500 rounded-2xl text-xs font-bold transition-all cursor-pointer"
-                                                >
-                                                    ยกเลิก
-                                                </button>
-                                            </div>
-                                        </motion.div>
-                                    )}
+            // --- Auto Leave Request Generation for Provisional WFH / Onsite / GPS Appeal ---
+            const provisionalTypes: LeaveType[] = [];
+            
+            if (workType === 'WFH' && !isApprovedWFH) {
+                provisionalTypes.push('WFH');
+            }
+            if (workType === 'SITE' && isProvisionalOnsite) {
+                provisionalTypes.push('ONSITE');
+            }
+            if (isGpsAppeal) {
+                provisionalTypes.push('GPS_SPOOF_APPEAL');
+            }
 
-                                    {gpsCheckStatus === 'OFFSITE_ALERT' && (
-                                        <motion.div
-                                            key="offsite_alert"
-                                            initial={{ opacity: 0, y: 10 }}
-                                            animate={{ opacity: 1, y: 0 }}
-                                            exit={{ opacity: 0, y: -10 }}
-                                            transition={{ duration: 0.2 }}
-                                            className="space-y-5 py-2 w-full flex flex-col items-center justify-between flex-1"
-                                        >
-                                            <div className="w-16 h-16 bg-amber-50 text-amber-500 rounded-full flex items-center justify-center mx-auto shadow-inner">
-                                                <MapPin className="w-8 h-8" />
-                                            </div>
-                                            <div className="space-y-2">
-                                                <h3 className="text-lg font-bold text-gray-800">อยู่นอกพื้นที่สำนักงาน</h3>
-                                                <p className="text-xs text-gray-500 font-medium px-4 leading-relaxed font-sarabun">
-                                                    ระบบตรวจพบว่าคุณอยู่นอกพื้นที่สำนักงานใหญ่เป็นระยะทาง <span className="font-bold text-amber-600">{formatDistance(distanceFromOffice)}</span>
-                                                </p>
-                                                <p className="text-[11px] text-amber-600 font-semibold bg-amber-50 rounded-xl py-1.5 px-3 mx-4 leading-relaxed">
-                                                    ⚠️ เนื่องจากอยู่นอกพื้นที่ คุณจำเป็นต้องยื่นคำขอปฏิบัติงานนอกสถานที่ควบคู่เพื่อตรวจสอบความถูกต้อง
-                                                </p>
-                                            </div>
+            for (const provisionalType of provisionalTypes) {
+                try {
+                    // Check if there is ALREADY an existing PENDING request for today matching this type
+                    const { data: existingPendingRequests } = await supabase
+                        .from('leave_requests')
+                        .select('id, type, created_at, reason')
+                        .eq('user_id', userId)
+                        .eq('status', 'PENDING')
+                        .lte('start_date', todayDateStr)
+                        .gte('end_date', todayDateStr);
 
-                                            <div className="space-y-2.5 px-2 w-full">
-                                                <div className="text-[10px] text-gray-400 font-bold uppercase tracking-wider text-left pl-1">
-                                                    กรุณาเลือกรูปแบบการทำงานของวันนี้:
-                                                </div>
-                                                <div className={`grid ${isWfhEnabled ? 'grid-cols-2' : 'grid-cols-1'} gap-3 w-full`}>
-                                                    {isWfhEnabled && (
-                                                        <motion.button
-                                                            whileHover={{ scale: 1.03, y: -4, borderColor: '#a5b4fc', boxShadow: '0 8px 16px rgba(99,102,241,0.08)' }}
-                                                            whileTap={{ scale: 0.97 }}
-                                                            transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-                                                            onClick={() => {
-                                                                setSelectedRemoteType('WFH');
-                                                                setGpsCheckStatus('READY_FORM');
-                                                                setIsModalOpen(true);
-                                                            }}
-                                                            className="p-4 bg-[#f8fafc] border-2 border-gray-100 rounded-2xl flex flex-col items-center gap-2 transition-all cursor-pointer group text-center"
-                                                        >
-                                                            <span className="text-lg">🏡</span>
-                                                            <span className="text-xs font-bold text-gray-700 group-hover:text-indigo-600">Work From Home</span>
-                                                            <span className="text-[9px] text-gray-400 font-medium">ทำงานที่บ้าน</span>
-                                                        </motion.button>
-                                                    )}
+                    const existingPending = (existingPendingRequests || []).find((req: any) => {
+                        if (provisionalType === 'WFH') return req.type === 'WFH';
+                        if (provisionalType === 'ONSITE') return req.type === 'ONSITE' || req.type === 'OFFSITE';
+                        if (provisionalType === 'GPS_SPOOF_APPEAL') return req.type === 'GPS_SPOOF_APPEAL';
+                        return false;
+                    });
 
-                                                    <motion.button
-                                                        whileHover={{ scale: 1.02, y: -2, borderColor: '#6ee7b7', boxShadow: '0 8px 16px rgba(16,185,129,0.08)' }}
-                                                        whileTap={{ scale: 0.98 }}
-                                                        transition={{ type: 'spring', stiffness: 400, damping: 15 }}
-                                                        onClick={() => {
-                                                            setSelectedRemoteType('ONSITE');
-                                                            setGpsCheckStatus('READY_FORM');
-                                                            setIsModalOpen(true);
-                                                        }}
-                                                        className={`p-4 bg-[#f8fafc] border-2 border-gray-100 rounded-2xl flex flex-col items-center gap-2 transition-all cursor-pointer group text-center w-full ${!isWfhEnabled ? 'py-5' : ''}`}
-                                                    >
-                                                        <span className={isWfhEnabled ? 'text-lg' : 'text-xl'}>📍</span>
-                                                        <span className="text-xs font-bold text-gray-700 group-hover:text-emerald-600">
-                                                            {isWfhEnabled ? 'On-Site' : 'ปฏิบัติงานนอกสถานที่ (On-site)'}
-                                                        </span>
-                                                        <span className="text-[9px] text-gray-400 font-medium">
-                                                            {isWfhEnabled ? 'ปฏิบัติงานนอกสถานที่' : 'ยืนยันขอลงเวลากรณีปฏิบัติงานนอกสถานที่ / ออกกอง'}
-                                                        </span>
-                                                    </motion.button>
-                                                </div>
-                                            </div>
-
-                                            <button 
-                                                onClick={() => setGpsCheckStatus('IDLE')}
-                                                className="w-full py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-500 rounded-2xl text-xs font-bold transition-all cursor-pointer"
-                                            >
-                                                ยกเลิก
-                                            </button>
-                                        </motion.div>
-                                    )}
-
-                                    {gpsCheckStatus === 'SUCCESS_TRANSITION' && (
-                                        <motion.div
-                                            key="success_transition"
-                                            initial={{ opacity: 0, scale: 0.95 }}
-                                            animate={{ opacity: 1, scale: 1 }}
-                                            exit={{ opacity: 0, scale: 0.95 }}
-                                            transition={{ duration: 0.2 }}
-                                            className="space-y-6 py-4 w-full flex flex-col items-center justify-center flex-1"
-                                        >
-                                            {/* Large Pulsing Check Circle */}
-                                            <div className="relative flex items-center justify-center w-36 h-36">
-                                                {/* Pulsing Ripple */}
-                                                <motion.div 
-                                                    animate={{ scale: [1, 1.4], opacity: [0.4, 0] }}
-                                                    transition={{ repeat: Infinity, duration: 2, ease: "easeOut" }}
-                                                    className="absolute inset-0 bg-emerald-100 rounded-full"
-                                                />
-                                                <motion.div 
-                                                    animate={{ scale: [1, 1.2], opacity: [0.3, 0] }}
-                                                    transition={{ repeat: Infinity, duration: 2, delay: 0.6, ease: "easeOut" }}
-                                                    className="absolute inset-0 bg-emerald-200 rounded-full"
-                                                />
-                                                
-                                                {/* Safe Inner Ring */}
-                                                <div className="absolute inset-2 border border-emerald-100 rounded-full" />
-
-                                                {/* Core Animated Success Badge */}
-                                                <motion.div 
-                                                    initial={{ scale: 0, rotate: -45 }}
-                                                    animate={{ scale: 1, rotate: 0 }}
-                                                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
-                                                    className="relative w-18 h-18 bg-gradient-to-tr from-emerald-500 to-teal-400 text-white rounded-full flex items-center justify-center shadow-lg shadow-emerald-200"
-                                                >
-                                                    <svg className="w-9 h-9" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                                                        <motion.path 
-                                                            initial={{ pathLength: 0 }}
-                                                            animate={{ pathLength: 1 }}
-                                                            transition={{ duration: 0.5, delay: 0.2, ease: "easeOut" }}
-                                                            strokeLinecap="round" 
-                                                            strokeLinejoin="round" 
-                                                            d="M5 13l4 4L19 7" 
-                                                        />
-                                                    </svg>
-                                                </motion.div>
-                                            </div>
-
-                                            {/* Info and Badge */}
-                                            <div className="space-y-3 px-4 flex flex-col items-center">
-                                                {/* Badge */}
-                                                <motion.div 
-                                                    initial={{ opacity: 0, y: 5 }}
-                                                    animate={{ opacity: 1, y: 0 }}
-                                                    transition={{ delay: 0.1 }}
-                                                    className="px-3 py-1 bg-emerald-50 border border-emerald-100 rounded-full flex items-center gap-1.5 shadow-sm text-emerald-700 text-[10px] font-bold uppercase tracking-wider"
-                                                >
-                                                    <span className="text-[11px] leading-none">🏢</span>
-                                                    <span>Office Secure</span>
-                                                </motion.div>
-
-                                                <h3 className="text-base font-bold text-gray-800 tracking-tight font-kanit">
-                                                    ระบบตรวจสอบพิกัดเสร็จสิ้น
-                                                </h3>
-                                                <p className="text-xs text-gray-400 font-medium leading-relaxed max-w-xs font-sarabun text-center">
-                                                    คุณยืนยันตัวตนอยู่ที่ <span className="font-bold text-emerald-600">[{locationState.matchedLocation?.name || 'สำนักงานใหญ่'}]</span> เรียบร้อยแล้ว
-                                                </p>
-                                            </div>
-
-                                            {/* Progress bar */}
-                                            <div className="w-full px-6 space-y-2">
-                                                <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                                                    <div 
-                                                        className="bg-emerald-500 h-full transition-all duration-75 ease-out rounded-full" 
-                                                        style={{ width: `${progress}%` }} 
-                                                    />
-                                                </div>
-                                                <p className="text-[11px] text-emerald-600 font-semibold font-sarabun text-center">
-                                                    กำลังนำคุณไปยังหน้ายื่นคำขอในอีก {countdown} วินาที...
-                                                </p>
-                                            </div>
-
-                                            {/* Skip button */}
-                                            <button 
-                                                onClick={() => {
-                                                    setGpsCheckStatus('READY_FORM');
-                                                    setIsModalOpen(true);
-                                                }}
-                                                className="px-4 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-500 rounded-full text-[11px] font-bold transition-all hover:text-gray-700 flex items-center gap-1 shrink-0 cursor-pointer"
-                                            >
-                                                ข้ามขั้นตอนการรอ (Skip)
-                                            </button>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-                            </motion.div>
-                        </div>
-                    )}
-                </AnimatePresence>,
-                document.body
-            )}
-
-            <LeaveRequestModal 
-                isOpen={isModalOpen}
-                onClose={() => {
-                    setIsModalOpen(false);
-                    setGpsCheckStatus('IDLE');
-                }}
-                onBack={() => {
-                    setIsModalOpen(false);
-                    if (isInOffice) {
-                        setGpsCheckStatus('IDLE');
-                    } else if (todayActiveLeave && 
-                        ((isWfhEnabled && todayActiveLeave.type === 'WFH') || todayActiveLeave.type === 'ONSITE') &&
-                        (todayActiveLeave.status === 'APPROVED' || todayActiveLeave.status === 'PENDING')
-                    ) {
-                        setGpsCheckStatus('DETECTED_LINK');
+                    if (existingPending) {
+                        console.log(`[CheckIn] Found existing pending request (${existingPending.id}) for ${provisionalType}. Reusing without duplicate creation.`);
                     } else {
-                        setGpsCheckStatus('OFFSITE_ALERT');
-                    }
-                }}
-                onSubmit={handleSubmit}
-                masterOptions={masterOptions}
-                leaveUsage={leaveUsage}
-                fixedType="FORGOT_CHECKIN"
-                initialTargetTime={startTime}
-                linkedRemoteType={selectedRemoteType}
-                isInOffice={isInOffice}
-                locationName={locationState.matchedLocation?.name}
-            />
-        </>
-    );
-};
+                        // Create a NEW leave request only if no pending request exists
+                        let finalReason = provisionalReason || (provisionalType === 'WFH' ? 'ลงเวลาแบบจำลอง (Provisional WFH)' : 'ลงเวลาแบบจำลอง (Provisional On-site)');
+                        if (provisionalType === 'GPS_SPOOF_APPEAL') {
+                            finalReason = gpsAppealReason || 'อุทธรณ์ความปลอดภัยพิกัด GPS ผิดปกติ';
+                        }
+                        const reasonWithTag = `[PROVISIONAL_${provisionalType}] ${finalReason}`;
 
-export default ForgotCheckInControl;
+                        // 1. Insert auto leave request
+                        const leaveReq = await attendanceService.insertLeaveRequest({
+                            user_id: userId,
+                            type: provisionalType,
+                            start_date: todayDateStr,
+                            end_date: todayDateStr,
+                            reason: reasonWithTag,
+                            attachment_urls: proofUrl ? [proofUrl] : [],
+                            status: 'PENDING'
+                        });
+
+                        // Fetch user's profile name for notification
+                        const { data: userProfile } = await supabase
+                            .from('profiles')
+                            .select('full_name')
+                            .eq('id', userId)
+                            .maybeSingle();
+                        const userName = userProfile?.full_name || 'พนักงาน';
+
+                        let typeLabel = provisionalType === 'WFH' ? 'Work From Home (แบบจำลอง)' : 'ปฏิบัติงานนอกสถานที่ (แบบจำลอง)';
+                        if (provisionalType === 'GPS_SPOOF_APPEAL') {
+                            typeLabel = 'อุทธรณ์พิกัด GPS ผิดปกติ';
+                        }
+                        
+                        // 2. Send bot message alert to team_messages
+                        const botMsg = `📢 **ระบบสร้างใบคำขออัตโนมัติ (Provisional)**\n👤 **พนักงาน:** ${userName} (ลงเวลาแบบจำลอง)\nประเภทสิทธิ์: ${typeLabel}\n📅 วันที่: ${format(now, 'd MMM yyyy')}\n📝 เหตุผล: ${finalReason}`;
+                        await supabase.from('team_messages').insert({
+                            content: botMsg,
+                            is_bot: true,
+                            message_type: 'TEXT',
+                            user_id: null
+                        });
+
+                        // 3. Send Notification to all Admins
+                        const { data: admins } = await supabase
+                            .from('profiles')
+                            .select('id')
+                            .eq('role', 'ADMIN');
+
+                        if (admins && admins.length > 0) {
+                            const notifications = admins.map(adm => ({
+                                user_id: adm.id,
+                                type: 'APPROVAL_REQ',
+                                title: provisionalType === 'GPS_SPOOF_APPEAL' ? `🔔 คำขออุทธรณ์พิกัด GPS จาก ${userName}` : `🔔 คำขออัตโนมัติ (${provisionalType}) จากพนักงาน`,
+                                message: provisionalType === 'GPS_SPOOF_APPEAL' 
+                                    ? `มีคำขออุทธรณ์พิกัด GPS ผิดปกติของ ${userName} วันที่ ${format(now, 'dd/MM/yyyy')} โปรดตรวจสอบ`
+                                    : `มีรายการลงเวลาแบบจำลอง (${provisionalType}) ของ ${userName} วันที่ ${format(now, 'dd/MM/yyyy')} โปรดตรวจสอบและอนุมัติ`,
+                                is_read: false,
+                                link_path: 'ADMIN_APPROVALS',
+                                related_id: leaveReq?.id || null,
+                                metadata: {
+                                    request_id: leaveReq?.id || null,
+                                    request_type: provisionalType,
+                                    applicant_name: userName
+                                }
+                            }));
+                            await supabase.from('notifications').insert(notifications);
+                        }
+                    }
+                } catch (requestErr: any) {
+                    console.error(`Failed to generate or check provisional leave request for ${provisionalType}`, requestErr);
+                }
+            }
+
+            showToast(isLate && !finalIsAppeal ? 'เข้างานสายนะวันนี้! 🐢' : 'สวัสดีตอนเช้าครับ! ☀️', (isLate && !finalIsAppeal) ? 'warning' : 'success');
+            await supabase.from('profiles').update({ work_status: 'ONLINE' }).eq('id', userId);
+            
+            const lateMinutes = matchedShift ? matchedShift.lateMinutes : getLateMinutes(now, effectiveStartTime, buffer);
+
+            await processAction(userId, 'ATTENDANCE_CHECK_IN', {
+                status: (finalIsAppeal || provisionalTypes.length > 0) ? 'APPEAL' : (isLate ? 'LATE' : 'ON_TIME'),
+                date: now,
+                time: format(now, 'HH:mm'),
+                lateMinutes: lateMinutes,
+                isLate: isLate
+            });
+
+            // Handle Unauthorized WFH / Onsite Penalty
+            if (workType === 'WFH' && !isApprovedWFH) {
+                await processAction(userId, 'ATTENDANCE_UNAUTHORIZED_WFH', {
+                    date: now,
+                    workType: 'WFH'
+                });
+            } else if (workType === 'SITE' && isProvisionalOnsite) {
+                await processAction(userId, 'ATTENDANCE_UNAUTHORIZED_ONSITE', {
+                    date: now,
+                    workType: 'SITE'
+                });
+            }
+
+            // Force refresh both attendance and leaves to sync provisional requests instantly
+            try {
+                await Promise.all([refreshAttendance(), refreshLeaves()]);
+            } catch (refErr) {
+                console.warn("Failed to refresh session context in useAttendanceActions checkIn:", refErr);
+            }
+
+            return true;
+        } catch (err: any) {
+            console.error(err);
+            showToast('Check-in ไม่สำเร็จ: ' + err.message, 'error');
+            return false;
+        } finally {
+            setIsActionLoading(false);
+        }
+    };
+
+    const manualCheckIn = async (
+        checkInTime: Date,
+        reason: string,
+        file?: File,
+        externalUploadFn?: (file: File) => Promise<string | null>
+    ) => {
+        setIsActionLoading(true);
+        try {
+            const dateStr = format(checkInTime, 'yyyy-MM-dd');
+            let proofUrl = null;
+            if (file) {
+                if (externalUploadFn) proofUrl = await externalUploadFn(file);
+                if (!proofUrl) {
+                    const fileExt = file.name.split('.').pop();
+                    const fileName = `attendance-${userId}-${Date.now()}.${fileExt}`;
+                    const { error: uploadError } = await supabase.storage.from('chat-files').upload(`proofs/${fileName}`, file);
+                    if (!uploadError) {
+                        const { data: urlData } = supabase.storage.from('chat-files').getPublicUrl(`proofs/${fileName}`);
+                        proofUrl = urlData.publicUrl;
+                    }
+                }
+            }
+
+            let incomingNote = reason;
+
+            // FETCH FRESH LOG DATA TO PREVENT OVERWRITE
+            const { data: existingLog } = await supabase
+                .from('attendance_logs')
+                .select('note, attachment_urls')
+                .eq('user_id', userId)
+                .eq('date', dateStr)
+                .maybeSingle();
+
+            const finalNote = mergeAttendanceNotes(existingLog?.note, `[MANUAL_ENTRY] ${incomingNote}`);
+            const existingAttachments: string[] = Array.isArray(existingLog?.attachment_urls) ? existingLog.attachment_urls : [];
+            const updatedAttachments = proofUrl && !existingAttachments.includes(proofUrl)
+                ? [...existingAttachments, proofUrl]
+                : existingAttachments;
+
+            const payload = {
+                user_id: userId,
+                date: dateStr,
+                check_in_time: checkInTime.toISOString(),
+                work_type: 'OFFICE',
+                status: 'PENDING_VERIFY',
+                note: finalNote,
+                attachment_urls: updatedAttachments,
+                location_name: 'Manual Entry'
+            };
+
+            const { error } = await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
+            if (error) throw error;
+
+            showToast('บันทึกเวลาเข้างานแบบ Manual แล้ว (รอตรวจสอบ) ✅', 'success');
+            await supabase.from('profiles').update({ work_status: 'ONLINE' }).eq('id', userId);
+            
+            // Force refresh both attendance and leaves
+            try {
+                await Promise.all([refreshAttendance(), refreshLeaves()]);
+            } catch (refErr) {
+                console.warn("Failed to refresh session context in useAttendanceActions manualCheckIn:", refErr);
+            }
+
+            return true;
+        } catch(err: any) {
+            showToast('บันทึกไม่สำเร็จ: ' + err.message, 'error');
+            return false;
+        } finally {
+            setIsActionLoading(false);
+        }
+    };
+
+    const checkOut = async (
+        todayLog: AttendanceLog,
+        location?: { lat: number, lng: number },
+        locationName?: string,
+        reason?: string,
+        proofUrl?: string
+    ) => {
+        if (!todayLog || !todayLog.checkInTime) return false;
+        setIsActionLoading(true);
+        try {
+            let now = new Date();
+            let isAdjustedCheckout = false;
+            let finalReason = reason || '';
+            if (reason && reason.includes('[ADJUSTED_CHECKOUT:')) {
+                const match = reason.match(/\[ADJUSTED_CHECKOUT:([^\]]+)\]/);
+                if (match && match[1]) {
+                    now = new Date(match[1]);
+                    isAdjustedCheckout = true;
+                    finalReason = reason.replace(/\[ADJUSTED_CHECKOUT:[^\]]+\]/, '').trim();
+                }
+            }
+
+            const configData = masterOptions.filter(o => o.type === 'WORK_CONFIG');
+            const minHoursStr = configData?.find(c => c.key === 'MIN_HOURS')?.label || '9';
+            const minHours = parseFloat(minHoursStr) || 9;
+
+            const startTimeStr = configData?.find(c => c.key === 'START_TIME')?.label || '10:00';
+            const shiftsEnabledOpt = configData?.find(o => o.key === 'MULTIPLE_SHIFTS_ENABLED');
+            const shiftsListOpt = configData?.find(o => o.key === 'MULTIPLE_SHIFTS_LIST');
+            const lateEntryStrictOpt = configData?.find(o => o.key === 'LATE_ENTRY_STRICT_END_TIME');
+            const isShiftsEnabled = shiftsEnabledOpt?.label === 'true';
+            const shiftsList = shiftsListOpt?.label || '';
+            const isLateEntryStrictEndTime = lateEntryStrictOpt?.label === 'true';
+
+            const effectiveStartTimeStr = getEffectiveStartTime(
+                todayLog.checkInTime,
+                startTimeStr,
+                todayLog.note,
+                { enabled: isShiftsEnabled, shiftsList }
+            );
+
+            // Check if there is an approved half-day leave today
+            const { data: todayLeavesCheckout } = await supabase
+                .from('leave_requests')
+                .select('id, is_half_day, half_day_session, status')
+                .eq('user_id', userId)
+                .eq('status', 'APPROVED')
+                .eq('is_half_day', true)
+                .lte('start_date', todayDateStr)
+                .gte('end_date', todayDateStr);
+
+            const amHalfDayLeave = todayLeavesCheckout && todayLeavesCheckout.find(l => l.half_day_session === 'AM');
+            const pmHalfDayLeave = todayLeavesCheckout && todayLeavesCheckout.find(l => l.half_day_session === 'PM');
+
+            const isHalfDay = !!(amHalfDayLeave || pmHalfDayLeave);
+            const halfDaySession = amHalfDayLeave ? 'AM' : (pmHalfDayLeave ? 'PM' : undefined);
+
+            const note = todayLog.note || '';
+            const hasLateEntryNote = note.includes('[PROVISIONAL_LATE_ENTRY]') ||
+                note.includes('[APPROVED LATE_ENTRY]') ||
+                note.includes('[REJECTED LATE_ENTRY]') ||
+                note.includes('LATE_ENTRY') ||
+                note.includes('[APPROVED_TIME:') ||
+                note.includes('[LATE_PAST_PENDING]') ||
+                note.includes('[APPEAL_PENDING]');
+
+            const { data: todayLateRequests } = await supabase
+                .from('leave_requests')
+                .select('id, type, status')
+                .eq('user_id', userId)
+                .eq('type', 'LATE_ENTRY')
+                .lte('start_date', todayDateStr)
+                .gte('end_date', todayDateStr);
+
+            const hasLateRequest = !!(todayLateRequests && todayLateRequests.length > 0);
+            const useShiftEndTimeForLate = Boolean(isLateEntryStrictEndTime && (hasLateEntryNote || hasLateRequest));
+
+            const calcResult = calculateCheckOutStatus(
+                todayLog.checkInTime, 
+                now, 
+                minHours, 
+                effectiveStartTimeStr,
+                isHalfDay,
+                halfDaySession,
+                useShiftEndTimeForLate
+            );
+
+            if (amHalfDayLeave || pmHalfDayLeave) {
+                calcResult.status = 'COMPLETED';
+                calcResult.missingMinutes = 0;
+            }
+
+            // Fetch fresh log data to ensure we have the latest note and attachment_urls (prevent overwriting)
+            const { data: freshLog, error: fetchError } = await supabase
+                .from('attendance_logs')
+                .select('note, attachment_urls')
+                .eq('id', todayLog.id)
+                .single();
+
+            if (fetchError) {
+                console.error('Failed to fetch fresh log for check-out:', fetchError);
+            }
+
+            const currentNote = freshLog?.note || todayLog.note || '';
+            const existingAttachments: string[] = Array.isArray(freshLog?.attachment_urls)
+                ? freshLog.attachment_urls
+                : (Array.isArray(todayLog.attachmentUrls) ? todayLog.attachmentUrls : []);
+
+            let newAttachments = [...existingAttachments];
+            if (proofUrl && !newAttachments.includes(proofUrl)) {
+                newAttachments.push(proofUrl);
+            }
+
+            let noteAppend = '';
+            const cleanFinalReason = finalReason ? finalReason.trim() : '';
+            if (isAdjustedCheckout) {
+                 noteAppend += `[FORGETFUL_ADJUST_CHECKOUT] [OK: ${calcResult.hoursWorked.toFixed(2)} hrs]`;
+                 if (cleanFinalReason) noteAppend += ` [REASON: ${cleanFinalReason}]`;
+            } else if (calcResult.status === 'EARLY_LEAVE') {
+                 noteAppend += `[EARLY: Missing ${calcResult.missingMinutes.toFixed(0)}m]`;
+                 if (cleanFinalReason) noteAppend += ` [REASON: ${cleanFinalReason}]`;
+            } else {
+                 noteAppend += `[OK: ${calcResult.hoursWorked.toFixed(2)} hrs]`;
+                 if (cleanFinalReason) noteAppend += ` [REASON: ${cleanFinalReason}]`;
+            }
+
+            const isProvisionalCheckout = reason && (reason.includes('[PROVISIONAL_CHECKOUT]') || reason.includes('[PROVISIONAL_GPS_SPOOF_OUT]'));
+            const finalNote = mergeAttendanceNotes(currentNote, noteAppend);
+            const resolvedStatus = resolveAttendanceLogStatus(
+                todayLog.checkInTime.toISOString(),
+                now.toISOString(),
+                finalNote,
+                todayLog.status
+            );
+            const newStatus = (todayLog.status === 'PENDING_VERIFY' || isProvisionalCheckout || resolvedStatus === 'PENDING_VERIFY') ? 'PENDING_VERIFY' : resolvedStatus;
+            const updatePayload: any = {
+                check_out_time: now.toISOString(),
+                status: newStatus,
+                note: finalNote,
+                attachment_urls: newAttachments,
+                check_out_lat: location?.lat,
+                check_out_lng: location?.lng,
+                check_out_location_name: locationName
+            };
+
+            const { error } = await supabase.from('attendance_logs').update(updatePayload).eq('id', todayLog.id);
+            if (error) throw error;
+            
+            await supabase.from('profiles').update({ work_status: 'BUSY' }).eq('id', userId);
+
+            if (calcResult.status === 'COMPLETED' || isProvisionalCheckout) {
+                showToast(isProvisionalCheckout ? 'ส่งคำขอตอกบัตรออกงานแล้ว รอแอดมินตรวจสอบนะครับ ⏳' : 'เลิกงานแล้ว พักผ่อนเยอะๆ นะครับ 💤', 'success');
+                await processAction(userId, 'ATTENDANCE_CHECK_OUT', {
+                    time: format(now, 'HH:mm'),
+                    date: now 
+                });
+            } else {
+                showToast(`กลับก่อนเวลา! (ขาด ${calcResult.missingMinutes.toFixed(0)} นาที)`, 'warning');
+                await processAction(userId, 'ATTENDANCE_EARLY_LEAVE', {
+                    missingMinutes: Math.round(calcResult.missingMinutes),
+                    date: now 
+                });
+            }
+
+            // Force refresh both attendance and leaves
+            try {
+                await Promise.all([refreshAttendance(), refreshLeaves()]);
+            } catch (refErr) {
+                console.warn("Failed to refresh session context in useAttendanceActions checkOut:", refErr);
+            }
+
+            return true;
+        } catch (err: any) {
+            showToast('Check-out ไม่สำเร็จ: ' + err.message, 'error');
+            return false;
+        } finally {
+            setIsActionLoading(false);
+        }
+    };
+
+    return { checkIn, manualCheckIn, checkOut, isActionLoading };
+};

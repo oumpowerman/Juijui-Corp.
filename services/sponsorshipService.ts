@@ -235,14 +235,23 @@ export const sponsorshipService = {
     return true;
   },
 
-  async getAllSponsorshipDeals() {
-    const { data, error } = await supabase
+  async getAllSponsorshipDeals(startDate?: Date, endDate?: Date) {
+    let query = supabase
       .from('sponsorship_details')
       .select(`
         *,
         client:clients(*)
       `)
       .order('created_at', { ascending: false });
+
+    if (startDate) {
+      query = query.gte('created_at', startDate.toISOString());
+    }
+    if (endDate) {
+      query = query.lte('created_at', endDate.toISOString());
+    }
+
+    const { data, error } = await query;
 
     if (error) throw error;
     if (!data || data.length === 0) return [];

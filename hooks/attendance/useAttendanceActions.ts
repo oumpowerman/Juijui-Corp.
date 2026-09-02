@@ -140,7 +140,7 @@ export const useAttendanceActions = (userId: string) => {
 
             let incomingNote = note || '';
             const meta = [];
-            if (isShiftsEnabled && (matchedShift || amHalfDayLeave || pmHalfDayLeave)) {
+            if (matchedShift || amHalfDayLeave || pmHalfDayLeave || isShiftsEnabled) {
                 meta.push(`[TARGET_SHIFT:${effectiveStartTime}]`);
             }
             if (amHalfDayLeave) {
@@ -339,7 +339,8 @@ export const useAttendanceActions = (userId: string) => {
                 status: (finalIsAppeal || provisionalTypes.length > 0) ? 'APPEAL' : (isLate ? 'LATE' : 'ON_TIME'),
                 date: now,
                 time: format(now, 'HH:mm'),
-                lateMinutes: lateMinutes
+                lateMinutes: lateMinutes,
+                isLate: isLate
             });
 
             // Handle Unauthorized WFH / Onsite Penalty

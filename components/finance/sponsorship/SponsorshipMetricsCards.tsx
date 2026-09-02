@@ -1,7 +1,32 @@
-import React from 'react';
-import { motion, Variants } from 'framer-motion';
+import React, { useEffect } from 'react';
+import { motion, Variants, useMotionValue, useTransform, animate } from 'framer-motion';
 import { Coins, CheckCircle2, Clock, Building2, Plus, ArrowUpRight } from 'lucide-react';
 import { SponsorshipMetrics } from './types';
+
+interface CounterProps {
+    value: number;
+    prefix?: string;
+    suffix?: string;
+    isCurrency?: boolean;
+}
+
+const AnimatedCounter: React.FC<CounterProps> = ({ value, prefix = '', suffix = '', isCurrency = false }) => {
+    const count = useMotionValue(0);
+    const displayValue = useTransform(count, (latest) => {
+        const rounded = Math.round(latest);
+        if (isCurrency) {
+            return `${prefix}${rounded.toLocaleString()}${suffix}`;
+        }
+        return `${prefix}${rounded}${suffix}`;
+    });
+
+    useEffect(() => {
+        const controls = animate(count, value, { duration: 0.85, ease: "easeOut" });
+        return controls.stop;
+    }, [value, count]);
+
+    return <motion.span>{displayValue}</motion.span>;
+};
 
 interface SponsorshipMetricsCardsProps {
     metrics: SponsorshipMetrics;
@@ -73,12 +98,12 @@ export const SponsorshipMetricsCards: React.FC<SponsorshipMetricsCardsProps> = (
                     </div>
                     <p className="text-amber-100 text-xs font-bold uppercase tracking-wider">มูลค่าดีลสปอนเซอร์รวม</p>
                     <h3 className="text-2xl sm:text-3xl font-bold mt-1 tracking-tight">
-                        ฿{metrics.totalRevenue.toLocaleString()}
+                        <AnimatedCounter value={metrics.totalRevenue} prefix="฿" isCurrency />
                     </h3>
                 </div>
                 <div className="mt-4 pt-3 border-t border-white/20 flex items-center justify-between text-xs text-amber-100/90 font-medium relative z-10">
-                    <span>จากทั้งหมด {totalDealsCount} ดีล</span>
-                    <span className="font-bold">{metrics.totalPartners} แบรนด์</span>
+                    <span>จากทั้งหมด <AnimatedCounter value={totalDealsCount} /> ดีล</span>
+                    <span className="font-bold"><AnimatedCounter value={metrics.totalPartners} /> แบรนด์</span>
                 </div>
             </motion.div>
 
@@ -99,13 +124,13 @@ export const SponsorshipMetricsCards: React.FC<SponsorshipMetricsCardsProps> = (
                     </div>
                     <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">รับเงินเรียบร้อยแล้ว</p>
                     <h3 className="text-2xl font-bold text-slate-800 mt-1 tracking-tight">
-                        ฿{metrics.paidRevenue.toLocaleString()}
+                        <AnimatedCounter value={metrics.paidRevenue} prefix="฿" isCurrency />
                     </h3>
                 </div>
                 <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
                     <span>สัดส่วนการชำระ</span>
                     <span className="font-bold text-emerald-600 flex items-center gap-0.5">
-                        {paidPercentage}%
+                        <AnimatedCounter value={paidPercentage} suffix="%" />
                     </span>
                 </div>
             </motion.div>
@@ -127,12 +152,14 @@ export const SponsorshipMetricsCards: React.FC<SponsorshipMetricsCardsProps> = (
                     </div>
                     <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">ยอดค้างชำระ / รอเงินเข้า</p>
                     <h3 className="text-2xl font-bold text-amber-600 mt-1 tracking-tight">
-                        ฿{metrics.unpaidRevenue.toLocaleString()}
+                        <AnimatedCounter value={metrics.unpaidRevenue} prefix="฿" isCurrency />
                     </h3>
                 </div>
                 <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
                     <span>ดีลที่รอชำระ</span>
-                    <span className="font-bold text-amber-600">{metrics.activeDealsCount} รายการ</span>
+                    <span className="font-bold text-amber-600">
+                        <AnimatedCounter value={metrics.activeDealsCount} /> รายการ
+                    </span>
                 </div>
             </motion.div>
 
@@ -159,13 +186,13 @@ export const SponsorshipMetricsCards: React.FC<SponsorshipMetricsCardsProps> = (
                     </div>
                     <p className="text-slate-400 text-xs font-bold uppercase tracking-wider">พาร์ตเนอร์ / ลูกค้าทั้งหมด</p>
                     <h3 className="text-2xl font-bold text-slate-800 mt-1 tracking-tight">
-                        {metrics.totalPartners} <span className="text-sm font-semibold text-slate-400">แบรนด์</span>
+                        <AnimatedCounter value={metrics.totalPartners} /> <span className="text-sm font-semibold text-slate-400">แบรนด์</span>
                     </h3>
                 </div>
                 <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
                     <span>เฉลี่ยต่อแบรนด์</span>
                     <span className="font-bold text-indigo-600">
-                        ฿{avgPerClient.toLocaleString()}
+                        <AnimatedCounter value={avgPerClient} prefix="฿" isCurrency />
                     </span>
                 </div>
             </motion.div>

@@ -104,7 +104,7 @@ const DayHighlightModal: React.FC<DayHighlightModalProps> = ({
                                     }
                                     onClose();
                                 }}
-                                className="w-full mb-3 py-3 bg-fuchsia-600 hover:bg-fuchsia-700 active:scale-[0.98] text-white rounded-2xl text-xs font-bold flex items-center justify-center transition-all gap-2 shadow-lg shadow-fuchsia-100"
+                                className="w-full mb-3 py-3 bg-fuchsia-600 hover:bg-fuchsia-700 active:scale-[0.98] text-white rounded-2xl text-xs font-medium flex items-center justify-center transition-all gap-2 shadow-lg shadow-fuchsia-100"
                             >
                                 <CalendarPlus className="w-4 h-4" />
                                 <span>เพิ่มแพลน / นัดหมายทั่วไป</span>

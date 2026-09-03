@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { LeaveRequest, LeaveType, LeaveUsage, RequestStatus } from '../types/attendance';
-import { ATTENDANCE_REGISTRY } from '../constants/attendanceRegistry';
+import { ATTENDANCE_REGISTRY, getTypesByCategory } from '../constants/attendanceRegistry';
 import { useToast } from '../context/ToastContext';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
 import { eachDayOfInterval, format, isValid } from 'date-fns';
@@ -387,7 +387,7 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
             }
 
             // --- Late Submission Rule check ---
-            const CORRECTION_TYPES = ['LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT'];
+            const CORRECTION_TYPES = getTypesByCategory('CORRECTION');
             let isLateSubmission = false;
             if (CORRECTION_TYPES.includes(type)) {
                 isLateSubmission = checkLateSubmissionRule(startDate, new Date(), annualHolidays, calendarExceptions, currentUser);

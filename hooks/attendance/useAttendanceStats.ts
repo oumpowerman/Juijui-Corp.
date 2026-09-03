@@ -1,6 +1,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { AttendanceStats } from '../../types/attendance';
+import { getRegistryItem } from '../../constants/attendanceRegistry';
 import { format, startOfMonth, endOfMonth, subDays } from 'date-fns';
 import { checkIsLate, getAttendanceSummary } from '../../lib/attendanceUtils';
 import { useMasterData } from '../useMasterData';
@@ -87,10 +88,10 @@ export const useAttendanceStats = (userId: string) => {
             }
 
             // 2. Check if user is on approved leave on this date
-            // Exclude OVERTIME and corrections from being treated as actual leaves
+            // Exclude OVERTIME, SPECIAL, and corrections from being treated as actual leaves
             const approvedLeave = leaveRequests?.find(req => {
                 if (req.userId !== userId || req.status !== 'APPROVED') return false;
-                if (['OVERTIME', 'LATE_ENTRY', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT'].includes(req.type)) return false;
+                if (getRegistryItem(req.type)?.category !== 'LEAVE') return false;
                 const s = format(new Date(req.startDate), 'yyyy-MM-dd');
                 const e = format(new Date(req.endDate), 'yyyy-MM-dd');
                 return dateStr >= s && dateStr <= e;

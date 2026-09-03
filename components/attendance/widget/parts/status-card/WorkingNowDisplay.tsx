@@ -246,37 +246,37 @@ export const WorkingNowDisplay: React.FC<WorkingNowDisplayProps> = ({
             )}
 
             {/* FIELD CHECKPOINT / SHOOT REPORT BUTTON & BADGE */}
-            <div className="space-y-2 pt-1">
+            <div className="space-y-1.5 pt-1">
                 <button
                     disabled={isDesktop}
                     onClick={() => setIsCheckpointModalOpen(true)}
-                    className={`w-full py-3.5 rounded-2xl font-bold transition-all flex items-center justify-center gap-2.5 cursor-pointer relative overflow-hidden group
+                    className={`w-full py-2 px-3.5 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer
                         ${isDesktop
-                            ? 'bg-slate-100 text-slate-400 border border-slate-200 cursor-not-allowed shadow-none'
-                            : 'bg-gradient-to-r from-indigo-600 via-indigo-500 to-cyan-500 hover:from-indigo-700 hover:to-cyan-600 text-white shadow-lg shadow-indigo-200/60 active:scale-98'
+                            ? 'bg-slate-50 text-slate-400 border border-slate-200 cursor-not-allowed shadow-none'
+                            : 'bg-slate-50/90 hover:bg-indigo-50/70 border border-slate-200 hover:border-indigo-300 text-slate-700 hover:text-indigo-700 shadow-2xs active:scale-98'
                         }
                     `}
                 >
-                    <div className="p-1 bg-white/20 rounded-lg group-hover:rotate-12 transition-transform">
-                        <MapPin className="w-4 h-4 text-white" />
-                    </div>
-                    <span className="text-xs tracking-wide">
-                        📍 TimeStamp รายงานออกกอง / จุดปฏิบัติงาน
-                    </span>
-                    <Sparkles className="w-3.5 h-3.5 text-amber-300 fill-amber-300 animate-pulse" />
+                    <MapPin className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                    <span>📍 จุดปฏิบัติงานนอกสถานที่</span>
+                    {todayCheckpoints && todayCheckpoints.length > 0 && (
+                        <span className="ml-1 px-1.5 py-0.2 bg-indigo-100 text-indigo-700 rounded-full text-[10px] font-bold">
+                            {todayCheckpoints.length}
+                        </span>
+                    )}
                 </button>
 
                 {/* Checkpoint Summary Badge */}
-                {todayCheckpoints && todayCheckpoints.length > 0 ? (
-                    <div className="bg-indigo-50/70 border border-indigo-100 rounded-2xl p-2.5 text-left transition-all">
+                {todayCheckpoints && todayCheckpoints.length > 0 && (
+                    <div className="bg-indigo-50/60 border border-indigo-100/80 rounded-xl p-2.5 text-left transition-all">
                         <button
                             type="button"
                             onClick={() => setShowQuickList(!showQuickList)}
                             className="w-full flex items-center justify-between text-xs font-semibold text-indigo-900 cursor-pointer"
                         >
                             <span className="flex items-center gap-1.5">
-                                <span className="w-2 h-2 rounded-full bg-cyan-500 animate-ping" />
-                                <span>วันนี้รายงานไปแล้ว <strong className="text-indigo-600 font-bold">{todayCheckpoints.length}</strong> จุด</span>
+                                <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-ping" />
+                                <span>รายงานจุดปฏิบัติงานแล้ว <strong className="text-indigo-600 font-bold">{todayCheckpoints.length}</strong> จุด</span>
                             </span>
                             <span className="text-[11px] text-indigo-600 flex items-center font-medium hover:underline">
                                 {showQuickList ? 'ซ่อนรายการ' : 'ดูรายการ'}
@@ -286,7 +286,7 @@ export const WorkingNowDisplay: React.FC<WorkingNowDisplayProps> = ({
 
                         {/* Expandable Rich List */}
                         {showQuickList && (
-                            <div className="mt-2.5 pt-2 border-t border-indigo-100/80 space-y-2 max-h-60 overflow-y-auto pr-0.5">
+                            <div className="mt-2 pt-2 border-t border-indigo-100/80 space-y-2 max-h-60 overflow-y-auto pr-0.5">
                                 {todayCheckpoints.map((cp, idx) => {
                                     const photo = cp.photoUrl || cp.photo_url;
                                     const hasGps = cp.latitude && cp.longitude;
@@ -345,12 +345,6 @@ export const WorkingNowDisplay: React.FC<WorkingNowDisplayProps> = ({
                                 })}
                             </div>
                         )}
-                    </div>
-                ) : (
-                    <div className="text-center py-1">
-                        <span className="text-[11px] text-slate-400 font-medium">
-                            ยังไม่มีการบันทึกจุดออกกองในวันนี้
-                        </span>
                     </div>
                 )}
             </div>

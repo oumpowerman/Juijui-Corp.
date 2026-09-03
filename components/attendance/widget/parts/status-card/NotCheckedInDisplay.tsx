@@ -1,6 +1,7 @@
 import React from 'react';
 import { LogIn, Palmtree, Hourglass, ShieldCheck, AlertCircle, ArrowRight, Flame, AlertTriangle, Briefcase, Cloud, FileText } from 'lucide-react';
 import { LeaveType, LocationDef, AttendanceStats, LeaveRequest, AttendanceLog } from '../../../../../types/attendance';
+import { getRegistryItem } from '../../../../../constants/attendanceRegistry';
 import ForgotCheckInControl from '../../ForgotCheckInControl';
 import { parseReason } from '../../../leave-request/request-detail/utils';
 import { getMatchedShiftSlot, addMinutesToTimeString } from '../../../../../lib/attendanceUtils';
@@ -58,7 +59,7 @@ export const NotCheckedInDisplay: React.FC<NotCheckedInDisplayProps> = ({
     isDesktop = false,
     masterOptions = []
 }) => {
-    const isActualLeaveToday = isLeaveLog || (isApprovedLeaveToday && todayActiveLeave && !['WFH', 'ONSITE', 'LATE_ENTRY', 'OVERTIME', 'FORGOT_CHECKIN', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT', 'GPS_SPOOF_APPEAL'].includes(todayActiveLeave.type));
+    const isActualLeaveToday = isLeaveLog || (isApprovedLeaveToday && todayActiveLeave && getRegistryItem(todayActiveLeave.type)?.category === 'LEAVE');
 
     const getHalfDayInfo = (leave: LeaveRequest | null) => {
         if (!leave) return { isHalfDay: false, session: null, leaveTargetShift: null };

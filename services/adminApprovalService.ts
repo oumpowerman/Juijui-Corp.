@@ -45,7 +45,9 @@ export function translateRequestType(type: string): string {
         'FORGOT_BOTH': 'ลืมทั้งเข้า-ออก (Forgot Both)',
         'UNPAID': 'ลาไม่รับค่าจ้าง (Unpaid Leave)',
         'OUT_OF_RANGE_CHECKOUT': 'สแกนออกนอกพื้นที่ (Out of Range Checkout)',
-        'GPS_SPOOF_APPEAL': 'อุทธรณ์พิกัด GPS คลาดเคลื่อน'
+        'GPS_SPOOF_APPEAL': 'อุทธรณ์พิกัด GPS คลาดเคลื่อน',
+        'EARLY_LEAVE': 'ขอกลับก่อนเวลา (Early Leave)',
+        'GPS_SPOOF_OUT_APPEAL': 'อุทธรณ์พิกัด GPS ผิดปกติ (ออกงาน)'
     };
     return mapping[type] || type;
 }
@@ -302,7 +304,7 @@ export const adminApprovalService = {
         // Assemble notifications and announcements
         let notifTitle = '✅ คำขอได้รับการอนุมัติ';
         if (CORRECTION_TYPES.includes(request.type)) notifTitle = '🛠️ อนุมัติการแก้ไขเวลา';
-        if (SPECIAL_TYPES.includes(request.type)) notifTitle = '✨ อนุมัติคำขอพิเศษ';
+        else if (SPECIAL_TYPES.includes(request.type)) notifTitle = '✨ อนุมัติคำขอพิเศษ';
 
         const dateDisplay = format(request.startDate, 'd MMM yyyy');
         const fullDateDisplay = request.startDate.getTime() === request.endDate.getTime() 

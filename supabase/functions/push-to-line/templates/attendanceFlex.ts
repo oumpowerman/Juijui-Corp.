@@ -43,20 +43,30 @@ export function parseNotificationPayload(record: ClaimedNotificationRecord): Par
     requestTypeLabel = 'ลืมลงเวลาเลิกงาน (Check-out)';
   } else if (reqTypeMeta === 'FORGOT_BOTH') {
     requestTypeLabel = 'ลืมลงเวลาเข้า-เลิกงาน';
-  } else if (reqTypeMeta === 'OT') {
+  } else if (reqTypeMeta === 'OT' || reqTypeMeta === 'OVERTIME') {
     requestTypeLabel = 'ขอทำงานล่วงเวลา (OT)';
   } else if (reqTypeMeta === 'WFH') {
     requestTypeLabel = 'ขอทำงานที่บ้าน (WFH)';
   } else if (reqTypeMeta === 'ONSITE') {
     requestTypeLabel = 'ขอปฏิบัติงานนอกสถานที่';
-  } else if (reqTypeMeta === 'LEAVE') {
+  } else if (reqTypeMeta === 'LEAVE' || reqTypeMeta === 'SICK' || reqTypeMeta === 'VACATION' || reqTypeMeta === 'PERSONAL' || reqTypeMeta === 'UNPAID') {
     requestTypeLabel = 'คำขอลางาน';
+  } else if (reqTypeMeta === 'EARLY_LEAVE') {
+    requestTypeLabel = 'ขอกลับก่อนเวลา (Early Leave)';
+  } else if (reqTypeMeta === 'GPS_SPOOF_OUT_APPEAL') {
+    requestTypeLabel = 'อุทธรณ์พิกัด GPS ผิดปกติ (ออกงาน)';
+  } else if (reqTypeMeta === 'GPS_SPOOF_APPEAL') {
+    requestTypeLabel = 'อุทธรณ์พิกัด GPS คลาดเคลื่อน';
+  } else if (reqTypeMeta === 'OUT_OF_RANGE_CHECKOUT') {
+    requestTypeLabel = 'สแกนออกนอกพื้นที่';
+  } else if (reqTypeMeta === 'LATE_ENTRY') {
+    requestTypeLabel = 'แจ้งเข้าสาย / แก้ไขเวลาเข้างาน';
   } else if (reqTypeMeta === 'DUTY_SWAP') {
     requestTypeLabel = 'คำขอแลกเวร';
   } else {
     // Try extract from brackets in title or message e.g. [ลืมเช็คอิน (ลืมลงเวลาเข้างาน)]
     const bracketMatch = rawTitle.match(/\[(.*?)\]/) || rawMessage.match(/\[(.*?)\]/);
-    if (bracketMatch && bracketMatch[1] && !bracketMatch[1].startsWith('TARGET_SHIFT') && !bracketMatch[1].startsWith('TIME') && !bracketMatch[1].startsWith('OT') && !bracketMatch[1].startsWith('PROVISIONAL')) {
+    if (bracketMatch && bracketMatch[1] && !bracketMatch[1].startsWith('TARGET_SHIFT') && !bracketMatch[1].startsWith('TIME') && !bracketMatch[1].startsWith('EARLY') && !bracketMatch[1].startsWith('OT') && !bracketMatch[1].startsWith('PROVISIONAL') && !bracketMatch[1].startsWith('APPROVED') && !bracketMatch[1].startsWith('REJECTED')) {
       requestTypeLabel = bracketMatch[1].trim();
     }
   }
@@ -75,21 +85,26 @@ export function parseNotificationPayload(record: ClaimedNotificationRecord): Par
     targetShift = `${shiftMatch[1].trim()} น.`;
   }
 
-  // 5. Extract Requested Time [TIME:09:00] or [TIME:09:00-18:00] or [ACTUAL_CHECK_IN:09:15]
+  // 5. Extract Requested Time [TIME:09:00] or [TIME:09:00-18:00] or [EARLY:17:00] or [ACTUAL_CHECK_IN:09:15]
   let requestedTime: string | null = null;
   const actualCheckInMatch = rawMessage.match(/\[ACTUAL_CHECK_IN:([^\]]+)\]/);
+  const earlyMatch = rawMessage.match(/\[EARLY:([^\]]+)\]/);
+  const timeMatch = rawMessage.match(/\[TIME:([^\]]+)\]/);
+
   if (actualCheckInMatch && actualCheckInMatch[1]) {
     const rawActual = actualCheckInMatch[1].trim();
     // Format 09:15:00 to 09:15 if seconds included
     const parts = rawActual.split(':');
     const formattedActual = parts.length >= 2 ? `${parts[0]}:${parts[1]}` : rawActual;
     requestedTime = `${formattedActual} น.`;
-  } else {
-    const timeMatch = rawMessage.match(/\[TIME:([^\]]+)\]/);
-    if (timeMatch && timeMatch[1]) {
-      const rawT = timeMatch[1].trim();
-      requestedTime = rawT.includes('-') ? `${rawT.replace('-', ' - ')} น.` : `${rawT} น.`;
-    }
+  } else if (earlyMatch && earlyMatch[1]) {
+    const rawEarly = earlyMatch[1].trim();
+    const parts = rawEarly.split(':');
+    const formattedEarly = parts.length >= 2 ? `${parts[0]}:${parts[1]}` : rawEarly;
+    requestedTime = `${formattedEarly} น.`;
+  } else if (timeMatch && timeMatch[1]) {
+    const rawT = timeMatch[1].trim();
+    requestedTime = rawT.includes('-') ? `${rawT.replace('-', ' - ')} น.` : `${rawT} น.`;
   }
 
   // 6. Extract OT Time [OT:18:00-20:00]
@@ -112,6 +127,10 @@ export function parseNotificationPayload(record: ClaimedNotificationRecord): Par
   cleanReason = cleanReason.replace(/\[TARGET_SHIFT:[^\]]+\]/g, '');
   cleanReason = cleanReason.replace(/\[ACTUAL_CHECK_IN:[^\]]+\]/g, '');
   cleanReason = cleanReason.replace(/\[TIME:[^\]]+\]/g, '');
+  cleanReason = cleanReason.replace(/\[EARLY:[^\]]+\]/g, '');
+  cleanReason = cleanReason.replace(/\[EARLY_LEAVE_PENDING\]/g, '');
+  cleanReason = cleanReason.replace(/\[APPROVED EARLY_LEAVE_APPEAL\]/g, '');
+  cleanReason = cleanReason.replace(/\[REJECTED EARLY_LEAVE_APPEAL\]/g, '');
   cleanReason = cleanReason.replace(/\[OT:[^\]]+\]/g, '');
   cleanReason = cleanReason.replace(/\[PROVISIONAL_[^\]]+\]/g, '');
   cleanReason = cleanReason.replace(/\[LATE_SUBMISSION\]/g, '');

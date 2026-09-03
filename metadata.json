@@ -1,5 +1,6 @@
 {
   "description": "A professional script planning and asset management tool with Google Drive integration.",
   "requestFramePermissions": ["camera", "geolocation"],
-  "name": "KontentOS"
+  "name": "KontentOS",
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

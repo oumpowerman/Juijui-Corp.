@@ -5,6 +5,7 @@ import { useMasterData } from '../../../hooks/useMasterData';
 import { useLeaveRequests } from '../../../hooks/useLeaveRequests';
 import { User } from '../../../types';
 import { LeaveType } from '../../../types/attendance';
+import { getTypesByCategory } from '../../../constants/attendanceRegistry';
 import { isWithinInterval, startOfDay, endOfDay, isFuture, isSameDay, isValid } from 'date-fns';
 
 import AttendanceControl from '../containers/AttendanceControl';
@@ -53,7 +54,7 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user, onNavigateToH
 
     // 1. "Today's Active Leave" (Affects Current Status)
     const todayActiveLeave = useMemo(() => {
-        const CORRECTION_TYPES = ['FORGOT_CHECKIN', 'LATE_ENTRY', 'FORGOT_CHECKOUT', 'FORGOT_BOTH', 'OUT_OF_RANGE_CHECKOUT'];
+        const CORRECTION_TYPES = getTypesByCategory('CORRECTION');
 
         const activeRequests = requests.filter(req => {
             if (req.status === 'REJECTED') return false;

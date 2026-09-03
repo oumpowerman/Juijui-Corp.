@@ -316,15 +316,15 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({
                     <button 
                         onClick={() => setIsRulesModalOpen(true)}
                         className="
-                            relative w-10 h-10 
-                            bg-white/70 backdrop-blur 
+                            relative w-8 h-8 sm:w-9 sm:h-9 
+                            bg-white/80 backdrop-blur 
                             border border-indigo-100 
                             text-indigo-600 
                             rounded-xl 
                             flex items-center justify-center 
-                            shadow-sm 
+                            shadow-xs 
                             transition-all duration-300
-                            hover:shadow-lg hover:scale-110
+                            hover:shadow-md hover:scale-105
                             active:scale-95
                         "
                         title="กฎการลงเวลา"
@@ -338,17 +338,19 @@ const AttendanceControl: React.FC<AttendanceControlProps> = ({
 
                         {/* icon ดุ๊กดิ๊ก */}
                         <HelpCircle 
-                            size={18} 
-                            className="relative z-10 animate-wiggle"
+                            size={16} 
+                            className="relative z-10 animate-wiggle sm:w-[17px] sm:h-[17px]"
                         />
                     </button>
                 </div>
                 
                 <button 
                     onClick={() => onOpenLeave()}
-                    className="px-3 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-600 rounded-xl text-[12px] font-kanit font-medium uppercase tracking-widest transition-all flex items-center gap-1.5 border border-orange-100 shadow-sm active:scale-95"
+                    className="px-2.5 py-1.5 sm:px-3 sm:py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-600 hover:text-orange-700 rounded-xl text-[11px] sm:text-xs font-kanit font-medium transition-all flex items-center gap-1.5 border border-orange-200/60 shadow-2xs active:scale-95 cursor-pointer shrink-0"
                 >
-                    <AlertTriangle className="w-3 h-3" /> แจ้งลา / คำขอพิเศษ
+                    <AlertTriangle className="w-3.5 h-3.5 text-orange-500 shrink-0" />
+                    <span className="sm:hidden">แจ้งลา / คำขอ</span>
+                    <span className="hidden sm:inline">แจ้งลา / คำขอพิเศษ</span>
                 </button>
             </div>
 

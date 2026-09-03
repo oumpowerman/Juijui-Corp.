@@ -314,16 +314,16 @@ const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({
         >
             <div className={`
                 w-full h-full rounded-xl flex flex-col items-center justify-center gap-0.5 border transition-all duration-200 group-hover/cell:scale-105 group-hover/cell:shadow-md
-                ${isGpsRejected ? 'bg-red-100 border-red-500 text-red-700 ring-1 ring-red-300 font-extrabold' :
-                  isProvisionalGps ? 'bg-rose-50/70 border-rose-400 border-dashed text-rose-700 ring-1 ring-rose-300/40' :
-                  isAppealState ? 'bg-violet-50/50 border-violet-400 border-dashed text-violet-700 ring-1 ring-violet-300/30' :
-                  isAnyProvisional ? 'bg-amber-50/45 border-amber-400 border-dashed text-amber-700 ring-1 ring-amber-300/30' :
-                  isLeave ? 'bg-sky-50 border-sky-100 text-sky-600' :
-                  (isAMLeave || isPMLeave) ? 'bg-gradient-to-br from-emerald-50/80 to-sky-100/80 border-sky-200 text-emerald-800 font-semibold' :
-                  isNoCheckIn ? 'bg-amber-50 border-amber-200 text-amber-600' :
-                  isPendingVerify ? 'bg-amber-50 border-amber-200 text-amber-600' :
-                  late ? 'bg-orange-50 border-orange-200 text-orange-600' :
-                  'bg-emerald-50 border-emerald-100 text-emerald-600'}
+                ${isGpsRejected ? 'bg-red-50/70 border-red-300 border-b-2 border-b-red-500 text-red-900 ring-1 ring-red-200 font-extrabold group-hover/cell:bg-red-50/90' :
+                  isProvisionalGps ? 'bg-rose-50/60 border-rose-300/80 border-dashed border-b-2 border-b-rose-400/90 text-rose-900 ring-1 ring-rose-200/40 group-hover/cell:bg-rose-50/80' :
+                  isAppealState ? 'bg-violet-50/60 border-violet-300/80 border-dashed border-b-2 border-b-violet-400/90 text-violet-900 ring-1 ring-violet-200/30 group-hover/cell:bg-violet-50/80' :
+                  isAnyProvisional ? 'bg-amber-50/50 border-amber-300/80 border-dashed border-b-2 border-b-amber-400/90 text-amber-900 ring-1 ring-amber-200/30 group-hover/cell:bg-amber-50/70' :
+                  isLeave ? 'bg-sky-50/50 border-sky-200/70 border-b-2 border-b-sky-400/80 text-sky-900 group-hover/cell:bg-sky-50/70' :
+                  (isAMLeave || isPMLeave) ? 'bg-gradient-to-br from-emerald-50/60 to-sky-50/60 border-teal-200/70 border-b-2 border-b-teal-400/80 text-teal-950 font-semibold group-hover/cell:from-emerald-50/80 group-hover/cell:to-sky-50/80' :
+                  isNoCheckIn ? 'bg-indigo-50/50 border-indigo-200/70 border-b-2 border-b-indigo-400/80 text-indigo-950 group-hover/cell:bg-indigo-50/70' :
+                  isPendingVerify ? 'bg-amber-50/50 border-amber-200/70 border-b-2 border-b-amber-400/80 text-amber-950 group-hover/cell:bg-amber-50/70' :
+                  late ? 'bg-amber-50/50 border-amber-200/70 border-b-2 border-b-amber-400/90 text-amber-950 group-hover/cell:bg-amber-50/70' :
+                  'bg-emerald-50/50 border-emerald-200/70 border-b-2 border-b-emerald-400/90 text-emerald-950 group-hover/cell:bg-emerald-50/70'}
                 ${dayStatus.status === 'HOLIDAY' ? 'ring-2 ring-orange-200 ring-offset-1' : ''}
             `}>
                 {isLeave && (leaveType || leaveRequest?.type) ? (
@@ -346,20 +346,20 @@ const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({
                 ) : (
                     <>
                         {isPendingVerify && <div className="text-[7px] font-bold opacity-70 tracking-tighter">VERIFY</div>}
-                        <span className="text-[10px] font-bold font-mono leading-none">
+                        <span className={`text-[10px] font-bold font-mono leading-none tracking-tight ${late ? 'text-amber-950' : 'text-emerald-950'}`}>
                             {log.checkInTime ? format(log.checkInTime, 'HH:mm') : '--:--'}
                         </span>
                         {isAMLeave && (
-                            <span className="text-[6.5px] font-extrabold bg-sky-100/90 text-sky-700 px-1 py-0.2 rounded-sm border border-sky-200 scale-90 -my-0.5 whitespace-nowrap">
+                            <span className="text-[6.5px] font-extrabold bg-teal-100/90 text-teal-800 px-1 py-0.2 rounded-sm border border-teal-200 scale-90 -my-0.5 whitespace-nowrap">
                                 ⏱️ ลาเช้า
                             </span>
                         )}
-                        <div className="w-4 h-[1px] bg-current opacity-20"></div>
-                        <span className="text-[10px] font-bold font-mono leading-none opacity-60">
+                        <div className={`w-4 h-[1px] my-0.5 ${late ? 'bg-amber-400/50' : 'bg-emerald-400/50'}`}></div>
+                        <span className={`text-[10px] font-bold font-mono leading-none tracking-tight opacity-75 ${late ? 'text-amber-900' : 'text-emerald-900'}`}>
                             {log.checkOutTime ? format(log.checkOutTime, 'HH:mm') : '--:--'}
                         </span>
                         {isPMLeave && (
-                            <span className="text-[6.5px] font-extrabold bg-sky-100/90 text-sky-700 px-1 py-0.2 rounded-sm border border-sky-200 scale-90 -my-0.5 whitespace-nowrap">
+                            <span className="text-[6.5px] font-extrabold bg-teal-100/90 text-teal-800 px-1 py-0.2 rounded-sm border border-teal-200 scale-90 -my-0.5 whitespace-nowrap">
                                 ⏱️ ลาบ่าย
                             </span>
                         )}

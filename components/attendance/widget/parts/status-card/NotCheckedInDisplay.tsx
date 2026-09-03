@@ -16,7 +16,18 @@ interface NotCheckedInDisplayProps {
     // Props สำหรับสลอตตอกย้อนหลัง
     startTime: string;
     lateBuffer: number;
-    onCheckOutRequest: (type: LeaveType, start: Date, end: Date, reason: string, files?: File[]) => Promise<boolean>;
+    onCheckOutRequest: (
+        type: LeaveType, 
+        start: Date, 
+        end: Date, 
+        reason: string, 
+        files?: File[], 
+        linkedRemoteType?: 'WFH' | 'ONSITE',
+        isHalfDay?: boolean,
+        halfDaySession?: string,
+        isInstant?: boolean,
+        coords?: { lat?: number | null; lng?: number | null; locationName?: string | null }
+    ) => Promise<boolean>;
     leaveUsage: any;
     availableLocations: LocationDef[];
     onNavigateToHistory?: () => void;

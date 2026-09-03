@@ -121,6 +121,12 @@ export interface AttendanceCorrectionPayloadOptions {
     isHalfDay?: boolean;
     halfDaySession?: 'AM' | 'PM' | null | string;
     existingStatus?: string;
+    locationLat?: number | null;
+    locationLng?: number | null;
+    locationName?: string | null;
+    checkOutLat?: number | null;
+    checkOutLng?: number | null;
+    checkOutLocationName?: string | null;
 }
 
 /**
@@ -141,7 +147,13 @@ export function buildAttendanceCorrectionPayload({
     targetWorkType,
     isHalfDay = false,
     halfDaySession = null,
-    existingStatus
+    existingStatus,
+    locationLat,
+    locationLng,
+    locationName,
+    checkOutLat,
+    checkOutLng,
+    checkOutLocationName
 }: AttendanceCorrectionPayloadOptions) {
     let resolvedWorkType = targetWorkType || 'OFFICE';
     if (!targetWorkType) {
@@ -169,7 +181,13 @@ export function buildAttendanceCorrectionPayload({
             check_out_time: checkOutTime,
             work_type: resolvedWorkType,
             status: finalStatus,
-            note: finalNote
+            note: finalNote,
+            ...(locationLat !== undefined && { location_lat: locationLat }),
+            ...(locationLng !== undefined && { location_lng: locationLng }),
+            ...(locationName !== undefined && { location_name: locationName }),
+            ...(checkOutLat !== undefined && { check_out_lat: checkOutLat }),
+            ...(checkOutLng !== undefined && { check_out_lng: checkOutLng }),
+            ...(checkOutLocationName !== undefined && { check_out_location_name: checkOutLocationName })
         };
     } else if (type === 'FORGOT_CHECKIN' || type === 'LATE_ENTRY') {
         const finalNote = mergeAttendanceNotes(existingNote, `${originalStatusNote}[APPROVED ${type}] ${reason}`);
@@ -178,7 +196,13 @@ export function buildAttendanceCorrectionPayload({
             date: date,
             check_in_time: checkInTime,
             work_type: resolvedWorkType,
-            note: finalNote
+            note: finalNote,
+            ...(locationLat !== undefined && { location_lat: locationLat }),
+            ...(locationLng !== undefined && { location_lng: locationLng }),
+            ...(locationName !== undefined && { location_name: locationName }),
+            ...(checkOutLat !== undefined && { check_out_lat: checkOutLat }),
+            ...(checkOutLng !== undefined && { check_out_lng: checkOutLng }),
+            ...(checkOutLocationName !== undefined && { check_out_location_name: checkOutLocationName })
         };
 
         if (checkOutTime) {
@@ -202,7 +226,13 @@ export function buildAttendanceCorrectionPayload({
                 check_out_time: checkOutTime || null,
                 work_type: existingWorkType || 'OFFICE',
                 status: existingStatus || 'WORKING',
-                note: finalNote
+                note: finalNote,
+                ...(locationLat !== undefined && { location_lat: locationLat }),
+                ...(locationLng !== undefined && { location_lng: locationLng }),
+                ...(locationName !== undefined && { location_name: locationName }),
+                ...(checkOutLat !== undefined && { check_out_lat: checkOutLat }),
+                ...(checkOutLng !== undefined && { check_out_lng: checkOutLng }),
+                ...(checkOutLocationName !== undefined && { check_out_location_name: checkOutLocationName })
             };
         } else {
             const halfDayPrefix = isHalfDay ? (halfDaySession === 'AM' ? '[HALF_DAY:AM] ' : '[HALF_DAY:PM] ') : '';

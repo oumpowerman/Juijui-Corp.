@@ -410,7 +410,13 @@ export async function approveAttendanceCorrection({
             originalStatusNote,
             existingNote: cleanedNote,
             existingWorkType: freshLog?.work_type,
-            targetWorkType
+            targetWorkType,
+            locationLat: freshLog?.location_lat,
+            locationLng: freshLog?.location_lng,
+            locationName: freshLog?.location_name,
+            checkOutLat: freshLog?.check_out_lat,
+            checkOutLng: freshLog?.check_out_lng,
+            checkOutLocationName: freshLog?.check_out_location_name
         });
         await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
     } else if (behavior?.correctionTarget === 'CHECKIN_ONLY') {
@@ -444,7 +450,13 @@ export async function approveAttendanceCorrection({
             originalStatusNote,
             existingNote: cleanedNote,
             existingWorkType: freshLog?.work_type,
-            targetWorkType
+            targetWorkType,
+            locationLat: freshLog?.location_lat,
+            locationLng: freshLog?.location_lng,
+            locationName: freshLog?.location_name,
+            checkOutLat: freshLog?.check_out_lat,
+            checkOutLng: freshLog?.check_out_lng,
+            checkOutLocationName: freshLog?.check_out_location_name
         });
         await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
     } else if (behavior?.correctionTarget === 'CHECKOUT_ONLY') {

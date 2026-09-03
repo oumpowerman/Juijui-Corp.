@@ -211,7 +211,8 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
         linkedRemoteType?: 'WFH' | 'ONSITE',
         isHalfDay?: boolean,
         halfDaySession?: string,
-        isInstantCheckIn?: boolean
+        isInstantCheckIn?: boolean,
+        coords?: { lat?: number | null; lng?: number | null; locationName?: string | null }
     ): Promise<boolean> => {
         if (!currentUser?.id) return false;
         showLoading('กำลังอัปโหลดไฟล์และส่งคำขอเข้าระบบ...');
@@ -577,7 +578,10 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                     status: 'WORKING',
                     note: finalNote,
                     attachment_urls: combinedAttachments,
-                    work_type: linkedRemoteType || (existingLog?.work_type && existingLog.work_type !== 'LEAVE' && existingLog.work_type !== 'ABSENT' ? existingLog.work_type : 'OFFICE')
+                    work_type: linkedRemoteType || (existingLog?.work_type && existingLog.work_type !== 'LEAVE' && existingLog.work_type !== 'ABSENT' ? existingLog.work_type : 'OFFICE'),
+                    location_lat: coords?.lat !== undefined ? coords.lat : (existingLog?.location_lat ?? null),
+                    location_lng: coords?.lng !== undefined ? coords.lng : (existingLog?.location_lng ?? null),
+                    location_name: coords?.locationName || existingLog?.location_name || (linkedRemoteType || 'Office')
                 };
 
                 await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
@@ -632,7 +636,13 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                     status: 'PENDING_VERIFY', // ตั้งเป็น PENDING_VERIFY เพื่อรออนุมัติ
                     note: finalNote,
                     attachment_urls: combinedAttachmentsFB,
-                   work_type: linkedRemoteType || (existingLog?.work_type && existingLog.work_type !== 'LEAVE' && existingLog.work_type !== 'ABSENT' ? existingLog.work_type : 'OFFICE')
+                    work_type: linkedRemoteType || (existingLog?.work_type && existingLog.work_type !== 'LEAVE' && existingLog.work_type !== 'ABSENT' ? existingLog.work_type : 'OFFICE'),
+                    location_lat: coords?.lat !== undefined ? coords.lat : (existingLog?.location_lat ?? null),
+                    location_lng: coords?.lng !== undefined ? coords.lng : (existingLog?.location_lng ?? null),
+                    location_name: coords?.locationName || existingLog?.location_name || (linkedRemoteType || 'Office'),
+                    check_out_lat: coords?.lat !== undefined ? coords.lat : (existingLog?.check_out_lat ?? null),
+                    check_out_lng: coords?.lng !== undefined ? coords.lng : (existingLog?.check_out_lng ?? null),
+                    check_out_location_name: coords?.locationName || existingLog?.check_out_location_name || (linkedRemoteType || 'Office')
                 };
 
                 await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
@@ -679,7 +689,10 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                     status: 'WORKING',
                     note: finalNote,
                     attachment_urls: combinedAttachmentsLE,
-                    work_type: linkedRemoteType || (existingLog?.work_type && existingLog.work_type !== 'LEAVE' && existingLog.work_type !== 'ABSENT' ? existingLog.work_type : 'OFFICE')
+                    work_type: linkedRemoteType || (existingLog?.work_type && existingLog.work_type !== 'LEAVE' && existingLog.work_type !== 'ABSENT' ? existingLog.work_type : 'OFFICE'),
+                    location_lat: coords?.lat !== undefined ? coords.lat : (existingLog?.location_lat ?? null),
+                    location_lng: coords?.lng !== undefined ? coords.lng : (existingLog?.location_lng ?? null),
+                    location_name: coords?.locationName || existingLog?.location_name || (linkedRemoteType || 'Office')
                 };
 
                 await supabase.from('attendance_logs').upsert(payload, { onConflict: 'user_id, date' });
@@ -713,7 +726,10 @@ export const useMyRequests = (currentUser?: any, options: { enabled?: boolean } 
                     status: 'PENDING_VERIFY',
                     note: finalNote,
                     attachment_urls: combinedAttachmentsFCO,
-                    check_out_time: endDate.toISOString()
+                    check_out_time: endDate.toISOString(),
+                    check_out_lat: coords?.lat !== undefined ? coords.lat : (existingLog?.check_out_lat ?? null),
+                    check_out_lng: coords?.lng !== undefined ? coords.lng : (existingLog?.check_out_lng ?? null),
+                    check_out_location_name: coords?.locationName || existingLog?.check_out_location_name || (linkedRemoteType || 'Office')
                 };
 
                 await supabase

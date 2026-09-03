@@ -121,9 +121,21 @@ const AttendanceWidget: React.FC<AttendanceWidgetProps> = ({ user, onNavigateToH
         linkedRemoteType?: 'WFH' | 'ONSITE',
         isHalfDay?: boolean,
         halfDaySession?: string,
-        isInstant?: boolean
+        isInstant?: boolean,
+        coords?: { lat?: number | null; lng?: number | null; locationName?: string | null }
     ): Promise<boolean> => {
-        const result = await submitRequest(type, start, end, reason, files, linkedRemoteType, isHalfDay, halfDaySession, isInstant !== undefined ? isInstant : isInstantCheckIn);
+        const result = await submitRequest(
+            type, 
+            start, 
+            end, 
+            reason, 
+            files, 
+            linkedRemoteType, 
+            isHalfDay, 
+            halfDaySession, 
+            isInstant !== undefined ? isInstant : isInstantCheckIn,
+            coords
+        );
         if (result) {
             setIsCheckInModalOpen(false);
         }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
     X, Clock, MapPin, FileText, CheckCircle2, AlertTriangle, 
@@ -11,6 +12,7 @@ import { parseReason, getTypeName as getLeaveTypeName, formatSpecialTypeName } f
 import { AttendanceStatusBadge, AttendanceConditionBadges, AttendanceReasonBox, AttendanceProvisionalBanner } from '../../shared/AttendanceBadges';
 import { AttendanceCheckpoint } from '../../../../types/attendance';
 import { attendanceService } from '../../../../services/attendanceService';
+import { getDirectDriveUrl } from '../../../../lib/imageUtils';
 
 export type DetailRecordType = 'ATTENDANCE' | 'LEAVE' | 'OT' | 'ABSENT';
 
@@ -79,12 +81,12 @@ export const RecordDetailModal: React.FC<RecordDetailModalProps> = ({ record, on
         setTimeout(() => setCopiedGps(null), 2000);
     };
 
-    return (
+    const content = (
         <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md"
+            className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md"
             onClick={onClose}
         >
                 <motion.div
@@ -388,7 +390,7 @@ export const RecordDetailModal: React.FC<RecordDetailModalProps> = ({ record, on
                                                                             className="relative rounded-lg overflow-hidden border border-slate-200 aspect-video max-h-36 bg-black/5 cursor-pointer group hover:opacity-90 transition-opacity"
                                                                         >
                                                                             <img
-                                                                                src={cp.photoUrl || cp.photo_url}
+                                                                                src={getDirectDriveUrl(cp.photoUrl || cp.photo_url)}
                                                                                 alt={`Checkpoint ${idx + 1}`}
                                                                                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                                                                             />
@@ -623,7 +625,7 @@ export const RecordDetailModal: React.FC<RecordDetailModalProps> = ({ record, on
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-[120] bg-black/80 flex items-center justify-center p-4"
+                        className="fixed inset-0 z-[220] bg-black/80 flex items-center justify-center p-4"
                         onClick={() => setPreviewImage(null)}
                     >
                         <div className="relative max-w-3xl max-h-[90vh] bg-black rounded-2xl overflow-hidden">
@@ -633,10 +635,12 @@ export const RecordDetailModal: React.FC<RecordDetailModalProps> = ({ record, on
                             >
                                 <X className="w-5 h-5" />
                             </button>
-                            <img src={previewImage} alt="Full Preview" className="max-w-full max-h-[85vh] object-contain" />
+                            <img src={getDirectDriveUrl(previewImage)} alt="Full Preview" className="max-w-full max-h-[85vh] object-contain" />
                         </div>
                     </motion.div>
                 )}
             </motion.div>
     );
+
+    return typeof document !== 'undefined' ? createPortal(content, document.body) : null;
 };

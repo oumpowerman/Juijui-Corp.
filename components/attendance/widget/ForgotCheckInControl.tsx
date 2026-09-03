@@ -14,7 +14,18 @@ interface ForgotCheckInControlProps {
     startTime: string; // "HH:mm" from MasterData
     lateBuffer: number; // Minutes
     isCheckedIn: boolean;
-    onSubmit: (type: LeaveType, start: Date, end: Date, reason: string, files?: File[], linkedRemoteType?: 'WFH' | 'ONSITE') => Promise<boolean>;
+    onSubmit: (
+        type: LeaveType, 
+        start: Date, 
+        end: Date, 
+        reason: string, 
+        files?: File[], 
+        linkedRemoteType?: 'WFH' | 'ONSITE',
+        isHalfDay?: boolean,
+        halfDaySession?: string,
+        isInstant?: boolean,
+        coords?: { lat?: number | null; lng?: number | null; locationName?: string | null }
+    ) => Promise<boolean>;
     leaveUsage?: LeaveUsage;
     todayActiveLeave?: LeaveRequest | null;
     availableLocations?: LocationDef[];
@@ -239,7 +250,24 @@ const ForgotCheckInControl: React.FC<ForgotCheckInControlProps> = ({
             finalReason = `[REMOTE:${effectiveRemoteType}] ${finalReason}`;
         }
 
-        const success = await onSubmit(type, start, end, finalReason, files, effectiveRemoteType);
+        const coords = {
+            lat: locationState?.lat ?? null,
+            lng: locationState?.lng ?? null,
+            locationName: locationState?.matchedLocation?.name || (effectiveRemoteType || (isInOffice ? 'Office' : 'Remote'))
+        };
+
+        const success = await onSubmit(
+            type, 
+            start, 
+            end, 
+            finalReason, 
+            files, 
+            effectiveRemoteType,
+            false,
+            undefined,
+            false,
+            coords
+        );
         if (success) {
             setIsModalOpen(false);
             setGpsCheckStatus('IDLE');

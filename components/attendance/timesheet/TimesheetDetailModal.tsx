@@ -15,6 +15,7 @@ import LeaveRequestCard from './subcomponents/LeaveRequestCard';
 import AccumulatedHoursPanel from './subcomponents/AccumulatedHoursPanel';
 import OtRequestCard from './subcomponents/OtRequestCard';
 import ProofImageGallery from './subcomponents/ProofImageGallery';
+import { RecordDetailModal, DetailRecordPayload } from '../dashboard/modal/RecordDetailModal';
 
 const lightboxBackdropVariants = {
     hidden: { opacity: 0 },
@@ -196,8 +197,8 @@ const backdropVariants = {
 
 const modalVariants = {
     hidden: (isMobile: boolean) => ({
-        y: isMobile ? '100%' : 24,
-        scale: isMobile ? 1 : 0.95,
+        y: isMobile ? '100%' : 16,
+        scale: isMobile ? 1 : 0.96,
         opacity: isMobile ? 1 : 0,
     }),
     visible: {
@@ -207,7 +208,7 @@ const modalVariants = {
     },
     exit: (isMobile: boolean) => ({
         y: isMobile ? '100%' : 16,
-        scale: isMobile ? 1 : 0.98,
+        scale: isMobile ? 1 : 0.96,
         opacity: isMobile ? 1 : 0,
     }),
 };
@@ -216,7 +217,16 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
     const [showLightbox, setShowLightbox] = useState(false);
     const [lightboxIndex, setLightboxIndex] = useState(0);
     const [activeIndex, setActiveIndex] = useState(0);
+    const [recordDetailPayload, setRecordDetailPayload] = useState<DetailRecordPayload | null>(null);
     const isMobile = useIsMobile();
+
+    const handleOpenRecordDetail = () => {
+        const payload: DetailRecordPayload = {
+            type: log ? 'ATTENDANCE' : (leaveRequest ? 'LEAVE' : (otRequest ? 'OT' : 'ABSENT')),
+            data: log || leaveRequest || otRequest
+        };
+        setRecordDetailPayload(payload);
+    };
 
     const displayDate = log 
         ? new Date(log.date) 
@@ -274,16 +284,16 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
     
     return createPortal(
         <motion.div 
-            className="fixed inset-0 z-[150] flex items-end md:items-center justify-center bg-slate-900/80 backdrop-blur-xl p-0 md:p-4"
+            className="fixed inset-0 z-[150] flex items-end md:items-center justify-center bg-slate-900/80 backdrop-blur-xl p-0 md:p-4 overflow-hidden"
             initial="hidden"
             animate="visible"
             exit="exit"
             variants={backdropVariants}
-            transition={{ duration: 0.3 }}
+            transition={{ duration: 0.25 }}
             onClick={onClose}
         >
             <motion.div 
-                className={`bg-white w-full ${hasImage ? 'h-[100dvh]' : 'h-auto max-h-[100dvh] rounded-t-[2.5rem]'} md:h-auto md:max-h-[90vh] max-w-xl flex flex-col rounded-none md:rounded-[2.5rem] md:rounded-[3rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)] overflow-hidden border-0 md:border-4 border-white relative`}
+                className={`bg-white w-full ${hasImage ? 'h-[100dvh]' : 'h-auto max-h-[100dvh] rounded-t-[2.5rem]'} md:h-auto md:max-h-[88vh] max-w-xl flex flex-col rounded-none md:rounded-[2.5rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.3)] overflow-hidden border-0 md:border-4 border-white relative`}
                 custom={isMobile}
                 initial="hidden"
                 animate="visible"
@@ -292,7 +302,7 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                 transition={
                     isMobile 
                         ? { type: "spring", damping: 30, stiffness: 300 }
-                        : { ease: "easeOut", duration: 0.25 }
+                        : { ease: "easeOut", duration: 0.22 }
                 }
                 onClick={e => e.stopPropagation()}
             >
@@ -304,17 +314,17 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                 {/* Floating Close Button */}
                 <button 
                     onClick={onClose} 
-                    className={`absolute top-[calc(env(safe-area-inset-top,16px)+12px)] md:top-6 right-6 p-2 rounded-full transition-all z-50 ${
+                    className={`absolute top-[calc(env(safe-area-inset-top,16px)+12px)] md:top-5 right-5 p-2 rounded-full transition-all z-50 cursor-pointer ${
                         hasImage 
-                            ? 'bg-black/40 hover:bg-red-500 text-white border border-white/10 shadow-xl backdrop-blur-md' 
-                            : 'bg-slate-100 hover:bg-red-100 text-slate-500 hover:text-red-600 shadow-md'
+                            ? 'bg-black/40 hover:bg-red-500 text-white border border-white/10 shadow-xl backdrop-blur-md active:scale-95' 
+                            : 'bg-slate-100 hover:bg-red-100 text-slate-500 hover:text-red-600 shadow-md active:scale-95'
                     }`}
                 >
                     <X className="w-5 h-5"/>
                 </button>
 
-                {/* Natural Scroll Container (No outer padding to allow full-bleed top image) */}
-                <div className="overflow-y-auto flex-1 flex flex-col min-h-0 overscroll-behavior-y-contain -webkit-overflow-scrolling-touch scrollbar-none">
+                {/* Natural Scroll Container (With smooth custom scrollbar) */}
+                <div className="overflow-y-auto flex-1 flex flex-col min-h-0 overscroll-behavior-y-contain -webkit-overflow-scrolling-touch scrollbar-thin scrollbar-thumb-slate-200 hover:scrollbar-thumb-slate-300">
                     
                     {/* 1. Evidence Image Carousel component */}
                     {hasImage && (
@@ -329,8 +339,8 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                         />
                     )}
 
-                    {/* Details Content Container (With inner Padding) */}
-                    <div className={`p-6 md:p-8 flex-1 flex flex-col space-y-7 ${hasImage ? 'pb-[calc(env(safe-area-inset-bottom,24px)+24px)]' : 'pb-2'} min-h-0`}>
+                    {/* Details Content Container (With optimized spacing) */}
+                    <div className="p-5 md:p-6 flex-1 flex flex-col space-y-5 min-h-0">
                         {/* Provisional Alert Banners (Centralized) */}
                         <AttendanceProvisionalBanner 
                             parsed={combinedParsed} 
@@ -341,7 +351,7 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
 
                         {/* Cozy Pastel Info Alert Card when no image exists */}
                         {!hasImage && (
-                            <div className="bg-amber-50/70 border border-amber-100/80 p-4 rounded-2xl text-amber-800 flex gap-3 items-start shrink-0">
+                            <div className="bg-amber-50/70 border border-amber-100/80 p-3.5 rounded-2xl text-amber-800 flex gap-3 items-start shrink-0">
                                 <span className="text-lg leading-none mt-0.5">📷</span>
                                 <div className="flex-1 space-y-1 text-left">
                                     <h5 className="font-bold text-xs text-amber-900 tracking-wide">
@@ -363,6 +373,7 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                             combinedParsed={combinedParsed}
                             displayDate={displayDate}
                             onClose={onClose}
+                            onOpenRecordDetail={handleOpenRecordDetail}
                         />
 
                         {/* 3. Start & End Mission Cards component */}
@@ -381,7 +392,7 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
 
                         {/* Target Shift Display Card */}
                         {(logParsed.targetShift || requestParsed.targetShift) && (
-                            <div className="bg-purple-50/80 p-4 md:p-5 rounded-[2rem] border border-purple-100/80 flex items-center justify-between shrink-0 shadow-sm text-left">
+                            <div className="bg-purple-50/80 p-4 rounded-2xl border border-purple-100/80 flex items-center justify-between shrink-0 shadow-sm text-left">
                                 <div className="flex items-center gap-2.5">
                                     <span className="text-xl">🎯</span>
                                     <div>
@@ -389,7 +400,7 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                                         <p className="text-[10px] text-purple-700/80 font-medium">กะงานที่ระบบใช้อ้างอิงตรวจสอบการเข้าสาย/เวลาทำงาน</p>
                                     </div>
                                 </div>
-                                <span className="text-xs font-bold text-purple-700 bg-purple-100/90 px-3.5 py-1.5 rounded-xl border border-purple-200/80 font-mono shadow-sm">
+                                <span className="text-xs font-bold text-purple-700 bg-purple-100/90 px-3 py-1.5 rounded-xl border border-purple-200/80 font-mono shadow-sm">
                                     {logParsed.targetShift || requestParsed.targetShift} น.
                                 </span>
                             </div>
@@ -400,10 +411,10 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
 
                         {/* Employee Leave/Edit Time Reason */}
                         {isMeaningfulReason(userReason) && userReason !== combinedParsed.cleanReason && (
-                            <div className="bg-indigo-900 rounded-[2rem] p-6 text-indigo-100 shadow-2xl relative overflow-hidden shrink-0 text-left">
-                                <div className="absolute top-0 right-0 p-4 opacity-10"><Info className="w-16 h-16"/></div>
-                                <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] mb-2 text-indigo-400 font-sans">เหตุผลคำขอ (Employee Reason)</h4>
-                                <p className="text-sm font-medium leading-relaxed italic">
+                            <div className="bg-indigo-950 rounded-2xl p-4 sm:p-5 text-indigo-100 shadow-lg relative overflow-hidden shrink-0 text-left">
+                                <div className="absolute top-0 right-0 p-3 opacity-10"><Info className="w-12 h-12"/></div>
+                                <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] mb-1.5 text-indigo-400 font-sans">เหตุผลคำขอ (Employee Reason)</h4>
+                                <p className="text-xs sm:text-sm font-medium leading-relaxed italic text-indigo-100">
                                     "{userReason}"
                                 </p>
                             </div>
@@ -411,10 +422,10 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
 
                         {/* Admin Rejection Reason */}
                         {isMeaningfulReason(adminRejection) && (
-                            <div className="bg-red-900 rounded-[2rem] p-6 text-red-100 shadow-2xl relative overflow-hidden shrink-0 text-left">
-                                <div className="absolute top-0 right-0 p-4 opacity-10"><Info className="w-16 h-16"/></div>
-                                <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] mb-2 text-red-300 font-sans">เหตุผลที่ปฏิเสธ (Admin Rejection Reason)</h4>
-                                <p className="text-sm font-semibold leading-relaxed">
+                            <div className="bg-rose-950 rounded-2xl p-4 sm:p-5 text-rose-100 shadow-lg relative overflow-hidden shrink-0 text-left">
+                                <div className="absolute top-0 right-0 p-3 opacity-10"><Info className="w-12 h-12"/></div>
+                                <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] mb-1.5 text-rose-300 font-sans">เหตุผลที่ปฏิเสธ (Admin Rejection Reason)</h4>
+                                <p className="text-xs sm:text-sm font-semibold leading-relaxed text-rose-100">
                                     "{adminRejection}"
                                 </p>
                             </div>
@@ -424,26 +435,26 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                         {isMeaningfulReason(systemLogNote) && 
                          systemLogNote !== userReason && 
                          systemLogNote !== combinedParsed.cleanReason && (
-                            <div className="bg-slate-900 rounded-[2rem] p-6 text-slate-100 shadow-2xl relative overflow-hidden shrink-0 text-left">
-                                <div className="absolute top-0 right-0 p-4 opacity-10"><Info className="w-16 h-16"/></div>
-                                <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] mb-2 text-slate-400 font-sans">บันทึกเพิ่มเติมระบบ (System/Log Note)</h4>
-                                <p className="text-sm font-medium leading-relaxed">
+                            <div className="bg-slate-900 rounded-2xl p-4 sm:p-5 text-slate-100 shadow-lg relative overflow-hidden shrink-0 text-left">
+                                <div className="absolute top-0 right-0 p-3 opacity-10"><Info className="w-12 h-12"/></div>
+                                <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] mb-1.5 text-slate-400 font-sans">บันทึกเพิ่มเติมระบบ (System/Log Note)</h4>
+                                <p className="text-xs sm:text-sm font-medium leading-relaxed text-slate-200">
                                     "{systemLogNote}"
                                 </p>
                             </div>
                         )}
-
-                        {hasImage && <div className="flex-grow min-h-0" />}
-
-                        <div className={`px-6 pt-2 shrink-0 ${hasImage ? 'pb-8 sm:pb-10 pb-[calc(2rem+env(safe-area-inset-bottom,0px))]' : 'pb-4'}`}>
-                            <button 
-                                onClick={onClose}
-                                className="w-full py-4 bg-slate-900 text-white rounded-[1.5rem] font-semibold text-sm tracking-widest uppercase hover:bg-indigo-600 transition-all active:scale-95 shadow-xl shadow-slate-200 shrink-0"
-                            >
-                                ปิดรายละเอียด
-                            </button>
-                        </div>
                     </div>
+                </div>
+
+                {/* Compact & Sleek Modern Footer */}
+                <div className="px-5 py-3.5 md:px-6 md:py-4 bg-slate-50/90 backdrop-blur-md border-t border-slate-100 flex items-center justify-end gap-3 shrink-0">
+                    <button 
+                        type="button"
+                        onClick={onClose}
+                        className="w-full sm:w-auto px-6 py-2.5 bg-slate-900 hover:bg-indigo-600 active:scale-95 text-white rounded-xl font-bold text-xs tracking-wider uppercase transition-all shadow-md shadow-slate-200 cursor-pointer"
+                    >
+                        ปิดหน้าต่าง
+                    </button>
                 </div>
             </motion.div>
 
@@ -454,6 +465,16 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                         urls={uniqueAttachmentUrls} 
                         initialIndex={lightboxIndex}
                         onClose={() => setShowLightbox(false)} 
+                    />
+                )}
+            </AnimatePresence>
+
+            {/* Drilldown Record Detail Sub-Modal */}
+            <AnimatePresence>
+                {recordDetailPayload && (
+                    <RecordDetailModal 
+                        record={recordDetailPayload}
+                        onClose={() => setRecordDetailPayload(null)}
                     />
                 )}
             </AnimatePresence>

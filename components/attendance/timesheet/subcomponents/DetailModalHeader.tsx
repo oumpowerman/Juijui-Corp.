@@ -1,7 +1,7 @@
 import React from 'react';
 import { format } from 'date-fns';
 import th from 'date-fns/locale/th';
-import { Info, Clock } from 'lucide-react';
+import { Info, Clock, Sparkles, ChevronRight } from 'lucide-react';
 import { AttendanceLog } from '../../../../types/attendance';
 import { formatSpecialTypeName } from '../../leave-request/request-detail/utils';
 import { AttendanceConditionBadges } from '../../shared/AttendanceBadges';
@@ -15,6 +15,7 @@ interface DetailModalHeaderProps {
     combinedParsed: any;
     displayDate: Date;
     onClose: () => void;
+    onOpenRecordDetail?: () => void;
 }
 
 const DetailModalHeader: React.FC<DetailModalHeaderProps> = ({
@@ -24,7 +25,8 @@ const DetailModalHeader: React.FC<DetailModalHeaderProps> = ({
     otRequest,
     combinedParsed,
     displayDate,
-    onClose
+    onClose,
+    onOpenRecordDetail
 }) => {
     return (
         <div className="space-y-4">
@@ -122,6 +124,25 @@ const DetailModalHeader: React.FC<DetailModalHeaderProps> = ({
                     {leaveRequest || otRequest ? <Info className="w-6 h-6 md:w-8 md:h-8" /> : <Clock className="w-6 h-6 md:w-8 md:h-8" />}
                 </div>
             </div>
+
+            {/* Modern Record Detail Drilldown Button */}
+            {onOpenRecordDetail && (
+                <div className="pt-1">
+                    <button
+                        type="button"
+                        onClick={onOpenRecordDetail}
+                        className="w-full sm:w-auto inline-flex items-center justify-between sm:justify-start gap-2.5 px-4 py-2.5 bg-gradient-to-r from-indigo-50 via-sky-50/80 to-indigo-50/50 hover:from-indigo-100/80 hover:via-sky-100/80 hover:to-indigo-100/60 text-indigo-700 hover:text-indigo-900 border border-indigo-200/80 rounded-2xl text-xs font-bold shadow-xs hover:shadow-md transition-all active:scale-[0.98] cursor-pointer group"
+                    >
+                        <div className="flex items-center gap-2">
+                            <div className="w-5 h-5 rounded-lg bg-indigo-600/10 flex items-center justify-center text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white transition-colors shrink-0">
+                                <Sparkles className="w-3 h-3" />
+                            </div>
+                            <span>ดูรายงานบันทึกเชิงลึก (Record Detail)</span>
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-indigo-400 group-hover:translate-x-0.5 transition-transform shrink-0" />
+                    </button>
+                </div>
+            )}
         </div>
     );
 };

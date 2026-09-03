@@ -28,7 +28,18 @@ interface StatusCardProps {
     stats: AttendanceStats;
     todayActiveLeave: LeaveRequest | null;
     onCheckOut: (location?: { lat: number, lng: number }, locationName?: string, reason?: string, proofUrl?: string) => Promise<void>; 
-    onCheckOutRequest: (type: LeaveType, start: Date, end: Date, reason: string, files?: File[]) => Promise<boolean>; 
+    onCheckOutRequest: (
+        type: LeaveType, 
+        start: Date, 
+        end: Date, 
+        reason: string, 
+        files?: File[], 
+        linkedRemoteType?: 'WFH' | 'ONSITE',
+        isHalfDay?: boolean,
+        halfDaySession?: string,
+        isInstant?: boolean,
+        coords?: { lat?: number | null; lng?: number | null; locationName?: string | null }
+    ) => Promise<boolean>; 
     onOpenCheckIn: (isHoliday?: boolean) => void;
     onOpenLeave: (type?: any) => void;
     isDriveReady: boolean;

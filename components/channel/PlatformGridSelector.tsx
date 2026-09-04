@@ -23,10 +23,15 @@ export const PlatformGridSelector: React.FC<PlatformGridSelectorProps> = ({
 }) => {
   return (
     <div className="space-y-4">
-      <label className="block text-sm font-bold text-gray-700 flex items-center">
-        <LayoutTemplate className="w-4 h-4 mr-2 text-indigo-500" />
-        3. รายการนี้ลงที่ไหนบ้าง? (Active Platforms)
-      </label>
+      <div className="flex flex-col gap-1">
+        <label className="block text-sm font-bold text-gray-700 flex items-center">
+          <LayoutTemplate className="w-4 h-4 mr-2 text-indigo-500" />
+          3. ช่องนี้เผยแพร่บนโซเชียลมีเดียใดบ้าง? (Social Platforms)
+        </label>
+        <p className="text-xs text-gray-400 ml-6">
+          ระบุแพลตฟอร์มที่ช่องนี้มีบัญชีสำหรับอัปโหลดคลิป (เช่น YouTube, TikTok, Facebook)
+        </p>
+      </div>
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-3.5">
         {PLATFORM_OPTIONS.map((p) => {
           const isSelected = selectedPlatforms.includes(p.id);

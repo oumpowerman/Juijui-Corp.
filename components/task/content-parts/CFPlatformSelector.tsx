@@ -26,9 +26,14 @@ const CFPlatformSelector: React.FC<CFPlatformSelectorProps> = ({
     return (
         <div className="space-y-4">
             <div className="bg-gray-50 p-4 rounded-2xl border border-gray-100">
-                <label className="block text-s font-bold text-gray-500 mb-3 flex items-center">
-                    <MonitorPlay className="w-3.5 h-3.5 mr-1.5" /> แพลตฟอร์ม (Platforms)
-                </label>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-3">
+                    <label className="text-s font-bold text-gray-700 flex items-center">
+                        <MonitorPlay className="w-4 h-4 mr-1.5 text-indigo-500" /> แพลตฟอร์มที่เผยแพร่ (Publishing Platforms)
+                    </label>
+                    <span className="text-[11px] text-gray-400 font-medium">
+                        เลือกโซเชียลมีเดียที่จะนำคลิปนี้ไปลง (เลือกได้หลายช่องทาง)
+                    </span>
+                </div>
                 <div className="flex flex-wrap gap-2">
                     {ALL_PLATFORMS.map((p) => {
                         const isSelected = targetPlatforms.includes(p.id);

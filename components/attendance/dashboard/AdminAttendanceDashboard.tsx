@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { User } from '../../../types';
 import { supabase } from '../../../lib/supabase';
 import { format } from 'date-fns';
-import { Download } from 'lucide-react';
+import { Download, Users } from 'lucide-react';
 import { AttendanceLog } from '../../../types/attendance';
 import { checkIsLate, getAttendanceSummary, getLateMinutes } from '../../../lib/attendanceUtils';
 import { useGameConfig } from '../../../context/GameConfigContext';
@@ -21,6 +21,7 @@ import DashboardStats from './DashboardStats';
 import DashboardTable from './DashboardTable';
 import DashboardUserDetailModal from './DashboardUserDetailModal';
 import { ExportControlCenterModal } from './modal/ExportControlCenterModal';
+import { AttendanceMemberControlModal } from './modal/member-control';
 
 // Lazy Loaded Analytics Component
 const AttendanceAnalytics = lazy(() => import('./analytics/AttendanceAnalytics'));
@@ -65,7 +66,7 @@ import { BRAND_CONFIG } from '../../../config/brand';
 const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ users }) => {
     const { masterOptions } = useMasterData();
     const shouldHideAdmins = BRAND_CONFIG.hideAdminFromAttendanceDashboardMode === 2;
-    const { otRequests, leaveRequests } = useUserSession();
+    const { otRequests, leaveRequests, currentUserProfile } = useUserSession();
     const [currentMonth, setCurrentMonth] = useState(new Date());
     const [dateFilterMode, setDateFilterMode] = useState<'MONTH' | 'CUSTOM'>('MONTH');
     const [customStartDate, setCustomStartDate] = useState<Date>(startOfMonth(new Date()));
@@ -123,6 +124,7 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
     // Modal State
     const [selectedUser, setSelectedUser] = useState<{ user: User, stat: UserStat } | null>(null);
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+    const [isMemberControlOpen, setIsMemberControlOpen] = useState(false);
     
     // Config State
     const [startTime, setStartTime] = useState('10:00');
@@ -699,10 +701,17 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                             currentMonth={currentMonth}
                         />
 
-                        <div className="flex justify-end">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <button 
+                                onClick={() => setIsMemberControlOpen(true)}
+                                className="flex items-center gap-2 px-5 py-3 bg-white border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/50 rounded-2xl text-sm font-bold text-gray-700 hover:text-indigo-600 transition-all shadow-sm active:scale-95 cursor-pointer"
+                            >
+                                <Users className="w-4 h-4 text-indigo-500" />
+                                <span>จัดการสถานะสมาชิก & HP</span>
+                            </button>
                             <button 
                                 onClick={() => setIsExportModalOpen(true)}
-                                className="flex items-center gap-2 px-5 py-3 bg-white border border-gray-200 rounded-2xl text-sm font-bold text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 transition-all shadow-sm active:scale-95"
+                                className="flex items-center gap-2 px-5 py-3 bg-white border border-gray-200 rounded-2xl text-sm font-bold text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 transition-all shadow-sm active:scale-95 cursor-pointer"
                             >
                                 <Download className="w-4 h-4" /> Export CSV Report
                             </button>
@@ -753,6 +762,16 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                                 shiftsList={multipleShifts.shiftsList}
                             />
                         </Suspense>
+
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <button 
+                                onClick={() => setIsMemberControlOpen(true)}
+                                className="flex items-center gap-2 px-5 py-3 bg-white border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/50 rounded-2xl text-sm font-bold text-gray-700 hover:text-indigo-600 transition-all shadow-sm active:scale-95 cursor-pointer"
+                            >
+                                <Users className="w-4 h-4 text-indigo-500" />
+                                <span>จัดการสถานะสมาชิก & HP</span>
+                            </button>
+                        </div>
                     </motion.div>
                 )}
             </AnimatePresence>
@@ -779,6 +798,15 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                 currentMonth={currentMonth}
                 workingDaysInMonth={workingDaysInMonth}
             />
+
+            {currentUserProfile && (
+                <AttendanceMemberControlModal 
+                    isOpen={isMemberControlOpen}
+                    onClose={() => setIsMemberControlOpen(false)}
+                    users={users}
+                    currentUser={currentUserProfile}
+                />
+            )}
         </div>
     );
 };

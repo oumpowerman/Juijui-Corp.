@@ -20,6 +20,7 @@ import {
   buildSingleBodyContents,
   buildBatchBodyContents
 } from './templates/attendanceFlex.ts';
+import { buildContentPlannerBodyContents } from './templates/contentPlannerFlex.ts';
 import { buildOTRequestBodyContents } from './templates/otRequestFlex.ts';
 import { buildMonthlyBonusSummaryPayload } from './templates/bonusSummaryFlex.ts';
 import { buildDailySummaryPayload } from './templates/SummaryFlex.ts';
@@ -164,13 +165,18 @@ Deno.serve(async (req: any) => {
           if (isOTRequest) {
             effectiveType = 'OT_REQUEST';
           } else {
+            const isContentPlannerAlert = record.type === 'CONTENT_PLANNER_ALERT' || (
+              record.type === 'OVERDUE' && record.link_path === 'CALENDAR'
+            );
             const isAttendanceAlert = record.type === 'OVERDUE' && (
               record.title?.includes('ลงเวลา') || 
               record.title?.includes('ผ่อนปรน') || 
               record.title?.includes('เช็คอิน') || 
               record.link_path === 'ATTENDANCE'
             );
-            if (isAttendanceAlert) {
+            if (isContentPlannerAlert) {
+              effectiveType = 'CONTENT_PLANNER_ALERT';
+            } else if (isAttendanceAlert) {
               effectiveType = 'ATTENDANCE_ALERT';
             }
           }
@@ -183,7 +189,9 @@ Deno.serve(async (req: any) => {
             ? buildBatchBodyContents(claimedRecords)
             : (effectiveType === 'OT_REQUEST'
                 ? buildOTRequestBodyContents(record, primaryConfig)
-                : buildSingleBodyContents(record, primaryConfig));
+                : (effectiveType === 'CONTENT_PLANNER_ALERT'
+                    ? buildContentPlannerBodyContents(record, primaryConfig)
+                    : buildSingleBodyContents(record, primaryConfig)));
 
           const baseAppUrl = getAppUrl();
           const footerButtons = buildFooterButtons(baseAppUrl, record, isInteractive);

@@ -4,7 +4,18 @@ import { User } from './core';
 export type TaskType = 'CONTENT' | 'TASK' | 'PLAN';
 export type Status = 'TODO' | 'DOING' | 'DONE' | 'BLOCKED' | 'IDEA' | 'SCRIPT' | 'SHOOTING' | 'EDIT_CLIP' | 'FEEDBACK' | 'EDIT_DRAFT_1' | 'FEEDBACK_1' | 'EDIT_DRAFT_2' | 'APPROVE' | 'WAITING' | 'REVISE' | 'FINAL' | string;
 export type Priority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
+
+/**
+ * @description แพลตฟอร์ม Social Media ปลายทางที่จะนำคอนเทนต์/คลิปไปเผยแพร่
+ * เช่น YouTube, Facebook, TikTok, Instagram
+ * 
+ * ⚠️ คำเตือน: อย่าสับสนระหว่าง Platform กับ Channel!
+ * - Platform = โซเชียลมีเดียที่จะเอาคลิปไปลง (YouTube, TikTok, FB ฯลฯ)
+ * - Channel = ช่อง/แบรนด์/รายการผู้ผลิต (เช่น ช่อง Silly Buddies, ช่อง A, ช่อง B)
+ * โดย 1 Channel (ช่อง) สามารถมีบัญชีโซเชียลมีเดียได้หลาย Platform
+ */
 export type Platform = 'YOUTUBE' | 'FACEBOOK' | 'TIKTOK' | 'INSTAGRAM' | 'OTHER' | 'ALL';
+
 export type ContentPillar = 'ENTERTAINMENT' | 'EDUCATION' | 'LIFESTYLE' | 'PROMO' | 'REALTIME' | 'COMEDY' | 'STREET' | 'DEEP_TALK' | 'BEHIND' | 'FAN_INTERACTION' | 'OTHER' | string;
 export type ContentFormat = 'SHORT_FORM' | 'LONG_FORM' | 'PICTURE' | 'ALBUM' | 'REELS' | 'STORY' | 'POST_H' | 'OTHER' | string;
 export type AssetCategory = 'SCRIPT' | 'THUMBNAIL' | 'VIDEO_DRAFT' | 'INVOICE' | 'REF' | 'LINK' | 'OTHER';
@@ -24,13 +35,31 @@ export interface ChannelStrategy {
     }[];
 }
 
+/**
+ * @description ช่อง / รายการ / แบรนด์ผู้ผลิตคอนเทนต์ (Content Creator / Brand / Show Entity)
+ * 
+ * ตัวอย่าง:
+ * - "Silly Buddies Studio" (ช่องหลัก)
+ * - "ช่องสาระบันเทิง A" (รายการ A)
+ * - "ช่องเกม B" (รายการ B)
+ * 
+ * แต่ละ Channel มีบัญชี Social Media ของตัวเองได้หลาย Platform
+ * เช่น ช่อง A มีทั้ง YouTube (Channel A), TikTok (Channel A), Facebook (Channel A)
+ */
 export interface Channel {
+    /** รหัสระบุตัวตนของช่อง/รายการ */
     id: string;
+    /** ชื่อของช่อง/รายการ/แบรนด์ เช่น "Silly Buddies", "Show A" */
     name: string;
+    /** คำอธิบายคอนเซปต์ของช่อง/รายการ */
     description?: string;
+    /** สีประจำช่อง (Tailwind class) */
     color: string;
+    /** แพลตฟอร์ม Social Media ทั้งหมดที่ช่อง/รายการนี้มีบัญชีใช้งานอยู่ */
     platforms: Platform[];
+    /** URL โลโก้ของช่อง/รายการ */
     logoUrl?: string;
+    /** กลยุทธ์สัดส่วนคอนเทนต์ของช่อง */
     content_strategy?: ChannelStrategy | null;
 }
 
@@ -139,7 +168,13 @@ export interface Task {
     sponsorship?: SponsorshipDetail; // Optional sponsorship data
     
     // Content specific
+    /** 
+     * ID ของ "ช่อง / แบรนด์ / รายการ" ที่เป็นเจ้าของคลิปนี้ (เช่น ช่อง Silly Buddies, ช่อง A) 
+     */
     channelId?: string;
+    /** 
+     * รายการ "แพลตฟอร์มโซเชียลมีเดีย" ที่จะนำคลิปนี้ไปเผยแพร่จริง (เช่น ['YOUTUBE', 'TIKTOK', 'FACEBOOK']) 
+     */
     targetPlatforms?: Platform[];
     pillar?: ContentPillar | string;
     contentFormats?: (ContentFormat | string)[]; // New multi-format support

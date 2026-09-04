@@ -22,6 +22,7 @@ export const TYPE_CONFIG: Record<string, TypeConfig> = {
   'INFO': { color: '#10b981', emoji: 'ℹ️', label: 'แจ้งเตือนทั่วไป' },
   'DANGER': { color: '#dc2626', emoji: '🚨', label: 'แจ้งเตือนอันตราย' },
   'ATTENDANCE_ALERT': { color: '#4f46e5', emoji: '⏰', label: 'ระบบลงเวลาทำงาน' },
+  'CONTENT_PLANNER_ALERT': { color: '#8b5cf6', emoji: '🎬', label: 'Content Planner' },
 };
 
 export function getSupabaseAdminClient() {

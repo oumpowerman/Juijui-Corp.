@@ -130,9 +130,9 @@ const CFStatusChannel: React.FC<CFStatusChannelProps> = ({
                         </div>
                         
                         <div className="flex flex-col items-start text-left min-w-0">
-                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Channel</span>
+                            <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">ช่อง / แบรนด์ (Brand / Show)</span>
                             <span className="text-sm font-bold text-gray-800 truncate w-full">
-                                {currentChannel?.name || 'Select Channel'}
+                                {currentChannel?.name || 'เลือกช่อง'}
                             </span>
                         </div>
                     </div>
@@ -142,7 +142,7 @@ const CFStatusChannel: React.FC<CFStatusChannelProps> = ({
                 {/* Channel Dropdown Menu */}
                 {isChannelOpen && (
                     <div className="absolute top-full left-0 w-full mt-2 bg-white rounded-2xl shadow-2xl border border-gray-100 overflow-hidden z-50 animate-in fade-in zoom-in-95 origin-top-left max-h-[300px] overflow-y-auto p-2">
-                        <p className="text-[10px] font-bold text-gray-400 px-3 py-2 uppercase tracking-wider">Select Brand / Show</p>
+                        <p className="text-[10px] font-bold text-gray-400 px-3 py-2 uppercase tracking-wider">เลือกช่อง</p>
                         {channels.map((ch) => {
                             const isSelected = channelId === ch.id;
                             return (

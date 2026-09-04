@@ -106,6 +106,39 @@ export function buildFooterButtons(
     ];
   }
 
+  // If this is a Content Planner notification, provide quick link to Calendar and quick status update
+  if (record.type === 'CONTENT_PLANNER_ALERT' || (record.type === 'OVERDUE' && record.link_path === 'CALENDAR')) {
+    const taskId = record.related_id || '';
+    const contentDeepLink = `${baseAppUrl}/?openExternalBrowser=1&view=CALENDAR&highlightTaskId=${taskId}`;
+    const quickDoneLink = `${baseAppUrl}/?openExternalBrowser=1&view=CALENDAR&highlightTaskId=${taskId}&quickAction=set_done`;
+
+    return [
+      {
+        type: "button",
+        action: {
+          type: "uri",
+          label: "ปรับสถานะเป็น DONE ✅",
+          uri: quickDoneLink
+        },
+        style: "primary",
+        height: "md",
+        color: "#10b981"
+      },
+      {
+        type: "button",
+        action: {
+          type: "uri",
+          label: "ดูในตารางคอนเทนต์ 📅",
+          uri: contentDeepLink
+        },
+        style: "secondary",
+        height: "sm",
+        color: "#f1f5f9",
+        margin: "sm"
+      }
+    ];
+  }
+
   // If this is a single approval request notification, provide the direct "View and Approve" button
   if (record.type === 'APPROVAL_REQ' && record.related_id) {
     return [

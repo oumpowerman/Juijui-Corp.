@@ -59,7 +59,7 @@ const FilterTabHeader: React.FC<FilterTabHeaderProps> = ({
                     }`}
                 >
                     <Radio className="w-3.5 h-3.5" />
-                    ช่องรายการ
+                    ช่อง/รายการ
                     {tempChannelIdsCount > 0 && (
                         <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded-full font-bold transition-colors ${
                             activeTab === 'CHANNELS' ? 'bg-stone-600 text-stone-100' : 'bg-stone-200 text-stone-700'

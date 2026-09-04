@@ -4,7 +4,7 @@ import * as XLSX from 'xlsx';
 
 // --- Helper Functions (Pure Logic) ---
 
-const parseCSVLine = (text: string) => {
+export const parseCSVLine = (text: string) => {
     const result = [];
     let cell = '';
     let quote = false;
@@ -19,14 +19,14 @@ const parseCSVLine = (text: string) => {
     return result;
 };
 
-const findUserByName = (name: string, users: User[]): string | null => {
+export const findUserByName = (name: string, users: User[]): string | null => {
     if (!name) return null;
     const cleanName = name.trim().toLowerCase();
     const user = users.find(u => u.name.toLowerCase() === cleanName) || users.find(u => u.name.toLowerCase().includes(cleanName));
     return user ? user.id : null;
 };
 
-const findMasterKey = (type: string, rawValue: string, masterOptions: MasterOption[]) => {
+export const findMasterKey = (type: string, rawValue: string, masterOptions: MasterOption[]) => {
     if (!rawValue) return null;
     const cleanRaw = rawValue.trim().toUpperCase();
     const options = masterOptions.filter(o => o.type === type);
@@ -37,7 +37,7 @@ const findMasterKey = (type: string, rawValue: string, masterOptions: MasterOpti
     return null;
 };
 
-const parseTHDate = (dateStr: string): Date | null => {
+export const parseTHDate = (dateStr: string): Date | null => {
     if (!dateStr) return null;
     const cleanStr = dateStr.trim();
     if (cleanStr.includes('/')) {
@@ -202,7 +202,7 @@ export const parseContentStockCSV = async (
     }
 };
 
-const formatToYYYYMMDD = (d: Date): string => {
+export const formatToYYYYMMDD = (d: Date): string => {
     const year = d.getFullYear();
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');

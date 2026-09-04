@@ -4,6 +4,7 @@ import { Task, Channel, User, MasterOption, getChecklistGroupKey } from '../type
 import { useToast } from '../context/ToastContext';
 import { useContentStock } from './useContentStock';
 import { parseContentStockCSV } from '../services/csvService';
+import { validateAndParseStockCSV, StockCSVValidationResult, ParsedStockItemPreview } from '../services/stockImportValidator';
 import { supabase } from '../lib/supabase';
 
 export type SortKey = 'title' | 'status' | 'date' | 'remark' | 'publishDate' | 'shootDate' | 'shortNote' | 'ideaOwner' | 'editor' | 'helper' | 'createdAt';
@@ -42,6 +43,11 @@ export const useContentStockController = ({ globalTasks, channels, users, master
     const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
     const [selectedContentForAnalytics, setSelectedContentForAnalytics] = useState<Task | null>(null);
     const [searchParams, setSearchParams] = useSearchParams();
+
+    // --- CSV Import Validation States ---
+    const [isImportPreviewOpen, setIsImportPreviewOpen] = useState(false);
+    const [importValidationResult, setImportValidationResult] = useState<StockCSVValidationResult | null>(null);
+    const [isSubmittingImport, setIsSubmittingImport] = useState(false);
     
     const viewTab = (searchParams.get('stockMode') as 'LIST' | 'QUEUE') || 'LIST';
     const contentSubTab = (searchParams.get('stockTab') as 'ACTIVE' | 'ARCHIVE') || 'ACTIVE';
@@ -196,24 +202,42 @@ export const useContentStockController = ({ globalTasks, channels, users, master
 
         setIsImporting(true);
         try {
-            const newTasksPayload = await parseContentStockCSV(file, users, channels, masterOptions);
-            if (newTasksPayload.length > 0) {
-                const { error } = await supabase.from('contents').insert(newTasksPayload);
-                if (error) throw error;
-                showToast(`นำเข้าสำเร็จ ${newTasksPayload.length} รายการ 🎉`, 'success');
-                setCurrentPage(1);
-                fetchContents();
-            } else {
-                showToast('ไม่พบข้อมูลในไฟล์ หรือรูปแบบไม่ถูกต้อง', 'warning');
-            }
+            const validation = await validateAndParseStockCSV(file, users, channels, masterOptions);
+            setImportValidationResult(validation);
+            setIsImportPreviewOpen(true);
         } catch (err: any) {
             console.error(err);
-            showToast('เกิดข้อผิดพลาดในการนำเข้า: ' + err.message, 'error');
+            showToast('เกิดข้อผิดพลาดในการอ่านไฟล์ CSV: ' + err.message, 'error');
         } finally {
             setIsImporting(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
         }
-    }, [channels, users, masterOptions, fetchContents, showToast]);
+    }, [channels, users, masterOptions, showToast]);
+
+    const handleExecuteImport = useCallback(async (itemsToInsert: ParsedStockItemPreview[]) => {
+        if (!itemsToInsert || itemsToInsert.length === 0) {
+            showToast('ไม่มีรายการที่พร้อมนำเข้า', 'warning');
+            return;
+        }
+
+        setIsSubmittingImport(true);
+        try {
+            const payloads = itemsToInsert.map(item => item.payload);
+            const { error } = await supabase.from('contents').insert(payloads);
+            if (error) throw error;
+
+            showToast(`นำเข้าคลังสำเร็จ ${payloads.length} รายการเรียบร้อยแล้ว 🎉`, 'success');
+            setIsImportPreviewOpen(false);
+            setImportValidationResult(null);
+            setCurrentPage(1);
+            fetchContents();
+        } catch (err: any) {
+            console.error('Import insert error:', err);
+            showToast('เกิดข้อผิดพลาดในการบันทึกข้อมูลลงฐานข้อมูล: ' + err.message, 'error');
+        } finally {
+            setIsSubmittingImport(false);
+        }
+    }, [fetchContents, showToast]);
 
     const handleDownloadTemplate = useCallback(() => {
         const exampleFormat = masterOptions.filter(o => o.type === 'FORMAT').length > 0 ? masterOptions.filter(o => o.type === 'FORMAT')[0].key : "Short Form";
@@ -257,10 +281,16 @@ export const useContentStockController = ({ globalTasks, channels, users, master
         currentPage, setCurrentPage,
         ITEMS_PER_PAGE,
         
-        // CSV Utilities
+        // CSV Utilities & Import Preview
         fileInputRef,
         isImporting,
+        isImportPreviewOpen,
+        setIsImportPreviewOpen,
+        importValidationResult,
+        setImportValidationResult,
+        isSubmittingImport,
         handleFileUpload,
+        handleExecuteImport,
         handleDownloadTemplate,
         clearFilters,
         handleSort,

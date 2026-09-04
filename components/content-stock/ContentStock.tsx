@@ -14,6 +14,7 @@ import StockFilterBar from './stock/StockFilterBar.tsx';
 import StockQuickFilters from './stock/StockQuickFilters.tsx';
 import StockTable from './stock/StockTable.tsx';
 import StockInventoryModal from './stock/inventory/StockInventoryModal.tsx';
+import { StockImportPreviewModal } from './stock/StockImportPreviewModal.tsx';
 import StockUtilities from './stock/StockUtilities.tsx';
 import StockCountBadge from './stock/StockCountBadge.tsx';
 import StockShootQueue from './stock/StockShootQueue.tsx';
@@ -60,7 +61,12 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
       ITEMS_PER_PAGE,
       fileInputRef,
       isImporting,
+      isImportPreviewOpen,
+      setIsImportPreviewOpen,
+      importValidationResult,
+      isSubmittingImport,
       handleFileUpload,
+      handleExecuteImport,
       handleDownloadTemplate,
       clearFilters,
       handleSort,
@@ -286,6 +292,19 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
             />
           )}
         </AnimatePresence>
+
+        {/* Stock Import Preview & Validation Modal */}
+        <StockImportPreviewModal
+          isOpen={isImportPreviewOpen}
+          onClose={() => setIsImportPreviewOpen(false)}
+          validationResult={importValidationResult}
+          isSubmitting={isSubmittingImport}
+          onConfirmImport={handleExecuteImport}
+          onDownloadTemplate={handleDownloadTemplate}
+          channels={channels}
+          users={users}
+          masterOptions={masterOptions}
+        />
 
         {selectedContentForAnalytics && (
             <AnalyticsEntryModal 

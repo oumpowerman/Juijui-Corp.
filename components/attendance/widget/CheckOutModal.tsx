@@ -90,8 +90,10 @@ export const CheckOutModal: React.FC<CheckOutModalProps> = ({
         handleOvertimeSubmit,
         handleRequestSubmit,
         handleAcceptPenaltySubmit,
+        handleProvisionalHalfDaySubmit,
         showAlert,
         hasPendingHalfDayLeave,
+        pendingHalfDayLeave,
     } = state;
 
     return createPortal(
@@ -221,6 +223,10 @@ export const CheckOutModal: React.FC<CheckOutModalProps> = ({
                                         matchedLocation={matchedLocation}
                                         checkOutStatus={checkOutStatus}
                                         statusDetails={statusDetails}
+                                        hasPendingHalfDayLeave={hasPendingHalfDayLeave}
+                                        pendingHalfDayLeave={pendingHalfDayLeave}
+                                        onProvisionalHalfDaySubmit={handleProvisionalHalfDaySubmit}
+                                        onClose={onClose}
                                         otFlowStep={otFlowStep}
                                         otReason={otReason}
                                         otStartTime={otStartTime}

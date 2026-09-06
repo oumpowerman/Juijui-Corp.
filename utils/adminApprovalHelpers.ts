@@ -219,13 +219,17 @@ export function buildAttendanceCorrectionPayload({
             const halfDayTag = halfDaySession === 'AM' ? '[HALF_DAY:AM]' : '[HALF_DAY:PM]';
             const leaveNote = `${halfDayTag} [APPROVED LEAVE: ${leaveType}] ${reason}`;
             const finalNote = mergeAttendanceNotes(existingNote, leaveNote);
+            let finalStatus = existingStatus || 'WORKING';
+            if (checkOutTime) {
+                finalStatus = resolveAttendanceLogStatus(checkInTime, checkOutTime, finalNote);
+            }
             return {
                 user_id: userId,
                 date: date,
                 check_in_time: checkInTime,
                 check_out_time: checkOutTime || null,
                 work_type: existingWorkType || 'OFFICE',
-                status: existingStatus || 'WORKING',
+                status: finalStatus,
                 note: finalNote,
                 ...(locationLat !== undefined && { location_lat: locationLat }),
                 ...(locationLng !== undefined && { location_lng: locationLng }),

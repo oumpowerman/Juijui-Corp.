@@ -496,11 +496,13 @@ export const useAttendanceActions = (userId: string) => {
                 .lte('start_date', todayDateStr)
                 .gte('end_date', todayDateStr);
 
-            const amHalfDayLeave = todayLeavesCheckout && todayLeavesCheckout.find(l => l.half_day_session === 'AM');
-            const pmHalfDayLeave = todayLeavesCheckout && todayLeavesCheckout.find(l => l.half_day_session === 'PM');
+            const approvedAmHalfDayLeave = todayLeavesCheckout && todayLeavesCheckout.find(l => l.status === 'APPROVED' && l.half_day_session === 'AM');
+            const approvedPmHalfDayLeave = todayLeavesCheckout && todayLeavesCheckout.find(l => l.status === 'APPROVED' && l.half_day_session === 'PM');
+            const isApprovedHalfDay = !!(approvedAmHalfDayLeave || approvedPmHalfDayLeave);
+            const approvedHalfDaySession = approvedAmHalfDayLeave ? 'AM' : (approvedPmHalfDayLeave ? 'PM' : undefined);
 
-            const isHalfDay = !!(amHalfDayLeave || pmHalfDayLeave);
-            const halfDaySession = amHalfDayLeave ? 'AM' : (pmHalfDayLeave ? 'PM' : undefined);
+            const isHalfDay = isApprovedHalfDay;
+            const halfDaySession = approvedHalfDaySession;
 
             const note = todayLog.note || '';
             const hasLateEntryNote = note.includes('[PROVISIONAL_LATE_ENTRY]') ||
@@ -532,7 +534,7 @@ export const useAttendanceActions = (userId: string) => {
                 useShiftEndTimeForLate
             );
 
-            if (amHalfDayLeave || pmHalfDayLeave) {
+            if (isApprovedHalfDay) {
                 calcResult.status = 'COMPLETED';
                 calcResult.missingMinutes = 0;
             }
@@ -558,10 +560,14 @@ export const useAttendanceActions = (userId: string) => {
                 newAttachments.push(proofUrl);
             }
 
+            const isProvisionalHalfDay = reason && reason.includes('[PROVISIONAL_HALF_DAY_LEAVE]');
             let noteAppend = '';
             const cleanFinalReason = finalReason ? finalReason.trim() : '';
             if (isAdjustedCheckout) {
                  noteAppend += `[FORGETFUL_ADJUST_CHECKOUT] [OK: ${calcResult.hoursWorked.toFixed(2)} hrs]`;
+                 if (cleanFinalReason) noteAppend += ` [REASON: ${cleanFinalReason}]`;
+            } else if (isProvisionalHalfDay) {
+                 noteAppend += `[PROVISIONAL_HALF_DAY_LEAVE] [EARLY: Missing ${calcResult.missingMinutes.toFixed(0)}m]`;
                  if (cleanFinalReason) noteAppend += ` [REASON: ${cleanFinalReason}]`;
             } else if (calcResult.status === 'EARLY_LEAVE') {
                  noteAppend += `[EARLY: Missing ${calcResult.missingMinutes.toFixed(0)}m]`;
@@ -600,6 +606,13 @@ export const useAttendanceActions = (userId: string) => {
                 await processAction(userId, 'ATTENDANCE_CHECK_OUT', {
                     time: format(now, 'HH:mm'),
                     date: now 
+                });
+            } else if (isProvisionalHalfDay) {
+                showToast('บันทึกออกงานแบบหักคะแนนชั่วคราวแล้ว เมื่อใบลาได้รับการอนุมัติระบบจะคืนคะแนนให้อัตโนมัติ 🛡️', 'warning');
+                await processAction(userId, 'ATTENDANCE_EARLY_LEAVE', {
+                    missingMinutes: Math.round(calcResult.missingMinutes),
+                    date: now,
+                    isProvisionalHalfDay: true
                 });
             } else {
                 showToast(`กลับก่อนเวลา! (ขาด ${calcResult.missingMinutes.toFixed(0)} นาที)`, 'warning');

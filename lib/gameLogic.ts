@@ -540,12 +540,25 @@ export const evaluateAction = (action: GameActionType, context: any, config: any
 
         case 'ATTENDANCE_CORRECTION_REFUND': {
             const rule = attendanceRules.CORRECTION_REFUND || { xp: 0, hp: 5, coins: 0 };
+            let refundHp = rule.hp;
+            if (context.refundHp !== undefined) {
+                refundHp = Math.abs(context.refundHp);
+            } else if (context.missingMinutes !== undefined) {
+                const earlyLeaveModeDynamic = penalties.EARLY_LEAVE_MODE_DYNAMIC !== undefined ? penalties.EARLY_LEAVE_MODE_DYNAMIC : 1;
+                if (earlyLeaveModeDynamic === 1) {
+                    const interval = penalties.HP_PENALTY_EARLY_LEAVE_INTERVAL || 10;
+                    const rate = penalties.HP_PENALTY_EARLY_LEAVE_RATE || 1;
+                    refundHp = Math.ceil((context.missingMinutes || 0) / interval) * rate;
+                } else {
+                    refundHp = Math.abs(attendanceRules.EARLY_LEAVE?.hp || rule.hp);
+                }
+            }
             return {
                 xp: rule.xp,
-                hp: rule.hp,
+                hp: refundHp,
                 coins: rule.coins,
                 message: context.originalDescription || `คืนค่า HP จากการแก้เวลาออกงาน`,
-                details: `+${rule.hp} HP`
+                details: `+${refundHp} HP`
             };
         }
 

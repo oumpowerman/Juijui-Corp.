@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { LogOut, Loader2, AlertTriangle } from 'lucide-react';
 import { LocationDef } from '../../../../types/attendance';
 import { OvertimeFlow } from './OvertimeFlow';
 import { ForgotCheckOutFlow } from './ForgotCheckOutFlow';
 import { EarlyLeaveFlow } from './EarlyLeaveFlow';
 import { OutOfRangeFlow } from './OutOfRangeFlow';
+import { PendingHalfDayFlow } from './PendingHalfDayFlow';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface CheckOutFlowRouterProps {
@@ -17,6 +18,12 @@ interface CheckOutFlowRouterProps {
     matchedLocation: LocationDef | undefined;
     checkOutStatus: 'COMPLETED' | 'EARLY_LEAVE';
     statusDetails: any;
+    
+    // Pending Half-Day Leave
+    hasPendingHalfDayLeave?: boolean;
+    pendingHalfDayLeave?: any;
+    onProvisionalHalfDaySubmit?: (reason?: string) => Promise<void>;
+    onClose?: () => void;
     
     // Overtime State & Callback
     otFlowStep: 'NONE' | 'PROMPT' | 'REASON' | 'FORGET_TIME';
@@ -70,6 +77,11 @@ export const CheckOutFlowRouter: React.FC<CheckOutFlowRouterProps> = ({
     matchedLocation,
     checkOutStatus,
     statusDetails,
+
+    hasPendingHalfDayLeave = false,
+    pendingHalfDayLeave = null,
+    onProvisionalHalfDaySubmit,
+    onClose = () => {},
     
     otFlowStep,
     otReason,
@@ -107,6 +119,8 @@ export const CheckOutFlowRouter: React.FC<CheckOutFlowRouterProps> = ({
 
     checkInTime,
 }) => {
+    const [forceStandardEarlyLeave, setForceStandardEarlyLeave] = useState(false);
+
     const getFlowElement = () => {
         // 1. Overtime flow steps take priority if triggered
         if ((otFlowStep === 'PROMPT' || otFlowStep === 'REASON' || otFlowStep === 'FORGET_TIME') && statusDetails) {
@@ -239,6 +253,29 @@ export const CheckOutFlowRouter: React.FC<CheckOutFlowRouterProps> = ({
 
             // 3. Early Leave flow (Successfully in range, but before scheduled end)
             if (status === 'SUCCESS' && checkOutStatus === 'EARLY_LEAVE') {
+                if (hasPendingHalfDayLeave && !forceStandardEarlyLeave && onProvisionalHalfDaySubmit) {
+                    return (
+                        <motion.div
+                            key="pending-half-day"
+                            initial={{ opacity: 0, y: 12 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -12 }}
+                            transition={{ duration: 0.2 }}
+                        >
+                            <PendingHalfDayFlow
+                                pendingLeave={pendingHalfDayLeave}
+                                statusDetails={statusDetails}
+                                earlyLeaveInterval={earlyLeaveInterval}
+                                earlyLeaveRate={earlyLeaveRate}
+                                isSubmitting={isSubmitting}
+                                onAcceptProvisional={onProvisionalHalfDaySubmit}
+                                onClose={onClose}
+                                onSwitchToEarlyLeave={() => setForceStandardEarlyLeave(true)}
+                            />
+                        </motion.div>
+                    );
+                }
+
                 return (
                     <motion.div
                         key="early-leave"

@@ -39,10 +39,31 @@ export const useCheckOutState = ({
     const { config } = useGameConfig();
     const { otRequests, leaveRequests, currentUserProfile } = useUserSession();
 
-    const hasPendingHalfDayLeave = useMemo(() => {
-        if (!leaveRequests || !Array.isArray(leaveRequests)) return false;
+    const todayApprovedHalfDayLeave = useMemo(() => {
+        if (!leaveRequests || !Array.isArray(leaveRequests)) return null;
         const todayStr = format(new Date(), 'yyyy-MM-dd');
-        return leaveRequests.some((req: any) => {
+        return leaveRequests.find((req: any) => {
+            const isHalfDay = req.isHalfDay === true || req.is_half_day === true;
+            const isApproved = req.status === 'APPROVED' || req.status === 'approved';
+            if (!isHalfDay || !isApproved) return false;
+            
+            const reqDate = req.date || req.startDate || req.start_date;
+            if (reqDate === todayStr) return true;
+            
+            const createdAtVal = req.createdAt || req.created_at;
+            if (createdAtVal) {
+                if (typeof createdAtVal === 'string') return createdAtVal.startsWith(todayStr);
+                if (createdAtVal instanceof Date) return format(createdAtVal, 'yyyy-MM-dd') === todayStr;
+                return String(createdAtVal).startsWith(todayStr);
+            }
+            return false;
+        }) || null;
+    }, [leaveRequests]);
+
+    const todayPendingHalfDayLeave = useMemo(() => {
+        if (!leaveRequests || !Array.isArray(leaveRequests)) return null;
+        const todayStr = format(new Date(), 'yyyy-MM-dd');
+        return leaveRequests.find((req: any) => {
             const isHalfDay = req.isHalfDay === true || req.is_half_day === true;
             const isPending = req.status === 'PENDING' || req.status === 'pending';
             if (!isHalfDay || !isPending) return false;
@@ -57,24 +78,13 @@ export const useCheckOutState = ({
                 return String(createdAtVal).startsWith(todayStr);
             }
             return false;
-        });
+        }) || null;
     }, [leaveRequests]);
 
-    const todayHalfDayPMLeave = useMemo(() => {
-        if (!leaveRequests || !Array.isArray(leaveRequests)) return null;
-        const todayStr = format(new Date(), 'yyyy-MM-dd');
-        return leaveRequests.find((req: any) => {
-            const isHalfDay = req.isHalfDay === true || req.is_half_day === true;
-            const session = req.halfDaySession || req.half_day_session;
-            const isPM = session === 'PM' || session === 'pm';
-            const isActive = req.status === 'APPROVED' || req.status === 'approved' || req.status === 'PENDING' || req.status === 'pending';
-            
-            if (!isHalfDay || !isPM || !isActive) return false;
-            
-            const reqDate = req.date || req.startDate || req.start_date;
-            return reqDate === todayStr;
-        });
-    }, [leaveRequests]);
+    const hasPendingHalfDayLeave = Boolean(todayPendingHalfDayLeave);
+    const pendingHalfDayLeave = todayPendingHalfDayLeave;
+
+    const todayHalfDayPMLeave = todayApprovedHalfDayLeave;
 
     // Dynamically retrieve early leave interval and rate from Game Config, Master Options, or safe fallbacks
     const earlyLeaveInterval = parseFloat(
@@ -580,7 +590,22 @@ export const useCheckOutState = ({
             matchedLocation?.name || 'Unknown Location', 
             finalReason
         );
+        setIsSubmitting(false);
+        onClose();
+    };
+
+    const handleProvisionalHalfDaySubmit = async (reasonStr?: string) => {
         setIsSubmitting(true);
+        const sessionTag = pendingHalfDayLeave?.halfDaySession || (pendingHalfDayLeave as any)?.half_day_session || 'PM';
+        const customReason = reasonStr ? reasonStr.trim() : 'ยอมรับเงื่อนไขออกงานก่อน (รออนุมัติใบลาครึ่งวัน)';
+        const finalReason = `[PROVISIONAL_HALF_DAY_LEAVE] [HALF_DAY:${sessionTag}] ${customReason}`;
+        
+        await onConfirm(
+            { lat: currentLat, lng: currentLng },
+            matchedLocation?.name || 'Unknown Location',
+            finalReason
+        );
+        setIsSubmitting(false);
         onClose();
     };
 
@@ -642,7 +667,9 @@ export const useCheckOutState = ({
         handleOvertimeSubmit,
         handleRequestSubmit,
         handleAcceptPenaltySubmit,
+        handleProvisionalHalfDaySubmit,
         showAlert,
         hasPendingHalfDayLeave,
+        pendingHalfDayLeave,
     };
 };

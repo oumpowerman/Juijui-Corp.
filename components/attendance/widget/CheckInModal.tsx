@@ -433,7 +433,14 @@ const CheckInModal: React.FC<CheckInModalProps> = ({
                                                     pendingWFHRequest={pendingWFHRequest}
                                                     pendingOnsiteRequest={pendingOnsiteRequest}
                                                     allLocations={targets}
-                                                    onBack={() => handleSetStep(selectedMatch ? 'CONFIRM_LOCATION' : 'LOCATION')}
+                                                    onBack={() => {
+                                                        if (selectedMatch) {
+                                                            handleSetStep('CONFIRM_LOCATION');
+                                                        } else {
+                                                            handleSetStep('LOCATION');
+                                                            checkLocation();
+                                                        }
+                                                    }}
                                                     isSubmitting={isSubmitting}
                                                     onSwitchToLeave={onSwitchToLeave}
                                                     isGpsAppealActive={isGpsAppealActive}

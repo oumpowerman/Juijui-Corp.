@@ -638,6 +638,22 @@ export async function approveStandardLeave({
 
     await supabase.from('attendance_logs').upsert(logs, { onConflict: 'user_id, date' });
     await processAction(request.userId, 'ATTENDANCE_LEAVE', { type: request.type });
+
+    // Check if any of the days had a provisional half-day penalty applied and refund it
+    const isHalfDay = request.isHalfDay || (request as any).is_half_day || false;
+    if (isHalfDay && existingLogs && existingLogs.length > 0) {
+        for (const log of existingLogs) {
+            const note = log.note || '';
+            if (note.includes('[PROVISIONAL_HALF_DAY_LEAVE]') || note.includes('[EARLY:')) {
+                const earlyMatch = note.match(/\[EARLY:\s*Missing\s*(\d+)m\]/i);
+                const missingMinutes = earlyMatch ? parseInt(earlyMatch[1], 10) : undefined;
+                await processAction(request.userId, 'ATTENDANCE_CORRECTION_REFUND', {
+                    missingMinutes,
+                    originalDescription: `คืนค่า HP จากการอนุมัติใบลาครึ่งวันย้อนหลัง (${log.date})`
+                });
+            }
+        }
+    }
 }
 
 /**

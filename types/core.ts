@@ -7,6 +7,20 @@ export type EmploymentType = 'FULL_TIME' | 'PROBATION' | 'INTERN' | 'FREELANCE' 
 
 export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'DEATH';
 
+export interface Company {
+    id: string;
+    name: string;
+    shortName: string;
+    code?: string;
+    description?: string;
+    color?: string;
+    logoUrl?: string;
+    isActive?: boolean;
+    sortOrder?: number;
+    createdAt?: Date;
+    updatedAt?: Date;
+}
+
 export interface User {
     id: string;
     email: string;
@@ -33,6 +47,10 @@ export interface User {
     // New Fields for Persistent Notifications
     lastReadChatAt?: Date;
     lastReadNotificationAt?: Date;
+    
+    // Multi-Company Affiliate
+    companyId?: string | null;
+    company?: Company | null;
     
     // HR Fields
     employmentType?: EmploymentType;

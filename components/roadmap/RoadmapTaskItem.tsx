@@ -1,8 +1,9 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Diamond, GripVertical } from 'lucide-react';
+import { Diamond, GripVertical, User as UserIcon } from 'lucide-react';
 import { RoadmapTask, TaskStatus } from '../../services/roadmapService';
+import { User } from '../../types';
 
 interface RoadmapTaskItemProps {
   task: RoadmapTask;
@@ -12,6 +13,10 @@ interface RoadmapTaskItemProps {
   onEdit: (task: RoadmapTask) => void;
   isDraggable?: boolean;
   categories?: any[];
+  hoveredTaskId?: string | null;
+  onHoverTask?: (id: string | null) => void;
+  allTasks?: RoadmapTask[];
+  users?: User[];
 }
 
 // Gorgeous preset creator platforms and sponsorship category themes
@@ -119,7 +124,11 @@ const RoadmapTaskItem: React.FC<RoadmapTaskItemProps> = ({
   totalWeeks,
   onEdit,
   isDraggable = false,
-  categories = []
+  categories = [],
+  hoveredTaskId = null,
+  onHoverTask,
+  allTasks = [],
+  users = []
 }) => {
   // 1 week = 40px
   const weekPixel = 40;
@@ -128,6 +137,7 @@ const RoadmapTaskItem: React.FC<RoadmapTaskItemProps> = ({
   const relativeStart = task.start_week - timelineStartWeek;
   const leftOffset = relativeStart * weekPixel;
   const width = task.duration_weeks * weekPixel;
+  const isShort = width < 80; // Handles 1-week/short pills
 
   // Render check: If task is completely outside the timeline window, hide it
   const isOutOfWindow = (task.start_week + task.duration_weeks) < timelineStartWeek || task.start_week > (timelineStartWeek + totalWeeks);
@@ -139,10 +149,32 @@ const RoadmapTaskItem: React.FC<RoadmapTaskItemProps> = ({
   // Highlight check
   const isActive = currentWeekIndex >= task.start_week && currentWeekIndex < (task.start_week + task.duration_weeks);
 
+  // Find owner
+  const owner = task.owner_id ? users.find(u => u.id === task.owner_id) : null;
+
+  // Dependency relationship checks
+  const isSelfHovered = hoveredTaskId === task.id;
+  const isPredecessor = hoveredTaskId ? Boolean(allTasks.find(t => t.id === hoveredTaskId)?.dependencies?.includes(task.id)) : false;
+  const isSuccessor = hoveredTaskId ? Boolean(task.dependencies?.includes(hoveredTaskId)) : false;
+  const isDependencyRelated = isPredecessor || isSuccessor;
+
+  // Check if any predecessor task is Delayed
+  const hasDelayedPredecessor = (task.dependencies?.length || 0) > 0 && allTasks.some(
+    t => task.dependencies?.includes(t.id) && t.status === 'Delayed'
+  );
+
   return (
-    <div className={`flex group hover:bg-slate-50 transition-all border-b border-slate-100 ${isActive ? 'bg-indigo-50/10' : ''}`}>
+    <div 
+      onMouseEnter={() => onHoverTask?.(task.id)}
+      onMouseLeave={() => onHoverTask?.(null)}
+      className={`flex group hover:bg-slate-50 transition-all border-b border-slate-100 ${
+        isActive ? 'bg-indigo-50/10' : ''
+      } ${isDependencyRelated ? 'bg-amber-50/30' : ''}`}
+    >
       {/* Sticky Table Columns - MUST match Timeline Header widths: 48 + 320 + 112 + 96 + 80 + 160 + 5 (borders) + 1 (right border) = 822px */}
-      <div className={`flex divide-x divide-slate-100 items-center shrink-0 sticky left-0 z-50 bg-white group-hover:bg-slate-50 border-r border-slate-100 shadow-[2px_0_5px_rgba(0,0,0,0.02)] ${isActive ? '!bg-indigo-50/30' : ''}`}>
+      <div className={`flex divide-x divide-slate-100 items-center shrink-0 sticky left-0 z-50 bg-white group-hover:bg-slate-50 border-r border-slate-100 shadow-[2px_0_5px_rgba(0,0,0,0.02)] ${
+        isActive ? '!bg-indigo-50/30' : ''
+      } ${isDependencyRelated ? '!bg-amber-50/40' : ''}`}>
         <div className={`w-[48px] min-w-[48px] max-w-[48px] py-5 px-2 flex flex-col items-center justify-center ${isActive ? 'text-indigo-600 font-bold' : 'text-slate-400'}`}>
           {isDraggable && (
             <GripVertical className="w-3.5 h-3.5 mb-1 text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -154,8 +186,31 @@ const RoadmapTaskItem: React.FC<RoadmapTaskItemProps> = ({
           className={`w-[320px] min-w-[320px] max-w-[320px] py-5 px-8 cursor-pointer group/title hover:text-indigo-600 transition-colors ${isActive ? 'text-indigo-600' : 'text-slate-700'}`}
         >
           <div className="flex flex-col gap-1.5 overflow-hidden">
-            <span className="text-base font-semibold truncate leading-tight">{task.initiative}</span>
             <div className="flex items-center gap-2">
+              <span className="text-base font-semibold truncate leading-tight">{task.initiative}</span>
+              {isPredecessor && (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-amber-500 text-white shrink-0 shadow-sm animate-pulse">
+                  ต้นทาง
+                </span>
+              )}
+              {isSuccessor && (
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-indigo-500 text-white shrink-0 shadow-sm animate-pulse">
+                  ปลายทาง
+                </span>
+              )}
+            </div>
+            <div className="flex items-center gap-2 flex-wrap">
+              {/* Owner Badge */}
+              {owner && (
+                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-50/80 border border-indigo-100/60 text-indigo-700 text-[10px] font-bold shrink-0" title={`Project Lead: ${owner.name}`}>
+                  {owner.avatarUrl ? (
+                    <img src={owner.avatarUrl} alt={owner.name} className="w-3.5 h-3.5 rounded-full object-cover" />
+                  ) : (
+                    <UserIcon className="w-3 h-3 text-indigo-500" />
+                  )}
+                  <span className="truncate max-w-[70px]">{owner.name}</span>
+                </div>
+              )}
               {/* Value Markers (B) */}
               {task.effort && (
                 <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200" title={`Effort: ${task.effort}`}>
@@ -179,9 +234,17 @@ const RoadmapTaskItem: React.FC<RoadmapTaskItemProps> = ({
               )}
               {/* Linkage Marker (A) */}
               {(task.dependencies?.length || 0) > 0 && (
-                <div className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-50 border border-amber-100 text-amber-600" title={`Has ${task.dependencies?.length} dependencies`}>
+                <div 
+                  className={`flex items-center gap-1 px-1.5 py-0.5 rounded border ${
+                    hasDelayedPredecessor 
+                      ? 'bg-rose-50 border-rose-200 text-rose-600' 
+                      : 'bg-amber-50 border-amber-100 text-amber-600'
+                  }`} 
+                  title={hasDelayedPredecessor ? 'มีโครงการตั้งต้นล่าช้า (Delayed Dependency)' : `เชื่อมโยง ${task.dependencies?.length} โครงการ`}
+                >
                   <Diamond className="w-2.5 h-2.5 fill-current" />
                   <span className="text-[9px] font-black">{task.dependencies?.length}</span>
+                  {hasDelayedPredecessor && <span className="text-[9px] font-bold">⚠️ งานต้นทางช้า</span>}
                 </div>
               )}
             </div>
@@ -209,7 +272,7 @@ const RoadmapTaskItem: React.FC<RoadmapTaskItemProps> = ({
 
         {/* The Strategy Pill / Gantt Bar */}
         <div className="relative h-14 w-full flex items-center">
-            {/* Baseline Bar (D) - Only visible on hover or if baseline tracking is fully implemented */}
+            {/* Baseline Bar (D) */}
             {task.original_start_week && (
               <div 
                 className="absolute h-4 bg-slate-200/50 border border-slate-300/30 rounded-full z-0 opacity-50"
@@ -224,22 +287,28 @@ const RoadmapTaskItem: React.FC<RoadmapTaskItemProps> = ({
                 layoutId={`task-${task.id}`}
                 animate={{ 
                   scaleY: isActive ? 1.05 : 1,
-                  boxShadow: isActive ? `0 10px 25px -5px ${scheme.border}` : '0 1px 3px rgba(0,0,0,0.05)',
-                  zIndex: isActive ? 30 : 10,
+                  boxShadow: isDependencyRelated 
+                    ? '0 0 0 2px #F59E0B, 0 10px 20px -5px rgba(245, 158, 11, 0.3)'
+                    : isActive 
+                      ? `0 10px 25px -5px ${scheme.border}` 
+                      : '0 1px 3px rgba(0,0,0,0.05)',
+                  zIndex: isSelfHovered ? 50 : isDependencyRelated ? 45 : isActive ? 30 : 10,
                   opacity: 1
                 }}
                 transition={{ type: "spring", stiffness: 350, damping: 25 }}
-                whileHover={{ scaleY: 1.1, zIndex: 40 }}
+                whileHover={{ scaleY: 1.1, zIndex: 60 }}
                 onClick={() => onEdit(task)}
-                className={`absolute h-8 rounded-full flex items-center px-4 cursor-pointer border transition-shadow overflow-hidden shadow-sm`}
+                className={`absolute h-8 rounded-full flex items-center cursor-pointer border transition-all shadow-sm ${
+                  isShort ? 'px-2 justify-center' : 'px-4'
+                } ${isDependencyRelated ? '!border-amber-500' : ''}`}
                 style={{
                   left: `${leftOffset + 4}px`,
-                  width: `${width - 8}px`,
+                  width: `${Math.max(width - 8, 28)}px`,
                   backgroundColor: '#ffffff',
-                  borderColor: isActive ? scheme.fill : scheme.border
+                  borderColor: isDependencyRelated ? '#F59E0B' : isActive ? scheme.fill : scheme.border
                 }}
             >
-                {/* Progress Fill - More subtle */}
+                {/* Progress Fill */}
                 <div 
                     className="absolute left-0 top-0 bottom-0 opacity-10 transition-all duration-700 rounded-l-full"
                     style={{ 
@@ -248,26 +317,34 @@ const RoadmapTaskItem: React.FC<RoadmapTaskItemProps> = ({
                     }}
                 />
                 
-                {/* Simplified Bar with Color Line at top or bottom? No, just keep simple */}
+                {/* Simplified Left Color Accent Line */}
                 <div 
-                  className="absolute left-0 top-0 bottom-0 w-1.5"
-                  style={{ backgroundColor: scheme.fill }}
+                  className="absolute left-0 top-0 bottom-0 w-1.5 rounded-l-full"
+                  style={{ backgroundColor: isDependencyRelated ? '#F59E0B' : scheme.fill }}
                 />
 
-                 {/* Content */}
-                <div className="relative z-10 flex items-center justify-between w-full overflow-hidden pl-1">
-                  <span className="text-[11px] font-bold uppercase truncate tracking-tight" style={scheme.textStyle}>
-                    {task.initiative}
-                  </span>
-                  <div className="flex items-center gap-2 shrink-0 ml-2">
-                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-50 border border-slate-100" style={scheme.textStyle}>
+                {/* Content: If short (< 80px), show compact text inside and label floating to the right */}
+                {isShort ? (
+                  <div className="relative z-10 flex items-center justify-center w-full">
+                    <span className="text-[10px] font-black" style={scheme.textStyle}>
                       {task.progress}%
                     </span>
                   </div>
-                </div>
+                ) : (
+                  <div className="relative z-10 flex items-center justify-between w-full overflow-hidden pl-1">
+                    <span className="text-[11px] font-bold uppercase truncate tracking-tight" style={scheme.textStyle}>
+                      {task.initiative}
+                    </span>
+                    <div className="flex items-center gap-2 shrink-0 ml-2">
+                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-slate-50 border border-slate-100" style={scheme.textStyle}>
+                        {task.progress}%
+                      </span>
+                    </div>
+                  </div>
+                )}
 
                 {/* Milestone Indicator on Bar - Positioned at the end */}
-                {task.milestone && (
+                {task.milestone && !isShort && (
                   <div 
                     className="absolute right-1 top-1/2 -translate-y-1/2 z-30 flex items-center justify-center"
                     title={`Milestone: ${task.milestone}`}
@@ -278,12 +355,28 @@ const RoadmapTaskItem: React.FC<RoadmapTaskItemProps> = ({
                   </div>
                 )}
 
-                {/* Tooltip Content - Moved below to avoid header cutoff */}
+                {/* Short Bar External Floating Label */}
+                {isShort && (
+                  <div className="absolute left-[calc(100%+8px)] top-1/2 -translate-y-1/2 z-20 flex items-center gap-1.5 pointer-events-none whitespace-nowrap bg-white/90 backdrop-blur-xs px-2 py-0.5 rounded-lg border border-slate-200/60 shadow-xs">
+                    <span className="text-[11px] font-bold text-slate-700">{task.initiative}</span>
+                    {task.milestone && (
+                      <Diamond className="w-3 h-3 text-amber-500 fill-amber-500 shrink-0" />
+                    )}
+                  </div>
+                )}
+
+                {/* Tooltip Content */}
                 <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 bg-slate-900 text-white text-[11px] px-3 py-2 rounded-xl opacity-0 group-hover:opacity-100 pointer-events-none transition-all whitespace-nowrap z-[150] shadow-2xl font-bold border border-white/10 scale-90 group-hover:scale-100">
                   <div className="flex flex-col gap-1">
-                    <span className="text-indigo-300">โครงการ: {task.initiative}</span>
-                    <span>ความคืบหน้า: {task.progress}%</span>
+                    <span className="text-indigo-300 font-black">โครงการ: {task.initiative}</span>
+                    <span>ระยะเวลา: {task.duration_weeks} สัปดาห์ (ความคืบหน้า {task.progress}%)</span>
                     {task.milestone && <span className="text-rose-300">เป้าหมาย: {task.milestone}</span>}
+                    {(task.dependencies?.length || 0) > 0 && (
+                      <span className="text-amber-300">🔗 เชื่อมโยงกับ {task.dependencies?.length} โครงการ</span>
+                    )}
+                    {hasDelayedPredecessor && (
+                      <span className="text-rose-400 font-bold">⚠️ ได้รับผลกระทบจากโครงการต้นทางที่ล่าช้า</span>
+                    )}
                   </div>
                   {/* Arrow pointing up */}
                   <div className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-900 rotate-45 border-l border-t border-white/10" />

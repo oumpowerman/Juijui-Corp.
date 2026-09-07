@@ -7,6 +7,7 @@ import { Loader2, UserX, Layers } from 'lucide-react';
 import { User } from '../../../types';
 import { AttendanceLog } from '../../../types/attendance';
 import TimesheetCell from './TimesheetCell';
+import CompanyBadge from '../../common/CompanyBadge';
 
 interface TimesheetTableProps {
     isLoading: boolean;
@@ -208,7 +209,10 @@ const TimesheetTable: React.FC<TimesheetTableProps> = ({
                                                             <div className={`absolute -bottom-0.5 -right-0.5 w-2.5 sm:w-3.5 h-2.5 sm:h-3.5 rounded-full border border-white ${user.workStatus === 'ONLINE' ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
                                                         </div>
                                                         <div className="min-w-0">
-                                                            <p className="text-[11px] sm:text-sm font-bold text-slate-800 truncate leading-tight">{user.name}</p>
+                                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                                <p className="text-[11px] sm:text-sm font-bold text-slate-800 truncate leading-tight">{user.name}</p>
+                                                                <CompanyBadge company={user.company} companyId={user.companyId} size="xs" />
+                                                            </div>
                                                             <p className="hidden sm:block text-[10px] text-indigo-500 font-bold uppercase truncate opacity-70">Lv.{user.level} {user.position}</p>
                                                             <p className="block sm:hidden text-[9px] text-indigo-500/85 font-bold uppercase truncate">Lv.{user.level}</p>
                                                         </div>

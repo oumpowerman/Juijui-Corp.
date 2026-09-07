@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { History, ChevronUp, ChevronDown, XCircle, AlertTriangle } from 'lucide-react';
@@ -9,6 +9,9 @@ import { getWorkingDaysDifference, getMaxShiftWithBuffer } from '../../../lib/at
 import { useMasterData } from '../../../hooks/useMasterData';
 import { ApproveRequestParams } from '../../../hooks/useAdminApprovals';
 import { useGlobalDialog } from '../../../context/GlobalDialogContext';
+import { useUserSession } from '../../../context/UserSessionContext';
+import { useCompanies } from '../../../hooks/useCompanies';
+import { canAdminManageRequest } from '../../../utils/adminApprovalHelpers';
 import { attendanceService } from '../../../services/attendanceService';
 
 // Import refactored sub-components
@@ -34,9 +37,15 @@ interface RequestDetailModalProps {
 export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
     request, isOpen, onClose, onApprove, onReject, initialRejectMode = false
 }) => {
+    const { currentUserProfile } = useUserSession();
+    const { activeCompanies } = useCompanies();
     const { annualHolidays, calendarExceptions, masterOptions } = useMasterData();
     const { showAlert } = useGlobalDialog();
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const manageCheck = useMemo(() => {
+        return canAdminManageRequest(currentUserProfile, request?.user, activeCompanies, masterOptions);
+    }, [currentUserProfile, request?.user, activeCompanies, masterOptions]);
 
     // Admin OT Customization States
     const [editStartTime, setEditStartTime] = useState('');
@@ -218,6 +227,10 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
 
     const handleApprove = async (customStartTimeArg?: string) => {
         if (!request) return;
+        if (!manageCheck.allowed) {
+            showAlert(manageCheck.reason || 'คุณไม่มีสิทธิ์อนุมัติคำขอของพนักงานต่างบริษัท', 'ไม่สามารถอนุมัติได้');
+            return;
+        }
         setIsSubmitting(true);
         try {
             const isOvertime = request.type === 'OVERTIME';
@@ -330,9 +343,14 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
     };
 
     const handleRejectSubmit = async (reason: string, customCheckInTime?: string, rejectionMode?: 'ABSENT' | 'ACTION_REQUIRED' | 'KEEP_WORKING') => {
+        if (!request) return;
+        if (!manageCheck.allowed) {
+            showAlert(manageCheck.reason || 'คุณไม่มีสิทธิ์ปฏิเสธคำขอของพนักงานต่างบริษัท', 'ไม่สามารถดำเนินการได้');
+            return;
+        }
         setIsSubmitting(true);
         try {
-            await onReject(request!.id, reason, customCheckInTime, hpPenalty || undefined, rejectionMode);
+            await onReject(request.id, reason, customCheckInTime, hpPenalty || undefined, rejectionMode);
             onClose();
         } catch (e) {
             console.error(e);
@@ -375,6 +393,19 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
             >
                 {/* Header Profile Panel */}
                 <RequestHeader request={request} onClose={onClose} />
+
+                {/* Executive Super Approver Banner */}
+                {request.status === 'PENDING' && manageCheck.isSuperApprover && (
+                    <div className="px-6 py-2 bg-gradient-to-r from-amber-50 via-amber-100/60 to-amber-50 border-b border-amber-200/80 flex items-center justify-between gap-2 text-xs text-amber-900 font-bold" id="super-approver-banner">
+                        <div className="flex items-center gap-2">
+                            <span>👑</span>
+                            <span>สิทธิ์ผู้บริหารสูงสุด: คุณสามารถพิจารณาอนุมัติคำขอนี้ได้ในฐานะผู้บริหารกลุ่มบริษัท</span>
+                        </div>
+                        <span className="text-[10px] bg-amber-200/90 text-amber-900 px-2 py-0.5 rounded-full border border-amber-300 uppercase tracking-wider">
+                            Executive Bypass
+                        </span>
+                    </div>
+                )}
 
                 {/* Friendly Status Banner if the request is not pending */}
                 {request.status !== 'PENDING' && (
@@ -491,6 +522,9 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
                                     isProvisional={isProvisional}
                                     initialRejectMode={initialRejectMode}
                                     isFixed={isFixedOt}
+                                    isReadOnly={!manageCheck.allowed}
+                                    readOnlyReason={manageCheck.reason}
+                                    targetCompanyName={manageCheck.targetCompanyName}
                                 />
                             )}
                         </div>
@@ -637,6 +671,9 @@ export const RequestDetailModal: React.FC<RequestDetailModalProps> = ({
                                             isProvisional={isProvisional}
                                             initialRejectMode={initialRejectMode}
                                             isFixed={isFixedOt}
+                                            isReadOnly={!manageCheck.allowed}
+                                            readOnlyReason={manageCheck.reason}
+                                            targetCompanyName={manageCheck.targetCompanyName}
                                         />
                                     )}
                                 </div>

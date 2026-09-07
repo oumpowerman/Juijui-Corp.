@@ -21,6 +21,7 @@ import { CheckOutModal } from '../../CheckOutModal';
 import { FieldCheckpointModal } from '../../FieldCheckpointModal';
 import { attendanceService } from '../../../../../services/attendanceService';
 import { getDirectDriveUrl } from '../../../../../lib/imageUtils';
+import { BRAND_CONFIG } from '../../../../../config/brand';
 
 interface WorkingNowDisplayProps {
     todayLog: AttendanceLog;
@@ -55,19 +56,23 @@ export const WorkingNowDisplay: React.FC<WorkingNowDisplayProps> = ({
     const [showQuickList, setShowQuickList] = useState(false);
     const [previewPhoto, setPreviewPhoto] = useState<string | null>(null);
 
+    const isCheckpointEnabled = BRAND_CONFIG.showFieldCheckpointMode !== 2;
+
     const loadCheckpoints = useCallback(async () => {
-        if (!todayLog?.userId) return;
+        if (!isCheckpointEnabled || !todayLog?.userId) return;
         try {
             const list = await attendanceService.getTodayCheckpoints(todayLog.userId, todayLog.id);
             setTodayCheckpoints(list);
         } catch (err) {
             console.error("Error loading today checkpoints:", err);
         }
-    }, [todayLog?.userId, todayLog?.id]);
+    }, [isCheckpointEnabled, todayLog?.userId, todayLog?.id]);
 
     useEffect(() => {
-        loadCheckpoints();
-    }, [loadCheckpoints]);
+        if (isCheckpointEnabled) {
+            loadCheckpoints();
+        }
+    }, [isCheckpointEnabled, loadCheckpoints]);
 
     const formatTimeSafe = (timeVal: string | Date | null | undefined) => {
         if (!timeVal) return '--:--';
@@ -246,108 +251,110 @@ export const WorkingNowDisplay: React.FC<WorkingNowDisplayProps> = ({
             )}
 
             {/* FIELD CHECKPOINT / SHOOT REPORT BUTTON & BADGE */}
-            <div className="space-y-1.5 pt-1">
-                <button
-                    disabled={isDesktop}
-                    onClick={() => setIsCheckpointModalOpen(true)}
-                    className={`w-full py-2 px-3.5 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer
-                        ${isDesktop
-                            ? 'bg-slate-50 text-slate-400 border border-slate-200 cursor-not-allowed shadow-none'
-                            : 'bg-slate-50/90 hover:bg-indigo-50/70 border border-slate-200 hover:border-indigo-300 text-slate-700 hover:text-indigo-700 shadow-2xs active:scale-98'
-                        }
-                    `}
-                >
-                    <MapPin className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
-                    <span>📍 จุดปฏิบัติงานนอกสถานที่</span>
+            {isCheckpointEnabled && (
+                <div className="space-y-1.5 pt-1">
+                    <button
+                        disabled={isDesktop}
+                        onClick={() => setIsCheckpointModalOpen(true)}
+                        className={`w-full py-2 px-3.5 rounded-xl text-xs font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer
+                            ${isDesktop
+                                ? 'bg-slate-50 text-slate-400 border border-slate-200 cursor-not-allowed shadow-none'
+                                : 'bg-slate-50/90 hover:bg-indigo-50/70 border border-slate-200 hover:border-indigo-300 text-slate-700 hover:text-indigo-700 shadow-2xs active:scale-98'
+                            }
+                        `}
+                    >
+                        <MapPin className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                        <span>📍 จุดปฏิบัติงานนอกสถานที่</span>
+                        {todayCheckpoints && todayCheckpoints.length > 0 && (
+                            <span className="ml-1 px-1.5 py-0.2 bg-indigo-100 text-indigo-700 rounded-full text-[10px] font-bold">
+                                {todayCheckpoints.length}
+                            </span>
+                        )}
+                    </button>
+
+                    {/* Checkpoint Summary Badge */}
                     {todayCheckpoints && todayCheckpoints.length > 0 && (
-                        <span className="ml-1 px-1.5 py-0.2 bg-indigo-100 text-indigo-700 rounded-full text-[10px] font-bold">
-                            {todayCheckpoints.length}
-                        </span>
-                    )}
-                </button>
+                        <div className="bg-indigo-50/60 border border-indigo-100/80 rounded-xl p-2.5 text-left transition-all">
+                            <button
+                                type="button"
+                                onClick={() => setShowQuickList(!showQuickList)}
+                                className="w-full flex items-center justify-between text-xs font-semibold text-indigo-900 cursor-pointer"
+                            >
+                                <span className="flex items-center gap-1.5">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-ping" />
+                                    <span>รายงานจุดปฏิบัติงานแล้ว <strong className="text-indigo-600 font-bold">{todayCheckpoints.length}</strong> จุด</span>
+                                </span>
+                                <span className="text-[11px] text-indigo-600 flex items-center font-medium hover:underline">
+                                    {showQuickList ? 'ซ่อนรายการ' : 'ดูรายการ'}
+                                    <ChevronRight className={`w-3.5 h-3.5 transition-transform ${showQuickList ? 'rotate-90' : ''}`} />
+                                </span>
+                            </button>
 
-                {/* Checkpoint Summary Badge */}
-                {todayCheckpoints && todayCheckpoints.length > 0 && (
-                    <div className="bg-indigo-50/60 border border-indigo-100/80 rounded-xl p-2.5 text-left transition-all">
-                        <button
-                            type="button"
-                            onClick={() => setShowQuickList(!showQuickList)}
-                            className="w-full flex items-center justify-between text-xs font-semibold text-indigo-900 cursor-pointer"
-                        >
-                            <span className="flex items-center gap-1.5">
-                                <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-ping" />
-                                <span>รายงานจุดปฏิบัติงานแล้ว <strong className="text-indigo-600 font-bold">{todayCheckpoints.length}</strong> จุด</span>
-                            </span>
-                            <span className="text-[11px] text-indigo-600 flex items-center font-medium hover:underline">
-                                {showQuickList ? 'ซ่อนรายการ' : 'ดูรายการ'}
-                                <ChevronRight className={`w-3.5 h-3.5 transition-transform ${showQuickList ? 'rotate-90' : ''}`} />
-                            </span>
-                        </button>
+                            {/* Expandable Rich List */}
+                            {showQuickList && (
+                                <div className="mt-2 pt-2 border-t border-indigo-100/80 space-y-2 max-h-60 overflow-y-auto pr-0.5">
+                                    {todayCheckpoints.map((cp, idx) => {
+                                        const photo = cp.photoUrl || cp.photo_url;
+                                        const hasGps = cp.latitude && cp.longitude;
 
-                        {/* Expandable Rich List */}
-                        {showQuickList && (
-                            <div className="mt-2 pt-2 border-t border-indigo-100/80 space-y-2 max-h-60 overflow-y-auto pr-0.5">
-                                {todayCheckpoints.map((cp, idx) => {
-                                    const photo = cp.photoUrl || cp.photo_url;
-                                    const hasGps = cp.latitude && cp.longitude;
-
-                                    return (
-                                        <div key={cp.id || idx} className="p-2.5 bg-white rounded-xl border border-indigo-100/70 shadow-2xs space-y-1.5">
-                                            <div className="flex items-start justify-between gap-2">
-                                                <div className="flex items-center gap-1.5 min-w-0">
-                                                    <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded-md shrink-0 border border-indigo-100/60">
-                                                        #{idx + 1}
-                                                    </span>
-                                                    <span className="text-xs font-bold text-slate-800 truncate">
-                                                        {cp.locationName || cp.location_name}
+                                        return (
+                                            <div key={cp.id || idx} className="p-2.5 bg-white rounded-xl border border-indigo-100/70 shadow-2xs space-y-1.5">
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div className="flex items-center gap-1.5 min-w-0">
+                                                        <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded-md shrink-0 border border-indigo-100/60">
+                                                            #{idx + 1}
+                                                        </span>
+                                                        <span className="text-xs font-bold text-slate-800 truncate">
+                                                            {cp.locationName || cp.location_name}
+                                                        </span>
+                                                    </div>
+                                                    <span className="text-[10px] font-mono font-bold text-indigo-600 shrink-0 bg-indigo-50/80 px-2 py-0.5 rounded-md flex items-center gap-1">
+                                                        <Clock className="w-2.5 h-2.5 text-indigo-500" />
+                                                        {formatTimeSafe(cp.checkpointTime || cp.checkpoint_time)} น.
                                                     </span>
                                                 </div>
-                                                <span className="text-[10px] font-mono font-bold text-indigo-600 shrink-0 bg-indigo-50/80 px-2 py-0.5 rounded-md flex items-center gap-1">
-                                                    <Clock className="w-2.5 h-2.5 text-indigo-500" />
-                                                    {formatTimeSafe(cp.checkpointTime || cp.checkpoint_time)} น.
-                                                </span>
-                                            </div>
 
-                                            {cp.note && (
-                                                <p className="text-[11px] text-slate-600 bg-slate-50/80 p-1.5 rounded-lg border border-slate-100 leading-snug">
-                                                    📝 {cp.note}
-                                                </p>
-                                            )}
-
-                                            <div className="flex items-center justify-between gap-2 pt-0.5 text-[10px]">
-                                                {hasGps ? (
-                                                    <a
-                                                        href={`https://www.google.com/maps?q=${cp.latitude},${cp.longitude}`}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="text-cyan-700 hover:text-cyan-900 font-semibold flex items-center gap-1 hover:underline"
-                                                    >
-                                                        <Navigation className="w-3 h-3 text-cyan-600" />
-                                                        <span>{cp.latitude?.toFixed(4)}, {cp.longitude?.toFixed(4)}</span>
-                                                        <ExternalLink className="w-2.5 h-2.5 ml-0.5" />
-                                                    </a>
-                                                ) : (
-                                                    <span className="text-slate-400">ไม่มีพิกัด GPS</span>
+                                                {cp.note && (
+                                                    <p className="text-[11px] text-slate-600 bg-slate-50/80 p-1.5 rounded-lg border border-slate-100 leading-snug">
+                                                        📝 {cp.note}
+                                                    </p>
                                                 )}
 
-                                                {photo && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setPreviewPhoto(photo)}
-                                                        className="text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
-                                                    >
-                                                        <ImageIcon className="w-3 h-3 text-indigo-500" /> ดูรูปถ่าย
-                                                    </button>
-                                                )}
+                                                <div className="flex items-center justify-between gap-2 pt-0.5 text-[10px]">
+                                                    {hasGps ? (
+                                                        <a
+                                                            href={`https://www.google.com/maps?q=${cp.latitude},${cp.longitude}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-cyan-700 hover:text-cyan-900 font-semibold flex items-center gap-1 hover:underline"
+                                                        >
+                                                            <Navigation className="w-3 h-3 text-cyan-600" />
+                                                            <span>{cp.latitude?.toFixed(4)}, {cp.longitude?.toFixed(4)}</span>
+                                                            <ExternalLink className="w-2.5 h-2.5 ml-0.5" />
+                                                        </a>
+                                                    ) : (
+                                                        <span className="text-slate-400">ไม่มีพิกัด GPS</span>
+                                                    )}
+
+                                                    {photo && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setPreviewPhoto(photo)}
+                                                            className="text-indigo-600 hover:text-indigo-800 font-bold flex items-center gap-1 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded-md transition-colors cursor-pointer"
+                                                        >
+                                                            <ImageIcon className="w-3 h-3 text-indigo-500" /> ดูรูปถ่าย
+                                                        </button>
+                                                    )}
+                                                </div>
                                             </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        )}
-                    </div>
-                )}
-            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
 
             <div className="pt-1">
                 <button 
@@ -376,17 +383,19 @@ export const WorkingNowDisplay: React.FC<WorkingNowDisplayProps> = ({
                 note={todayLog?.note}
             />
 
-            <FieldCheckpointModal
-                isOpen={isCheckpointModalOpen}
-                onClose={() => setIsCheckpointModalOpen(false)}
-                attendanceId={todayLog?.id}
-                userId={todayLog?.userId}
-                availableLocations={availableLocations}
-                onSuccess={loadCheckpoints}
-            />
+            {isCheckpointEnabled && (
+                <FieldCheckpointModal
+                    isOpen={isCheckpointModalOpen}
+                    onClose={() => setIsCheckpointModalOpen(false)}
+                    attendanceId={todayLog?.id}
+                    userId={todayLog?.userId}
+                    availableLocations={availableLocations}
+                    onSuccess={loadCheckpoints}
+                />
+            )}
 
             {/* Photo Lightbox Modal for Staff */}
-            {previewPhoto && typeof document !== 'undefined' && createPortal(
+            {isCheckpointEnabled && previewPhoto && typeof document !== 'undefined' && createPortal(
                 <div 
                     className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/80 backdrop-blur-xs"
                     onClick={() => setPreviewPhoto(null)}

@@ -1,9 +1,10 @@
 import React from 'react';
 import { format } from 'date-fns';
 import th from 'date-fns/locale/th';
-import { ChevronLeft, ChevronRight, Search, Calendar, Briefcase, UserX, UserCheck, Download, Minimize2, SlidersHorizontal } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, Calendar, Briefcase, UserX, UserCheck, Download, Minimize2, SlidersHorizontal, Building2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import FilterDropdown from '../../common/FilterDropdown';
+import { Company } from '../../../types';
 
 interface TimesheetHeaderProps {
     viewMode: 'WEEK' | 'MONTH';
@@ -15,6 +16,9 @@ interface TimesheetHeaderProps {
     filterDepartment: string;
     setFilterDepartment: (dept: string) => void;
     departments: string[];
+    filterCompany?: string;
+    setFilterCompany?: (comp: string) => void;
+    companies?: Company[];
     showInactive: boolean;
     setShowInactive: (show: boolean) => void;
     onExportCSV?: () => void;
@@ -35,6 +39,9 @@ const TimesheetHeader: React.FC<TimesheetHeaderProps> = ({
     filterDepartment,
     setFilterDepartment,
     departments,
+    filterCompany = 'ALL',
+    setFilterCompany,
+    companies = [],
     showInactive,
     setShowInactive,
     onExportCSV,
@@ -78,6 +85,11 @@ const TimesheetHeader: React.FC<TimesheetHeaderProps> = ({
     const deptOptions = departments.map(d => ({
         key: d,
         label: d
+    }));
+
+    const companyOptions = companies.map(c => ({
+        key: c.id,
+        label: `${c.shortName ? `[${c.shortName}] ` : ''}${c.name}`
     }));
 
     return (
@@ -136,10 +148,26 @@ const TimesheetHeader: React.FC<TimesheetHeaderProps> = ({
                         </div>
                     </motion.div>
 
-                    {/* Right Side: Department Filter, Search Input, and Toggle Drawer Button */}
+                    {/* Right Side: Company Filter, Department Filter, Search Input, and Toggle Drawer Button */}
                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full lg:w-auto">
+                        {/* Filter Company (only show if multiple companies exist) */}
+                        {companies.length > 1 && setFilterCompany && (
+                            <div className="w-full sm:w-52 shrink-0">
+                                <FilterDropdown
+                                    label="ทุกบริษัทในเครือ"
+                                    options={companyOptions}
+                                    value={filterCompany}
+                                    onChange={setFilterCompany}
+                                    icon={<Building2 className="w-4 h-4" />}
+                                    theme="light"
+                                    showAllOption={true}
+                                    clearable={false}
+                                />
+                            </div>
+                        )}
+
                         {/* Filter Department */}
-                        <div className="w-full sm:w-56 shrink-0">
+                        <div className="w-full sm:w-48 shrink-0">
                             <FilterDropdown
                                 label="ทุกแผนก (All Teams)"
                                 options={deptOptions}
@@ -153,7 +181,7 @@ const TimesheetHeader: React.FC<TimesheetHeaderProps> = ({
                         </div>
 
                         {/* Search Input */}
-                        <div className="relative w-full sm:w-56 shrink-0">
+                        <div className="relative w-full sm:w-48 shrink-0">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                             <input 
                                 type="text" 

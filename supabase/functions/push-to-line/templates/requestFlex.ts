@@ -110,19 +110,40 @@ export function buildFooterButtons(
   if (record.type === 'CONTENT_PLANNER_ALERT' || (record.type === 'OVERDUE' && record.link_path === 'CALENDAR')) {
     const taskId = record.related_id || '';
     const contentDeepLink = `${baseAppUrl}/?openExternalBrowser=1&view=CALENDAR&highlightTaskId=${taskId}`;
+    const quickApproveLink = `${baseAppUrl}/?openExternalBrowser=1&view=CALENDAR&highlightTaskId=${taskId}&quickAction=approve`;
     const quickDoneLink = `${baseAppUrl}/?openExternalBrowser=1&view=CALENDAR&highlightTaskId=${taskId}&quickAction=set_done`;
 
     return [
       {
-        type: "button",
-        action: {
-          type: "uri",
-          label: "ปรับสถานะเป็น DONE ✅",
-          uri: quickDoneLink
-        },
-        style: "primary",
-        height: "md",
-        color: "#10b981"
+        type: "box",
+        layout: "horizontal",
+        spacing: "sm",
+        contents: [
+          {
+            type: "button",
+            action: {
+              type: "uri",
+              label: "อนุมัติคลิป ✅",
+              uri: quickApproveLink
+            },
+            style: "primary",
+            height: "sm",
+            color: "#6366f1",
+            flex: 1
+          },
+          {
+            type: "button",
+            action: {
+              type: "uri",
+              label: "เสร็จสิ้น (DONE) 🎉",
+              uri: quickDoneLink
+            },
+            style: "secondary",
+            height: "sm",
+            color: "#ecfdf5",
+            flex: 1
+          }
+        ]
       },
       {
         type: "button",
@@ -131,10 +152,10 @@ export function buildFooterButtons(
           label: "ดูในตารางคอนเทนต์ 📅",
           uri: contentDeepLink
         },
-        style: "secondary",
+        style: "link",
         height: "sm",
-        color: "#f1f5f9",
-        margin: "sm"
+        color: "#64748b",
+        margin: "xs"
       }
     ];
   }

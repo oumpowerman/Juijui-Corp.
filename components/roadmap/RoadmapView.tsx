@@ -9,11 +9,16 @@ import {
   roadmapService,
   ROADMAP_CATEGORIES
 } from '../../services/roadmapService';
+import { supabase } from '../../lib/supabase';
 
 import RoadmapTaskModal from './RoadmapTaskModal';
 import RoadmapHeader from './RoadmapHeader';
+import RoadmapMiniToolbar from './RoadmapMiniToolbar';
 import RoadmapTimeline from './RoadmapTimeline';
 import RoadmapTaskItem from './RoadmapTaskItem';
+import { RoadmapInsightDashboard } from './insights/RoadmapInsightDashboard';
+import { RoadmapInsightModal } from './insights/RoadmapInsightModal';
+import { InsightType } from './insights/RoadmapInsightCard';
 import GeneralTaskForm from '../task/GeneralTaskForm';
 import { useTaskContext } from '../../context/TaskContext';
 import { useUserSession } from '../../context/UserSessionContext';
@@ -21,7 +26,7 @@ import { useMasterDataContext } from '../../context/MasterDataContext';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
 import { useChannels } from '../../hooks/useChannels';
 import { useTasks } from '../../hooks/useTasks';
-import { Task } from '../../types';
+import { Task, Goal } from '../../types';
 
 const RoadmapView: React.FC = () => {
   const { showConfirm } = useGlobalDialog();
@@ -31,6 +36,7 @@ const RoadmapView: React.FC = () => {
   const { channels } = useChannels();
   const [tasks, setTasks] = useState<RoadmapTask[]>([]);
   const [categories, setCategories] = useState<{name: string, id: string, color?: string}[]>([]);
+  const [goals, setGoals] = useState<Goal[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>('All');
   const [searchTerm, setSearchTerm] = useState('');
@@ -38,6 +44,12 @@ const RoadmapView: React.FC = () => {
   const [selectedTask, setSelectedTask] = useState<RoadmapTask | null>(null);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const [sortMode, setSortMode] = useState<'manual' | 'timeline'>('manual');
+  const [hoveredTaskId, setHoveredTaskId] = useState<string | null>(null);
+
+  // Insight Filters & Deep Dive Modal State
+  const [activeInsightFilter, setActiveInsightFilter] = useState<InsightType | null>(null);
+  const [isInsightModalOpen, setIsInsightModalOpen] = useState(false);
+  const [insightModalTab, setInsightModalTab] = useState<InsightType>('ongoing');
 
   // Execution Task Modal State
   const [isExecModalOpen, setIsExecModalOpen] = useState(false);
@@ -91,12 +103,29 @@ const RoadmapView: React.FC = () => {
   // Initial Fetch
   const fetchData = async () => {
     try {
-      const [taskData, catData] = await Promise.all([
+      const [taskData, catData, goalsRes] = await Promise.all([
         roadmapService.getTasks(),
-        roadmapService.getCategories()
+        roadmapService.getCategories(),
+        supabase.from('goals').select('*').eq('is_archived', false).order('deadline', { ascending: true })
       ]);
       setTasks(taskData);
       setCategories(catData.map(c => ({ name: c.name, id: c.id, color: c.color })));
+      if (goalsRes.data) {
+        setGoals(goalsRes.data.map((g: any) => ({
+          id: g.id,
+          title: g.title,
+          platform: g.platform,
+          currentValue: g.current_value,
+          targetValue: g.target_value,
+          deadline: new Date(g.deadline),
+          channelId: g.channel_id,
+          isArchived: g.is_archived,
+          rewardXp: g.reward_xp || 500,
+          rewardCoin: g.reward_coin || 100,
+          owners: [],
+          boosts: []
+        })));
+      }
     } catch (error) {
       console.error('Failed to fetch roadmap:', error);
     } finally {
@@ -112,12 +141,60 @@ const RoadmapView: React.FC = () => {
     };
   }, []);
 
+  const allAvailableCategories = useMemo(() => {
+    const catSet = new Set<string>();
+    ROADMAP_CATEGORIES.forEach(c => catSet.add(c));
+    categories.forEach(c => catSet.add(c.name));
+    tasks.forEach(t => { if (t.category) catSet.add(t.category); });
+    return Array.from(catSet);
+  }, [categories, tasks]);
+
+  // Compute Peak Weeks for Filtering
+  const peakWeeksSet = useMemo(() => {
+    const weekLoad: Record<number, number> = {};
+    tasks.filter(t => t.status !== 'Done').forEach(t => {
+      for (let w = t.start_week; w < t.start_week + t.duration_weeks; w++) {
+        weekLoad[w] = (weekLoad[w] || 0) + 1;
+      }
+    });
+    const peakLoad = Math.max(0, ...Object.values(weekLoad));
+    const set = new Set<number>();
+    if (peakLoad > 0) {
+      Object.entries(weekLoad).forEach(([wStr, count]) => {
+        if (count >= Math.max(3, peakLoad)) {
+          set.add(Number(wStr));
+        }
+      });
+    }
+    return set;
+  }, [tasks]);
+
   const filteredTasks = useMemo(() => {
     const list = [...tasks]
       .filter(t => {
         const matchCategory = filter === 'All' || t.category === filter;
         const matchSearch = t.initiative.toLowerCase().includes(searchTerm.toLowerCase());
-        return matchCategory && matchSearch;
+        
+        // Insight Quick Filter Match
+        let matchInsight = true;
+        if (activeInsightFilter === 'ongoing') {
+          matchInsight = t.status === 'Ongoing';
+        } else if (activeInsightFilter === 'high_impact') {
+          matchInsight = (t.impact || 0) >= 4;
+        } else if (activeInsightFilter === 'peak') {
+          let runsInPeak = false;
+          for (let w = t.start_week; w < t.start_week + t.duration_weeks; w++) {
+            if (peakWeeksSet.has(w)) {
+              runsInPeak = true;
+              break;
+            }
+          }
+          matchInsight = runsInPeak && t.status !== 'Done';
+        } else if (activeInsightFilter === 'delayed') {
+          matchInsight = t.status === 'Delayed';
+        }
+
+        return matchCategory && matchSearch && matchInsight;
       });
 
     if (sortMode === 'timeline') {
@@ -125,7 +202,7 @@ const RoadmapView: React.FC = () => {
     }
     
     return list.sort((a, b) => (a.no || 0) - (b.no || 0));
-  }, [tasks, filter, searchTerm, sortMode]);
+  }, [tasks, filter, searchTerm, sortMode, activeInsightFilter, peakWeeksSet]);
 
   const handleReorder = async (newOrder: RoadmapTask[]) => {
     // Only allow reorder in manual mode and when no filtering is active
@@ -239,9 +316,9 @@ const RoadmapView: React.FC = () => {
     const highImpact = tasks.filter(t => (t.impact || 0) >= 4).length;
     const delayed = tasks.filter(t => t.status === 'Delayed').length;
     
-    // Resource Peak (C)
+    // Resource Peak (C) - Exclude completed 'Done' tasks so past projects don't trigger active bottleneck alerts
     const weekLoad: Record<number, number> = {};
-    tasks.forEach(t => {
+    tasks.filter(t => t.status !== 'Done').forEach(t => {
       for (let w = t.start_week; w < t.start_week + t.duration_weeks; w++) {
         weekLoad[w] = (weekLoad[w] || 0) + 1;
       }
@@ -250,6 +327,20 @@ const RoadmapView: React.FC = () => {
     
     return { ongoing, highImpact, delayed, peakLoad };
   }, [tasks]);
+
+  // Insight Actions
+  const handleToggleInsightFilter = (type: InsightType) => {
+    setActiveInsightFilter(prev => prev === type ? null : type);
+  };
+
+  const handleClearInsightFilter = () => {
+    setActiveInsightFilter(null);
+  };
+
+  const handleOpenDeepDive = (tab: InsightType) => {
+    setInsightModalTab(tab);
+    setIsInsightModalOpen(true);
+  };
 
   if (loading) {
     return (
@@ -279,71 +370,34 @@ const RoadmapView: React.FC = () => {
             onSearchChange={setSearchTerm}
             filter={filter}
             onFilterChange={setFilter}
-            categories={categories.map(c => c.name)}
+            categories={allAvailableCategories}
             onAddNew={handleAddNew}
             onToggleFullScreen={() => setIsFullScreen(true)}
             sortMode={sortMode}
             onToggleSort={() => setSortMode(prev => prev === 'manual' ? 'timeline' : 'manual')}
           />
           
-          {/* Insight Dashboard (E) */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 px-10 py-6 bg-slate-50/50">
-            {[
-              { label: 'โครงการที่ดำเนินการอยู่', value: insights.ongoing, sub: 'Active Projects', icon: '⚡', color: 'text-indigo-600' },
-              { label: 'แผนงานที่มีผลกระทบสูง', value: insights.highImpact, sub: 'High Impact', icon: '🔥', color: 'text-emerald-600' },
-              { label: 'ภาระงานสูงสุด (ขนาน)', value: insights.peakLoad, sub: 'Peak Capacity', icon: '📊', color: insights.peakLoad > 3 ? 'text-amber-600' : 'text-slate-600' },
-              { label: 'โครงการที่ล่าช้า', value: insights.delayed, sub: 'At Risk', icon: '⚠️', color: insights.delayed > 0 ? 'text-rose-600' : 'text-slate-600' },
-            ].map((stat, i) => (
-              <div key={i} className="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center gap-4 transition-all hover:shadow-md animate-in fade-in slide-in-from-top-2" style={{ animationDelay: `${i * 100}ms` }}>
-                <div className="text-3xl">{stat.icon}</div>
-                <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em]">{stat.sub}</p>
-                  <div className="flex items-baseline gap-2">
-                    <span className={`text-2xl font-black ${stat.color}`}>{stat.value}</span>
-                    <span className="text-xs font-bold text-slate-400">{stat.label}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          {/* Actionable Creator Advice Banner */}
-          <div className="px-10 pb-6 bg-slate-50/50 border-b border-slate-100">
-            {insights.peakLoad > 3 ? (
-              <div className="flex items-center gap-3.5 px-6 py-4 bg-amber-50/70 border border-amber-200/50 rounded-2xl text-xs text-amber-800 animate-in fade-in slide-in-from-top-1 font-medium">
-                <span className="text-lg bg-amber-100 p-2 rounded-xl">⚠️</span>
-                <div>
-                  <p className="font-bold text-amber-900">ตรวจพบการกระจุกตัวของภาระงาน (Creator Hustle Congestion)</p>
-                  <p className="text-amber-800/80 mt-0.5">มีโครงการที่รันซ้อนพร้อมกันสูงสุดถึง {insights.peakLoad} แผนงานในบางสัปดาห์ แนะนำให้ลากแบ่งระยะเวลา (Duration) หรือขยับจุดเริ่มต้น เพื่อให้ทีมสคริปต์และทีมตัดต่อมีระยะเวลาพิทช์แบรนด์ที่ดีขึ้น</p>
-                </div>
-              </div>
-            ) : insights.delayed > 0 ? (
-              <div className="flex items-center gap-3.5 px-6 py-4 bg-rose-50/70 border border-rose-200/50 rounded-2xl text-xs text-rose-800 animate-in fade-in slide-in-from-top-1 font-medium">
-                <span className="text-lg bg-rose-100 p-2 rounded-xl">⚠️</span>
-                <div>
-                  <p className="font-bold text-rose-900">พบแผนคอนเทนต์สะสมล่าช้า (Delayed Schedule Alert)</p>
-                  <p className="text-rose-800/80 mt-0.5">มีโครงการที่เสร็จไม่ทันตารางเดิมอยู่ {insights.delayed} แผนงาน แนะนำให้เปิดโหมด "เรียงตามเวลา" เพื่อจัดลำดับแผนงานสำคัญสุดก่อน หรือปรับขยายบัฟเฟอร์การผลิตในหน้ารายละเอียดของแผนนั้นๆ</p>
-                </div>
-              </div>
-            ) : (
-              <div className="flex items-center gap-3.5 px-6 py-4 bg-indigo-50/70 border border-indigo-100/50 rounded-2xl text-xs text-indigo-800 animate-in fade-in slide-in-from-top-1 font-medium">
-                <span className="text-lg bg-indigo-100/50 p-2 rounded-xl font-bold">✨</span>
-                <div>
-                  <p className="font-bold text-indigo-900">สมดุลของตารางเวลาเป็นระเบียบดีเยี่ยม (Healthy Content Pipeline)</p>
-                  <p className="text-indigo-800/80 mt-0.5">ขีดความสามารถการรันแผนงานมีความกระจายตัวดี (Peak Concurrency อยู่ที่ {insights.peakLoad} งาน) มั่นใจได้ว่าทุกช่องจะไม่ขาดช่วงโพสต์ และคงความพรีเมียมของชิ้นงานได้ตามเป้า</p>
-                </div>
-              </div>
-            )}
-          </div>
+          {/* Enhanced Modular Insight Dashboard & Advice Banner (E) */}
+          <RoadmapInsightDashboard
+            insights={insights}
+            activeInsightFilter={activeInsightFilter}
+            onToggleInsightFilter={handleToggleInsightFilter}
+            onClearInsightFilter={handleClearInsightFilter}
+            onOpenDeepDive={handleOpenDeepDive}
+          />
         </>
       ) : (
-        <button 
-          onClick={() => setIsFullScreen(false)}
-          className="fixed top-6 right-10 z-[60] bg-white/80 backdrop-blur border border-slate-200 p-4 rounded-2xl shadow-xl text-slate-400 hover:text-indigo-600 transition-all hover:scale-110 group"
-        >
-          <Layout className="w-6 h-6" />
-          <span className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">ออกจากการแสดงผลเต็มจอ</span>
-        </button>
+        <RoadmapMiniToolbar 
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          filter={filter}
+          onFilterChange={setFilter}
+          categories={allAvailableCategories}
+          onAddNew={handleAddNew}
+          sortMode={sortMode}
+          onToggleSort={() => setSortMode(prev => prev === 'manual' ? 'timeline' : 'manual')}
+          onExitFullScreen={() => setIsFullScreen(false)}
+        />
       )}
 
       <div 
@@ -432,6 +486,10 @@ const RoadmapView: React.FC = () => {
                       onEdit={handleEditTask}
                       isDraggable={sortMode === 'manual' && filter === 'All' && !searchTerm}
                       categories={categories}
+                      hoveredTaskId={hoveredTaskId}
+                      onHoverTask={setHoveredTaskId}
+                      allTasks={tasks}
+                      users={activeUsers}
                     />
                   </Reorder.Item>
                 ))}
@@ -441,13 +499,14 @@ const RoadmapView: React.FC = () => {
           
           {/* Capacity Meter (C) */}
           <div className="flex bg-slate-50/80 border-t border-slate-100 items-center">
-            <div className={`w-[822px] min-w-[822px] py-3 px-10 text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0 sticky left-0 z-50 bg-slate-100/50 backdrop-blur-sm border-r border-slate-200`}>
-              Resource Capacity Check (Concurrency)
+            <div className={`w-[822px] min-w-[822px] py-3 px-10 text-[10px] font-black text-slate-400 uppercase tracking-widest shrink-0 sticky left-0 z-50 bg-slate-100/50 backdrop-blur-sm border-r border-slate-200 flex items-center justify-between`}>
+              <span>Resource Capacity Check (Concurrency)</span>
+              <span className="text-[9px] font-bold text-slate-400 lowercase italic">(นับเฉพาะงานที่ยังไม่เสร็จ)</span>
             </div>
             <div className="flex flex-1">
               {Array.from({ length: totalWeeks }).map((_, i) => {
                 const weekIdx = timelineStartWeek + i;
-                const count = tasks.filter(t => weekIdx >= t.start_week && weekIdx < (t.start_week + t.duration_weeks)).length;
+                const count = tasks.filter(t => t.status !== 'Done' && weekIdx >= t.start_week && weekIdx < (t.start_week + t.duration_weeks)).length;
                 const isOver = count > 3;
                 return (
                   <div key={i} className="w-[40px] flex flex-col items-center justify-center py-2 border-r border-slate-100/50">
@@ -487,8 +546,28 @@ const RoadmapView: React.FC = () => {
             allTasks={tasks}
             executionTasks={allTasks.filter(t => t.roadmapId === selectedTask?.id)}
             users={activeUsers}
+            goals={goals}
             onAddTask={handleAddExecTask}
             onEditTask={handleEditExecTask}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Strategic Insight Deep Dive Analytics Modal */}
+      <AnimatePresence>
+        {isInsightModalOpen && (
+          <RoadmapInsightModal
+            isOpen={isInsightModalOpen}
+            onClose={() => setIsInsightModalOpen(false)}
+            initialTab={insightModalTab}
+            tasks={tasks}
+            users={activeUsers}
+            goals={goals}
+            onSelectTask={handleEditTask}
+            onApplyFilter={(tab) => {
+              setActiveInsightFilter(tab);
+              setIsInsightModalOpen(false);
+            }}
           />
         )}
       </AnimatePresence>

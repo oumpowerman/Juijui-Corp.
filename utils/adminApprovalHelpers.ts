@@ -453,3 +453,113 @@ export function validateCheckInTime(
     };
 }
 
+export interface AdminManageCheckResult {
+    allowed: boolean;
+    reason?: string;
+    targetCompanyName?: string;
+    adminCompanyName?: string;
+    isSuperApprover?: boolean;
+}
+
+/**
+ * Extracts the list of user IDs configured as Super Approvers (Group Executives)
+ * from master_options record (type: 'COMPANY_CONFIG', key: 'SUPER_APPROVER_USER_IDS').
+ */
+export function getSuperApproverUserIds(
+    masterOptions?: Array<{ type?: string; key?: string; description?: string | null; label?: string | null }> | null
+): string[] {
+    if (!masterOptions || !Array.isArray(masterOptions)) return [];
+    const config = masterOptions.find(o => o.type === 'COMPANY_CONFIG' && o.key === 'SUPER_APPROVER_USER_IDS');
+    if (!config) return [];
+
+    const raw = config.description || config.label;
+    if (!raw) return [];
+    try {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+            return parsed.map(String);
+        }
+    } catch (e) {
+        return raw.split(',').map(s => s.trim()).filter(Boolean);
+    }
+    return [];
+}
+
+/**
+ * Validates whether an admin can manage (approve / reject) a specific user's request
+ * based on multi-company rules.
+ *
+ * Rules:
+ * 1. Role Check: Must be an ADMIN.
+ * 2. Executive / Super Approver Check: If admin is in superApproverUserIds, they can manage ALL companies (allowed = true).
+ * 3. Single-Company Guard: If there is 1 or fewer active companies in the system, NO restriction applies (allowed = true).
+ * 4. Super/HQ Admin: If the admin has no specific companyId assigned (null/undefined), they can manage all companies (allowed = true).
+ * 5. Company Match: If admin's company matches the requester's company, allowed = true.
+ * 6. Fallback for legacy users: If requester has no companyId, fallback to default/first company (e.g. 'JJ' or first active company).
+ * 7. Mismatch: If companies differ, returns allowed = false with descriptive details for UI/toast.
+ */
+export function canAdminManageRequest(
+    adminUser: { id?: string; companyId?: string | null; role?: string } | null | undefined,
+    requestUser: { id?: string; companyId?: string | null; company?: { id?: string; name?: string; shortName?: string } | null } | null | undefined,
+    companies: Array<{ id: string; name: string; shortName?: string; isActive?: boolean }> = [],
+    superApproverUserIdsOrMasterOptions?: string[] | Array<{ type?: string; key?: string; description?: string | null; label?: string | null }>
+): AdminManageCheckResult {
+    // Basic role check
+    if (!adminUser || adminUser.role !== 'ADMIN') {
+        return { allowed: false, reason: 'คุณไม่มีสิทธิ์ระดับผู้ดูแลระบบ (Admin)' };
+    }
+
+    // Resolve super approver IDs
+    let superApproverIds: string[] = [];
+    if (Array.isArray(superApproverUserIdsOrMasterOptions)) {
+        if (superApproverUserIdsOrMasterOptions.length > 0 && typeof superApproverUserIdsOrMasterOptions[0] === 'string') {
+            superApproverIds = superApproverUserIdsOrMasterOptions as string[];
+        } else {
+            superApproverIds = getSuperApproverUserIds(superApproverUserIdsOrMasterOptions as any);
+        }
+    }
+
+    // Rule 2: Super Approver / Executive Bypass (Admin in super approvers list can manage all companies)
+    if (adminUser.id && superApproverIds.includes(adminUser.id)) {
+        return { allowed: true, isSuperApprover: true };
+    }
+
+    // Rule 3: Single-Company Guard (If <= 1 active company exists in system, no restriction applies)
+    const activeCompanies = companies.filter(c => c.isActive !== false);
+    if (activeCompanies.length <= 1) {
+        return { allowed: true };
+    }
+
+    const adminCompanyId = adminUser.companyId;
+
+    // Rule 4: Super/HQ Admin (unlocked admin with no single company constraint)
+    if (!adminCompanyId) {
+        return { allowed: true };
+    }
+
+    // Rule 5 & 6: Resolve requester company with fallback to default company
+    const requesterCompanyId = requestUser?.companyId || requestUser?.company?.id;
+    
+    // Default company fallback (e.g., 'JJ' or the primary company)
+    const defaultCompany = activeCompanies.find(c => c.shortName === 'JJ' || c.name === 'JJ') || activeCompanies[0];
+    const effectiveRequesterCompanyId = requesterCompanyId || defaultCompany?.id;
+
+    if (adminCompanyId === effectiveRequesterCompanyId || (requesterCompanyId && adminCompanyId === requesterCompanyId)) {
+        return { allowed: true };
+    }
+
+    // Rule 7: Company mismatch
+    const targetComp = activeCompanies.find(c => c.id === effectiveRequesterCompanyId || c.id === requesterCompanyId) || requestUser?.company;
+    const adminComp = activeCompanies.find(c => c.id === adminCompanyId);
+
+    const targetName = targetComp?.name || targetComp?.shortName || 'บริษัทอื่น';
+    const adminName = adminComp?.name || adminComp?.shortName || 'บริษัทของคุณ';
+
+    return {
+        allowed: false,
+        reason: `คำขอนี้เป็นของพนักงานสังกัด ${targetName} (สิทธิ์การอนุมัติถูกจำกัดเฉพาะ Admin ประจำ${targetName})`,
+        targetCompanyName: targetName,
+        adminCompanyName: adminName
+    };
+}
+

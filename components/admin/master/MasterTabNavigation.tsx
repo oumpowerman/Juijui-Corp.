@@ -1,6 +1,6 @@
 
 import React, { useMemo } from 'react';
-import { Activity, CheckSquare, Flag, Tag, Calendar, CalendarDays, Type, Layers, LayoutTemplate, FileText, MapPin, Presentation, Package, AlertTriangle, Briefcase, HeartPulse, Clock, ShieldAlert, Gift, Smile, Monitor, HardDrive, BookOpen, Gamepad2, Coins, Gavel, ShieldCheck } from 'lucide-react';
+import { Activity, CheckSquare, Flag, Tag, Calendar, CalendarDays, Type, Layers, LayoutTemplate, FileText, MapPin, Presentation, Package, AlertTriangle, Briefcase, HeartPulse, Clock, ShieldAlert, Gift, Smile, Monitor, HardDrive, BookOpen, Gamepad2, Coins, Gavel, ShieldCheck, Building2, Film } from 'lucide-react';
 import { MasterTab } from '../../../hooks/useMasterDataView';
 import { MasterOption } from '../../../types';
 
@@ -20,6 +20,7 @@ export const MASTER_META: Record<string, { label: string, icon: any, desc: strin
     PILLAR: { label: 'Pillars', icon: Layers, desc: 'แกนเนื้อหา (เช่น Education, Entertainment, Lifestyle)', group: 'CONTENT' },
     CATEGORY: { label: 'Categories', icon: LayoutTemplate, desc: 'หมวดหมู่ย่อย (เช่น Vlog, Review, Interview)', group: 'CONTENT' },
     SCRIPT_CATEGORY: { label: 'Script Categories', icon: FileText, desc: 'หมวดหมู่สคริปต์ (เช่น Vlog, Storytelling, Review)', group: 'CONTENT' },
+    CONTENT_ALERT: { label: 'Content LINE Alerts', icon: Film, desc: 'ตั้งค่าระบบแจ้งเตือนคิวลงคลิปล่วงหน้าผ่าน LINE อัตโนมัติ (Pre-Release)', group: 'CONTENT' },
     SHOOT_LOCATION: { label: 'พิกัดสถานที่ถ่ายทำ', icon: MapPin, desc: 'จัดการพิกัดและรัศมี GPS ของกองถ่ายหรือสถานที่ถ่ายทำนอกสถานที่ (Onsite)', group: 'CONTENT' },
     MEETING_CATEGORY: { label: 'Meeting Topics', icon: Presentation, desc: 'หัวข้อการประชุม (เช่น General, Crisis, Project Update)', group: 'CONTENT' },
 
@@ -27,6 +28,7 @@ export const MASTER_META: Record<string, { label: string, icon: any, desc: strin
     INVENTORY: { label: 'Equipment Categories', icon: Package, desc: 'หมวดหมู่อุปกรณ์หลักและย่อย (ใช้ในหน้า Checklist)', group: 'INVENTORY' },
     ITEM_CONDITION: { label: 'Item Condition', icon: AlertTriangle, desc: 'สภาพอุปกรณ์ (เช่น Good, Broken, Lost) ใช้แปะป้ายสถานะของ', group: 'INVENTORY' },
     POSITION: { label: 'Positions', icon: Briefcase, desc: 'ตำแหน่งงานและหน้าที่ความรับผิดชอบ (ใช้ในหน้าสมัครและหน้าทีม)', group: 'TEAM' },
+    COMPANIES: { label: 'บริษัทในเครือ (Companies)', icon: Building2, desc: 'จัดการรายชื่อและข้อมูลบริษัทในเครือ (SaaS Multi-Company)', group: 'TEAM' },
     ATTENDANCE_RULES: { label: 'HR System Rules', icon: Clock, desc: 'บริหารกฎกติกาการเข้างาน, การลา, ขาด, สาย, และสิทธิ์พนักงานทั้งหมด', group: 'TEAM' },
     LOCATIONS: { label: 'พิกัดออฟฟิศหลัก', icon: MapPin, desc: 'จัดการพิกัดและรัศมี GPS ของสำนักงานใหญ่หรือออฟฟิศสาขาหลัก', group: 'TEAM' },
     REJECTION_REASON: { label: 'Reject Reasons', icon: ShieldAlert, desc: 'เหตุผลที่ส่งแก้งาน (QC) ใช้เก็บสถิติปัญหาที่พบบ่อย', group: 'TEAM' },
@@ -88,12 +90,12 @@ const MasterTabNavigation: React.FC<MasterTabNavigationProps> = ({ activeTab, on
     }, [activeTabs]);
 
     const contentKeys = useMemo(() => {
-        const keys = ['FORMAT', 'PILLAR', 'CATEGORY', 'SCRIPT_CATEGORY', 'SHOOT_LOCATION', 'MEETING_CATEGORY'];
+        const keys = ['FORMAT', 'PILLAR', 'CATEGORY', 'SCRIPT_CATEGORY', 'CONTENT_ALERT', 'SHOOT_LOCATION', 'MEETING_CATEGORY'];
         return activeTabs ? keys.filter(k => activeTabs.includes(k)) : keys;
     }, [activeTabs]);
 
     const resourceKeys = useMemo(() => {
-        const keys = ['INVENTORY', 'ITEM_CONDITION', 'POSITION', 'ATTENDANCE_RULES', 'LOCATIONS', 'REJECTION_REASON'];
+        const keys = ['COMPANIES', 'POSITION', 'ATTENDANCE_RULES', 'LOCATIONS', 'INVENTORY', 'ITEM_CONDITION', 'REJECTION_REASON'];
         return activeTabs ? keys.filter(k => activeTabs.includes(k)) : keys;
     }, [activeTabs]);
 

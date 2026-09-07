@@ -65,6 +65,44 @@ export async function getTargetDestination(
     } else {
       console.log(`${record.type} requested but LINE_SUMMARY_DESTINATION is empty or not found.`);
     }
+  } else if (record.type === 'CONTENT_PLANNER_ALERT') {
+    // 1. Check dedicated content alert destination
+    const { data: contentDestOpt } = await supabaseAdmin
+      .from('master_options')
+      .select('label')
+      .eq('type', 'WORK_CONFIG')
+      .eq('key', 'CONTENT_ALERT_TARGET_DESTINATION')
+      .maybeSingle();
+
+    if (contentDestOpt && contentDestOpt.label && contentDestOpt.label.trim()) {
+      targetDestination = contentDestOpt.label.trim();
+      targetName = 'Content Alert LINE Destination';
+    } else {
+      // 2. Fallback to general LINE Summary group
+      const { data: summaryDestOpt } = await supabaseAdmin
+        .from('master_options')
+        .select('label')
+        .eq('type', 'WORK_CONFIG')
+        .eq('key', 'LINE_SUMMARY_DESTINATION')
+        .maybeSingle();
+
+      if (summaryDestOpt && summaryDestOpt.label && summaryDestOpt.label.trim()) {
+        targetDestination = summaryDestOpt.label.trim();
+        targetName = 'LINE Summary Group';
+      } else {
+        // 3. Fallback to assigned user's private LINE
+        const { data: userProfile } = await supabaseAdmin
+          .from('profiles')
+          .select('line_user_id, full_name')
+          .eq('id', record.user_id)
+          .single();
+
+        if (userProfile && userProfile.line_user_id) {
+          targetDestination = userProfile.line_user_id;
+          targetName = userProfile.full_name || 'User';
+        }
+      }
+    }
   } else if (record.type === 'APPROVAL_REQ' && submissionAlertMode === 'GROUP_ONLY') {
     const { data: destOpt } = await supabaseAdmin
       .from('master_options')

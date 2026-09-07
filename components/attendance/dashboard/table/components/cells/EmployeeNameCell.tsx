@@ -2,6 +2,7 @@ import React from "react";
 import { Award, Sparkles, Flame, TrendingUp, CheckCircle, ShieldAlert } from "lucide-react";
 import { User } from "../../../../../../types";
 import { UserStat } from "../../types";
+import CompanyBadge from "../../../../../common/CompanyBadge";
 
 interface EmployeeNameCellProps {
   user: User;
@@ -187,6 +188,7 @@ export const EmployeeNameCell: React.FC<EmployeeNameCellProps> = ({
         <div>
           <div className="flex items-center gap-1.5 flex-wrap">
             <p className={`text-sm font-bold ${nameTextClass}`}>{user.name}</p>
+            <CompanyBadge company={user.company} companyId={user.companyId} size="xs" />
             {nameBadgeElement}
             {stat?.hasProvisionalForgot && (
               <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 bg-amber-50 text-amber-700 border border-amber-200/60 rounded-full shadow-xs animate-pulse whitespace-nowrap shrink-0">

@@ -201,7 +201,10 @@ export const adminApprovalService = {
 
         await sendApprovalNotification(otReq.userId, '✅ อนุมัติคำขอพิเศษ (OT)', notifMsg, otReq.id, { request_type: 'OT' });
 
-        await publishToTeamChannel(`✅ คำขอ OT ของ **${otReq.user?.name || 'พนักงาน'}** วันที่ ${dateDisplay} (${finalHours} ชม.) ได้รับการอนุมัติแล้ว${checkOutMsg}${adminNote ? `\n📝 บันทึก: ${adminNote}` : ''}`);
+        const compShortName = otReq.user?.company?.shortName || (otReq.user as any)?.companyShortName;
+        const compPrefix = compShortName ? `[${compShortName}] ` : '';
+
+        await publishToTeamChannel(`✅ คำขอ OT ของ **${compPrefix}${otReq.user?.name || 'พนักงาน'}** วันที่ ${dateDisplay} (${finalHours} ชม.) ได้รับการอนุมัติแล้ว${checkOutMsg}${adminNote ? `\n📝 บันทึก: ${adminNote}` : ''}`);
 
         await sendGroupSummaryNotification(
             otReq.userId,
@@ -211,7 +214,8 @@ export const adminApprovalService = {
             'อนุมัติแล้ว ✅',
             adminNote,
             otReq.id,
-            { request_type: 'OT' }
+            { request_type: 'OT' },
+            compShortName
         );
 
         return { success: true, checkOutMsg };
@@ -323,9 +327,12 @@ export const adminApprovalService = {
             notifMsg += `\n\n📝 บันทึกจากแอดมิน: ${adminNote}`;
         }
 
+        const compShortName = request.user?.company?.shortName || (request.user as any)?.companyShortName;
+        const compPrefix = compShortName ? `[${compShortName}] ` : '';
+
         await sendApprovalNotification(request.userId, notifTitle, notifMsg, request.id, { request_type: request.type });
 
-        await publishToTeamChannel(`✅ คำขอของ **${request.user?.name || 'พนักงาน'}** (${translateRequestType(request.type)}) ได้รับการอนุมัติแล้ว`);
+        await publishToTeamChannel(`✅ คำขอของ **${compPrefix}${request.user?.name || 'พนักงาน'}** (${translateRequestType(request.type)}) ได้รับการอนุมัติแล้ว`);
 
         await sendGroupSummaryNotification(
             request.userId,
@@ -335,7 +342,8 @@ export const adminApprovalService = {
             'อนุมัติแล้ว ✅',
             adminNote,
             request.id,
-            { request_type: request.type }
+            { request_type: request.type },
+            compShortName
         );
 
         return { success: true, type: request.type };
@@ -372,6 +380,7 @@ export const adminApprovalService = {
             const dateDisplay = format(new Date(otReq.date), 'd MMM yyyy');
             await sendRejectionNotification(otReq.userId, '❌ ปฏิเสธคำขอพิเศษ (OT)', `คำขอ OT วันที่: ${dateDisplay} ถูกปฏิเสธ\nเหตุผล: ${reason}`, otReq.id, { request_type: 'OT' });
 
+            const compShortName = otReq.user?.company?.shortName || (otReq.user as any)?.companyShortName;
             await sendGroupSummaryNotification(
                 otReq.userId,
                 otReq.user?.name || 'พนักงาน',
@@ -380,7 +389,8 @@ export const adminApprovalService = {
                 'ถูกปฏิเสธ ❌',
                 reason,
                 otReq.id,
-                { request_type: 'OT' }
+                { request_type: 'OT' },
+                compShortName
             );
 
             return { success: true };
@@ -477,10 +487,12 @@ export const adminApprovalService = {
         }
 
         if (targetReq) {
+            const compShortName = targetReq.user?.company?.shortName || (targetReq.user as any)?.companyShortName;
+            const compPrefix = compShortName ? `[${compShortName}] ` : '';
             const dateDisplay = format(targetReq.startDate, 'd MMM yyyy');
             await sendRejectionNotification(targetReq.userId, '❌ ปฏิเสธคำขอ', `คำขอประเภท: ${translateRequestType(targetReq.type)} วันที่: ${dateDisplay} ถูกปฏิเสธ\nเหตุผล: ${reason}`, targetReq.id, { request_type: targetReq.type });
 
-            await publishToTeamChannel(`❌ คำขอของ **${targetReq.user?.name || 'พนักงาน'}** (${translateRequestType(targetReq.type)}) ถูกปฏิเสธ`);
+            await publishToTeamChannel(`❌ คำขอของ **${compPrefix}${targetReq.user?.name || 'พนักงาน'}** (${translateRequestType(targetReq.type)}) ถูกปฏิเสธ`);
 
             await sendGroupSummaryNotification(
                 targetReq.userId,
@@ -490,7 +502,8 @@ export const adminApprovalService = {
                 'ถูกปฏิเสธ ❌',
                 reason,
                 targetReq.id,
-                { request_type: targetReq.type }
+                { request_type: targetReq.type },
+                compShortName
             );
         }
 

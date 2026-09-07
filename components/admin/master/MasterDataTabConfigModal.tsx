@@ -20,12 +20,12 @@ const GROUPS = [
     {
         id: 'content',
         title: 'Content Metadata',
-        keys: ['FORMAT', 'PILLAR', 'CATEGORY', 'SCRIPT_CATEGORY', 'SHOOT_LOCATION', 'MEETING_CATEGORY']
+        keys: ['FORMAT', 'PILLAR', 'CATEGORY', 'SCRIPT_CATEGORY', 'CONTENT_ALERT', 'SHOOT_LOCATION', 'MEETING_CATEGORY']
     },
     {
         id: 'resources',
         title: 'Resources & HR',
-        keys: ['INVENTORY', 'ITEM_CONDITION', 'POSITION', 'ATTENDANCE_RULES', 'LOCATIONS', 'REJECTION_REASON']
+        keys: ['INVENTORY', 'ITEM_CONDITION', 'POSITION', 'COMPANIES', 'ATTENDANCE_RULES', 'LOCATIONS', 'REJECTION_REASON']
     },
     {
         id: 'system',

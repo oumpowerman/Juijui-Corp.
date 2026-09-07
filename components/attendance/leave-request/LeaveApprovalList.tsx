@@ -14,6 +14,8 @@ import { RequestDetailModal } from './RequestDetailModal';
 import MultiDatePickerModal from '../../ui/MultiDatePickerModal';
 import TimePickerModal from '../../ui/TimePickerModal';
 import { useUserSession } from '../../../context/UserSessionContext';
+import { useCompanies } from '../../../hooks/useCompanies';
+import { canAdminManageRequest } from '../../../utils/adminApprovalHelpers';
 import { AdminLeaveMigrator } from './admin/AdminLeaveMigrator';
 
 // Modularized Components
@@ -48,12 +50,14 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
     const isAdmin = currentUserProfile?.role === 'ADMIN';
 
     const { annualHolidays, calendarExceptions, masterOptions } = useMasterData();
+    const { activeCompanies } = useCompanies();
     const [searchParams, setSearchParams] = useSearchParams();
     const highlightReqId = searchParams.get('highlightReqId') || searchParams.get('id');
     const closedHighlightRef = useRef<string | null>(null);
 
     const [filterStatus, setFilterStatus] = useState<'PENDING' | 'HISTORY'>('PENDING');
     const [historySubFilter, setHistorySubFilter] = useState<HistoryFilter>('ALL');
+    const [companyFilter, setCompanyFilter] = useState<string>('ALL');
     
     // State for Request Detail Modal
     const [selectedRequest, setSelectedRequest] = useState<LeaveRequest | null>(null);
@@ -233,6 +237,17 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
             filterStatus === 'PENDING' ? r.status === 'PENDING' : r.status !== 'PENDING'
         );
 
+        if (companyFilter !== 'ALL') {
+            base = base.filter(r => {
+                const u = r.user;
+                if (!u) return false;
+                return u.companyId === companyFilter || 
+                       u.company?.id === companyFilter || 
+                       u.company?.shortName === companyFilter ||
+                       (companyFilter === 'JJ' && (!u.companyId || u.company?.shortName === 'JJ'));
+            });
+        }
+
         if (filterStatus === 'HISTORY') {
             base = base.filter(req => {
                 if (isCustomRangeEnabled && customRange) {
@@ -251,7 +266,7 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
         }
 
         return base;
-    }, [combinedRequests, filterStatus, historySubFilter, isCustomRangeEnabled, customRange, isMonthFilterEnabled, selectedMonth, selectedYear]);
+    }, [combinedRequests, filterStatus, companyFilter, historySubFilter, isCustomRangeEnabled, customRange, isMonthFilterEnabled, selectedMonth, selectedYear]);
 
     const { leaves, lateForgot, ot } = useMemo(() => {
         const leavesList: string[] = [];
@@ -352,12 +367,23 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
     const handleRejectClick = (id: string) => {
         const req = requests.find(r => r.id === id);
         if (req) {
+            const manageCheck = canAdminManageRequest(currentUserProfile, req.user, activeCompanies, masterOptions);
+            if (!manageCheck.allowed) {
+                showAlert(manageCheck.reason || 'คุณไม่มีสิทธิ์ปฏิเสธคำขอของพนักงานต่างบริษัท', 'ไม่สามารถดำเนินการได้');
+                return;
+            }
             setSelectedRequest(req);
             setIsRejectModeRequested(true);
         }
     };
 
     const handleApproveClick = async (req: LeaveRequest, customStartTime?: string) => {
+        const manageCheck = canAdminManageRequest(currentUserProfile, req.user, activeCompanies, masterOptions);
+        if (!manageCheck.allowed) {
+            await showAlert(manageCheck.reason || 'คุณไม่มีสิทธิ์อนุมัติคำขอของพนักงานต่างบริษัท', 'ไม่สามารถอนุมัติได้');
+            return;
+        }
+
         const parsed = parseReason(req.reason || '');
         const targetTime = (customStartTime && customStartTime !== 'DIRECT_APPROVE' && customStartTime !== 'ADJUST_TIME')
             ? customStartTime
@@ -402,6 +428,9 @@ const LeaveApprovalList: React.FC<LeaveApprovalListProps> = ({
                 historySubFilter={historySubFilter}
                 setHistorySubFilter={setHistorySubFilter}
                 pendingCount={requests.filter(r => r.status === 'PENDING').length}
+                companyFilter={companyFilter}
+                setCompanyFilter={setCompanyFilter}
+                companies={activeCompanies}
                 isMonthFilterEnabled={isMonthFilterEnabled}
                 setIsMonthFilterEnabled={setIsMonthFilterEnabled}
                 isCustomRangeEnabled={isCustomRangeEnabled}

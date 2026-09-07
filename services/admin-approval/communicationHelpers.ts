@@ -43,9 +43,11 @@ export async function sendGroupSummaryNotification(
     statusText: string, 
     reason: string = '',
     relatedId?: string,
-    metadata?: any
+    metadata?: any,
+    companyShortName?: string
 ) {
-    let message = `พนักงาน: ${employeeName}\nประเภทคำขอ: ${requestType}\nสถานะ: ${statusText}\nผู้พิจารณา: ${adminName}`;
+    const compPrefix = companyShortName ? `[${companyShortName}] ` : '';
+    let message = `พนักงาน: ${compPrefix}${employeeName}\nประเภทคำขอ: ${requestType}\nสถานะ: ${statusText}\nผู้พิจารณา: ${adminName}`;
     if (reason) {
         message += `\nหมายเหตุ: ${reason}`;
     }
@@ -53,7 +55,7 @@ export async function sendGroupSummaryNotification(
     return supabase.from('notifications').insert({
         user_id: employeeId,
         type: 'APPROVAL_SUMMARY',
-        title: `อัปเดตคำขอ: ${employeeName}`,
+        title: `อัปเดตคำขอ: ${compPrefix}${employeeName}`,
         message,
         is_read: false,
         link_path: 'ATTENDANCE',

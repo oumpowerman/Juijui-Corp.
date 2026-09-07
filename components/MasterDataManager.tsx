@@ -26,6 +26,8 @@ import TribunalSettingsView from './admin/master/views/TribunalSettingsView';
 import WikiCategoryMasterView from './admin/master/views/WikiCategoryMasterView';
 import StorageHubMasterView from './admin/master/views/StorageHubMasterView';
 import SystemPolicyView from './admin/master/views/SystemPolicyView';
+import CompanyMasterView from './admin/master/views/CompanyMasterView';
+import ContentAlertRulesView from './admin/master/views/ContentAlertRulesView';
 import MasterDataTabConfigModal from './admin/master/MasterDataTabConfigModal';
 
 const MasterDataManager: React.FC = () => {
@@ -228,6 +230,13 @@ const MasterDataManager: React.FC = () => {
                                         onDelete={deleteMasterOption}
                                         type="WORK_LOCATION"
                                     />
+                                ) : activeTab === 'CONTENT_ALERT' ? (
+                                    <ContentAlertRulesView 
+                                        masterOptions={masterOptions}
+                                        onUpdate={updateMasterOption}
+                                        onAdd={addMasterOption}
+                                        saveMasterOptionsBulk={saveMasterOptionsBulk}
+                                    />
                                 ) : activeTab === 'SHOOT_LOCATION' ? (
                                     <LocationMasterView 
                                         masterOptions={masterOptions}
@@ -236,6 +245,8 @@ const MasterDataManager: React.FC = () => {
                                         onDelete={deleteMasterOption}
                                         type="SHOOT_LOCATION"
                                     />
+                                ) : activeTab === 'COMPANIES' ? (
+                                    <CompanyMasterView />
                                 ) : activeTab === 'ATTENDANCE_RULES' ? (
                                     <AttendanceRulesView 
                                         masterOptions={masterOptions}

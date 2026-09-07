@@ -1,781 +1,206 @@
-
-import React, { useState, useEffect, useMemo, Suspense, lazy } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { AnimatePresence } from 'framer-motion';
+import { startOfMonth, endOfMonth } from 'date-fns';
 import { User } from '../../../types';
-import { supabase } from '../../../lib/supabase';
-import { format } from 'date-fns';
-import { Download, Users } from 'lucide-react';
-import { AttendanceLog } from '../../../types/attendance';
-import { checkIsLate, getAttendanceSummary, getLateMinutes } from '../../../lib/attendanceUtils';
-import { useGameConfig } from '../../../context/GameConfigContext';
+import { BRAND_CONFIG } from '../../../config/brand';
+import { useCompanies } from '../../../hooks/useCompanies';
 import { useUserSession } from '../../../context/UserSessionContext';
-import { parseReason } from '../leave-request/request-detail/utils';
-import { useAnnualHolidays } from '../../../hooks/useAnnualHolidays';
-import { useCalendarExceptions } from '../../../hooks/useCalendarExceptions';
-import { eachDayOfInterval, startOfMonth, endOfMonth, isWeekend } from 'date-fns';
-import { getRegistryItem } from '../../../constants/attendanceRegistry';
 
-// Import Separated Components
-import DashboardHeader from './DashboardHeader';
-import DashboardStats from './DashboardStats';
-import DashboardTable from './DashboardTable';
+// Types
+import { 
+    AdminAttendanceDashboardProps, 
+    UserStat, 
+    DateFilterMode, 
+    ViewMode, 
+    LateViewMode, 
+    OtViewMode, 
+    HpViewMode, 
+    StatFilterType, 
+    SortDirection 
+} from './types';
+
+// Custom Hooks & Utilities
+import { useAttendanceDashboardData } from './hooks/useAttendanceDashboardData';
+import { useAttendanceCalculator } from './hooks/useAttendanceCalculator';
+import { useAttendanceFilterSort } from './hooks/useAttendanceFilterSort';
+
+// Tabs & Modals
+import { AttendanceTableTab } from './tabs/AttendanceTableTab';
+import { AttendanceAnalyticsTab } from './tabs/AttendanceAnalyticsTab';
 import DashboardUserDetailModal from './DashboardUserDetailModal';
 import { ExportControlCenterModal } from './modal/ExportControlCenterModal';
 import { AttendanceMemberControlModal } from './modal/member-control';
 
-// Lazy Loaded Analytics Component
-const AttendanceAnalytics = lazy(() => import('./analytics/AttendanceAnalytics'));
-
-const AnalyticsSkeleton = () => (
-    <div className="space-y-6 animate-pulse">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-4 bg-gray-100 h-[440px] rounded-3xl" />
-            <div className="lg:col-span-8 bg-gray-100 h-[440px] rounded-3xl" />
-        </div>
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-5 bg-gray-100 h-[380px] rounded-3xl" />
-            <div className="lg:col-span-7 bg-gray-100 h-[380px] rounded-3xl" />
-        </div>
-    </div>
-);
-
-interface AdminAttendanceDashboardProps {
-    users: User[];
-}
-
-interface UserStat {
-    userId: string;
-    present: number;
-    late: number;
-    leaves: number;
-    absent: number;
-    totalHours: number;
-    avgCheckIn: string;
-    logs: AttendanceLog[];
-    totalLateMinutes?: number;
-    totalOtHours?: number;
-    totalOtPayout?: number;
-    totalFixedOtDays?: number;
-    hasProvisionalForgot?: boolean;
-    provisionalForgotCount?: number;
-}
-
-import { useMasterData } from '../../../hooks/useMasterData';
-import { BRAND_CONFIG } from '../../../config/brand';
-
 const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ users }) => {
-    const { masterOptions } = useMasterData();
+    const { activeCompanies } = useCompanies();
     const shouldHideAdmins = BRAND_CONFIG.hideAdminFromAttendanceDashboardMode === 2;
-    const { otRequests, leaveRequests, currentUserProfile } = useUserSession();
+    const { currentUserProfile } = useUserSession();
+
+    // Date Filtering States
     const [currentMonth, setCurrentMonth] = useState(new Date());
-    const [dateFilterMode, setDateFilterMode] = useState<'MONTH' | 'CUSTOM'>('MONTH');
+    const [dateFilterMode, setDateFilterMode] = useState<DateFilterMode>('MONTH');
     const [customStartDate, setCustomStartDate] = useState<Date>(startOfMonth(new Date()));
     const [customEndDate, setCustomEndDate] = useState<Date>(endOfMonth(new Date()));
-    const [logs, setLogs] = useState<AttendanceLog[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+
+    // Search & Filter Dropdown States
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedEmploymentType, setSelectedEmploymentType] = useState('ALL');
     const [selectedPosition, setSelectedPosition] = useState('ALL');
-    const [viewMode, setViewMode] = useState<'TABLE' | 'ANALYTICS'>('TABLE');
-    const [lateViewMode, setLateViewMode] = useState<'DAYS' | 'HOURS'>('DAYS');
-    const [otViewMode, setOtViewMode] = useState<'HOURS' | 'LUMP_SUM' | 'BOTH' | 'PAYOUT'>('HOURS');
-    const [activeStatFilter, setActiveStatFilter] = useState<'ALL' | 'PRESENT' | 'LATE' | 'ABSENT' | 'LEAVE'>('ALL');
-    const [sortDirection, setSortDirection] = useState<'ASC' | 'DESC'>('DESC');
+    const [filterCompany, setFilterCompany] = useState('ALL');
     const [isToolsExpanded, setIsToolsExpanded] = useState(false);
-    const [hpViewMode, setHpViewMode] = useState<'MONTHLY' | 'YEARLY'>('MONTHLY');
-    const [snapshots, setSnapshots] = useState<any[]>([]);
 
-    useEffect(() => {
-        const fetchSnapshots = async () => {
-            try {
-                const { data, error } = await supabase
-                    .from('hp_snapshots')
-                    .select('*');
-                if (error) {
-                    console.warn("hp_snapshots might not exist yet:", error);
-                } else if (data) {
-                    setSnapshots(data);
-                }
-            } catch (e) {
-                console.warn("Error loading hp_snapshots:", e);
-            }
-        };
-        fetchSnapshots();
+    // View Modes & Metrics
+    const [viewMode, setViewMode] = useState<ViewMode>('TABLE');
+    const [lateViewMode, setLateViewMode] = useState<LateViewMode>('DAYS');
+    const [otViewMode, setOtViewMode] = useState<OtViewMode>('HOURS');
+    const [hpViewMode, setHpViewMode] = useState<HpViewMode>('MONTHLY');
+    const [activeStatFilter, setActiveStatFilter] = useState<StatFilterType>('ALL');
+    const [sortDirection, setSortDirection] = useState<SortDirection>('DESC');
 
-        const hpChannel = supabase.channel('hp-snapshots-dashboard')
-            .on('postgres_changes', {
-                event: '*',
-                schema: 'public',
-                table: 'hp_snapshots'
-            }, () => {
-                fetchSnapshots();
-            })
-            .subscribe();
+    // Modals
+    const [selectedUser, setSelectedUser] = useState<{ user: User; stat: UserStat } | null>(null);
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+    const [isMemberControlOpen, setIsMemberControlOpen] = useState(false);
 
-        return () => {
-            supabase.removeChannel(hpChannel);
-        };
-    }, []);
-
+    // Reset sort direction to DESC whenever active stat filter changes
     useEffect(() => {
         setSortDirection('DESC');
     }, [activeStatFilter]);
-    
-    // Modal State
-    const [selectedUser, setSelectedUser] = useState<{ user: User, stat: UserStat } | null>(null);
-    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-    const [isMemberControlOpen, setIsMemberControlOpen] = useState(false);
-    
-    // Config State
-    const [startTime, setStartTime] = useState('10:00');
-    const [lateBuffer, setLateBuffer] = useState(0);
 
-    const { config } = useGameConfig(); // Hook for dynamic grading
-    const { annualHolidays } = useAnnualHolidays();
-    const { exceptions } = useCalendarExceptions();
+    // 1. Data Layer (Fetch logs, snapshots & realtime subscriptions)
+    const { logs, isLoading, snapshots } = useAttendanceDashboardData({
+        currentMonth,
+        dateFilterMode,
+        customStartDate,
+        customEndDate
+    });
 
-    // Helper: Get Effective Status for a Day
-    const getEffectiveDayStatus = (date: Date) => {
-        const dateStr = format(date, 'yyyy-MM-dd');
-        const exception = exceptions.find(e => e.date === dateStr);
-        if (exception) return { status: exception.type, source: 'EXCEPTION' };
-        const holiday = annualHolidays.find(h => h.day === date.getDate() && h.month === date.getMonth() + 1 && h.isActive);
-        if (holiday) return { status: 'HOLIDAY' as const, source: 'ANNUAL' };
-        if (isWeekend(date)) return { status: 'HOLIDAY' as const, source: 'WEEKEND' };
-        return { status: 'WORK_DAY' as const, source: 'DEFAULT' };
-    };
+    // 2. Calculation Engine (Stats, Leaves, OT, Grades, Aggregates)
+    const {
+        startTime,
+        lateBuffer,
+        multipleShifts,
+        workingDaysInMonth,
+        userStats,
+        userMap,
+        positions,
+        aggregates,
+        getGrade
+    } = useAttendanceCalculator({
+        users,
+        logs,
+        currentMonth,
+        dateFilterMode,
+        customStartDate,
+        customEndDate,
+        shouldHideAdmins
+    });
 
-    // Calculate Working Days in current month or range
-    const monthDays = useMemo(() => {
-        const start = dateFilterMode === 'MONTH' ? startOfMonth(currentMonth) : customStartDate;
-        const end = dateFilterMode === 'MONTH' ? endOfMonth(currentMonth) : customEndDate;
-        if (start > end) {
-            return [];
-        }
-        return eachDayOfInterval({
-            start,
-            end
-        });
-    }, [currentMonth, dateFilterMode, customStartDate, customEndDate]);
-
-    const workingDaysInMonth = useMemo(() => {
-        return monthDays.filter(day => getEffectiveDayStatus(day).status === 'WORK_DAY');
-    }, [monthDays, annualHolidays, exceptions]);
-
-    // Load Config
-    useEffect(() => {
-        const workConfig = masterOptions.filter(opt => opt.type === 'WORK_CONFIG');
-        const start = workConfig.find(c => c.key === 'START_TIME')?.label || '10:00';
-        const buffer = parseInt(workConfig.find(c => c.key === 'LATE_BUFFER')?.label || '0');
-        setStartTime(start);
-        setLateBuffer(buffer);
-    }, [masterOptions]);
-
-    const multipleShifts = useMemo(() => {
-        const workConfig = masterOptions.filter(opt => opt.type === 'WORK_CONFIG');
-        const enabled = workConfig.find(c => c.key === 'MULTIPLE_SHIFTS_ENABLED')?.label === 'true';
-        const shiftsList = workConfig.find(c => c.key === 'MULTIPLE_SHIFTS_LIST')?.label || '';
-        return { enabled, shiftsList };
-    }, [masterOptions]);
-
-    // Fetch Logs for the selected month or range
-    useEffect(() => {
-        const start = format(dateFilterMode === 'MONTH' ? startOfMonth(currentMonth) : customStartDate, 'yyyy-MM-dd');
-        const end = format(dateFilterMode === 'MONTH' ? endOfMonth(currentMonth) : customEndDate, 'yyyy-MM-dd');
-
-        const fetchMonthLogs = async () => {
-            setIsLoading(true);
-            try {
-                const { data, error } = await supabase
-                    .from('attendance_logs')
-                    .select('*')
-                    .gte('date', start)
-                    .lte('date', end);
-
-                if (error) throw error;
-                
-                if (data) {
-                    setLogs(data.map((l: any) => ({
-                        id: l.id,
-                        userId: l.user_id,
-                        date: l.date,
-                        checkInTime: l.check_in_time ? new Date(l.check_in_time) : null,
-                        checkOutTime: l.check_out_time ? new Date(l.check_out_time) : null,
-                        workType: l.work_type,
-                        status: l.status,
-                        note: l.note,
-                        locationName: l.location_name,
-                        checkOutLocationName: l.check_out_location_name,
-                        latitude: l.location_lat,
-                        longitude: l.location_lng,
-                        checkOutLat: l.check_out_lat,
-                        checkOutLng: l.check_out_lng,
-                        photoUrl: l.photo_url,
-                        checkOutPhotoUrl: l.check_out_photo_url
-                    })));
-                }
-            } catch (err) {
-                console.error("Fetch admin logs error", err);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
-        fetchMonthLogs();
-
-        // Real-time Subscriptions
-        const logsChannel = supabase.channel('admin-dashboard-logs')
-            .on('postgres_changes', { 
-                event: '*', 
-                schema: 'public', 
-                table: 'attendance_logs',
-                filter: `date=gte.${start}&date=lte.${end}`
-            }, () => fetchMonthLogs())
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(logsChannel);
-        };
-    }, [currentMonth, dateFilterMode, customStartDate, customEndDate]);
-
-    // Calculate Stats per User
-    const userStats = useMemo(() => {
-        const statsMap: Record<string, UserStat> = {};
-        const today = new Date();
-
-        // Initialize for all active users
-        users.filter(u => u.isActive && !(shouldHideAdmins && u.role === 'ADMIN')).forEach(u => {
-            statsMap[u.id] = {
-                userId: u.id,
-                present: 0,
-                late: 0,
-                leaves: 0,
-                absent: 0,
-                totalHours: 0,
-                avgCheckIn: '-',
-                logs: [],
-                totalLateMinutes: 0,
-                hasProvisionalForgot: false,
-                provisionalForgotCount: 0
-            };
-        });
-
-        // Process Logs
-        logs.forEach(log => {
-            if (statsMap[log.userId]) {
-                const stat = statsMap[log.userId];
-                stat.logs.push(log);
-
-                const isProvisional = !!log.note?.includes('[PROVISIONAL_FORGOT_CHECKIN]') || 
-                                      !!log.note?.includes('[PROVISIONAL_LATE_ENTRY]') || 
-                                      !!log.note?.includes('[PROVISIONAL_WFH]') || 
-                                      !!log.note?.includes('[PROVISIONAL_ONSITE]') ||
-                                      !!log.note?.includes('[PROVISIONAL_CHECKOUT]') ||
-                                      !!log.note?.includes('[PROVISIONAL_GPS_SPOOF_APPEAL]') ||
-                                      !!log.note?.includes('[GPS_SPOOF_APPEAL_PENDING]') ||
-                                      !!log.note?.includes('[FORGOT_BOTH_PENDING]') ||
-                                      !!log.note?.includes('[APPEAL_PENDING]');
-                if (isProvisional) {
-                    stat.provisionalForgotCount = (stat.provisionalForgotCount || 0) + 1;
-                    stat.hasProvisionalForgot = true;
-                }
-
-                const isGpsRejected = !!log.note?.includes('[REJECTED GPS_SPOOF_APPEAL]') || 
-                                      !!log.note?.includes('[REJECTED_GPS_SPOOF_APPEAL]');
-
-                if (log.status === 'LEAVE' || log.workType === 'LEAVE') {
-                    const parsed = parseReason(log.note || '');
-                    const isHalfDay = parsed.isHalfDay || leaveRequests?.some(req => {
-                        if (req.userId !== log.userId || req.status !== 'APPROVED') return false;
-                        const registryItem = getRegistryItem(req.leaveType);
-                        if (registryItem?.category !== 'LEAVE') return false;
-                        const reqStart = format(new Date(req.startDate), 'yyyy-MM-dd');
-                        const reqEnd = format(new Date(req.endDate), 'yyyy-MM-dd');
-                        return log.date >= reqStart && log.date <= reqEnd && (req.isHalfDay || req.is_half_day);
-                    });
-                    
-                    if (isHalfDay) {
-                        stat.leaves += 0.5;
-                    } else {
-                        stat.leaves += 1.0;
-                    }
-                } else if (log.status === 'ABSENT' || log.workType === 'ABSENT') {
-                    stat.absent++;
-                } else {
-                    const isApprovedHalfDayLeave = leaveRequests?.some(req => {
-                        if (req.userId !== log.userId || req.status !== 'APPROVED') return false;
-                        const registryItem = getRegistryItem(req.leaveType);
-                        if (registryItem?.category !== 'LEAVE') return false;
-                        const reqStart = format(new Date(req.startDate), 'yyyy-MM-dd');
-                        const reqEnd = format(new Date(req.endDate), 'yyyy-MM-dd');
-                        return log.date >= reqStart && log.date <= reqEnd && (req.isHalfDay || req.is_half_day);
-                    });
-
-                    if (!isProvisional && !isGpsRejected) {
-                        if (isApprovedHalfDayLeave) {
-                            stat.leaves += 0.5;
-                        }
-                    }
-
-                    const summary = getAttendanceSummary(
-                        log.checkInTime,
-                        log.checkOutTime,
-                        { startTime, buffer: lateBuffer, minHours: 9, note: log.note, multipleShifts }
-                    );
-
-                    if (summary.isLate) {
-                        stat.late++;
-                    }
-                    const lateMins = getLateMinutes(log.checkInTime, startTime, lateBuffer, log.note, multipleShifts);
-                    stat.totalLateMinutes = (stat.totalLateMinutes || 0) + lateMins;
-                    stat.totalHours += summary.workHours;
-                }
-            }
-        });
-
-        // Calculate Absents and un-logged Approved Leaves
-        Object.values(statsMap).forEach(stat => {
-            const user = users.find(u => u.id === stat.userId);
-            const userStartDate = user?.startDate ? new Date(user.startDate) : (user?.createdAt ? new Date(user.createdAt) : null);
-
-            // Map of logs by date
-            const logByDateMap = new Map(stat.logs.map(l => [l.date, l]));
-
-            stat.present = 0;
-
-            workingDaysInMonth.forEach(day => {
-                if (userStartDate) {
-                    const dayStr = format(day, 'yyyy-MM-dd');
-                    const startStr = format(userStartDate, 'yyyy-MM-dd');
-                    if (dayStr < startStr) {
-                        return;
-                    }
-                }
-                // Check if this day is in the future
-                const isFutureDay = (day.getFullYear() > today.getFullYear()) ||
-                                    (day.getFullYear() === today.getFullYear() && day.getMonth() > today.getMonth()) ||
-                                    (day.getFullYear() === today.getFullYear() && day.getMonth() === today.getMonth() && day.getDate() > today.getDate());
-                if (isFutureDay) return;
-
-                const isToday = day.getDate() === today.getDate() &&
-                                day.getMonth() === today.getMonth() &&
-                                day.getFullYear() === today.getFullYear();
-
-                if (isToday) {
-                    let targetStartTime = startTime; 
-
-                    if (multipleShifts.enabled && multipleShifts.shiftsList) {
-                        const shifts = multipleShifts.shiftsList
-                            .split(',')
-                            .map(s => s.trim())
-                            .filter(Boolean);
-                        
-                        if (shifts.length > 0) {
-                            shifts.sort();
-                            targetStartTime = shifts[shifts.length - 1];
-                        }
-                    }
-
-                    let [startHour, startMin] = [10, 0];
-                    if (targetStartTime && targetStartTime.includes(':')) {
-                        const parts = targetStartTime.split(':');
-                        startHour = parseInt(parts[0], 10) || 10;
-                        startMin = parseInt(parts[1], 10) || 0;
-                    }
-                    const currentHour = today.getHours();
-                    const currentMin = today.getMinutes();
-
-                    if (currentHour < startHour || (currentHour === startHour && currentMin < startMin)) {
-                        return;
-                    }
-                }
-                
-                const dateStr = format(day, 'yyyy-MM-dd');
-                const log = logByDateMap.get(dateStr);
-                
-                // Check if there is an approved leave request on this date
-                const matchingLeaveReq = leaveRequests?.find(req => {
-                    if (req.userId !== stat.userId || req.status !== 'APPROVED') return false;
-                    const registryItem = getRegistryItem(req.leaveType);
-                    if (registryItem?.category !== 'LEAVE') return false;
-                    const reqStart = format(new Date(req.startDate), 'yyyy-MM-dd');
-                    const reqEnd = format(new Date(req.endDate), 'yyyy-MM-dd');
-                    return dateStr >= reqStart && dateStr <= reqEnd;
-                });
-
-                if (log && log.checkInTime) {
-                    const isLeave = log.status === 'LEAVE' || log.workType === 'LEAVE';
-                    const hasLeaveNote = log.note && (
-                        (log.note.includes('LEAVE') && !log.note.includes('EARLY_LEAVE')) || 
-                        log.note.includes('SICK') || 
-                        log.note.includes('VACATION') || 
-                        log.note.includes('PERSONAL') || 
-                        log.note.includes('EMERGENCY') || 
-                        log.note.includes('UNPAID')
-                    );
-                    if (isLeave || hasLeaveNote) {
-                        stat.present += 0.5;
-                    } else {
-                        stat.present += 1.0;
-                    }
-                }
-
-                if (!log) {
-                    // No attendance log exists for this working day
-                    if (matchingLeaveReq) {
-                        const isHalf = Boolean(matchingLeaveReq.isHalfDay || matchingLeaveReq.is_half_day === true || matchingLeaveReq.is_half_day === 'true');
-                        if (isHalf) {
-                            stat.leaves += 0.5;
-                            stat.absent += 0.5;
-                        } else {
-                            stat.leaves += 1.0;
-                        }
-                    } else {
-                        stat.absent += 1.0;
-                    }
-                } else if (log.status === 'LEAVE' || log.workType === 'LEAVE') {
-                    // Log exists with LEAVE status
-                    const parsed = parseReason(log.note || '');
-                    const isHalf = parsed.isHalfDay || Boolean(matchingLeaveReq?.isHalfDay || matchingLeaveReq?.is_half_day === true || matchingLeaveReq?.is_half_day === 'true');
-                    if (isHalf && !log.checkInTime) {
-                        // Took half day leave and did not check in for remaining half
-                        stat.absent += 0.5;
-                    }
-                }
-            });
-        });
-
-        // Calculate approved Overtime for each user in the selected month/range
-        const activeOtRequests = otRequests.filter(req => {
-            if (req.status !== 'APPROVED') return false;
-            const reqDate = new Date(req.date);
-            const start = dateFilterMode === 'MONTH' ? startOfMonth(currentMonth) : customStartDate;
-            const end = dateFilterMode === 'MONTH' ? endOfMonth(currentMonth) : customEndDate;
-            return reqDate >= start && reqDate <= end;
-        });
-
-        Object.values(statsMap).forEach(stat => {
-            const userOt = activeOtRequests.filter(req => req.userId === stat.userId);
-            const hourlyOt = userOt.filter(req => !req.isFixed && (!req.reason || !req.reason.includes('[OT:FIXED]')));
-            const fixedOt = userOt.filter(req => req.isFixed || (req.reason && req.reason.includes('[OT:FIXED]')));
-
-            stat.totalOtHours = hourlyOt.reduce((sum, req) => sum + req.durationHours, 0);
-            stat.totalFixedOtDays = fixedOt.length;
-            stat.totalOtPayout = userOt.reduce((sum, req) => sum + req.computedPayout, 0);
-        });
-
-        return Object.values(statsMap);
-    }, [users, logs, startTime, lateBuffer, workingDaysInMonth, otRequests, leaveRequests, currentMonth, dateFilterMode, customStartDate, customEndDate, multipleShifts, shouldHideAdmins]);
-
-    // Index users by ID for O(1) lookups
-    const userMap = useMemo(() => {
-        return new Map(users.map(u => [u.id, u]));
-    }, [users]);
-
-    // Compute unique positions from active users
-    const positions = useMemo(() => {
-        const unique = new Set(
-            users
-                .filter(u => u.isActive && u.position && !(shouldHideAdmins && u.role === 'ADMIN'))
-                .map(u => u.position)
-        );
-        return Array.from(unique).sort();
-    }, [users, shouldHideAdmins]);
-
-    // Filtering (Two-Phase Filtering)
-    const filteredStats = useMemo(() => {
-        const baseFiltered = userStats.filter(stat => {
-            const user = userMap.get(stat.userId);
-            if (!user) return false;
-
-            if (shouldHideAdmins && user.role === 'ADMIN') return false;
-
-            const matchesSearch = user.name.toLowerCase().includes(searchTerm.toLowerCase());
-            const matchesEmploymentType = selectedEmploymentType === 'ALL' || user.employmentType === selectedEmploymentType;
-            const matchesPosition = selectedPosition === 'ALL' || user.position === selectedPosition;
-
-            return matchesSearch && matchesEmploymentType && matchesPosition;
-        });
-
-        // Dynamic Metric Filter
-        let finalStats = baseFiltered;
-
-        if (activeStatFilter !== 'ALL') {
-            const getVal = (s: typeof userStats[0]) => {
-                if (activeStatFilter === 'PRESENT') return s.present;
-                if (activeStatFilter === 'LATE') {
-                    return lateViewMode === 'HOURS' ? (s.totalLateMinutes || 0) : s.late;
-                }
-                if (activeStatFilter === 'ABSENT') return s.absent;
-                if (activeStatFilter === 'LEAVE') return s.leaves;
-                return s.present;
-            };
-
-            if (sortDirection === 'DESC') {
-                finalStats = baseFiltered.filter(s => getVal(s) > 0);
-            } else {
-                // ASC
-                const hasZero = baseFiltered.some(s => getVal(s) === 0);
-                if (hasZero) {
-                    finalStats = baseFiltered.filter(s => getVal(s) === 0);
-                }
-            }
-        }
-
-        // Sort
-        return [...finalStats].sort((a, b) => {
-            let valA = 0;
-            let valB = 0;
-            if (activeStatFilter === 'LATE') {
-                valA = lateViewMode === 'HOURS' ? (a.totalLateMinutes || 0) : a.late;
-                valB = lateViewMode === 'HOURS' ? (b.totalLateMinutes || 0) : b.late;
-            } else if (activeStatFilter === 'ABSENT') {
-                valA = a.absent;
-                valB = b.absent;
-            } else if (activeStatFilter === 'LEAVE') {
-                valA = a.leaves;
-                valB = b.leaves;
-            } else {
-                // PRESENT or ALL
-                valA = a.present;
-                valB = b.present;
-            }
-
-            if (sortDirection === 'ASC') {
-                return valA - valB;
-            } else {
-                return valB - valA;
-            }
-        });
-    }, [userStats, userMap, searchTerm, selectedEmploymentType, selectedPosition, activeStatFilter, sortDirection, lateViewMode]);
-
-    // Aggregates
-    const totalCheckins = logs.filter(l => l.checkInTime !== null && l.status !== 'ABSENT').length;
-    const totalLeaves = userStats.reduce((sum, s) => sum + s.leaves, 0);
-    const totalLates = userStats.reduce((sum, s) => sum + s.late, 0);
-    const totalAbsents = userStats.reduce((sum, s) => sum + s.absent, 0);
-    const lateRate = totalCheckins > 0 ? Math.round((totalLates / totalCheckins) * 100) : 0;
-
-    const getGrade = (stat: UserStat) => {
-        if (stat.hasProvisionalForgot) {
-            return { grade: '⏳ WAIT', color: 'bg-amber-50 text-amber-700 border border-amber-200/40 animate-pulse' };
-        }
-        if (stat.present === 0 && stat.leaves === 0) return { grade: 'N/A', color: 'bg-gray-100 text-gray-400' };
-
-        // Use Dynamic Rules from Config if available
-        const rules = config?.ATTENDANCE_GRADING_RULES || [
-             { grade: "A+", max_late: 0, color: "bg-green-100 text-green-700" },
-             { grade: "B", max_late: 2, color: "bg-blue-100 text-blue-700" },
-             { grade: "C", max_late: 4, color: "bg-yellow-100 text-yellow-700" },
-             { grade: "F", max_late: 999, color: "bg-red-100 text-red-700" }
-        ];
-
-        // Sort rules by strictness (lowest max_late first)
-        const sortedRules = [...rules].sort((a: any, b: any) => a.max_late - b.max_late);
-
-        for (const rule of sortedRules) {
-            if (stat.late <= rule.max_late) {
-                return { grade: rule.grade, color: rule.color };
-            }
-        }
-        
-        // Fallback
-        return { grade: 'F', color: 'bg-red-100 text-red-700' };
-    };
-
-    // --- CSV Export Logic ---
-    const handleExportCSV = () => {
-        // 1. Header
-        const headers = [
-            "Employee Name", 
-            "Position", 
-            "Days Present", 
-            lateViewMode === 'HOURS' ? "Late Duration" : "Late Count", 
-            "Leave Days", 
-            "Total Hours", 
-            "Performance Grade"
-        ];
-        
-        // 2. Rows
-        const rows = filteredStats.map(stat => {
-            const user = userMap.get(stat.userId);
-            const gradeInfo = getGrade(stat);
-            
-            let lateValue: string | number = stat.late;
-            if (lateViewMode === 'HOURS') {
-                const totalMins = stat.totalLateMinutes || 0;
-                const hrs = Math.floor(totalMins / 60);
-                const mins = totalMins % 60;
-                lateValue = hrs > 0 ? `"${hrs}h ${mins}m"` : `"${mins}m"`;
-            }
-
-            return [
-                `"${user?.name || 'Unknown'}"`,
-                `"${user?.position || '-'}"`,
-                stat.present,
-                lateValue,
-                stat.leaves,
-                stat.totalHours.toFixed(2),
-                `"${gradeInfo.grade}"`
-            ].join(",");
-        });
-
-        // 3. Combine & Download
-        const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + [headers.join(","), ...rows].join("\n");
-        const encodedUri = encodeURI(csvContent);
-        const link = document.createElement("a");
-        const dateRangeStr = dateFilterMode === 'MONTH' 
-            ? format(currentMonth, 'MMMM_yyyy') 
-            : `${format(customStartDate, 'yyyy-MM-dd')}_to_${format(customEndDate, 'yyyy-MM-dd')}`;
-        const fileName = `Attendance_Report_${dateRangeStr}.csv`;
-        
-        link.setAttribute("href", encodedUri);
-        link.setAttribute("download", fileName);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-    };
+    // 3. Filter & Sort Layer (Two-Phase Filtering)
+    const { filteredStats } = useAttendanceFilterSort({
+        userStats,
+        userMap,
+        searchTerm,
+        selectedEmploymentType,
+        selectedPosition,
+        filterCompany,
+        activeStatFilter,
+        sortDirection,
+        lateViewMode,
+        shouldHideAdmins
+    });
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500">
-            
             <AnimatePresence mode="wait">
                 {viewMode === 'TABLE' ? (
-                    <motion.div
-                        key="TABLE"
-                        initial={{ opacity: 0, y: 15 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -15 }}
-                        transition={{ duration: 0.2, ease: "easeOut" }}
-                        className="space-y-6"
-                    >
-                        <DashboardStats 
-                            totalCheckins={totalCheckins}
-                            totalLates={totalLates}
-                            lateRate={lateRate}
-                            totalAbsents={totalAbsents}
-                            totalLeaves={totalLeaves}
-                            activeUsersCount={users.filter(u => u.isActive).length}
-                            activeFilter={activeStatFilter}
-                            onFilterChange={setActiveStatFilter}
-                        />
-
-                        <DashboardHeader 
-                            currentMonth={currentMonth}
-                            setCurrentMonth={setCurrentMonth}
-                            dateFilterMode={dateFilterMode}
-                            setDateFilterMode={setDateFilterMode}
-                            customStartDate={customStartDate}
-                            setCustomStartDate={setCustomStartDate}
-                            customEndDate={customEndDate}
-                            setCustomEndDate={setCustomEndDate}
-                            searchTerm={searchTerm}
-                            setSearchTerm={setSearchTerm}
-                            selectedEmploymentType={selectedEmploymentType}
-                            setSelectedEmploymentType={setSelectedEmploymentType}
-                            selectedPosition={selectedPosition}
-                            setSelectedPosition={setSelectedPosition}
-                            positions={positions}
-                            viewMode={viewMode}
-                            setViewMode={setViewMode}
-                            isToolsExpanded={isToolsExpanded}
-                            setIsToolsExpanded={setIsToolsExpanded}
-                        />
-
-                        <DashboardTable 
-                            isLoading={isLoading}
-                            filteredStats={filteredStats}
-                            users={users}
-                            getGrade={getGrade}
-                            onUserClick={(user, stat) => setSelectedUser({ user, stat })}
-                            activeStatFilter={activeStatFilter}
-                            sortDirection={sortDirection}
-                            onSortDirectionChange={setSortDirection}
-                            lateViewMode={lateViewMode}
-                            onLateViewModeChange={setLateViewMode}
-                            otViewMode={otViewMode}
-                            onOtViewModeChange={setOtViewMode}
-                            hpViewMode={hpViewMode}
-                            onHpViewModeChange={setHpViewMode}
-                            snapshots={snapshots}
-                            currentMonth={currentMonth}
-                        />
-
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                            <button 
-                                onClick={() => setIsMemberControlOpen(true)}
-                                className="flex items-center gap-2 px-5 py-3 bg-white border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/50 rounded-2xl text-sm font-bold text-gray-700 hover:text-indigo-600 transition-all shadow-sm active:scale-95 cursor-pointer"
-                            >
-                                <Users className="w-4 h-4 text-indigo-500" />
-                                <span>จัดการสถานะสมาชิก & HP</span>
-                            </button>
-                            <button 
-                                onClick={() => setIsExportModalOpen(true)}
-                                className="flex items-center gap-2 px-5 py-3 bg-white border border-gray-200 rounded-2xl text-sm font-bold text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 transition-all shadow-sm active:scale-95 cursor-pointer"
-                            >
-                                <Download className="w-4 h-4" /> Export CSV Report
-                            </button>
-                        </div>
-                    </motion.div>
+                    <AttendanceTableTab 
+                        totalCheckins={aggregates.totalCheckins}
+                        totalLates={aggregates.totalLates}
+                        lateRate={aggregates.lateRate}
+                        totalAbsents={aggregates.totalAbsents}
+                        totalLeaves={aggregates.totalLeaves}
+                        activeUsersCount={users.filter(u => u.isActive).length}
+                        activeStatFilter={activeStatFilter}
+                        setActiveStatFilter={setActiveStatFilter}
+                        currentMonth={currentMonth}
+                        setCurrentMonth={setCurrentMonth}
+                        dateFilterMode={dateFilterMode}
+                        setDateFilterMode={setDateFilterMode}
+                        customStartDate={customStartDate}
+                        setCustomStartDate={setCustomStartDate}
+                        customEndDate={customEndDate}
+                        setCustomEndDate={setCustomEndDate}
+                        searchTerm={searchTerm}
+                        setSearchTerm={setSearchTerm}
+                        selectedEmploymentType={selectedEmploymentType}
+                        setSelectedEmploymentType={setSelectedEmploymentType}
+                        selectedPosition={selectedPosition}
+                        setSelectedPosition={setSelectedPosition}
+                        positions={positions}
+                        filterCompany={filterCompany}
+                        setFilterCompany={setFilterCompany}
+                        companies={activeCompanies}
+                        viewMode={viewMode}
+                        setViewMode={setViewMode}
+                        isToolsExpanded={isToolsExpanded}
+                        setIsToolsExpanded={setIsToolsExpanded}
+                        isLoading={isLoading}
+                        filteredStats={filteredStats}
+                        users={users}
+                        getGrade={getGrade}
+                        onUserClick={(user, stat) => setSelectedUser({ user, stat })}
+                        sortDirection={sortDirection}
+                        setSortDirection={setSortDirection}
+                        lateViewMode={lateViewMode}
+                        setLateViewMode={setLateViewMode}
+                        otViewMode={otViewMode}
+                        setOtViewMode={setOtViewMode}
+                        hpViewMode={hpViewMode}
+                        setHpViewMode={setHpViewMode}
+                        snapshots={snapshots}
+                        onOpenMemberControl={() => setIsMemberControlOpen(true)}
+                        onOpenExportModal={() => setIsExportModalOpen(true)}
+                    />
                 ) : (
-                    <motion.div
-                        key="ANALYTICS"
-                        initial={{ opacity: 0, y: 15 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -15 }}
-                        transition={{ duration: 0.2, ease: "easeOut" }}
-                        className="space-y-6 w-full"
-                    >
-                        <DashboardHeader 
-                            currentMonth={currentMonth}
-                            setCurrentMonth={setCurrentMonth}
-                            dateFilterMode={dateFilterMode}
-                            setDateFilterMode={setDateFilterMode}
-                            customStartDate={customStartDate}
-                            setCustomStartDate={setCustomStartDate}
-                            customEndDate={customEndDate}
-                            setCustomEndDate={setCustomEndDate}
-                            searchTerm={searchTerm}
-                            setSearchTerm={setSearchTerm}
-                            selectedEmploymentType={selectedEmploymentType}
-                            setSelectedEmploymentType={setSelectedEmploymentType}
-                            selectedPosition={selectedPosition}
-                            setSelectedPosition={setSelectedPosition}
-                            positions={positions}
-                            viewMode={viewMode}
-                            setViewMode={setViewMode}
-                            isToolsExpanded={isToolsExpanded}
-                            setIsToolsExpanded={setIsToolsExpanded}
-                        />
-
-                        <Suspense fallback={<AnalyticsSkeleton />}>
-                            <AttendanceAnalytics 
-                                users={users}
-                                userStats={userStats}
-                                workingDaysInMonth={workingDaysInMonth}
-                                startTime={startTime}
-                                lateBuffer={lateBuffer}
-                                currentMonth={currentMonth}
-                                getGrade={getGrade}
-                                onUserClick={(user, stat) => setSelectedUser({ user, stat })}
-                                shiftsEnabled={multipleShifts.enabled}
-                                shiftsList={multipleShifts.shiftsList}
-                            />
-                        </Suspense>
-
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                            <button 
-                                onClick={() => setIsMemberControlOpen(true)}
-                                className="flex items-center gap-2 px-5 py-3 bg-white border border-gray-200 hover:border-indigo-300 hover:bg-indigo-50/50 rounded-2xl text-sm font-bold text-gray-700 hover:text-indigo-600 transition-all shadow-sm active:scale-95 cursor-pointer"
-                            >
-                                <Users className="w-4 h-4 text-indigo-500" />
-                                <span>จัดการสถานะสมาชิก & HP</span>
-                            </button>
-                        </div>
-                    </motion.div>
+                    <AttendanceAnalyticsTab 
+                        currentMonth={currentMonth}
+                        setCurrentMonth={setCurrentMonth}
+                        dateFilterMode={dateFilterMode}
+                        setDateFilterMode={setDateFilterMode}
+                        customStartDate={customStartDate}
+                        setCustomStartDate={setCustomStartDate}
+                        customEndDate={customEndDate}
+                        setCustomEndDate={setCustomEndDate}
+                        searchTerm={searchTerm}
+                        setSearchTerm={setSearchTerm}
+                        selectedEmploymentType={selectedEmploymentType}
+                        setSelectedEmploymentType={setSelectedEmploymentType}
+                        selectedPosition={selectedPosition}
+                        setSelectedPosition={setSelectedPosition}
+                        positions={positions}
+                        filterCompany={filterCompany}
+                        setFilterCompany={setFilterCompany}
+                        companies={activeCompanies}
+                        viewMode={viewMode}
+                        setViewMode={setViewMode}
+                        isToolsExpanded={isToolsExpanded}
+                        setIsToolsExpanded={setIsToolsExpanded}
+                        users={users}
+                        userStats={userStats}
+                        workingDaysInMonth={workingDaysInMonth}
+                        startTime={startTime}
+                        lateBuffer={lateBuffer}
+                        getGrade={getGrade}
+                        onUserClick={(user, stat) => setSelectedUser({ user, stat })}
+                        shiftsEnabled={multipleShifts.enabled}
+                        shiftsList={multipleShifts.shiftsList}
+                        onOpenMemberControl={() => setIsMemberControlOpen(true)}
+                    />
                 )}
             </AnimatePresence>
             
+            {/* User Detail Record Modal */}
             <AnimatePresence>
                 {selectedUser && (
                     <DashboardUserDetailModal 
@@ -789,6 +214,7 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                 )}
             </AnimatePresence>
 
+            {/* Export Control Center Modal */}
             <ExportControlCenterModal 
                 isOpen={isExportModalOpen}
                 onClose={() => setIsExportModalOpen(false)}
@@ -799,6 +225,7 @@ const AdminAttendanceDashboard: React.FC<AdminAttendanceDashboardProps> = ({ use
                 workingDaysInMonth={workingDaysInMonth}
             />
 
+            {/* Attendance Member Status & HP Control Modal */}
             {currentUserProfile && (
                 <AttendanceMemberControlModal 
                     isOpen={isMemberControlOpen}

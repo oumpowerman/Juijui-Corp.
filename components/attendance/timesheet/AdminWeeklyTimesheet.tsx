@@ -17,6 +17,7 @@ import TimesheetTable from './TimesheetTable';
 import TimesheetDetailModal from './TimesheetDetailModal';
 import ExportSettingsModal from './ExportSettingsModal';
 import { useMasterDataContext } from '../../../context/MasterDataContext';
+import { useCompanies } from '../../../hooks/useCompanies';
 import { AnimatePresence, motion } from 'framer-motion';
 import { Check, X } from 'lucide-react';
 import { BRAND_CONFIG } from '../../../config/brand';
@@ -28,6 +29,7 @@ const AdminWeeklyTimesheet: React.FC<{
     onRemoveMember?: (id: string) => void;
 }> = ({ users, onApproveMember, onRemoveMember }) => {
     const { masterOptions } = useMasterDataContext();
+    const { activeCompanies } = useCompanies();
     const shouldHideAdmins = BRAND_CONFIG.hideAdminFromAttendanceDashboardMode === 2;
     const showPendingInTimesheet = BRAND_CONFIG.showPendingMembersInTimesheetMode === 2;
     const pendingMembers = useMemo(() => users.filter(u => !u.isApproved && u.isActive), [users]);
@@ -67,6 +69,7 @@ const AdminWeeklyTimesheet: React.FC<{
     const [currentDate, setCurrentDate] = useState(new Date());
     const [searchTerm, setSearchTerm] = useState('');
     const [filterDepartment, setFilterDepartment] = useState('ALL');
+    const [filterCompany, setFilterCompany] = useState('ALL');
     const [filterStatus, setFilterStatus] = useState<'ALL' | 'LATE' | 'ABSENT'>('ALL');
     const [showInactive, setShowInactive] = useState(false);
     const [filterProvisionalOnly, setFilterProvisionalOnly] = useState(false);
@@ -231,9 +234,14 @@ const AdminWeeklyTimesheet: React.FC<{
 
             const matchesSearch = u.name.toLowerCase().includes(searchTerm.toLowerCase());
             const matchesDept = filterDepartment === 'ALL' || u.position === filterDepartment;
+            const matchesCompany = filterCompany === 'ALL' || 
+                u.companyId === filterCompany || 
+                u.company?.id === filterCompany || 
+                u.company?.shortName === filterCompany ||
+                (filterCompany === 'JJ' && (!u.companyId || u.company?.shortName === 'JJ'));
             const matchesActive = showInactive || u.isActive;
             
-            if (!matchesActive) return false;
+            if (!matchesActive || !matchesCompany) return false;
 
             if (filterProvisionalOnly) {
                 const userLogs = logs.filter(l => l.userId === u.id);
@@ -268,7 +276,7 @@ const AdminWeeklyTimesheet: React.FC<{
             groups[dept].push(u);
         });
         return groups;
-    }, [users, searchTerm, filterDepartment, filterStatus, showInactive, logs, filterProvisionalOnly]);
+    }, [users, searchTerm, filterDepartment, filterCompany, filterStatus, showInactive, logs, filterProvisionalOnly]);
 
     const nav = (offset: number) => {
         setCurrentDate(prev => viewMode === 'WEEK' ? addWeeks(prev, offset) : addMonths(prev, offset));
@@ -320,6 +328,9 @@ const AdminWeeklyTimesheet: React.FC<{
                 filterDepartment={filterDepartment}
                 setFilterDepartment={setFilterDepartment}
                 departments={departments}
+                filterCompany={filterCompany}
+                setFilterCompany={setFilterCompany}
+                companies={activeCompanies}
                 showInactive={showInactive}
                 setShowInactive={setShowInactive}
                 onExportCSV={handleExportCSV}

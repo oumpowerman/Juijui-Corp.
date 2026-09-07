@@ -17,6 +17,10 @@ export interface RoadmapTask {
   effort?: number; // 1-5
   impact?: number; // 1-5
   dependencies?: string[]; // IDs of tasks this task depends on
+  owner_id?: string; // Project Owner / Lead User ID (DRI)
+  description?: string; // Strategic overview / Problem statement
+  target_kpi?: string; // Target KPI / Success metric (e.g. 1M Views, +20% Revenue)
+  goal_id?: string; // Linked Goal / OKR ID
   original_start_week?: number; // Baseline tracking
   original_duration_weeks?: number; // Baseline tracking
   created_at?: string;
@@ -137,11 +141,17 @@ export const timelineUtils = {
   },
 
   getDateFromWeekIndex(weekIndex: number) {
-    const month = Math.floor((weekIndex - 1) / 4);
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const globalMonth = Math.floor((weekIndex - 1) / 4);
     const weekInMonth = ((weekIndex - 1) % 4) + 1;
-    const day = ((weekInMonth - 1) * 7) + 1;
-    // We assume 2026 for now as per previous context
-    return new Date(2026, month, day);
+    const day = Math.min(((weekInMonth - 1) * 7) + 1, 28);
+    
+    const yearOffset = Math.floor(globalMonth / 12);
+    const month = ((globalMonth % 12) + 12) % 12;
+    const year = currentYear + yearOffset;
+    
+    return new Date(year, month, day);
   },
 
   getTimelineConfig(tasks: RoadmapTask[] = []) {

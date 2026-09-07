@@ -1,10 +1,11 @@
 
 import React, { useMemo } from 'react';
 import { format } from 'date-fns';
-import { ChevronLeft, ChevronRight, Search, Table, BarChart3, Calendar, Minimize2, SlidersHorizontal } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Search, Table, BarChart3, Calendar, Minimize2, SlidersHorizontal, Building2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import FilterDropdown from '../../common/FilterDropdown';
 import DatePickerModal, { formatDisplayDate } from '../../ui/DatePickerModal';
+import { Company } from '../../../types';
 
 interface DashboardHeaderProps {
     currentMonth: Date;
@@ -22,6 +23,9 @@ interface DashboardHeaderProps {
     selectedPosition: string;
     setSelectedPosition: (position: string) => void;
     positions: string[];
+    filterCompany?: string;
+    setFilterCompany?: (company: string) => void;
+    companies?: Company[];
     viewMode: 'TABLE' | 'ANALYTICS';
     setViewMode: (mode: 'TABLE' | 'ANALYTICS') => void;
     isToolsExpanded: boolean;
@@ -44,6 +48,9 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
     selectedPosition,
     setSelectedPosition,
     positions,
+    filterCompany = 'ALL',
+    setFilterCompany,
+    companies = [],
     viewMode,
     setViewMode,
     isToolsExpanded,
@@ -65,6 +72,13 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             label: pos
         }));
     }, [positions]);
+
+    const companyOptions = useMemo(() => {
+        return companies.map(c => ({
+            key: c.id,
+            label: `${c.shortName ? `[${c.shortName}] ` : ''}${c.name}`
+        }));
+    }, [companies]);
 
     return (
         <div className={`flex flex-col bg-white p-4 ${isToolsExpanded ? 'pb-6' : 'pb-4'} rounded-2xl border border-gray-100 shadow-sm w-full transition-all duration-200`}>
@@ -283,6 +297,22 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 
                             {/* Filters container pushed to the right on desktop */}
                             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto sm:ml-auto">
+                                {/* Company Filter (only show if multiple companies exist) */}
+                                {companies.length > 1 && setFilterCompany && (
+                                    <div className="w-full sm:w-44 md:w-48 lg:w-52 h-9">
+                                        <FilterDropdown
+                                            label="บริษัทในเครือ"
+                                            value={filterCompany}
+                                            onChange={setFilterCompany}
+                                            options={companyOptions}
+                                            icon={<Building2 className="w-4 h-4" />}
+                                            showAllOption={true}
+                                            clearable={true}
+                                            align="right"
+                                        />
+                                    </div>
+                                )}
+
                                 {/* Employment Type Filter */}
                                 <div className="w-full sm:w-44 md:w-48 lg:w-52 h-9">
                                     <FilterDropdown

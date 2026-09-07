@@ -9,6 +9,7 @@ import { LeaveRequest } from '../../../../types/attendance';
 import { getWorkingDaysDifference } from '../../../../lib/attendanceUtils';
 import { parseReason, ParsedReason } from '../request-detail/utils';
 import { getRegistryItem } from '../../../../constants/attendanceRegistry';
+import CompanyBadge from '../../../common/CompanyBadge';
 
 const LEAVE_EMOJI_MAP: Record<string, string> = {
     SICK: '🤒',
@@ -129,9 +130,12 @@ export const ApprovalCardDetails: React.FC<ApprovalCardDetailsProps> = ({
         <div className="flex-1 min-w-0">
             <div className="flex flex-wrap items-center gap-x-3 gap-y-2 mb-2">
                 <div className="flex flex-col justify-center">
-                    <h4 className="font-bold text-gray-800 text-base leading-tight">
-                        {request.user?.name || 'Unknown'}
-                    </h4>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                        <h4 className="font-bold text-gray-800 text-base leading-tight">
+                            {request.user?.name || 'Unknown'}
+                        </h4>
+                        <CompanyBadge company={request.user?.company} companyId={request.user?.companyId} size="xs" />
+                    </div>
                     {request.user?.position && (
                         <span className="text-[11px] text-slate-500 font-semibold tracking-wide mt-0.5 leading-none">
                             {request.user.position}

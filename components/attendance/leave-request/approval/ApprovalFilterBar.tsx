@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ApprovalStatusTabs } from './ApprovalStatusTabs';
 import { ApprovalPeriodFilter } from './ApprovalPeriodFilter';
+import { Company } from '../../../../types';
 
 type HistoryFilter = 'ALL' | 'APPROVED' | 'REJECTED';
 
@@ -11,6 +12,9 @@ interface ApprovalFilterBarProps {
     historySubFilter: HistoryFilter;
     setHistorySubFilter: (subFilter: HistoryFilter) => void;
     pendingCount: number;
+    companyFilter?: string;
+    setCompanyFilter?: (comp: string) => void;
+    companies?: Company[];
     
     // Month/Year / Custom Range props
     isMonthFilterEnabled: boolean;
@@ -33,6 +37,9 @@ export const ApprovalFilterBar: React.FC<ApprovalFilterBarProps> = ({
     historySubFilter,
     setHistorySubFilter,
     pendingCount,
+    companyFilter,
+    setCompanyFilter,
+    companies,
     isMonthFilterEnabled,
     setIsMonthFilterEnabled,
     isCustomRangeEnabled,
@@ -57,6 +64,9 @@ export const ApprovalFilterBar: React.FC<ApprovalFilterBarProps> = ({
                 pendingCount={pendingCount}
                 setCurrentPage={setCurrentPage}
                 setActiveCategory={setActiveCategory}
+                companyFilter={companyFilter}
+                setCompanyFilter={setCompanyFilter}
+                companies={companies}
             />
 
             {/* 2. ApprovalPeriodFilter component for History */}

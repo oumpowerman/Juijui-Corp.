@@ -54,15 +54,15 @@ const RoadmapHeader: React.FC<RoadmapHeaderProps> = ({
           {sortMode === 'timeline' ? 'เรียงตามเวลา' : 'เรียงอิสระ'}
         </button>
 
-        <div className="flex items-center gap-2 bg-slate-50 rounded-2xl p-2 border border-slate-100">
+        <div className="flex items-center gap-1.5 bg-slate-50 rounded-2xl p-1.5 border border-slate-100 max-w-[280px] lg:max-w-md overflow-x-auto custom-slim-scrollbar">
           {['ทั้งหมด', ...categories].map((cat) => (
             <button
               key={cat}
               onClick={() => onFilterChange(cat === 'ทั้งหมด' ? 'All' : cat)}
-              className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+              className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap shrink-0 ${
                 (filter === 'All' && cat === 'ทั้งหมด') || filter === cat 
-                  ? 'bg-white text-indigo-600 shadow-sm border border-slate-200' 
-                  : 'text-slate-400 hover:text-slate-600'
+                  ? 'bg-white text-indigo-600 shadow-sm border border-slate-200 font-bold' 
+                  : 'text-slate-400 hover:text-slate-700'
               }`}
             >
               {cat}

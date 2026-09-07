@@ -11,13 +11,13 @@ export type MasterTab =
     // Workflow
     | 'STATUS' | 'TASK_STATUS' | 'PROJECT_TYPE' | 'TAG_PRESET' | 'SHOOT_LOCATION' | 'EVENT_TYPE' | 'YEARLY' | 'CALENDAR'
     // Content
-    | 'PILLAR' | 'FORMAT' | 'CATEGORY' | 'SCRIPT_CATEGORY'
+    | 'PILLAR' | 'FORMAT' | 'CATEGORY' | 'SCRIPT_CATEGORY' | 'CONTENT_ALERT'
     // Inventory (Split types usually handled by specific views but accessible here)
     | 'INVENTORY' | 'ITEM_CONDITION'
     // Production
     | 'MEETING_CATEGORY'
     // HR & Team
-    | 'POSITION' | 'LEAVE_TYPE' | 'ATTENDANCE_RULES' | 'LOCATIONS'
+    | 'POSITION' | 'LEAVE_TYPE' | 'ATTENDANCE_RULES' | 'LOCATIONS' | 'COMPANIES'
     // QC
     | 'REJECTION_REASON'
     // System

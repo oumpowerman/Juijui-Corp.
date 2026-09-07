@@ -9,8 +9,9 @@ import { useGamification } from './useGamification';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
 import { attendanceService } from '../services/attendanceService';
 import { adminApprovalService } from '../services/adminApprovalService';
-import { checkLeaveQuota, validateCheckInTime } from '../utils/adminApprovalHelpers';
+import { checkLeaveQuota, validateCheckInTime, canAdminManageRequest } from '../utils/adminApprovalHelpers';
 import { useNotificationContext } from '../context/NotificationContext';
+import { useCompanies } from './useCompanies';
 
 export interface ApproveRequestParams {
     request: LeaveRequest;
@@ -36,6 +37,7 @@ export const useAdminApprovals = (currentUser?: any, options: { enabled?: boolea
 
     const { refreshData: refreshGlobalNotifications } = useNotificationContext();
     const { annualHolidays, calendarExceptions, masterOptions } = useMasterData();
+    const { activeCompanies } = useCompanies();
     const { showConfirm } = useGlobalDialog();
     const { processAction, adminAdjustStats } = useGamification();
     const [rawRequests, setRawRequests] = useState<LeaveRequest[]>([]);
@@ -176,6 +178,14 @@ export const useAdminApprovals = (currentUser?: any, options: { enabled?: boolea
             customEndTime = legacyEndTime;
             adminNote = legacyAdminNote;
             hpPenalty = legacyHpPenalty;
+        }
+
+        // Multi-company permission check
+        const requesterUser = request.user || allUsers.find(u => u.id === request.userId);
+        const manageCheck = canAdminManageRequest(currentUser, requesterUser, activeCompanies, masterOptions);
+        if (!manageCheck.allowed) {
+            showToast(manageCheck.reason || 'คุณไม่มีสิทธิ์อนุมัติคำขอของพนักงานต่างบริษัท', 'error');
+            return;
         }
 
         // Centralized check-in/start time validation using helper - bypassed for admin overrides
@@ -326,6 +336,14 @@ export const useAdminApprovals = (currentUser?: any, options: { enabled?: boolea
         }
 
         const targetReq = requests.find(r => r.id === id);
+
+        // Multi-company permission check
+        const requesterUser = targetReq?.user || (otReq?.userId ? allUsers.find(u => u.id === otReq.userId) : undefined);
+        const manageCheck = canAdminManageRequest(currentUser, requesterUser, activeCompanies, masterOptions);
+        if (!manageCheck.allowed) {
+            showToast(manageCheck.reason || 'คุณไม่มีสิทธิ์ปฏิเสธคำขอของพนักงานต่างบริษัท', 'error');
+            return;
+        }
 
         // Optimistic UI Update
         setRawRequests(prev => prev.map(r => r.id === id ? { ...r, status: 'REJECTED', rejectionReason: reason } : r));

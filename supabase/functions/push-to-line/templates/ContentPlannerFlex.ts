@@ -6,6 +6,10 @@ const PLATFORM_LABELS: Record<string, { label: string; icon: string }> = {
   TIKTOK: { label: 'TikTok', icon: '🎵' },
   FACEBOOK: { label: 'Facebook', icon: '🔵' },
   INSTAGRAM: { label: 'Instagram', icon: '📸' },
+  LEMON8: { label: 'Lemon8', icon: '🍋' },
+  THREADS: { label: 'Threads', icon: '🧵' },
+  X: { label: 'X', icon: '⚫' },
+  TWITTER: { label: 'Twitter', icon: '🐦' },
   OTHER: { label: 'Other', icon: '🌐' },
 };
 
@@ -27,26 +31,50 @@ export function buildContentPlannerBodyContents(
   }
 
   const channelName = meta.channel_name || meta.channel || 'ช่องหลัก (Main Channel)';
-  const platforms: string[] = Array.isArray(meta.target_platforms) 
-    ? meta.target_platforms 
-    : (meta.platform ? [meta.platform] : []);
+  const channelColor = meta.channel_color || '#6366f1';
   
+  // Format platforms
+  let rawPlatforms: string[] = [];
+  if (Array.isArray(meta.target_platform)) {
+    rawPlatforms = meta.target_platform;
+  } else if (Array.isArray(meta.target_platforms)) {
+    rawPlatforms = meta.target_platforms;
+  } else if (meta.target_platform) {
+    rawPlatforms = [meta.target_platform];
+  } else if (meta.platform) {
+    rawPlatforms = [meta.platform];
+  }
+
   const scheduledTime = meta.scheduled_time || meta.due_time || 'ตามกำหนดการ';
-  const currentStatus = meta.current_status || record.type;
-  const contentFormat = meta.format || 'Video Clip';
+  const currentStatus = (meta.status || meta.current_status || record.type || 'IDEA').toUpperCase();
+  
+  // Format content formats
+  let formatText = 'Video Clip';
+  if (Array.isArray(meta.content_formats) && meta.content_formats.length > 0) {
+    formatText = meta.content_formats.join(', ');
+  } else if (meta.format) {
+    formatText = meta.format;
+  }
+
+  const remainingText = meta.remaining_text || 'ใกล้ถึงเวลาลงคลิป';
+  const assigneeNames = meta.assignee_names && meta.assignee_names !== '-' ? meta.assignee_names : null;
+  const editorNames = meta.editor_names && meta.editor_names !== '-' ? meta.editor_names : null;
 
   // Build platform chips text
-  const platformBadges = platforms.map(p => {
-    const pConf = PLATFORM_LABELS[p.toUpperCase()] || { label: p, icon: '📱' };
-    return `${pConf.icon} ${pConf.label}`;
-  }).join('  ');
+  const platformBadges = rawPlatforms.length > 0
+    ? rawPlatforms.map(p => {
+        const pConf = PLATFORM_LABELS[p.toUpperCase()] || { label: p, icon: '📱' };
+        return `${pConf.icon} ${pConf.label}`;
+      }).join('  ')
+    : '📱 ทุกช่องทาง';
 
   return [
-    // Header row with Channel Badge
+    // Header row with Channel Badge & Alert Pill
     {
       type: "box",
       layout: "horizontal",
       alignItems: "center",
+      justifyContent: "space-between",
       contents: [
         {
           type: "box",
@@ -60,7 +88,23 @@ export function buildContentPlannerBodyContents(
               text: `📺 ช่อง: ${channelName}`,
               size: "xs",
               weight: "bold",
-              color: "#6366f1"
+              color: channelColor.startsWith('#') ? channelColor : "#6366f1"
+            }
+          ]
+        },
+        {
+          type: "box",
+          layout: "horizontal",
+          backgroundColor: "#fef2f2",
+          cornerRadius: "md",
+          paddingAll: "sm",
+          contents: [
+            {
+              type: "text",
+              text: `⏳ ${remainingText}`,
+              size: "xxs",
+              weight: "bold",
+              color: "#dc2626"
             }
           ]
         }
@@ -69,26 +113,36 @@ export function buildContentPlannerBodyContents(
     // Title
     {
       type: "text",
-      text: record.title || "แจ้งเตือนกำหนดลงคอนเทนต์",
+      text: record.title || meta.title || "แจ้งเตือนกำหนดลงคอนเทนต์",
       weight: "bold",
-      size: "lg",
-      color: "#1e293b",
+      size: "md",
+      color: "#0f172a",
       wrap: true,
       margin: "md"
     },
-    // Description / Message
+    // Warning Callout Banner
     {
-      type: "text",
-      text: record.message || "มีคอนเทนต์ที่ใกล้ถึงเวลาเผยแพร่หรือต้องอัปเดตสถานะ",
-      size: "sm",
-      color: "#64748b",
-      wrap: true,
-      margin: "sm"
+      type: "box",
+      layout: "horizontal",
+      backgroundColor: "#fffbeb",
+      cornerRadius: "md",
+      paddingAll: "sm",
+      margin: "sm",
+      alignItems: "center",
+      contents: [
+        {
+          type: "text",
+          text: `⚠️ ยังไม่ได้รับการอนุมัติ (สถานะ: ${currentStatus}) กรุณาตรวจสอบคลิปก่อนถึงเวลาเผยแพร่`,
+          size: "xxs",
+          color: "#b45309",
+          wrap: true
+        }
+      ]
     },
     // Separator
     {
       type: "separator",
-      margin: "lg",
+      margin: "md",
       color: "#e2e8f0"
     },
     // Metadata Box
@@ -96,7 +150,7 @@ export function buildContentPlannerBodyContents(
       type: "box",
       layout: "vertical",
       margin: "md",
-      spacing: "sm",
+      spacing: "xs",
       contents: [
         // Publishing Platforms
         {
@@ -113,7 +167,7 @@ export function buildContentPlannerBodyContents(
             },
             {
               type: "text",
-              text: platformBadges || "ทุกแพลตฟอร์ม",
+              text: platformBadges,
               weight: "bold",
               size: "xs",
               color: "#334155",
@@ -153,21 +207,68 @@ export function buildContentPlannerBodyContents(
           contents: [
             {
               type: "text",
-              text: "สถานะปัจจุบัน:",
+              text: "รูปแบบคลิป:",
               color: "#94a3b8",
               size: "xs",
               flex: 2
             },
             {
               type: "text",
-              text: `🟡 ${currentStatus} (${contentFormat})`,
+              text: `🎬 ${formatText}`,
               weight: "bold",
               size: "xs",
-              color: "#d97706",
+              color: "#475569",
               flex: 5
             }
           ]
-        }
+        },
+        // Assignee / Editor if available
+        ...(assigneeNames ? [{
+          type: "box",
+          layout: "baseline",
+          spacing: "sm",
+          contents: [
+            {
+              type: "text",
+              text: "ผู้รับผิดชอบ:",
+              color: "#94a3b8",
+              size: "xs",
+              flex: 2
+            },
+            {
+              type: "text",
+              text: `👤 ${assigneeNames}`,
+              weight: "bold",
+              size: "xs",
+              color: "#334155",
+              flex: 5,
+              wrap: true
+            }
+          ]
+        }] : []),
+        ...(editorNames ? [{
+          type: "box",
+          layout: "baseline",
+          spacing: "sm",
+          contents: [
+            {
+              type: "text",
+              text: "คนตัดต่อ:",
+              color: "#94a3b8",
+              size: "xs",
+              flex: 2
+            },
+            {
+              type: "text",
+              text: `✂️ ${editorNames}`,
+              weight: "bold",
+              size: "xs",
+              color: "#334155",
+              flex: 5,
+              wrap: true
+            }
+          ]
+        }] : [])
       ]
     }
   ];

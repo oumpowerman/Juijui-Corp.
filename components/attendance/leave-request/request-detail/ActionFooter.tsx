@@ -19,6 +19,9 @@ interface ActionFooterProps {
     isProvisional?: boolean;
     initialRejectMode?: boolean;
     isFixed?: boolean;
+    isReadOnly?: boolean;
+    readOnlyReason?: string;
+    targetCompanyName?: string;
 }
 
 export const ActionFooter: React.FC<ActionFooterProps> = ({
@@ -29,7 +32,10 @@ export const ActionFooter: React.FC<ActionFooterProps> = ({
     defaultCheckInTime = '10:00',
     isProvisional = false,
     initialRejectMode = false,
-    isFixed = false
+    isFixed = false,
+    isReadOnly = false,
+    readOnlyReason,
+    targetCompanyName
 }) => {
     const { masterOptions } = useMasterDataContext();
     const { showAlert } = useGlobalDialog();
@@ -82,6 +88,33 @@ export const ActionFooter: React.FC<ActionFooterProps> = ({
             console.error('Failed to submit rejection:', e);
         }
     };
+
+    if (isReadOnly) {
+        return (
+            <div className="p-4 sm:p-6 bg-slate-50 border-t border-slate-200/80 shrink-0">
+                <div className="flex items-start sm:items-center gap-3.5 bg-amber-50/80 border border-amber-200/80 p-4 rounded-2xl shadow-sm">
+                    <div className="w-10 h-10 rounded-xl bg-amber-100/90 flex items-center justify-center text-amber-700 shrink-0 mt-0.5 sm:mt-0 shadow-inner">
+                        <AlertTriangle className="w-5 h-5" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                            <h5 className="text-xs sm:text-sm font-bold text-amber-950">
+                                โหมดดูข้อมูลเท่านั้น (Read-Only)
+                            </h5>
+                            {targetCompanyName && (
+                                <span className="text-[10px] font-bold px-2 py-0.5 bg-amber-200/70 text-amber-900 rounded-md border border-amber-300">
+                                    {targetCompanyName}
+                                </span>
+                            )}
+                        </div>
+                        <p className="text-[11px] sm:text-xs text-amber-800 mt-1 leading-relaxed">
+                            {readOnlyReason || `คุณกำลังดูคำขอของพนักงานสังกัด ${targetCompanyName || 'บริษัทอื่น'} (สิทธิ์การอนุมัติ/ปฏิเสธถูกจำกัดเฉพาะ Admin ประจำ${targetCompanyName || 'บริษัทดังกล่าว'})`}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="p-3 sm:p-6 bg-slate-50 border-t border-slate-100 shrink-0 space-y-4">

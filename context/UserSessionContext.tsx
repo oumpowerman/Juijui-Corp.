@@ -6,6 +6,7 @@ import { useGlobalDialog } from './GlobalDialogContext';
 import { subDays, format } from 'date-fns';
 import { mapAttendanceLog } from '../hooks/attendance/shared';
 import { calculateLevel } from '../lib/gameLogic';
+import { mapCompanyFromDB } from '../hooks/useCompanies';
 
 interface UserSessionContextType {
     isReady: boolean;
@@ -80,6 +81,8 @@ const mapProfileToUser = (data: any): User => ({
     waveBgEnabled: data.wave_bg_enabled !== false,
     ultimateWorkroomEnabled: data.ultimate_workroom_enabled !== false,
     emoji: data.emoji || '',
+    companyId: data.company_id || data.companyId || null,
+    company: data.companies ? mapCompanyFromDB(data.companies) : (data.company || null),
     firstName: data.first_name || '',
     lastName: data.last_name || '',
     nickname: data.nickname || '',
@@ -116,6 +119,8 @@ const mapDBToUserUpdates = (u: any): Partial<User> => {
     if ('sso_included' in u) updates.ssoIncluded = u.sso_included;
     if ('tax_type' in u) updates.taxType = u.tax_type;
     if ('line_user_id' in u) updates.lineUserId = u.line_user_id;
+    if ('company_id' in u) updates.companyId = u.company_id;
+    if ('companies' in u) updates.company = u.companies ? mapCompanyFromDB(u.companies) : null;
     if ('equipped_frame_id' in u) updates.equippedFrameId = u.equipped_frame_id;
     if ('owned_frame_ids' in u) updates.ownedFrameIds = u.owned_frame_ids;
     if ('equipped_bg_id' in u) updates.equippedBgId = u.equipped_bg_id;
@@ -203,7 +208,7 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
             // - Fetch full data for CURRENT user
             
             const [minProfilesRes, activeProfilesRes, currentProfileRes] = await Promise.all([
-                supabase.from('profiles').select('id, full_name, first_name, last_name, nickname, avatar_url, is_active, role, position, start_date, emoji, employment_type').order('full_name', { ascending: true }),
+                supabase.from('profiles').select('id, full_name, first_name, last_name, nickname, avatar_url, is_active, role, position, start_date, emoji, employment_type, company_id').order('full_name', { ascending: true }),
                 supabase.from('profiles').select('*').eq('is_active', true),
                 supabase.from('profiles').select('*').eq('id', sessionUser.id).maybeSingle()
             ]);
@@ -444,6 +449,7 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
             if (updates.waveBgEnabled !== undefined) payload.wave_bg_enabled = updates.waveBgEnabled;
             if (updates.ultimateWorkroomEnabled !== undefined) payload.ultimate_workroom_enabled = updates.ultimateWorkroomEnabled;
             if (updates.emoji !== undefined) payload.emoji = updates.emoji;
+            if (updates.companyId !== undefined) payload.company_id = updates.companyId;
             if (updates.acceptedTermsVersion !== undefined) payload.accepted_terms_version = updates.acceptedTermsVersion;
             if (updates.acceptedTermsAt !== undefined) payload.accepted_terms_at = updates.acceptedTermsAt ? updates.acceptedTermsAt.toISOString() : null;
 
@@ -611,6 +617,7 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
             if (updates.name) payload.full_name = updates.name;
             if (updates.position !== undefined) payload.position = updates.position;
             if (updates.role) payload.role = updates.role;
+            if (updates.companyId !== undefined) payload.company_id = updates.companyId;
             if (updates.employmentType !== undefined) payload.employment_type = updates.employmentType;
             if (updates.workDays) payload.work_days = updates.workDays;
             if (updates.baseSalary !== undefined) payload.base_salary = updates.baseSalary;

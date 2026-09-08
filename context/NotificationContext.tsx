@@ -171,7 +171,29 @@ export const NotificationProvider: React.FC<{ currentUser: User | null, children
                 filter: `user_id=eq.${currentUser.id}` 
             }, (payload) => {
                 if (payload.eventType === 'INSERT') {
-                    setNotifications(prev => [payload.new, ...prev].slice(0, 50));
+                    const newNotif = payload.new;
+                    setNotifications(prev => [newNotif, ...prev].slice(0, 50));
+
+                    // Show native OS notification if user granted permission
+                    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+                        try {
+                            if ('serviceWorker' in navigator) {
+                                navigator.serviceWorker.ready.then(reg => {
+                                    reg.showNotification(newNotif.title || 'Kontent OS', {
+                                        body: newNotif.message || '',
+                                        icon: '/icon-192.png',
+                                        badge: '/icon-192.png',
+                                        tag: newNotif.type || 'app-notification',
+                                        data: { 
+                                            url: newNotif.action_link || (newNotif.task_id ? `/task/${newNotif.task_id}` : '/') 
+                                        }
+                                    });
+                                }).catch(() => {});
+                            }
+                        } catch (e) {
+                            console.debug('OS notification trigger caught:', e);
+                        }
+                    }
                 } else if (payload.eventType === 'UPDATE') {
                     setNotifications(prev => prev.map(n => n.id === payload.new.id ? payload.new : n));
                 } else if (payload.eventType === 'DELETE') {

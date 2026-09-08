@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, LayoutGrid, BarChart3, PackageSearch, Loader2, RotateCw, Landmark, Target, SlidersHorizontal } from 'lucide-react';
 import { supabase } from '../../../../lib/supabase';
 import { Task, MasterOption, Channel, getChecklistGroupKey } from '../../../../types';
+import { CONTENT_SUMMARY_FIELDS, mapContentRowToTask } from '../../../../lib/taskSchema';
 import InventorySummaryTable from './InventorySummaryTable';
 import InventoryDashboard from './InventoryDashboard';
 import StrategyPlanner from './StrategyPlanner';
@@ -180,7 +181,7 @@ const StockInventoryModal: React.FC<StockInventoryModalProps> = ({ isOpen, onClo
 
             let fastQuery = supabase
                 .from('contents')
-                .select('id, title, status, start_date, end_date, created_at, channel_id, tags, target_platform, pillar, content_formats, category, is_unscheduled, description, remark, shoot_date, shoot_location, is_in_shoot_queue, assignee_ids, idea_owner_ids, editor_ids, local_path, drive_label, sub_checklist_progress')
+                .select(CONTENT_SUMMARY_FIELDS)
                 .eq('is_unscheduled', true);
             
             if (firstChannelId !== 'ALL') {
@@ -192,19 +193,7 @@ const StockInventoryModal: React.FC<StockInventoryModalProps> = ({ isOpen, onClo
             if (error) throw error;
 
             if (data) {
-                const mapped: Task[] = data.map(d => ({
-                    id: d.id,
-                    title: d.title,
-                    pillar: d.pillar,
-                    category: d.category,
-                    status: d.status,
-                    channelId: d.channel_id,
-                    contentFormats: d.content_formats || [],
-                    createdAt: d.created_at ? new Date(d.created_at) : undefined,
-                    shootDate: d.shoot_date ? new Date(d.shoot_date) : undefined,
-                    subChecklistProgress: d.sub_checklist_progress || {},
-                    isUnscheduled: d.is_unscheduled
-                } as unknown as Task));
+                const mapped: Task[] = (data as any[]).map(d => mapContentRowToTask(d, true));
 
                 setStockTasks(mapped);
                 localStorage.setItem('juijui_stock_inventory_tasks', JSON.stringify(mapped));
@@ -231,7 +220,7 @@ const StockInventoryModal: React.FC<StockInventoryModalProps> = ({ isOpen, onClo
         try {
             let query = supabase
                 .from('contents')
-                .select('id, title, status, start_date, end_date, created_at, channel_id, tags, target_platform, pillar, content_formats, category, is_unscheduled, description, remark, shoot_date, shoot_location, is_in_shoot_queue, assignee_ids, idea_owner_ids, editor_ids, local_path, drive_label, sub_checklist_progress')
+                .select(CONTENT_SUMMARY_FIELDS)
                 .eq('is_unscheduled', true);
 
             const { data, error } = await query;
@@ -239,24 +228,12 @@ const StockInventoryModal: React.FC<StockInventoryModalProps> = ({ isOpen, onClo
 
             if (data) {
                 // Filter out Done / Approved items to represent the active stock
-                const mapped: Task[] = data
+                const mapped: Task[] = (data as any[])
                     .filter(d => {
                         const s = (d.status || '').toUpperCase();
                         return s !== 'DONE' && s !== 'APPROVE' && s !== 'APPROVED' && s !== 'COMPLETE';
                     })
-                    .map(d => ({
-                        id: d.id,
-                        title: d.title,
-                        pillar: d.pillar,
-                        category: d.category,
-                        status: d.status,
-                        channelId: d.channel_id,
-                        contentFormats: d.content_formats || [],
-                        createdAt: d.created_at ? new Date(d.created_at) : undefined,
-                        shootDate: d.shoot_date ? new Date(d.shoot_date) : undefined,
-                        subChecklistProgress: d.sub_checklist_progress || {},
-                        isUnscheduled: d.is_unscheduled
-                    } as unknown as Task));
+                    .map(d => mapContentRowToTask(d, true));
 
                 setStockTasks(mapped);
                 localStorage.setItem('juijui_stock_inventory_tasks', JSON.stringify(mapped));

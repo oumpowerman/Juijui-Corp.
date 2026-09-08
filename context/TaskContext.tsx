@@ -3,6 +3,14 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { supabase } from '../lib/supabase';
 import { Task, ReviewSession, TaskType } from '../types';
 import { addMonths, endOfMonth, format } from 'date-fns';
+import {
+    CONTENT_SUMMARY_FIELDS,
+    TASK_SUMMARY_FIELDS,
+    CONTENT_FULL_SELECT_FIELDS,
+    TASK_FULL_SELECT_FIELDS,
+    mapContentRowToTask,
+    mapTaskRowToTask
+} from '../lib/taskSchema';
 
 // Helper to replace startOfMonth
 const getStartOfMonth = (date: Date) => {
@@ -82,108 +90,12 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         end: addMonths(endOfMonth(new Date()), 3)
     });
 
-    // Map Raw DB Data to Unified Task Type (Shared Logic)
+    // Map Raw DB Data to Unified Task Type (Centralized Logic)
     const mapSupabaseToTask = useCallback((data: any, type: TaskType, isPartial = false): Task => {
-        const startDateVal = data.start_date || data.startDate;
-        const endDateVal = data.end_date || data.endDate;
-
-        let platforms = [];
-        if (Array.isArray(data.target_platform)) {
-            platforms = data.target_platform;
-        } else if (data.target_platform) {
-            platforms = [data.target_platform];
+        if (type === 'CONTENT' || data.type === 'CONTENT') {
+            return mapContentRowToTask(data, isPartial);
         }
-
-        const reviews: ReviewSession[] = (data.task_reviews || []).map((r: any) => ({
-            id: r.id,
-            taskId: r.content_id || r.task_id, 
-            round: r.round,
-            scheduledAt: new Date(r.scheduled_at),
-            reviewerId: r.reviewer_id,
-            status: r.status,
-            feedback: r.feedback,
-            isCompleted: r.is_completed
-        }));
-
-        return {
-            id: data.id,
-            title: data.title,
-            description: data.description || '',
-            type: data.type || type, 
-            status: data.status,
-            priority: type === 'TASK' ? data.priority : undefined,
-            tags: data.tags || [],
-            pillar: data.pillar,
-            contentFormats: data.content_formats || [],
-            category: data.category,
-            remark: data.remark,
-            startDate: new Date(startDateVal),
-            endDate: new Date(endDateVal),
-            createdAt: new Date(data.created_at),
-            updatedAt: data.updated_at ? new Date(data.updated_at) : undefined,
-            channelId: data.channel_id || data.channelId,
-            targetPlatforms: platforms,
-            scheduledTime: data.scheduled_time || data.scheduledTime,
-            isUnscheduled: data.is_unscheduled ?? data.isUnscheduled ?? false,
-            assigneeIds: data.assignee_ids || data.assigneeIds || [],
-            ideaOwnerIds: data.idea_owner_ids || data.ideaOwnerIds || [],
-            editorIds: data.editor_ids || data.editorIds || [],
-            assets: data.assets || [],
-            reviews: reviews.sort((a, b) => a.round - b.round),
-            logs: [], 
-            performance: data.performance || undefined,
-            difficulty: data.difficulty || 'MEDIUM',
-            estimatedHours: data.estimated_hours || 0,
-            assigneeType: data.assignee_type || 'TEAM',
-            targetPosition: data.target_position,
-            caution: data.caution,
-            importance: data.importance,
-            publishedLinks: data.published_links || {},
-            shootDate: data.shoot_date ? new Date(data.shoot_date) : undefined,
-            shootLocation: data.shoot_location || undefined,
-            shootTripId: data.shoot_trip_id || undefined,
-            shootTimeStart: data.shoot_time_start || undefined,
-            shootTimeEnd: data.shoot_time_end || undefined,
-            shootNotes: data.shoot_notes || undefined,
-            localPath: data.local_path || undefined,
-            driveLabel: data.drive_label || undefined,
-            isInShootQueue: data.is_in_shoot_queue || data.isInShootQueue || false,
-            isSoftFinished: data.is_soft_finished || data.isSoftFinished || false,
-            subChecklistProgress: data.sub_checklist_progress || data.subChecklistProgress || {},
-            contentId: data.content_id,
-            showOnBoard: data.show_on_board,
-            parentContentTitle: data.contents?.title,
-            roadmapId: data.roadmap_id,
-            scriptId: data.script_id, // Map script_id correctly here
-            sla_revert_count: data.sla_revert_count,
-            is_penalized: data.is_penalized,
-            last_penalized_at: data.last_penalized_at ? new Date(data.last_penalized_at) : undefined,
-            hasAnalytics: !!data.content_analytics && (Array.isArray(data.content_analytics) ? data.content_analytics.length > 0 : !!data.content_analytics.id),
-            analyticsStatus: (() => {
-                if (!data.content_analytics) return 'NONE';
-                const rows = Array.isArray(data.content_analytics) ? data.content_analytics : [data.content_analytics];
-                const filledPlatforms = rows.map((r: any) => r.platform).filter(Boolean);
-                if (filledPlatforms.length === 0) return 'NONE';
-                if (platforms.length === 0) return 'COMPLETE';
-                const allMatched = platforms.every((p: string) => filledPlatforms.includes(p));
-                return allMatched ? 'COMPLETE' : 'PARTIAL';
-            })(),
-            sponsorship: data.sponsorship_details ? (() => {
-                const s = Array.isArray(data.sponsorship_details) ? data.sponsorship_details[0] : data.sponsorship_details;
-                if (!s) return undefined;
-                return {
-                    taskId: data.id,
-                    isSponsored: s.is_sponsored,
-                    dealValue: s.deal_value || 0,
-                    requirements: s.requirements,
-                    paymentStatus: s.payment_status,
-                    isPaid: s.is_paid,
-                    invoiceUrl: s.invoice_url,
-                    clientId: s.client_id
-                };
-            })() : undefined,
-            _isPartial: isPartial
-        } as any;
+        return mapTaskRowToTask(data, isPartial);
     }, []);
 
     const fetchTasks = useCallback(async (forceFull = false) => {
@@ -202,32 +114,14 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
         const stockLimitStr = twoMonthsAgo.toISOString();
 
-        // 🚀 STRATEGY: Select only essential fields for Board/Calendar (Reduce payload size by ~70%)
-        const contentFields = `
-            id, title, description, status, pillar, category, content_formats, tags,
-            start_date, end_date, channel_id, created_at, updated_at, is_unscheduled, remark, scheduled_time,
-            target_platform, assignee_ids, idea_owner_ids, editor_ids, shoot_trip_id,
-            shoot_date, is_in_shoot_queue, is_soft_finished, sla_revert_count, 
-            task_reviews(id, round, status, is_completed),
-            content_analytics(id, platform),
-            sponsorship_details(is_sponsored, deal_value, requirements, payment_status, is_paid, invoice_url, client_id)
-        `.replace(/\s+/g, '');
-
-        const taskFields = `
-            id, title, type, status, priority, start_date, end_date, created_at, updated_at, 
-            assignee_ids, content_id, show_on_board, target_position, roadmap_id, 
-            sla_revert_count, difficulty, assignee_type, estimated_hours, scheduled_time,
-            contents(title), task_reviews(id, round, status, is_completed)
-        `.replace(/\s+/g, '');
-
         try {
             let contentsQuery = supabase
                 .from('contents')
-                .select(contentFields);
+                .select(forceFull ? CONTENT_FULL_SELECT_FIELDS : CONTENT_SUMMARY_FIELDS);
             
             let tasksQuery = supabase
                 .from('tasks')
-                .select(taskFields);
+                .select(forceFull ? TASK_FULL_SELECT_FIELDS : TASK_SUMMARY_FIELDS);
 
             if (!isAllLoaded) {
                 // Optimized query: (Unscheduled AND completed/approved status) OR (Scheduled within date range)
@@ -252,7 +146,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     const userPromises = activeUsers.map(async (u) => {
                         const { data } = await supabase
                             .from('tasks')
-                            .select(taskFields)
+                            .select(forceFull ? TASK_FULL_SELECT_FIELDS : TASK_SUMMARY_FIELDS)
                             .eq('status', 'DONE')
                             .contains('assignee_ids', [u.id])
                             .order('updated_at', { ascending: false })
@@ -307,14 +201,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const fetchCompletedTasks = useCallback(async (params?: { userId?: string; limit?: number; startDate?: Date; endDate?: Date }) => {
         setIsFetching(true);
         try {
-            const taskFields = `
-                id, title, type, status, priority, start_date, end_date, created_at, updated_at, 
-                assignee_ids, content_id, show_on_board, target_position, roadmap_id, 
-                sla_revert_count, difficulty, assignee_type, estimated_hours, scheduled_time,
-                contents(title), task_reviews(id, round, status, is_completed)
-            `.replace(/\s+/g, '');
-
-            let query = supabase.from('tasks').select(taskFields).eq('status', 'DONE');
+            let query = supabase.from('tasks').select(TASK_SUMMARY_FIELDS).eq('status', 'DONE');
 
             if (params?.userId) {
                 query = query.contains('assignee_ids', [params.userId]);
@@ -383,11 +270,8 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const fetchTaskById = useCallback(async (id: string, type: TaskType): Promise<Task | null> => {
         try {
             const table = type === 'TASK' ? 'tasks' : 'contents';
-            let query = supabase.from(table).select(
-                type === 'TASK' 
-                    ? `*, contents (title), task_reviews(*)` 
-                    : `*, task_reviews(*), content_analytics(id, platform), sponsorship_details(*)`
-            ).eq('id', id).maybeSingle();
+            const selectFields = type === 'TASK' ? TASK_FULL_SELECT_FIELDS : CONTENT_FULL_SELECT_FIELDS;
+            let query = supabase.from(table).select(selectFields).eq('id', id).maybeSingle();
             
             const { data, error } = await query;
             if (error) throw error;
@@ -442,11 +326,8 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 // But we only fetch the specific record to avoid full reload
                 const fetchSingle = async () => {
                     const table = type === 'TASK' ? 'tasks' : 'contents';
-                    let query = supabase.from(table).select(
-                        type === 'TASK' 
-                            ? `*, contents (title), task_reviews(*)` 
-                            : `*, task_reviews(*), content_analytics(id, platform), sponsorship_details(*)`
-                    ).eq('id', payload.new.id).maybeSingle();
+                    const selectFields = type === 'TASK' ? TASK_FULL_SELECT_FIELDS : CONTENT_FULL_SELECT_FIELDS;
+                    let query = supabase.from(table).select(selectFields).eq('id', payload.new.id).maybeSingle();
                     
                     const { data } = await query;
                     if (data) {
@@ -508,11 +389,8 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         // If it doesn't exist locally, we can safely pull it from the database
                         const fetchSingle = async () => {
                             const table = type === 'TASK' ? 'tasks' : 'contents';
-                            let query = supabase.from(table).select(
-                                type === 'TASK' 
-                                    ? `*, contents (title), task_reviews(*)` 
-                                    : `*, task_reviews(*), content_analytics(id, platform), sponsorship_details(*)`
-                            ).eq('id', payload.new.id).maybeSingle();
+                            const selectFields = type === 'TASK' ? TASK_FULL_SELECT_FIELDS : CONTENT_FULL_SELECT_FIELDS;
+                            let query = supabase.from(table).select(selectFields).eq('id', payload.new.id).maybeSingle();
                             
                             const { data } = await query;
                             if (data) {

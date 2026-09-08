@@ -11,6 +11,7 @@ import tagsRouter from './server/routes/tags.js';
 import dashboardRouter from './server/routes/dashboard.js';
 import chatRouter from './server/routes/chat.js';
 import adminApprovalRouter from './server/routes/adminApproval.js';
+import pushRouter from './server/routes/push.js';
 
 const PORT = 3000;
 const app = express();
@@ -39,6 +40,7 @@ app.use(tagsRouter);
 app.use(dashboardRouter);
 app.use(chatRouter);
 app.use(adminApprovalRouter);
+app.use(pushRouter);
 
 async function startServer() {
     // โหลด dotenv เฉพาะเมื่อไม่ได้รันบน Vercel หรืออยู่ในสภาพแวดล้อม Development

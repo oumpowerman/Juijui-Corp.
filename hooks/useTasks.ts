@@ -26,6 +26,10 @@ const TASK_FIELD_META: Record<string, { label: string; type: 'TEXT' | 'DATE' | '
     priority: { label: 'ความสำคัญ', type: 'TEXT' },
     remark: { label: 'หมายเหตุ', type: 'TEXT' },
     
+    // Storage / Local Path
+    localPath: { label: 'ที่อยู่ไฟล์ (Local Path)', type: 'TEXT' },
+    driveLabel: { label: 'ป้ายชื่อ Drive', type: 'TEXT' },
+    
     // Dates
     startDate: { label: 'วันเริ่ม', type: 'DATE' },
     endDate: { label: 'กำหนดส่ง', type: 'DATE' },
@@ -271,8 +275,8 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
             shoot_time_end: taskToSave.shootTimeEnd || null,
             shoot_notes: taskToSave.shootNotes || null,
             is_in_shoot_queue: taskToSave.isInShootQueue || false,
-            local_path: taskToSave.localPath || null,
-            drive_label: taskToSave.driveLabel || null,
+            local_path: taskToSave.localPath !== undefined ? (taskToSave.localPath || null) : (existingTask?.localPath || null),
+            drive_label: taskToSave.driveLabel !== undefined ? (taskToSave.driveLabel || null) : (existingTask?.driveLabel || null),
             scheduled_time: taskToSave.scheduledTime,
             sub_checklist_progress: taskToSave.subChecklistProgress || {},
         } : {};

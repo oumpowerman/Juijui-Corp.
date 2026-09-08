@@ -175,6 +175,7 @@ export const GlobalModalRegistry: React.FC<GlobalModalRegistryProps> = ({
               onClose={() => setIsNotifSettingsOpen(false)}
               preferences={notificationSettings}
               onUpdate={updateNotificationSettings}
+              user={currentUserProfile}
             />
           )}
         </AnimatePresence>

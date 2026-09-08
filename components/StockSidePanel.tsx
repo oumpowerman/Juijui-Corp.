@@ -8,6 +8,7 @@ import {
 import { format, isWithinInterval, startOfDay, endOfDay } from 'date-fns';
 import StockFilterModal from './stock/StockFilterModal';
 import { supabase } from '../lib/supabase';
+import { CONTENT_SUMMARY_FIELDS, mapContentRowToTask } from '../lib/taskSchema';
 
 interface StockSidePanelProps {
     isOpen: boolean;
@@ -18,84 +19,6 @@ interface StockSidePanelProps {
     onEditTask: (task: Task) => void;
     onMoveTask?: (task: Task) => void;
 }
-
-const mapSupabaseToTask = (data: any, type: 'CONTENT' | 'TASK' = 'CONTENT'): Task => {
-    const startDateVal = data.start_date || data.startDate;
-    const endDateVal = data.end_date || data.endDate;
-
-    let platforms = [];
-    if (Array.isArray(data.target_platform)) {
-        platforms = data.target_platform;
-    } else if (data.target_platform) {
-        platforms = [data.target_platform];
-    }
-
-    const reviews = (data.task_reviews || []).map((r: any) => ({
-        id: r.id,
-        taskId: r.content_id || r.task_id, 
-        round: r.round,
-        scheduledAt: new Date(r.scheduled_at),
-        reviewerId: r.reviewer_id,
-        status: r.status,
-        feedback: r.feedback,
-        isCompleted: r.is_completed
-    }));
-
-    return {
-        id: data.id,
-        title: data.title,
-        description: data.description || '',
-        type: type, 
-        status: data.status,
-        priority: type === 'TASK' ? data.priority : undefined,
-        tags: data.tags || [],
-        pillar: data.pillar,
-        contentFormats: data.content_formats || [],
-        category: data.category,
-        remark: data.remark,
-        startDate: new Date(startDateVal || data.created_at),
-        endDate: new Date(endDateVal || data.created_at),
-        createdAt: new Date(data.created_at),
-        updatedAt: data.updated_at ? new Date(data.updated_at) : undefined,
-        channelId: data.channel_id || data.channelId,
-        targetPlatforms: platforms,
-        scheduledTime: data.scheduled_time || data.scheduledTime,
-        isUnscheduled: data.is_unscheduled ?? data.isUnscheduled ?? false,
-        assigneeIds: data.assignee_ids || data.assigneeIds || [],
-        ideaOwnerIds: data.idea_owner_ids || data.ideaOwnerIds || [],
-        editorIds: data.editor_ids || data.editorIds || [],
-        assets: data.assets || [],
-        reviews: reviews.sort((a: any, b: any) => a.round - b.round),
-        logs: [], 
-        performance: data.performance || undefined,
-        difficulty: data.difficulty || 'MEDIUM',
-        estimatedHours: data.estimated_hours || 0,
-        assigneeType: data.assignee_type || 'TEAM',
-        targetPosition: data.target_position,
-        caution: data.caution,
-        importance: data.importance,
-        publishedLinks: data.published_links || {},
-        shootDate: data.shoot_date ? new Date(data.shoot_date) : undefined,
-        shootLocation: data.shoot_location || undefined,
-        shootTripId: data.shoot_trip_id || undefined,
-        shootTimeStart: data.shoot_time_start || undefined,
-        shootTimeEnd: data.shoot_time_end || undefined,
-        shootNotes: data.shoot_notes || undefined,
-        localPath: data.local_path || undefined,
-        driveLabel: data.drive_label || undefined,
-        isInShootQueue: data.is_in_shoot_queue || data.isInShootQueue || false,
-        isSoftFinished: data.is_soft_finished || data.isSoftFinished || false,
-        contentId: data.content_id,
-        showOnBoard: data.show_on_board,
-        parentContentTitle: data.contents?.title,
-        roadmapId: data.roadmap_id,
-        scriptId: data.script_id,
-        sla_revert_count: data.sla_revert_count,
-        is_penalized: data.is_penalized,
-        last_penalized_at: data.last_penalized_at ? new Date(data.last_penalized_at) : undefined,
-        subChecklistProgress: data.sub_checklist_progress || {},
-    } as any;
-};
 
 const StockSidePanel: React.FC<StockSidePanelProps> = ({
     isOpen,
@@ -191,15 +114,7 @@ const StockSidePanel: React.FC<StockSidePanelProps> = ({
         try {
             let query = supabase
                 .from('contents')
-                .select(`
-                    id, title, description, status, pillar, category, content_formats, tags,
-                    start_date, end_date, channel_id, created_at, updated_at, is_unscheduled, remark, scheduled_time,
-                    target_platform, assignee_ids, idea_owner_ids, editor_ids, shoot_trip_id,
-                    shoot_date, is_in_shoot_queue, is_soft_finished, sla_revert_count, sub_checklist_progress,
-                    task_reviews(id, round, status, is_completed),
-                    content_analytics(id, platform),
-                    sponsorship_details(is_sponsored, deal_value, requirements, payment_status, is_paid, invoice_url, client_id)
-                `)
+                .select(CONTENT_SUMMARY_FIELDS)
                 .eq('is_unscheduled', true);
 
             if (debouncedSearchQuery) {
@@ -236,7 +151,7 @@ const StockSidePanel: React.FC<StockSidePanelProps> = ({
             if (error) throw error;
 
             if (data) {
-                const mappedData = data.map(d => mapSupabaseToTask(d));
+                const mappedData = data.map(d => mapContentRowToTask(d, true));
                 setLocalStockTasks(prev => isFirstPage ? mappedData : [...prev, ...mappedData]);
                 setHasMore(mappedData.length === limitNum);
                 setPage(currentPage + 1);
@@ -301,7 +216,9 @@ const StockSidePanel: React.FC<StockSidePanelProps> = ({
                         existing.title !== task.title ||
                         existing.status !== task.status ||
                         existing.channelId !== task.channelId ||
-                        existing.isUnscheduled !== task.isUnscheduled
+                        existing.isUnscheduled !== task.isUnscheduled ||
+                        existing.localPath !== task.localPath ||
+                        existing.driveLabel !== task.driveLabel
                     ) {
                         updatedList[index] = task;
                         modified = true;
@@ -326,7 +243,7 @@ const StockSidePanel: React.FC<StockSidePanelProps> = ({
                     if (payload.eventType === 'INSERT') {
                         const newRecord = payload.new;
                         if (newRecord.is_unscheduled) {
-                            const task = mapSupabaseToTask(newRecord, 'CONTENT');
+                            const task = mapContentRowToTask(newRecord, true);
                             if (matchesFilters(task)) {
                                 setLocalStockTasks(prev => {
                                     if (prev.some(t => t.id === task.id)) return prev;
@@ -336,7 +253,7 @@ const StockSidePanel: React.FC<StockSidePanelProps> = ({
                         }
                     } else if (payload.eventType === 'UPDATE') {
                         const newRecord = payload.new;
-                        const task = mapSupabaseToTask(newRecord, 'CONTENT');
+                        const task = mapContentRowToTask(newRecord, true);
 
                         if (!newRecord.is_unscheduled) {
                             setLocalStockTasks(prev => prev.filter(t => t.id !== task.id));

@@ -4,6 +4,7 @@ import { format, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { supabase } from '../lib/supabase';
 import { Task, MasterOption, getChecklistGroupKey } from '../types';
 import { isStockTerminalStatus } from '../config/status';
+import { CONTENT_FULL_SELECT_FIELDS, mapContentRowToTask } from '../lib/taskSchema';
 
 interface UseContentStockProps {
     page: number;
@@ -76,72 +77,7 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
         filtersRef.current = filters;
     }, [searchQuery, filters]);
 
-    const mapSupabaseToTask = useCallback((data: any): Task => ({
-        id: data.id,
-        type: 'CONTENT',
-        title: data.title,
-        description: data.description || '',
-        status: data.status,
-        startDate: new Date(data.start_date),
-        endDate: new Date(data.end_date),
-        createdAt: new Date(data.created_at),
-        channelId: data.channel_id,
-        // Safety: Ensure arrays are never null
-        tags: Array.isArray(data.tags) ? data.tags : [],
-        
-        targetPlatforms: Array.isArray(data.target_platform) ? data.target_platform : (data.target_platform ? [data.target_platform] : []),
-        pillar: data.pillar,
-        contentFormats: data.content_formats || [],
-        category: data.category,
-        scheduledTime: data.scheduled_time || data.scheduledTime,
-        isUnscheduled: data.is_unscheduled ?? false,
-        
-        assigneeIds: Array.isArray(data.assignee_ids) ? data.assignee_ids : [],
-        ideaOwnerIds: Array.isArray(data.idea_owner_ids) ? data.idea_owner_ids : [],
-        editorIds: Array.isArray(data.editor_ids) ? data.editor_ids : [],
-        
-        remark: data.remark,
-        assets: Array.isArray(data.assets) ? data.assets : [],
-        subChecklistProgress: data.sub_checklist_progress || {},
-        
-        assigneeType: data.assignee_type || 'TEAM',
-        difficulty: data.difficulty || 'MEDIUM',
-        estimatedHours: data.estimated_hours || 0,
-        caution: data.caution,
-        importance: data.importance,
-        publishedLinks: data.published_links || {},
-        shootDate: data.shoot_date ? new Date(data.shoot_date) : undefined,
-        shootLocation: data.shoot_location,
-        localPath: data.local_path,
-        driveLabel: data.drive_label,
-        isInShootQueue: data.is_in_shoot_queue || false,
-        isSoftFinished: data.is_soft_finished || false,
-        hasAnalytics: !!data.content_analytics && (Array.isArray(data.content_analytics) ? data.content_analytics.length > 0 : !!data.content_analytics.id),
-        analyticsStatus: (() => {
-            if (!data.content_analytics) return 'NONE';
-            const rows = Array.isArray(data.content_analytics) ? data.content_analytics : [data.content_analytics];
-            const filledPlatforms = rows.map((r: any) => r.platform).filter(Boolean);
-            if (filledPlatforms.length === 0) return 'NONE';
-            
-            let platforms: string[] = [];
-            if (Array.isArray(data.target_platform)) {
-                platforms = data.target_platform;
-            } else if (data.target_platform) {
-                platforms = [data.target_platform];
-            }
-            
-            if (platforms.length === 0) return 'COMPLETE';
-            const allMatched = platforms.every((p: string) => filledPlatforms.includes(p));
-            return allMatched ? 'COMPLETE' : 'PARTIAL';
-        })(),
-        
-        reviews: Array.isArray(data.task_reviews) ? data.task_reviews.map((r: any) => ({
-             id: r.id, taskId: r.content_id, round: r.round, scheduledAt: new Date(r.scheduled_at), 
-             reviewerId: r.reviewer_id, status: r.status, feedback: r.feedback, isCompleted: r.is_completed
-        })) : [],
-        logs: [],
-        _isPartial: true
-    }), []);
+    const mapSupabaseToTask = useCallback((data: any): Task => mapContentRowToTask(data), []);
 
     // --- SMART HYDRATION LOGIC ---
     // Stable match function using refs to prevent stale closure and avoid resubscribing socket channels on typing.
@@ -308,7 +244,7 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
         try {
             let query = supabase
                 .from('contents')
-                .select(`id, title, status, start_date, end_date, created_at, channel_id, tags, target_platform, pillar, content_formats, category, is_unscheduled, description, remark, shoot_date, shoot_location, is_in_shoot_queue, assignee_ids, idea_owner_ids, editor_ids, local_path, drive_label, sub_checklist_progress, content_analytics(id, platform)`, { count: 'exact' });
+                .select(CONTENT_FULL_SELECT_FIELDS, { count: 'exact' });
 
             // 1. Search
             if (searchQuery) {
@@ -662,7 +598,25 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
 
             if (isMatch) {
                 if (exists) {
-                     return prevList.map(item => item.id === task.id ? task : item);
+                     return prevList.map(item => {
+                         if (item.id === task.id) {
+                             if ((task as any)._isPartial) {
+                                 return {
+                                     ...item,
+                                     ...task,
+                                     description: item.description || task.description,
+                                     remark: item.remark || task.remark,
+                                     shootNotes: item.shootNotes || task.shootNotes,
+                                     publishedLinks: item.publishedLinks || task.publishedLinks,
+                                     reviews: (item.reviews && item.reviews.length > 0) ? item.reviews : task.reviews,
+                                     sponsorship: item.sponsorship || task.sponsorship,
+                                     _isPartial: item._isPartial && (task as any)._isPartial
+                                 };
+                             }
+                             return task;
+                         }
+                         return item;
+                     });
                 }
                 
                 // Handle Addition: If it matches filters and doesn't exist locally,

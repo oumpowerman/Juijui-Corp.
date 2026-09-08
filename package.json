@@ -60,6 +60,7 @@
     "recharts": "^2.10.0",
     "tsx": "^4.21.0",
     "uuid": "^13.0.0",
+    "web-push": "^3.6.7",
     "xlsx": "^0.18.5",
     "yjs": "^13.6.30"
   },
@@ -75,6 +76,7 @@
     "@types/react-dom": "^18.2.0",
     "@types/react-virtualized-auto-sizer": "^1.0.4",
     "@types/react-window": "^1.8.8",
+    "@types/web-push": "^3.6.4",
     "@vitejs/plugin-react": "^4.2.0",
     "autoprefixer": "^10.4.24",
     "esbuild": "^0.28.1",

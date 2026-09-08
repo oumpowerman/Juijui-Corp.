@@ -99,16 +99,18 @@ if (!rootElement) {
   throw new Error("Could not find root element to mount to");
 }
 
-// --- SERVICE WORKER REGISTRATION ---
-/* 
-if ('serviceWorker' in navigator) {
+// --- SERVICE WORKER REGISTRATION (PWA & Push Notifications) ---
+if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost')) {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js')
-      .then(reg => console.log('SW registered:', reg))
-      .catch(err => console.error('SW registration failed:', err));
+      .then(reg => {
+        console.log('[PWA] Service Worker registered with scope:', reg.scope);
+      })
+      .catch(err => {
+        console.warn('[PWA] Service Worker registration failed:', err);
+      });
   });
 }
-*/
 
 const root = ReactDOM.createRoot(rootElement);
 root.render(

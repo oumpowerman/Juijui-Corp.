@@ -22,7 +22,8 @@ export function usePushNotification(userId?: string) {
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    // iOS Detection
+    // Environment checks
+    const isInIframe = typeof window !== 'undefined' && window.self !== window.top;
     const isIos = typeof window !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
     const isIosPwaInstalled = typeof window !== 'undefined' && (
         (navigator as any).standalone === true || 
@@ -41,12 +42,16 @@ export function usePushNotification(userId?: string) {
             return;
         }
 
-        setPermission(Notification.permission);
-
         try {
-            const registration = await navigator.serviceWorker.ready;
-            const subscription = await registration.pushManager.getSubscription();
-            setIsSubscribed(!!subscription);
+            setPermission(Notification.permission);
+
+            if (Notification.permission === 'granted') {
+                const registration = await navigator.serviceWorker.ready;
+                const subscription = await registration.pushManager.getSubscription();
+                setIsSubscribed(!!subscription);
+            } else {
+                setIsSubscribed(false);
+            }
         } catch (err: any) {
             console.warn('[usePushNotification] Error checking subscription:', err);
         } finally {
@@ -66,7 +71,11 @@ export function usePushNotification(userId?: string) {
         const targetUserId = currentUserId || userId;
 
         try {
-            if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+            if (isInIframe) {
+                throw new Error('กรุณาเปิดแอปในแท็บใหม่ (New Tab) เพื่อให้เบราว์เซอร์อนุญาตสิทธิ์การแจ้งเตือน');
+            }
+
+            if (!('serviceWorker' in navigator) || !('PushManager' in window) || !('Notification' in window)) {
                 throw new Error('อุปกรณ์หรือเบราว์เซอร์นี้ยังไม่รองรับ Push Notifications');
             }
 
@@ -96,8 +105,10 @@ export function usePushNotification(userId?: string) {
             const registration = await navigator.serviceWorker.ready;
             let subscription = await registration.pushManager.getSubscription();
 
+            const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
+
+            // If subscription exists, verify or resubscribe to ensure key match
             if (!subscription) {
-                const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
                 subscription = await registration.pushManager.subscribe({
                     userVisibleOnly: true,
                     applicationServerKey: convertedVapidKey
@@ -129,7 +140,7 @@ export function usePushNotification(userId?: string) {
         } finally {
             setIsLoading(false);
         }
-    }, [userId]);
+    }, [userId, isInIframe]);
 
     // Unsubscribe from Web Push
     const unsubscribeFromPush = useCallback(async (currentUserId?: string) => {
@@ -174,16 +185,43 @@ export function usePushNotification(userId?: string) {
     const testPush = useCallback(async (targetUserId?: string) => {
         const uid = targetUserId || userId;
         try {
+            let subscriptionData: any = null;
+            let reg: any = null;
+
+            if ('serviceWorker' in navigator) {
+                reg = await navigator.serviceWorker.ready;
+                const sub = await reg.pushManager.getSubscription();
+                if (sub) {
+                    subscriptionData = sub.toJSON();
+                }
+            }
+
+            // Trigger client OS notification preview directly
+            if (reg && 'showNotification' in reg && Notification.permission === 'granted') {
+                reg.showNotification('🔔 ทดสอบการแจ้งเตือน Kontent OS', {
+                    body: 'ระบบแจ้งเตือนแบบ Push บนอุปกรณ์ของคุณทำงานได้สมบูรณ์แบบแล้ว!',
+                    icon: '/icon-192.png',
+                    badge: '/icon-192.png',
+                    tag: 'test-notification',
+                    vibrate: [200, 100, 200],
+                    data: { url: '/' }
+                }).catch(() => {});
+            }
+
+            // Also dispatch via backend web-push
             const res = await fetch('/api/push/test', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     userId: uid,
+                    subscription: subscriptionData,
+                    endpoint: subscriptionData?.endpoint,
                     title: '🔔 ทดสอบการแจ้งเตือน Kontent OS',
                     message: 'ระบบแจ้งเตือนแบบ Push บนอุปกรณ์ของคุณทำงานได้สมบูรณ์แบบแล้ว!',
                     url: '/'
                 })
             });
+
             return await res.json();
         } catch (err: any) {
             console.error('[usePushNotification] Test push failed:', err);
@@ -197,6 +235,7 @@ export function usePushNotification(userId?: string) {
         isSubscribed,
         isLoading,
         error,
+        isInIframe,
         isIos,
         isIosPwaInstalled,
         subscribeToPush,

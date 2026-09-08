@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, Bell, Calendar, UserPlus, CheckCircle, Mail, Shield, Smartphone, Send, AlertCircle, Info, Loader2 } from 'lucide-react';
+import { X, Bell, Calendar, UserPlus, CheckCircle, Mail, Shield, Smartphone, Send, AlertCircle, Info, Loader2, ExternalLink } from 'lucide-react';
 import { NotificationPreferences, User } from '../types';
 import { BRAND_CONFIG } from '../config/brand.ts';
 import { usePushNotification } from '../hooks/usePushNotification';
@@ -26,6 +26,7 @@ const NotificationSettingsModal: React.FC<NotificationSettingsModalProps> = ({
     isSubscribed,
     isLoading: isPushLoading,
     error: pushError,
+    isInIframe,
     isIos,
     isIosPwaInstalled,
     subscribeToPush,
@@ -56,9 +57,18 @@ const NotificationSettingsModal: React.FC<NotificationSettingsModalProps> = ({
     setIsTestingPush(true);
     setTestResult(null);
     try {
+      if (!isSubscribed && permission !== 'granted') {
+        const subRes = await subscribeToPush(user?.id);
+        if (!subRes.success) {
+          setTestResult(subRes.error || 'กรุณากดเปิดสิทธิ์แจ้งเตือนก่อนทดสอบ');
+          setIsTestingPush(false);
+          return;
+        }
+      }
+
       const res = await testPush(user?.id);
       if (res && res.success) {
-        setTestResult('ส่งการแจ้งเตือนทดสอบเรียบร้อยแล้ว! ตรวจสอบที่แถบด้านบนของหน้าจอ');
+        setTestResult(res.message || 'ส่งการแจ้งเตือนทดสอบเรียบร้อยแล้ว!');
       } else {
         setTestResult(res?.error || 'ไม่สามารถส่งการแจ้งเตือนได้');
       }
@@ -180,7 +190,7 @@ const NotificationSettingsModal: React.FC<NotificationSettingsModalProps> = ({
 
                 <button 
                   onClick={handlePushToggle}
-                  disabled={isPushLoading || !isSupported}
+                  disabled={isPushLoading || !isSupported || isInIframe}
                   className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed ${
                     isSubscribed ? 'bg-indigo-600' : 'bg-gray-300'
                   }`}
@@ -197,8 +207,30 @@ const NotificationSettingsModal: React.FC<NotificationSettingsModalProps> = ({
                 </button>
               </div>
 
+              {/* In-Iframe Warning */}
+              {isInIframe && (
+                <div className="mt-3.5 p-3.5 bg-amber-50/90 border border-amber-200 rounded-xl flex items-start gap-2.5 text-xs text-amber-800">
+                  <Info className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <span className="font-bold block">กำลังเปิดใช้งานในหน้าต่างพรีวิว (iframe):</span>
+                    <p className="text-[11px] leading-relaxed">
+                      เบราว์เซอร์จะบล็อกสิทธิ์ Web Push และการสั่นในหน้าต่างพรีวิว กรุณาเปิดแอปในหน้าต่างใหม่ (New Tab) เพื่อให้เบราว์เซอร์อนุญาตสิทธิ์แจ้งเตือน
+                    </p>
+                    <a 
+                      href={window.location.href} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 font-bold text-indigo-600 hover:text-indigo-800 hover:underline pt-0.5"
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                      เปิดแอปในแท็บใหม่ (New Tab)
+                    </a>
+                  </div>
+                </div>
+              )}
+
               {/* Error or Denied State */}
-              {permission === 'denied' && (
+              {permission === 'denied' && !isInIframe && (
                 <div className="mt-3.5 p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2 text-xs text-red-700">
                   <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />
                   <div>
@@ -207,7 +239,7 @@ const NotificationSettingsModal: React.FC<NotificationSettingsModalProps> = ({
                 </div>
               )}
 
-              {pushError && permission !== 'denied' && (
+              {pushError && permission !== 'denied' && !isInIframe && (
                 <div className="mt-3.5 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2 text-xs text-amber-700">
                   <AlertCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
                   <span>{pushError}</span>
@@ -224,29 +256,27 @@ const NotificationSettingsModal: React.FC<NotificationSettingsModalProps> = ({
                 </div>
               )}
 
-              {/* Test Button (Shown when subscribed) */}
-              {isSubscribed && (
-                <div className="mt-3.5 pt-3 border-t border-indigo-100/80 flex flex-wrap items-center justify-between gap-2">
-                  <button
-                    onClick={handleTestNotification}
-                    disabled={isTestingPush}
-                    className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-indigo-200 hover:border-indigo-300 hover:bg-indigo-50 text-indigo-700 text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
-                  >
-                    {isTestingPush ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
-                    ) : (
-                      <Send className="w-3.5 h-3.5 text-indigo-500" />
-                    )}
-                    <span>ทดสอบยิง Push แจ้งเตือน</span>
-                  </button>
-
-                  {testResult && (
-                    <span className="text-[11px] font-medium text-indigo-700">
-                      {testResult}
-                    </span>
+              {/* Test Button */}
+              <div className="mt-3.5 pt-3 border-t border-indigo-100/80 flex flex-wrap items-center justify-between gap-2">
+                <button
+                  onClick={handleTestNotification}
+                  disabled={isTestingPush || isInIframe}
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-white border border-indigo-200 hover:border-indigo-300 hover:bg-indigo-50 text-indigo-700 text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
+                >
+                  {isTestingPush ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-600" />
+                  ) : (
+                    <Send className="w-3.5 h-3.5 text-indigo-500" />
                   )}
-                </div>
-              )}
+                  <span>ทดสอบยิง Push แจ้งเตือน</span>
+                </button>
+
+                {testResult && (
+                  <span className="text-[11px] font-medium text-indigo-700">
+                    {testResult}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
 

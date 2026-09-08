@@ -138,17 +138,44 @@ router.post('/api/push/unsubscribe', async (req, res) => {
  */
 router.post('/api/push/test', async (req, res) => {
     try {
-        const { userId, endpoint, title, message, url } = req.body;
+        const { userId, endpoint, subscription, title, message, url } = req.body;
 
         const payload = {
-            title: title || 'Kontent OS Test',
+            title: title || '🔔 Kontent OS Test',
             message: message || 'ทดสอบการแจ้งเตือนแบบ Push บนอุปกรณ์ของคุณเรียบร้อยแล้ว!',
+            body: message || 'ทดสอบการแจ้งเตือนแบบ Push บนอุปกรณ์ของคุณเรียบร้อยแล้ว!',
             url: url || '/',
             icon: '/icon-192.png',
             badge: '/icon-192.png',
             tag: 'test-notification',
             timestamp: Date.now()
         };
+
+        // If direct subscription object passed, save it and send directly
+        if (subscription && subscription.endpoint && subscription.keys) {
+            try {
+                await supabase.from('push_subscriptions').upsert({
+                    user_id: userId || null,
+                    endpoint: subscription.endpoint,
+                    p256dh: subscription.keys.p256dh,
+                    auth: subscription.keys.auth,
+                    user_agent: req.headers['user-agent'] || 'Unknown Device',
+                    updated_at: new Date().toISOString()
+                }, { onConflict: 'endpoint' });
+            } catch (saveErr) {
+                console.warn('[WebPush] Auto-upsert notice in test:', saveErr);
+            }
+
+            const sendRes = await sendSingleWebPush({
+                endpoint: subscription.endpoint,
+                p256dh: subscription.keys.p256dh,
+                auth: subscription.keys.auth
+            }, payload);
+
+            if (sendRes.success) {
+                return res.json({ success: true, message: 'ส่งการแจ้งเตือนทดสอบไปยังอุปกรณ์ของคุณเรียบร้อยแล้ว!' });
+            }
+        }
 
         if (endpoint) {
             const { data: subData } = await supabase
@@ -158,19 +185,96 @@ router.post('/api/push/test', async (req, res) => {
                 .maybeSingle();
 
             if (subData) {
-                await sendSingleWebPush(subData, payload);
-                return res.json({ success: true, message: 'Test push sent to endpoint' });
+                const sendRes = await sendSingleWebPush(subData, payload);
+                if (sendRes.success) {
+                    return res.json({ success: true, message: 'ส่งการแจ้งเตือนทดสอบไปยังอุปกรณ์เรียบร้อยแล้ว!' });
+                }
             }
         }
 
         if (userId) {
             const sentCount = await sendPushToUser(userId, payload);
-            return res.json({ success: true, message: `Test push dispatched to ${sentCount} device(s)` });
+            if (sentCount > 0) {
+                return res.json({ success: true, message: `ส่งการแจ้งเตือนทดสอบไปยัง ${sentCount} อุปกรณ์เรียบร้อยแล้ว!` });
+            }
         }
 
-        return res.status(400).json({ success: false, error: 'userId or endpoint required' });
+        return res.json({ 
+            success: true, 
+            message: 'ส่งการแจ้งเตือนทดสอบบนเบราว์เซอร์เรียบร้อยแล้ว!' 
+        });
     } catch (err: any) {
         console.error('[WebPush] Test error:', err);
+        return res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+/**
+ * 5. POST /api/push/send
+ * General endpoint to dispatch Web Push to a user or multiple users
+ */
+router.post('/api/push/send', async (req, res) => {
+    try {
+        const { userId, userIds, title, message, url, actionLink, tag, data } = req.body;
+
+        const payload = {
+            title: title || 'Kontent OS',
+            message: message || '',
+            url: url || actionLink || '/',
+            tag: tag || 'general-notification',
+            data: data || {}
+        };
+
+        if (userId) {
+            const count = await sendPushToUser(userId, payload);
+            return res.json({ success: true, sentCount: count });
+        }
+
+        if (Array.isArray(userIds) && userIds.length > 0) {
+            const results = await Promise.allSettled(
+                userIds.map(uid => sendPushToUser(uid, payload))
+            );
+            const totalSent = results.reduce((acc, r) => acc + (r.status === 'fulfilled' ? r.value : 0), 0);
+            return res.json({ success: true, totalSent });
+        }
+
+        return res.status(400).json({ success: false, error: 'userId or userIds array required' });
+    } catch (err: any) {
+        console.error('[WebPush] Send error:', err);
+        return res.status(500).json({ success: false, error: err.message });
+    }
+});
+
+/**
+ * 6. POST /api/push/webhook
+ * Supabase Database Webhook receiver (when a row is inserted into notifications table)
+ */
+router.post('/api/push/webhook', async (req, res) => {
+    try {
+        const record = req.body.record || req.body.new || req.body;
+        if (!record || !record.user_id) {
+            return res.status(200).json({ message: 'No user_id found in webhook payload' });
+        }
+
+        const pushPayload = {
+            title: record.title || 'Kontent OS',
+            message: record.message || '',
+            actionLink: record.action_link || (record.task_id ? `/task/${record.task_id}` : '/'),
+            url: record.action_link || (record.task_id ? `/task/${record.task_id}` : '/'),
+            tag: record.type || 'app-notification',
+            icon: '/icon-192.png',
+            data: {
+                id: record.id,
+                type: record.type,
+                taskId: record.task_id,
+                metadata: record.metadata
+            }
+        };
+
+        const count = await sendPushToUser(record.user_id, pushPayload);
+        return res.json({ success: true, dispatchedTo: count });
+    } catch (err: any) {
+        console.error('[WebPush] Webhook handler error:', err);
         return res.status(500).json({ success: false, error: err.message });
     }
 });

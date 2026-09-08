@@ -14,7 +14,7 @@ export const CONTENT_SUMMARY_FIELDS = `
     start_date, end_date, created_at, updated_at, is_unscheduled, scheduled_time,
     target_platform, assignee_ids, idea_owner_ids, editor_ids, shoot_trip_id,
     shoot_date, shoot_location, is_in_shoot_queue, is_soft_finished, sla_revert_count,
-    local_path, drive_label, caution, importance, sub_checklist_progress
+    local_path, drive_label, sub_checklist_progress
 `.replace(/\s+/g, ' ').trim();
 
 export const TASK_SUMMARY_FIELDS = `
@@ -30,7 +30,7 @@ export const CONTENT_FULL_SELECT_FIELDS = `
     target_platform, assignee_ids, idea_owner_ids, editor_ids, shoot_trip_id,
     shoot_date, shoot_location, shoot_time_start, shoot_time_end, shoot_notes,
     is_in_shoot_queue, is_soft_finished, sla_revert_count, local_path, drive_label,
-    caution, importance, published_links, sub_checklist_progress,
+    published_links, sub_checklist_progress, assets, is_penalized, last_penalized_at,
     task_reviews(id, round, status, is_completed, scheduled_at, reviewer_id, feedback, content_id),
     content_analytics(id, platform),
     sponsorship_details(is_sponsored, deal_value, requirements, payment_status, is_paid, invoice_url, client_id)
@@ -40,7 +40,7 @@ export const TASK_FULL_SELECT_FIELDS = `
     id, title, description, type, status, priority, start_date, end_date, created_at, updated_at, 
     assignee_ids, content_id, show_on_board, target_position, roadmap_id, 
     sla_revert_count, difficulty, assignee_type, estimated_hours, scheduled_time,
-    caution, importance, assets, script_id,
+    caution, importance, assets, script_id, tags, is_penalized, last_penalized_at,
     contents(title), task_reviews(id, round, status, is_completed, scheduled_at, reviewer_id, feedback, task_id)
 `.replace(/\s+/g, ' ').trim();
 
@@ -101,9 +101,9 @@ export const mapContentRowToTask = (data: any, isPartial = false): Task => {
         difficulty: data.difficulty || 'MEDIUM',
         estimatedHours: data.estimated_hours || 0,
         assigneeType: data.assignee_type || 'TEAM',
-        targetPosition: data.target_position,
-        caution: data.caution,
-        importance: data.importance,
+        targetPosition: data.target_position || undefined,
+        caution: data.caution || undefined,
+        importance: data.importance || undefined,
         publishedLinks: data.published_links || {},
         shootDate: data.shoot_date ? new Date(data.shoot_date) : undefined,
         shootLocation: data.shoot_location || undefined,

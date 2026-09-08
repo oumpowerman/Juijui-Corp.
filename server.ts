@@ -43,20 +43,24 @@ app.use(adminApprovalRouter);
 app.use(pushRouter);
 
 async function startServer() {
-    // โหลด dotenv เฉพาะเมื่อไม่ได้รันบน Vercel หรืออยู่ในสภาพแวดล้อม Development
-    if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
-        const { createServer: createViteServer } = await import('vite');
-        const vite = await createViteServer({
-            server: { middlewareMode: true },
-            appType: 'spa',
-        });
-        app.use(vite.middlewares);
-    } else if (!process.env.VERCEL) {
-        const distPath = path.join(process.cwd(), 'dist');
-        app.use(express.static(distPath));
-        app.get('*all', (req, res) => {
-            res.sendFile(path.join(distPath, 'index.html'));
-        });
+    try {
+        // โหลด dotenv เฉพาะเมื่อไม่ได้รันบน Vercel หรืออยู่ในสภาพแวดล้อม Development
+        if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+            const { createServer: createViteServer } = await import('vite');
+            const vite = await createViteServer({
+                server: { middlewareMode: true, hmr: false },
+                appType: 'spa',
+            });
+            app.use(vite.middlewares);
+        } else if (!process.env.VERCEL) {
+            const distPath = path.join(process.cwd(), 'dist');
+            app.use(express.static(distPath));
+            app.get('*all', (req, res) => {
+                res.sendFile(path.join(distPath, 'index.html'));
+            });
+        }
+    } catch (err) {
+        console.error('Vite middleware startup error:', err);
     }
 
     if (!process.env.VERCEL) {
@@ -66,6 +70,8 @@ async function startServer() {
     }
 }
 
-startServer();
+startServer().catch(err => {
+    console.error('Fatal server startup error:', err);
+});
 
 export default app;

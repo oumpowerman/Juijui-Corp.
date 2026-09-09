@@ -1,8 +1,9 @@
 import React from 'react';
-import { Clock, ShieldCheck, Tv, MessageSquare, Sparkles } from 'lucide-react';
+import { Clock, Sunrise, MessageSquare } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { AlertSubTabId, ContentAlertSubNavProps } from './types';
 
-export type AlertSubTabId = 'TIMING' | 'STATUS_GATE' | 'CHANNEL_SCOPE' | 'LINE_DESTINATION';
+export type { AlertSubTabId, ContentAlertSubNavProps };
 
 interface TabItem {
     id: AlertSubTabId;
@@ -13,59 +14,47 @@ interface TabItem {
     color: string;
 }
 
-interface ContentAlertSubNavProps {
-    activeTab: AlertSubTabId;
-    onTabChange: (tab: AlertSubTabId) => void;
-    leadMinutes: string;
-    requiredStatusCount: number;
-    channelScopeCount: string;
-}
-
 export const ContentAlertSubNav: React.FC<ContentAlertSubNavProps> = ({
     activeTab,
     onTabChange,
     leadMinutes,
+    dailyAlertTime,
+    isDailyAlertEnabled,
     requiredStatusCount,
     channelScopeCount,
+    isPreReleaseEnabled,
+    excludedStatusCount,
 }) => {
     const tabs: TabItem[] = [
         {
-            id: 'TIMING',
-            label: 'เวลาและเงื่อนไขเตือน',
-            sublabel: 'Lead Time & Lookback',
+            id: 'PRE_RELEASE',
+            label: '1. เตือนก่อนคลิปลง',
+            sublabel: 'Pre-Release Alert (Realtime)',
             icon: Clock,
-            badge: `${leadMinutes} นาที`,
+            badge: isPreReleaseEnabled ? `${leadMinutes} นาที • ${requiredStatusCount} สถานะพร้อม` : 'ปิดใช้งาน',
             color: 'text-purple-600',
         },
         {
-            id: 'STATUS_GATE',
-            label: 'เกณฑ์สถานะพร้อมลง',
-            sublabel: 'Status Gate & Approval',
-            icon: ShieldCheck,
-            badge: `${requiredStatusCount} สถานะ`,
-            color: 'text-emerald-600',
+            id: 'DAILY_SUMMARY',
+            label: '2. สรุปค้างลงประจำเช้า',
+            sublabel: 'Daily Overdue Summary (Cron)',
+            icon: Sunrise,
+            badge: isDailyAlertEnabled ? `${dailyAlertTime} น. • ยกเว้น ${excludedStatusCount} สถานะ` : 'ปิดใช้งาน',
+            color: 'text-amber-600',
         },
         {
-            id: 'CHANNEL_SCOPE',
-            label: 'ขอบเขตช่อง & รายการ',
-            sublabel: 'Channel & Program Scope',
-            icon: Tv,
-            badge: channelScopeCount === 'ALL' ? 'ทุกช่อง' : `${channelScopeCount} ช่อง`,
-            color: 'text-indigo-600',
-        },
-        {
-            id: 'LINE_DESTINATION',
-            label: 'ปลายทาง LINE & เวิร์กโฟลว์',
-            sublabel: 'LINE Group & Workflow',
+            id: 'LINE_INTEGRATION',
+            label: '3. ปลายทาง LINE & ทดสอบ',
+            sublabel: 'LINE Target & Live Testing',
             icon: MessageSquare,
-            badge: 'Automation',
+            badge: 'พร้อมทดสอบ ⚡',
             color: 'text-blue-600',
         },
     ];
 
     return (
         <div id="content-alert-subnav" className="w-full">
-            <div className="bg-slate-100/80 p-1.5 rounded-3xl border border-slate-200/80 flex flex-wrap md:flex-nowrap gap-1.5 shadow-2xs backdrop-blur-sm">
+            <div className="bg-slate-100/80 p-1.5 rounded-3xl border border-slate-200/80 grid grid-cols-1 md:grid-cols-3 gap-2 shadow-2xs backdrop-blur-sm">
                 {tabs.map((tab) => {
                     const isActive = activeTab === tab.id;
                     const Icon = tab.icon;
@@ -75,7 +64,7 @@ export const ContentAlertSubNav: React.FC<ContentAlertSubNavProps> = ({
                             key={tab.id}
                             type="button"
                             onClick={() => onTabChange(tab.id)}
-                            className={`relative flex-1 min-w-[160px] py-3 px-4 rounded-2xl transition-all duration-200 text-left flex items-center justify-between gap-3 cursor-pointer group select-none ${
+                            className={`relative w-full py-3.5 px-4 rounded-2xl transition-all duration-200 text-left flex items-center justify-between gap-3 cursor-pointer group select-none ${
                                 isActive
                                     ? 'text-gray-900 shadow-md'
                                     : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
@@ -92,38 +81,36 @@ export const ContentAlertSubNav: React.FC<ContentAlertSubNavProps> = ({
 
                             <div className="relative z-10 flex items-center gap-3 min-w-0">
                                 <div
-                                    className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
+                                    className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-colors ${
                                         isActive
                                             ? 'bg-purple-50 text-purple-600 shadow-xs'
                                             : 'bg-white/80 text-gray-400 group-hover:text-purple-600'
                                     }`}
                                 >
-                                    <Icon className="w-4 h-4" />
+                                    <Icon className="w-5 h-5" />
                                 </div>
-                                <div className="truncate">
-                                    <div
-                                        className={`text-xs font-bold leading-tight truncate ${
-                                            isActive ? 'text-gray-900' : 'text-gray-700'
-                                        }`}
-                                    >
+                                <div className="min-w-0">
+                                    <div className="font-bold text-sm truncate text-gray-900">
                                         {tab.label}
                                     </div>
-                                    <div className="text-[10px] text-gray-400 truncate mt-0.5 font-medium">
+                                    <div className="text-[11px] text-gray-500 truncate">
                                         {tab.sublabel}
                                     </div>
                                 </div>
                             </div>
 
                             {tab.badge && (
-                                <span
-                                    className={`relative z-10 text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 border transition-colors ${
-                                        isActive
-                                            ? 'bg-purple-100 text-purple-700 border-purple-200'
-                                            : 'bg-white text-gray-500 border-gray-200 group-hover:border-purple-200'
-                                    }`}
-                                >
-                                    {tab.badge}
-                                </span>
+                                <div className="relative z-10 shrink-0">
+                                    <span
+                                        className={`px-2.5 py-1 rounded-full text-[10px] font-bold border transition-colors ${
+                                            isActive
+                                                ? 'bg-purple-100 text-purple-800 border-purple-200'
+                                                : 'bg-slate-200/60 text-gray-600 border-slate-300/60'
+                                        }`}
+                                    >
+                                        {tab.badge}
+                                    </span>
+                                </div>
                             )}
                         </button>
                     );

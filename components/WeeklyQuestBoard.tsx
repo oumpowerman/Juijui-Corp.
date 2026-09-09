@@ -156,14 +156,7 @@ const WeeklyQuestBoard: React.FC<WeeklyQuestBoardProps> = ({
     return (
         <AppBackground theme={bgTheme} pattern="dots" className="p-4 md:p-8 min-h-screen">
             <div className="space-y-6 animate-in fade-in duration-500 pb-20">
-                <MentorTip 
-                    variant="purple" 
-                    messages={[
-                        "ใหม่! ระบบ Quest ยืดหยุ่น: สร้างเควสเริ่มวันไหนก็ได้ กำหนดวันจบเองได้ ไม่ต้องล็อค 7 วัน",
-                        "กดปุ่ม 'สถิติ (Chronicles)' เพื่อดูประวัติความสำเร็จและความล้มเหลวที่ผ่านมา",
-                        "การ Revive งานที่ล้มเหลว จะช่วยให้เราได้โอกาสแก้ตัว แต่ประวัติเก่าจะยังคงอยู่เป็นบทเรียนนะ"
-                    ]} 
-                />
+                <MentorTip moduleId="QUEST_BOARD" />
 
             {/* Header & Nav */}
             <div className="flex flex-col md:flex-row justify-between items-end gap-4">

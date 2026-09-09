@@ -29,7 +29,7 @@ interface TaskContextType {
     fetchAllTasks: () => void;
     checkAndExpandRange: (targetDate: Date) => void;
     fetchSubTasks: (contentId: string) => Promise<Task[]>;
-    fetchTaskById: (id: string, type: TaskType) => Promise<Task | null>;
+    fetchTaskById: (id: string, type?: TaskType) => Promise<Task | null>;
     fetchSubTasksCount: (contentId: string) => Promise<number>;
     fetchCompletedTasks: (params?: { userId?: string; limit?: number; startDate?: Date; endDate?: Date }) => Promise<void>;
 }
@@ -267,18 +267,55 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }, []);
 
-    const fetchTaskById = useCallback(async (id: string, type: TaskType): Promise<Task | null> => {
+    const fetchTaskById = useCallback(async (id: string, type?: TaskType): Promise<Task | null> => {
+        if (!id) return null;
+
+        const attemptFetch = async (targetType: TaskType): Promise<Task | null> => {
+            const table = targetType === 'TASK' ? 'tasks' : 'contents';
+            const fullFields = targetType === 'TASK' ? TASK_FULL_SELECT_FIELDS : CONTENT_FULL_SELECT_FIELDS;
+            const summaryFields = targetType === 'TASK' ? TASK_SUMMARY_FIELDS : CONTENT_SUMMARY_FIELDS;
+            try {
+                let { data, error } = await supabase.from(table).select(fullFields).eq('id', id).maybeSingle();
+                if (error) {
+                    console.warn(`[TaskContext] Error with full fields for ${targetType}, retrying with summary fields:`, error.message);
+                    const retry = await supabase.from(table).select(summaryFields).eq('id', id).maybeSingle();
+                    if (!retry.error && retry.data) {
+                        data = retry.data;
+                    }
+                }
+                if (data) {
+                    return mapSupabaseToTask(data, targetType);
+                }
+            } catch (e) {
+                console.warn(`[TaskContext] Failed fetch on ${table}:`, e);
+            }
+            return null;
+        };
+
         try {
-            const table = type === 'TASK' ? 'tasks' : 'contents';
-            const selectFields = type === 'TASK' ? TASK_FULL_SELECT_FIELDS : CONTENT_FULL_SELECT_FIELDS;
-            let query = supabase.from(table).select(selectFields).eq('id', id).maybeSingle();
-            
-            const { data, error } = await query;
-            if (error) throw error;
-            
-            return data ? mapSupabaseToTask(data, type) : null;
+            const primaryType = type || 'CONTENT';
+            let result = await attemptFetch(primaryType);
+
+            // If not found in primary table and no explicit type was specified, try the other table
+            if (!result && !type) {
+                result = await attemptFetch('TASK');
+            }
+
+            if (result) {
+                setTasks(prev => {
+                    const idx = prev.findIndex(t => t.id === result!.id);
+                    if (idx >= 0) {
+                        const next = [...prev];
+                        next[idx] = result!;
+                        return next;
+                    }
+                    return [result!, ...prev];
+                });
+            }
+
+            return result;
         } catch (err) {
-            console.error(`[TaskContext] Failed to fetch single ${type}:`, err);
+            console.error(`[TaskContext] Failed to fetch single task ${id}:`, err);
             return null;
         }
     }, [mapSupabaseToTask]);

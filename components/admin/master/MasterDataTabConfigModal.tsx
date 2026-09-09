@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import ReactDOM from 'react-dom'; // 1. นำเข้า ReactDOM สำหรับทำ Portal
 import { Check, Settings, ToggleLeft, ToggleRight, X, Info } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MASTER_META } from './MasterTabNavigation';
+import { MASTER_META, getMasterTabGroups, ALL_MASTER_TAB_KEYS } from './MasterTabNavigation';
 
 interface MasterDataTabConfigModalProps {
     isOpen: boolean;
@@ -11,30 +11,9 @@ interface MasterDataTabConfigModalProps {
     onSave: (selected: string[]) => Promise<void>;
 }
 
-const GROUPS = [
-    {
-        id: 'workflow',
-        title: 'Production & Workflow',
-        keys: ['STATUS', 'TASK_STATUS', 'PROJECT_TYPE', 'TAG_PRESET', 'EVENT_TYPE', 'YEARLY', 'CALENDAR']
-    },
-    {
-        id: 'content',
-        title: 'Content Metadata',
-        keys: ['FORMAT', 'PILLAR', 'CATEGORY', 'SCRIPT_CATEGORY', 'CONTENT_ALERT', 'SHOOT_LOCATION', 'MEETING_CATEGORY']
-    },
-    {
-        id: 'resources',
-        title: 'Resources & HR',
-        keys: ['INVENTORY', 'ITEM_CONDITION', 'POSITION', 'COMPANIES', 'ATTENDANCE_RULES', 'LOCATIONS', 'REJECTION_REASON']
-    },
-    {
-        id: 'system',
-        title: 'System Config',
-        keys: ['GAME_TUNING', 'PAYROLL_RULES', 'TRIBUNAL_SETTINGS', 'REWARDS', 'GREETINGS', 'DASHBOARD', 'MAINTENANCE', 'WIKI_CATEGORY', 'STORAGE_HUB', 'SYSTEM_POLICY']
-    }
-];
-
-const ALL_KEYS = GROUPS.flatMap(g => g.keys);
+// Dynamically derived from MASTER_META - no hardcoding needed when new tabs are added!
+const GROUPS = getMasterTabGroups();
+const ALL_KEYS = ALL_MASTER_TAB_KEYS;
 
 const MasterDataTabConfigModal: React.FC<MasterDataTabConfigModalProps> = ({
     isOpen,

@@ -1,70 +1,77 @@
 import React from 'react';
-import { Sparkles, Calendar, Search, Bell, CheckCircle2 } from 'lucide-react';
+import { Sparkles, Calendar, Search, Bell, CheckCircle2, Sunrise, ShieldCheck, ArrowRight } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export const AlertWorkflowGuideCard: React.FC = () => {
-    const steps = [
-        {
-            icon: Calendar,
-            color: 'text-blue-600 bg-blue-50 border-blue-200',
-            title: '1. อ่านตารางลงคลิป',
-            desc: 'สแกนคิวงานจากตาราง contents ตามวันและเวลา scheduled_time ใน Calendar',
-        },
-        {
-            icon: Search,
-            color: 'text-purple-600 bg-purple-50 border-purple-200',
-            title: '2. ตรวจสอบ Status Gate',
-            desc: 'ตรวจสอบว่าคลิปมีสถานะที่ผ่านการอนุมัติหรือยัง หากยังไม่พร้อม จะเข้าสู่กระบวนการเตือน',
-        },
-        {
-            icon: Bell,
-            color: 'text-amber-600 bg-amber-50 border-amber-200',
-            title: '3. แจ้งเตือนเข้า LINE',
-            desc: 'ยิงข้อความ Flex Message แจ้งเวลาที่เหลือ พร้อมแท็กทีมงานและส่งการ์ดข้อมูลคลิป',
-        },
-        {
-            icon: CheckCircle2,
-            color: 'text-emerald-600 bg-emerald-50 border-emerald-200',
-            title: '4. Quick Action Approve',
-            desc: 'ผู้รับผิดชอบสามารถกด Approve ทันที หรือกดลิงก์เข้าดูคลิปในปฏิทินได้ในคลิกเดียว',
-        },
-    ];
-
     return (
         <motion.div
             id="alert-workflow-guide-card"
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, delay: 0.3 }}
-            className="bg-gradient-to-br from-slate-50 to-purple-50/40 rounded-3xl p-6 border border-purple-100/80 space-y-4 shadow-sm"
+            transition={{ duration: 0.3, delay: 0.2 }}
+            className="bg-gradient-to-br from-slate-50 via-white to-purple-50/30 rounded-3xl p-6 border border-purple-100/80 space-y-6 shadow-sm"
         >
-            <div className="flex items-center gap-2 text-purple-950 font-bold text-sm">
-                <Sparkles className="w-4 h-4 text-purple-600" />
-                วงจรการทำงานของระบบแจ้งเตือนคอนเทนต์ (Workflow Automation)
+            <div className="flex items-center gap-2 text-purple-950 font-bold text-base">
+                <Sparkles className="w-5 h-5 text-purple-600" />
+                แผนผังเปรียบเทียบวงจรการทำงานของทั้ง 2 ระบบ (System Pipeline Comparison)
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-1">
-                {steps.map((step, idx) => {
-                    const Icon = step.icon;
-                    return (
-                        <div
-                            key={idx}
-                            className="bg-white/90 backdrop-blur-xs p-4 rounded-2xl border border-purple-100/70 shadow-2xs space-y-2 flex flex-col justify-between"
-                        >
-                            <div className="space-y-2">
-                                <div
-                                    className={`w-9 h-9 rounded-xl flex items-center justify-center border ${step.color}`}
-                                >
-                                    <Icon className="w-4 h-4" />
-                                </div>
-                                <h4 className="text-xs font-bold text-gray-900">{step.title}</h4>
-                                <p className="text-[11px] text-gray-500 leading-relaxed">
-                                    {step.desc}
-                                </p>
-                            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {/* Pipeline 1: Pre-Release */}
+                <div className="p-5 rounded-2xl bg-white border border-purple-200/70 shadow-2xs space-y-3">
+                    <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-purple-100 text-purple-700 flex items-center justify-center shrink-0">
+                            <Bell className="w-4 h-4" />
                         </div>
-                    );
-                })}
+                        <div>
+                            <h4 className="font-bold text-xs text-gray-900">
+                                1. ระบบเตือนด่วนก่อนคลิปลง (Pre-Release Alert)
+                            </h4>
+                            <span className="text-[10px] text-purple-600 font-semibold">
+                                ทำงานแบบ Real-time / ทุก 15-30 นาที
+                            </span>
+                        </div>
+                    </div>
+
+                    <ul className="space-y-2 text-xs text-gray-600">
+                        <li className="flex items-start gap-2">
+                            <Calendar className="w-3.5 h-3.5 text-purple-500 shrink-0 mt-0.5" />
+                            <span>ตรวจคลิปที่มีกำหนดลงในอีก <strong>X นาทีข้างหน้า</strong></span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                            <ShieldCheck className="w-3.5 h-3.5 text-purple-500 shrink-0 mt-0.5" />
+                            <span>กรองด้วย <strong>Status Gate (เกณฑ์ความพร้อม)</strong> — ถ้ายังไม่ถึงสถานะพร้อม จะส่งการ์ดแจ้งเตือนด่วนรายคลิปเข้า LINE</span>
+                        </li>
+                    </ul>
+                </div>
+
+                {/* Pipeline 2: Daily Overdue */}
+                <div className="p-5 rounded-2xl bg-white border border-amber-200/70 shadow-2xs space-y-3">
+                    <div className="flex items-center gap-2.5">
+                        <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                            <Sunrise className="w-4 h-4" />
+                        </div>
+                        <div>
+                            <h4 className="font-bold text-xs text-gray-900">
+                                2. ระบบสรุปค้างลงประจำเช้า (Daily Overdue Summary)
+                            </h4>
+                            <span className="text-[10px] text-amber-700 font-semibold">
+                                ทำงานอัตโนมัติผ่าน pg_cron วันละ 1 ครั้งยามเช้า
+                            </span>
+                        </div>
+                    </div>
+
+                    <ul className="space-y-2 text-xs text-gray-600">
+                        <li className="flex items-start gap-2">
+                            <Calendar className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                            <span>ตรวจคลิปทั้งหมดที่ <strong>เลยกำหนดลงในอดีต</strong> (วันที่ &lt; ปัจจุบัน)</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-amber-600 shrink-0 mt-0.5" />
+                            <span>ยกเว้นคลิปที่มีสถานะ <strong>Done / เผยแพร่แล้ว (Excluded)</strong> — รวมคลิปที่ค้างสรุปแยกตามช่อง (Flex Carousel)</span>
+                        </li>
+                    </ul>
+                </div>
             </div>
         </motion.div>
     );

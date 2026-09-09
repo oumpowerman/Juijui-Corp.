@@ -1,19 +1,9 @@
 import React from 'react';
 import { Tv, Check, Globe } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { ChannelOption, ChannelScopeConfigCardProps } from './types';
 
-export interface ChannelOption {
-    id: string;
-    name: string;
-    color?: string;
-}
-
-interface ChannelScopeConfigCardProps {
-    channels: ChannelOption[];
-    targetChannels: string; // 'ALL' or comma-separated channel IDs
-    onSelectAll: () => void;
-    onToggleChannel: (channelId: string) => void;
-}
+export type { ChannelOption, ChannelScopeConfigCardProps };
 
 export const ChannelScopeConfigCard: React.FC<ChannelScopeConfigCardProps> = ({
     channels,

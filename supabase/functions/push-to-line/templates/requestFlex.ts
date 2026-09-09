@@ -109,9 +109,9 @@ export function buildFooterButtons(
   // If this is a Content Planner notification, provide quick link to Calendar and quick status update
   if (record.type === 'CONTENT_PLANNER_ALERT' || (record.type === 'OVERDUE' && record.link_path === 'CALENDAR')) {
     const taskId = record.related_id || '';
-    const contentDeepLink = `${baseAppUrl}/?openExternalBrowser=1&view=CALENDAR&highlightTaskId=${taskId}`;
-    const quickApproveLink = `${baseAppUrl}/?openExternalBrowser=1&view=CALENDAR&highlightTaskId=${taskId}&quickAction=approve`;
-    const quickDoneLink = `${baseAppUrl}/?openExternalBrowser=1&view=CALENDAR&highlightTaskId=${taskId}&quickAction=set_done`;
+    const contentDeepLink = `${baseAppUrl}/?openExternalBrowser=1&view=CALENDAR&taskId=${taskId}&highlightTaskId=${taskId}`;
+    const quickApproveLink = `${baseAppUrl}/?openExternalBrowser=1&view=CALENDAR&taskId=${taskId}&highlightTaskId=${taskId}&quickAction=approve`;
+    const quickDoneLink = `${baseAppUrl}/?openExternalBrowser=1&view=CALENDAR&taskId=${taskId}&highlightTaskId=${taskId}&quickAction=set_done`;
 
     return [
       {

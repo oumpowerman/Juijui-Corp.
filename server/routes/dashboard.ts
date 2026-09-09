@@ -28,10 +28,7 @@ router.get('/api/dashboard/stats', async (req, res) => {
                 id, title, description, status, pillar, category, content_formats, tags,
                 start_date, end_date, channel_id, created_at, updated_at, is_unscheduled, remark, scheduled_time,
                 target_platform, assignee_ids, idea_owner_ids, editor_ids, shoot_trip_id,
-                shoot_date, is_in_shoot_queue, is_soft_finished,
-                task_reviews(id, round, status, is_completed),
-                content_analytics(id, platform),
-                sponsorship_details(is_sponsored, deal_value, requirements, payment_status, is_paid, invoice_url, client_id)
+                shoot_date, is_in_shoot_queue, is_soft_finished
             `);
         
         if (contentError) throw contentError;
@@ -42,8 +39,7 @@ router.get('/api/dashboard/stats', async (req, res) => {
             .select(`
                 id, title, status, priority, start_date, end_date, created_at, updated_at, 
                 assignee_ids, content_id, show_on_board, target_position, roadmap_id, 
-                difficulty, assignee_type, estimated_hours, scheduled_time,
-                contents(title), task_reviews(id, round, status, is_completed)
+                difficulty, assignee_type, estimated_hours, scheduled_time
             `);
 
         if (dbTasksError) throw dbTasksError;

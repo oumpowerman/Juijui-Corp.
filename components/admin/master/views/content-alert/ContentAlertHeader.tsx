@@ -1,23 +1,27 @@
 import React from 'react';
-import { Film, Send, Save, RefreshCw, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Film, Send, Save, RefreshCw, CheckCircle2, AlertCircle, Clock, Sunrise, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 interface ContentAlertHeaderProps {
     isEnabled: boolean;
     isSaving: boolean;
     isTestingAlert: boolean;
+    isTestingOverdueSummary?: boolean;
     hasUnsavedChanges?: boolean;
     onSave: () => void;
     onTestNotification: () => void;
+    onTestOverdueSummary?: () => void;
 }
 
 export const ContentAlertHeader: React.FC<ContentAlertHeaderProps> = ({
     isEnabled,
     isSaving,
     isTestingAlert,
+    isTestingOverdueSummary = false,
     hasUnsavedChanges = false,
     onSave,
     onTestNotification,
+    onTestOverdueSummary,
 }) => {
     return (
         <motion.div
@@ -31,12 +35,12 @@ export const ContentAlertHeader: React.FC<ContentAlertHeaderProps> = ({
             <div className="absolute top-0 right-0 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl pointer-events-none" />
             <div className="absolute bottom-0 left-1/3 w-64 h-64 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
 
-            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="relative z-10 flex flex-col xl:flex-row xl:items-center justify-between gap-6">
                 <div className="space-y-3">
                     <div className="flex flex-wrap items-center gap-2">
                         <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-purple-500/20 text-purple-200 border border-purple-400/30 backdrop-blur-md">
                             <Film className="w-3.5 h-3.5 text-purple-300" />
-                            Content Pre-Release Notification
+                            Content Alerts & Morning Summary
                         </span>
                         <span
                             className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium border ${
@@ -61,22 +65,25 @@ export const ContentAlertHeader: React.FC<ContentAlertHeaderProps> = ({
 
                     <div>
                         <h2 className="text-2xl sm:text-3xl font-bold tracking-tight text-white">
-                            ระบบแจ้งเตือนคิวลงคลิปล่วงหน้า
+                            ระบบแจ้งเตือนคอนเทนต์ & สรุปคลิปค้างลง
                         </h2>
-                        <p className="text-sm text-purple-200/80 max-w-2xl mt-1 leading-relaxed">
-                            สแกนตารางงานในปฏิทินคอนเทนต์อัตโนมัติ และยิงแจ้งเตือนผ่าน LINE ทันทีเมื่อคลิปใกล้ถึงกำหนดปล่อยแต่ยังไม่ผ่านเกณฑ์สถานะที่พร้อม
+                        <p className="text-sm text-purple-200/80 max-w-3xl mt-1 leading-relaxed">
+                            ควบคุม 2 ระบบแจ้งเตือนอัตโนมัติ: (1) เตือนคิวใกล้ถึงเวลาลงล่วงหน้าแบบ Real-time และ (2) สรุปรายงานคลิปที่เลยกำหนดลงประจำวัน แยกตามแต่ละช่องเข้า LINE กลุ่ม
                         </p>
                     </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3">
+                {/* Unified Action Controls */}
+                <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+                    {/* Test Button 1: Pre-Release Urgent Alert */}
                     <motion.button
                         type="button"
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={onTestNotification}
                         disabled={isTestingAlert || !isEnabled}
-                        className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-bold bg-white/10 hover:bg-white/20 text-white border border-white/20 transition-all backdrop-blur-sm disabled:opacity-40 shadow-sm cursor-pointer"
+                        title="ทดสอบส่งแจ้งเตือนเตือนคิวใกล้ลงคลิป (Pre-release Flex Single Item)"
+                        className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-2xl text-xs font-bold bg-white/10 hover:bg-white/20 text-purple-200 hover:text-white border border-white/20 transition-all backdrop-blur-sm disabled:opacity-40 shadow-sm cursor-pointer"
                     >
                         {isTestingAlert ? (
                             <>
@@ -85,19 +92,45 @@ export const ContentAlertHeader: React.FC<ContentAlertHeaderProps> = ({
                             </>
                         ) : (
                             <>
-                                <Send className="w-3.5 h-3.5 text-purple-300" />
-                                <span>ทดสอบยิง LINE</span>
+                                <Zap className="w-3.5 h-3.5 text-amber-400" />
+                                <span>⚡ ทดสอบเตือนก่อนคลิปลง</span>
                             </>
                         )}
                     </motion.button>
 
+                    {/* Test Button 2: Morning Overdue Carousel */}
+                    {onTestOverdueSummary && (
+                        <motion.button
+                            type="button"
+                            whileHover={{ scale: 1.02 }}
+                            whileTap={{ scale: 0.98 }}
+                            onClick={onTestOverdueSummary}
+                            disabled={isTestingOverdueSummary || !isEnabled}
+                            title="เรียกใช้ Cron Job สรุปคลิปค้างลงจริงเข้า LINE (Daily Overdue Flex Carousel)"
+                            className="inline-flex items-center gap-2 px-3.5 py-2.5 rounded-2xl text-xs font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-200 hover:text-white border border-amber-400/30 transition-all backdrop-blur-sm disabled:opacity-40 shadow-sm cursor-pointer"
+                        >
+                            {isTestingOverdueSummary ? (
+                                <>
+                                    <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-300" />
+                                    <span>กำลังประมวลผล Cron...</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Sunrise className="w-3.5 h-3.5 text-amber-300" />
+                                    <span>🌅 ทดสอบสรุปค้างลง (Cron)</span>
+                                </>
+                            )}
+                        </motion.button>
+                    )}
+
+                    {/* Save Button */}
                     <motion.button
                         type="button"
                         whileHover={{ scale: 1.02 }}
                         whileTap={{ scale: 0.98 }}
                         onClick={onSave}
                         disabled={isSaving}
-                        className={`inline-flex items-center gap-2 px-6 py-2.5 rounded-2xl text-xs font-bold text-white shadow-lg transition-all cursor-pointer ${
+                        className={`inline-flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold text-white shadow-lg transition-all cursor-pointer ${
                             hasUnsavedChanges
                                 ? 'bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 shadow-purple-500/40 ring-2 ring-purple-300/50'
                                 : 'bg-purple-600 hover:bg-purple-700 shadow-purple-600/30'

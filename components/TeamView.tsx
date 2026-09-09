@@ -304,11 +304,7 @@ const TeamView: React.FC<TeamViewProps> = ({
     <AppBackground theme={bgTheme} pattern="grid" className="min-h-screen p-8 space-y-6 animate-in fade-in duration-500 pb-20 transition-colors duration-1000 relative z-10">
       
       <div className="relative z-10 space-y-6">
-        <MentorTip variant="blue" messages={[
-            "ใหม่! ระบบกรองทีมแบบใหม่: เลือกดูเฉพาะ Squad ตัวเอง หรือดูทั้งหมดได้ง่ายๆ",
-            "ใครว่าง/ไม่ว่าง ดูที่สถานะแบตเตอรี่และไอคอนสถานะ (Online/Sick) ได้เลย",
-            "ใช้ปุ่ม My Tasks เพื่อดูงานตัวเองแบบรวมทุกที่",
-        ]} />
+        <MentorTip moduleId="TEAM" />
         
         {/* Header */}
         <TeamHeader 

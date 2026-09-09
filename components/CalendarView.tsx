@@ -1,29 +1,24 @@
-
-import React, { useState, useEffect, useMemo } from 'react';
-import { format, isSameDay } from 'date-fns';
-import { Minimize2, Loader2, RotateCcw } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Minimize2, Loader2 } from 'lucide-react';
 import { Task, Channel, User, Status, MasterOption, TaskType } from '../types';
-import MentorTip from './MentorTip';
-import TaskCategoryModal from './TaskCategoryModal';
 import { useCalendar } from '../hooks/useCalendar';
 import CalendarHeader from './CalendarHeader';
 import CalendarSecondaryHeader from './calendar/CalendarSecondaryHeader';
-import SmartFilterModal from './SmartFilterModal';
-import BoardView from './BoardView';
-import CalendarGrid from './calendar/CalendarGrid';
-import WeeklyView from './calendar/WeeklyView';
-import UnifiedFilterModal from './calendar/UnifiedFilterModal';
 import { useCalendarHighlights } from '../hooks/useCalendarHightlights';
-import DayHighlightModal from './calendar/DayHightlightModal';
-import PlanFormModal from './calendar/PlanFormModal';
-import StockSidePanel from './StockSidePanel';
-import DelayModal from './DelayModal';
 import PastelWaveBackground from './dashboard/member/PastelWaveBackground';
 import AppBackground, { BackgroundTheme } from './common/AppBackground';
 import MobileLandscapeWrapper from './common/MobileLandscapeWrapper';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
 import { useTaskContext } from '../context/TaskContext';
+
+// Extracted Subcomponents & Custom Hooks
+import { useCalendarFilters } from './calendar/hooks/useCalendarFilters';
+import { useCalendarModals } from './calendar/hooks/useCalendarModals';
+import { useResponsiveCalendarView } from './calendar/hooks/useResponsiveCalendarView';
+import CalendarViewSwitcher from './calendar/views/CalendarViewSwitcher';
+import CalendarStockDrawer from './calendar/panels/CalendarStockDrawer';
+import CalendarModalsContainer from './calendar/modals/CalendarModalsContainer';
+
 export type TaskDisplayMode = 'MINIMAL' | 'DOT' | 'EMOJI' | 'FULL';
 export type CalendarViewType = 'MONTH' | 'WEEK';
 
@@ -51,234 +46,103 @@ interface CalendarViewProps {
 }
 
 const CalendarView: React.FC<CalendarViewProps> = ({ 
-    tasks, 
-    channels, 
-    users, 
-    currentUser,
-    masterOptions = [],
-    onSelectTask, 
-    onSelectDate, 
-    onMoveTask, 
-    onDelayTask, 
-    onOpenSettings,
-    onOpenNotifications,
-    unreadCount = 0,
-    onAddTask,
-    onUpdateStatus,
-    onRangeChange,
-    isFetching = false,
-    onToggleWorkbox,
-    isWorkboxOpen,
-    onSaveTask,
-    onDeleteTask
+  tasks, 
+  channels, 
+  users, 
+  currentUser,
+  masterOptions = [],
+  onSelectTask, 
+  onSelectDate, 
+  onMoveTask, 
+  onDelayTask, 
+  onOpenSettings,
+  onOpenNotifications,
+  unreadCount = 0,
+  onAddTask,
+  onUpdateStatus,
+  onRangeChange,
+  isFetching = false,
+  onToggleWorkbox,
+  isWorkboxOpen,
+  onSaveTask,
+  onDeleteTask
 }) => {
-  const {
-      currentDate,
-      viewMode, setViewMode,
-      filterChannelId, setFilterChannelId,
-      activeChipIds, toggleChip, toggleFilters, customChips,
-      isExpanded, setIsExpanded,
-      showFilters,
-      startDate, endDate,
-      nextMonth, prevMonth,
-      nextWeek, prevWeek,
-      goToToday,
-      showPlanOverlay, setShowPlanOverlay, togglePlanOverlay,
-      filterTasks, getTasksForDay,
-      saveChip, deleteChip,
-      handleDragStart, handleDragOver, handleDrop: internalHandleDrop, setDragOverDate, dragOverDate,
-      isManageModalOpen, setIsManageModalOpen
-  } = useCalendar({ 
-      tasks, 
-      userId: currentUser.id,
-      onMoveTask: (t) => handleMoveAttempt(t) 
+  // --- Modals State & Handlers Hook ---
+  const modals = useCalendarModals({
+    onSelectTask,
+    onMoveTask,
+    onDelayTask,
   });
 
-  // --- Delay Logic ---
-  const [delayModalOpen, setDelayModalOpen] = useState(false);
-  const [pendingDelayTask, setPendingDelayTask] = useState<Task | null>(null);
+  // --- Core Calendar Engine Hook ---
+  const {
+    currentDate,
+    viewMode, setViewMode,
+    filterChannelId, setFilterChannelId,
+    activeChipIds, toggleChip, toggleFilters, customChips,
+    isExpanded, setIsExpanded,
+    showFilters,
+    startDate, endDate,
+    nextMonth, prevMonth,
+    nextWeek, prevWeek,
+    goToToday,
+    showPlanOverlay, togglePlanOverlay,
+    filterTasks, getTasksForDay,
+    saveChip, deleteChip,
+    handleDragStart, handleDragOver, handleDrop: internalHandleDrop, setDragOverDate, dragOverDate,
+  } = useCalendar({ 
+    tasks, 
+    userId: currentUser.id,
+    onMoveTask: (t) => modals.handleMoveAttempt(t) 
+  });
 
-  const handleMoveAttempt = (updatedTask: Task) => {
-      // const originalTask = tasks.find(t => t.id === updatedTask.id);
-      
-      // If moving to a LATER date (Delay)
-      // if (originalTask && !originalTask.isUnscheduled && updatedTask.endDate > originalTask.endDate) {
-      //     setPendingDelayTask(updatedTask);
-      //     setDelayModalOpen(true);
-      // } else {
-          // Just a normal move (earlier or same day or from stock)
-          onMoveTask(updatedTask);
-      // }
-  };
-
-  const confirmDelay = (reason: string) => {
-      if (pendingDelayTask && onDelayTask) {
-          onDelayTask(pendingDelayTask.id, pendingDelayTask.endDate, reason);
-          setDelayModalOpen(false);
-          setPendingDelayTask(null);
-      }
-  };
-
-  // --- Highlights Logic ---
+  // --- Highlights Engine Hook ---
   const { highlights, setHighlight, removeHighlight } = useCalendarHighlights(currentDate);
-  const [highlightModalOpen, setHighlightModalOpen] = useState(false);
-  const [selectedHighlightDate, setSelectedHighlightDate] = useState<Date | null>(null);
 
-  // --- Plan/Schedules Custom Form States ---
-  const [planModalOpen, setPlanModalOpen] = useState(false);
-  const [selectedPlanDate, setSelectedPlanDate] = useState<Date | null>(null);
-  const [selectedPlanData, setSelectedPlanData] = useState<Task | null>(null);
+  // --- Cosmic & Detailed Filter Engine Hook ---
+  const filters = useCalendarFilters({
+    tasks,
+    users,
+    currentUser,
+    viewMode,
+    filterTasks,
+    startDate,
+    endDate,
+  });
 
-  const handleTaskClick = (task: Task) => {
-      if (task.type === 'PLAN') {
-          setSelectedPlanDate(task.startDate instanceof Date ? task.startDate : new Date(task.startDate));
-          setSelectedPlanData(task);
-          setPlanModalOpen(true);
-      } else {
-          onSelectTask(task);
-      }
-  };
-
+  // --- Local View & Display Modes ---
   const [displayMode, setDisplayMode] = useState<'CALENDAR' | 'BOARD'>('CALENDAR');
-  const [isListModalOpen, setIsListModalOpen] = useState(false);
-  const [selectedDayTasks, setSelectedDayTasks] = useState<Task[]>([]);
-  const [selectedDayDate, setSelectedDayDate] = useState<Date>(new Date());
-
-  // --- View Density State ---
   const [taskDisplayMode, setTaskDisplayMode] = useState<TaskDisplayMode>('EMOJI');
-
-  // --- Stock Panel State ---
   const [isStockOpen, setIsStockOpen] = useState(false);
-  const [calendarViewType, setCalendarViewType] = useState<CalendarViewType>('MONTH');
-
-  // --- Mobile Landscape State ---
   const [isMobileLandscape, setIsMobileLandscape] = useState(false);
 
+  // --- Responsive Device & Orientation Aware View Engine ---
+  const {
+    calendarViewType,
+    setCalendarViewType,
+    handleTouchStart,
+    handleTouchEnd,
+  } = useResponsiveCalendarView({
+    isMobileLandscape,
+    onPrevWeek: prevWeek,
+    onNextWeek: nextWeek,
+    onPrevMonth: prevMonth,
+    onNextMonth: nextMonth,
+  });
+
   const { showAlert } = useGlobalDialog();
-
-  // --- Cosmic / Unified Detailed Filter State ---
-  const [selectedCosmicChannelIds, setSelectedCosmicChannelIds] = useState<string[]>([]);
-  const [selectedCosmicFormats, setSelectedCosmicFormats] = useState<string[]>([]);
-  const [selectedCosmicStatuses, setSelectedCosmicStatuses] = useState<string[]>([]);
-  const [selectedCosmicAssigneeIds, setSelectedCosmicAssigneeIds] = useState<string[]>([]);
-  const [isCosmicFilterOpen, setIsCosmicFilterOpen] = useState(false);
-
-  // --- TASK Mode Filters (Smart Default to current user, Quick Status & Urgency) ---
-  const [taskAssigneeScope, setTaskAssigneeScope] = useState<'ONLY_ME' | 'ALL' | string>('ONLY_ME');
-  const [selectedPosition, setSelectedPosition] = useState<string>('ALL');
-  const [selectedTaskStatuses, setSelectedTaskStatuses] = useState<string[]>([]);
-  const [isUrgentOnly, setIsUrgentOnly] = useState(false);
-  const [isDueSoonOnly, setIsDueSoonOnly] = useState(false);
-
-  // Auto-default to current user when switching into TASK mode
-  useEffect(() => {
-      if (viewMode === 'TASK') {
-          setTaskAssigneeScope('ONLY_ME');
-      }
-  }, [viewMode]);
-
-  // Toggle helpers for Task mode chips
-  const handleToggleTaskStatus = React.useCallback((status: string) => {
-      setSelectedTaskStatuses(prev => 
-          prev.includes(status) ? prev.filter(s => s !== status) : [...prev, status]
-      );
-  }, []);
-
-  const handleToggleUrgentOnly = React.useCallback(() => {
-      setIsUrgentOnly(prev => !prev);
-  }, []);
-
-  const handleToggleDueSoonOnly = React.useCallback(() => {
-      setIsDueSoonOnly(prev => !prev);
-  }, []);
-
-  // Wrap filterTasks with cosmic & detailed filter logic
-  const cosmicFilterTasks = React.useCallback((tasksToFilter: Task[]) => {
-      let filtered = filterTasks(tasksToFilter);
-
-      // In TASK Mode: Apply Assignee Scope & Position Filters & Quick Task filters
-      if (viewMode === 'TASK') {
-          // 1. Assignee Scope Filter (Default: ONLY_ME)
-          if (taskAssigneeScope === 'ONLY_ME') {
-              if (currentUser?.id) {
-                  filtered = filtered.filter(t => t.assigneeIds && t.assigneeIds.includes(currentUser.id));
-              }
-          } else if (taskAssigneeScope !== 'ALL') {
-              filtered = filtered.filter(t => t.assigneeIds && t.assigneeIds.includes(taskAssigneeScope));
-          }
-
-          // 2. Position / Role Filter
-          if (selectedPosition && selectedPosition !== 'ALL') {
-              const userIdsWithPos = users.filter(u => u.position === selectedPosition).map(u => u.id);
-              filtered = filtered.filter(t => {
-                  if (t.targetPosition && t.targetPosition === selectedPosition) return true;
-                  if (t.assigneeIds && t.assigneeIds.some(uid => userIdsWithPos.includes(uid))) return true;
-                  return false;
-              });
-          }
-
-          // 3. Task Status Quick Filter
-          if (selectedTaskStatuses.length > 0) {
-              filtered = filtered.filter(t => t.status && selectedTaskStatuses.includes(t.status));
-          }
-
-          // 4. Urgent Only Filter (Urgent or Critical)
-          if (isUrgentOnly) {
-              filtered = filtered.filter(t => t.priority === 'HIGH' || t.priority === 'URGENT' || (t as any).isUrgent);
-          }
-
-          // 5. Due Soon Only Filter (due within next 3 days)
-          if (isDueSoonOnly) {
-              const now = new Date().getTime();
-              const threeDaysFromNow = now + 3 * 24 * 60 * 60 * 1000;
-              filtered = filtered.filter(t => {
-                  if (!t.endDate || t.status === 'DONE' || t.status === 'CANCELLED') return false;
-                  const taskEnd = new Date(t.endDate).getTime();
-                  return taskEnd >= (now - 24 * 60 * 60 * 1000) && taskEnd <= threeDaysFromNow;
-              });
-          }
-      }
-
-      // 6. Assignee Filter from Cosmic Modal (if selected)
-      if (selectedCosmicAssigneeIds.length > 0) {
-          filtered = filtered.filter(t => t.assigneeIds && t.assigneeIds.some(uid => selectedCosmicAssigneeIds.includes(uid)));
-      }
-
-      // 7. Channel Filter (Only if active)
-      if (selectedCosmicChannelIds.length > 0) {
-          filtered = filtered.filter(t => t.channelId && selectedCosmicChannelIds.includes(t.channelId));
-      }
-
-      // 8. Format Filter (Only if active)
-      if (selectedCosmicFormats.length > 0) {
-          filtered = filtered.filter(t => {
-              if (!t.contentFormats) return false;
-              return t.contentFormats.some(f => {
-                  const fStr = typeof f === 'string' ? f : (f as any).key || '';
-                  return selectedCosmicFormats.includes(fStr);
-              });
-          });
-      }
-
-      // 9. Status Filter (Only if active)
-      if (selectedCosmicStatuses.length > 0) {
-          filtered = filtered.filter(t => t.status && selectedCosmicStatuses.includes(t.status));
-      }
-
-      return filtered;
-  }, [filterTasks, viewMode, taskAssigneeScope, currentUser?.id, selectedPosition, users, selectedTaskStatuses, isUrgentOnly, isDueSoonOnly, selectedCosmicAssigneeIds, selectedCosmicChannelIds, selectedCosmicFormats, selectedCosmicStatuses]);
-
-  // 🚀 Lazy-load completed tasks for the active calendar date range
   const { fetchCompletedTasks } = useTaskContext();
+
+  // Lazy-load completed tasks for the active calendar date range
   const startDateTime = startDate ? startDate.getTime() : 0;
   const endDateTime = endDate ? endDate.getTime() : 0;
-
   useEffect(() => {
-      if (viewMode === 'TASK' && startDate && endDate) {
-          fetchCompletedTasks({ startDate, endDate });
-      }
+    if (viewMode === 'TASK' && startDate && endDate) {
+      fetchCompletedTasks({ startDate, endDate });
+    }
   }, [viewMode, startDateTime, endDateTime, fetchCompletedTasks]);
 
+  // Focus mode body class
   useEffect(() => {
     if (isExpanded) {
       document.body.classList.add('calendar-focus-mode');
@@ -290,47 +154,35 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     };
   }, [isExpanded]);
 
-  // Trigger Range Change when month changes
+  // Range change listener
   const currentTime = currentDate ? currentDate.getTime() : 0;
   useEffect(() => {
-      if (onRangeChange && currentDate) {
-          onRangeChange(currentDate);
-      }
+    if (onRangeChange && currentDate) {
+      onRangeChange(currentDate);
+    }
   }, [currentTime, onRangeChange]);
 
   // Auto-close stock panel when switching to TASK mode
   useEffect(() => {
-      if (viewMode === 'TASK' && isStockOpen) {
-          setIsStockOpen(false);
-      }
+    if (viewMode === 'TASK' && isStockOpen) {
+      setIsStockOpen(false);
+    }
   }, [viewMode, isStockOpen]);
 
-  // --- MEMOIZATION: Pre-calculate filtered tasks for the view (Used ONLY for Board View now) ---
-  const filteredTasksForView = useMemo(() => {
-      const filteredByView = cosmicFilterTasks(tasks);
-      // Also filter by date range for Board View to keep it synced with Calendar
-      return filteredByView.filter(t => 
-        !t.isUnscheduled && 
-        t.endDate >= startDate && 
-        t.endDate <= endDate
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    setDragOverDate(null);
+  }, [setDragOverDate]);
+
+  const handleToggleStock = useCallback(() => {
+    if (viewMode === 'TASK') {
+      showAlert(
+        'ฟีเจอร์ "คลังเก็บเนื้อหา" จะใช้งานได้เฉพาะในโหมด Content เท่านั้น เพื่อช่วยให้คุณดึงไอเดียมาวางแผนลงตารางได้สะดวกขึ้น',
+        'เปิดหน้าต่างคลังไม่ได้'
       );
-  }, [tasks, cosmicFilterTasks, startDate, endDate]); 
-
-  const handleDayClick = (day: Date, dayTasks: Task[]) => {
-      setSelectedDayDate(day);
-      setSelectedDayTasks(dayTasks); 
-      setIsListModalOpen(true);
-  };
-
-  const handleDayContextMenu = (day: Date) => {
-      setSelectedHighlightDate(day);
-      setHighlightModalOpen(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-      setDragOverDate(null);
-  };
-
+      return;
+    }
+    setIsStockOpen(prev => !prev);
+  }, [viewMode, showAlert]);
 
   const bgTheme = useMemo<BackgroundTheme>(() => {
     if (viewMode === 'CONTENT') return 'pastel-pink';
@@ -353,23 +205,22 @@ const CalendarView: React.FC<CalendarViewProps> = ({
 
       <div className={containerClasses}>
         {isExpanded && (
-           <button 
-             onClick={() => setIsExpanded(false)}
-             className="absolute top-4 right-4 p-2.5 bg-white hover:bg-gray-100 text-gray-500 hover:text-gray-800 rounded-full z-50 shadow-lg border border-gray-200 transition-all hover:scale-110 active:scale-95"
-             title="ย่อหน้าจอ"
-           >
-               <Minimize2 className="w-6 h-6" />
-           </button>
+          <button 
+            onClick={() => setIsExpanded(false)}
+            className="absolute top-4 right-4 p-2.5 bg-white hover:bg-gray-100 text-gray-500 hover:text-gray-800 rounded-full z-50 shadow-lg border border-gray-200 transition-all hover:scale-110 active:scale-95"
+            title="ย่อหน้าจอ"
+          >
+            <Minimize2 className="w-6 h-6" />
+          </button>
         )}
 
         {isFetching && (
-            <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[60] bg-white/90 backdrop-blur border border-indigo-100 shadow-xl px-4 py-2 rounded-full flex items-center gap-2 animate-in slide-in-from-top-4">
-                <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
-                <span className="text-xs font-bold text-indigo-800">กำลังโหลดข้อมูลเพิ่มเติม...</span>
-            </div>
+          <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-[60] bg-white/90 backdrop-blur border border-indigo-100 shadow-xl px-4 py-2 rounded-full flex items-center gap-2 animate-in slide-in-from-top-4">
+            <Loader2 className="w-4 h-4 animate-spin text-indigo-600" />
+            <span className="text-xs font-bold text-indigo-800">กำลังโหลดข้อมูลเพิ่มเติม...</span>
+          </div>
         )}
 
-        
         <div className={`
           isolate transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] 
           ${isExpanded 
@@ -377,378 +228,228 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             : 'relative z-30 rounded-[2.5rem]'
           }
         `}>
-           {!isExpanded && displayMode === 'CALENDAR' && (
-                <div className="absolute inset-0 rounded-[2.5rem] overflow-hidden pointer-events-none">
-                <>
-                    <div className="absolute -top-0 -right-10 w-48 md:w-72 h-48 md:h-72 bg-gradient-to-br from-indigo-200/40 to-purple-200/40 rounded-full blur-2xl opacity-50 pointer-events-none mix-blend-multiply transition-all duration-1000"></div>
-                    <div className="absolute -bottom-10 -left-10 w-40 md:w-64 h-40 md:h-64 bg-gradient-to-tr from-emerald-200/40 to-teal-200/40 rounded-full blur-2xl opacity-50 pointer-events-none mix-blend-multiply transition-all duration-1000"></div>
-                </>
-               </div>
-           )}
+          {!isExpanded && displayMode === 'CALENDAR' && (
+            <div className="absolute inset-0 rounded-[2.5rem] overflow-hidden pointer-events-none">
+              <div className="absolute -top-0 -right-10 w-48 md:w-72 h-48 md:h-72 bg-gradient-to-br from-indigo-200/40 to-purple-200/40 rounded-full blur-2xl opacity-50 pointer-events-none mix-blend-multiply transition-all duration-1000" />
+              <div className="absolute -bottom-10 -left-10 w-40 md:w-64 h-40 md:h-64 bg-gradient-to-tr from-emerald-200/40 to-teal-200/40 rounded-full blur-2xl opacity-50 pointer-events-none mix-blend-multiply transition-all duration-1000" />
+            </div>
+          )}
 
-           <CalendarHeader 
-              currentDate={currentDate || new Date()} 
-              isExpanded={isExpanded}
-              setIsExpanded={setIsExpanded}
-              prevMonth={calendarViewType === 'WEEK' ? prevWeek : prevMonth}
-              nextMonth={calendarViewType === 'WEEK' ? nextWeek : nextMonth}
-              goToToday={goToToday}
-              showFilters={showFilters}
-              onToggleFilters={toggleFilters}
-              viewMode={viewMode}
-              setViewMode={setViewMode}
-              activeChipIds={activeChipIds} 
-              toggleChip={toggleChip}
-              customChips={customChips || []} 
-              setIsManageModalOpen={setIsCosmicFilterOpen}
-              onOpenSettings={onOpenSettings}
-              onOpenNotifications={onOpenNotifications}
-              unreadCount={unreadCount}
-              filterChannelId={filterChannelId}
-              setFilterChannelId={setFilterChannelId}
-              channels={channels}
-              users={users}
-              masterOptions={masterOptions}
-              currentUser={currentUser}
-              taskAssigneeScope={taskAssigneeScope}
-              onTaskAssigneeScopeChange={setTaskAssigneeScope}
-              selectedPosition={selectedPosition}
-              onSelectedPositionChange={setSelectedPosition}
-              onSelectDate={(date, type) => {
-                  const targetType = type || viewMode; 
-                  if (targetType === 'PLAN') {
-                      setSelectedPlanDate(date);
-                      setSelectedPlanData(null);
-                      setPlanModalOpen(true);
-                  } else {
-                      onSelectDate(date, targetType); 
-                  }
-              }}
-              displayMode={displayMode}
-              setDisplayMode={setDisplayMode}
-              taskDisplayMode={taskDisplayMode}
-              setTaskDisplayMode={setTaskDisplayMode}
-              isStockOpen={isStockOpen}
-              onToggleStock={() => {
-                  if (viewMode === 'TASK') {
-                      showAlert(
-                          'ฟีเจอร์ "คลังเก็บเนื้อหา" จะใช้งานได้เฉพาะในโหมด Content เท่านั้น เพื่อช่วยให้คุณดึงไอเดียมาวางแผนลงตารางได้สะดวกขึ้น',
-                          'เปิดหน้าต่างคลังไม่ได้'
-                      );
-                      return;
-                  }
-                  setIsStockOpen(!isStockOpen);
-              }}
-              isMobileLandscape={isMobileLandscape}
-              onToggleMobileLandscape={() => setIsMobileLandscape(!isMobileLandscape)}
-              onToggleWorkbox={onToggleWorkbox}
-              isWorkboxOpen={isWorkboxOpen}
-              calendarViewType={calendarViewType}
-              setCalendarViewType={setCalendarViewType}
-           />
+          <CalendarHeader 
+            currentDate={currentDate || new Date()} 
+            isExpanded={isExpanded}
+            setIsExpanded={setIsExpanded}
+            prevMonth={calendarViewType === 'WEEK' ? prevWeek : prevMonth}
+            nextMonth={calendarViewType === 'WEEK' ? nextWeek : nextMonth}
+            goToToday={goToToday}
+            showFilters={showFilters}
+            onToggleFilters={toggleFilters}
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            activeChipIds={activeChipIds} 
+            toggleChip={toggleChip}
+            customChips={customChips || []} 
+            setIsManageModalOpen={filters.setIsCosmicFilterOpen}
+            onOpenSettings={onOpenSettings}
+            onOpenNotifications={onOpenNotifications}
+            unreadCount={unreadCount}
+            filterChannelId={filterChannelId}
+            setFilterChannelId={setFilterChannelId}
+            channels={channels}
+            users={users}
+            masterOptions={masterOptions}
+            currentUser={currentUser}
+            taskAssigneeScope={filters.taskAssigneeScope}
+            onTaskAssigneeScopeChange={filters.setTaskAssigneeScope}
+            selectedPosition={filters.selectedPosition}
+            onSelectedPositionChange={filters.setSelectedPosition}
+            onSelectDate={(date, type) => {
+              const targetType = type || viewMode; 
+              if (targetType === 'PLAN') {
+                modals.handleOpenPlanForDate(date, null);
+              } else {
+                onSelectDate(date, targetType); 
+              }
+            }}
+            displayMode={displayMode}
+            setDisplayMode={setDisplayMode}
+            taskDisplayMode={taskDisplayMode}
+            setTaskDisplayMode={setTaskDisplayMode}
+            isStockOpen={isStockOpen}
+            onToggleStock={handleToggleStock}
+            isMobileLandscape={isMobileLandscape}
+            onToggleMobileLandscape={() => setIsMobileLandscape(!isMobileLandscape)}
+            onToggleWorkbox={onToggleWorkbox}
+            isWorkboxOpen={isWorkboxOpen}
+            calendarViewType={calendarViewType}
+            setCalendarViewType={setCalendarViewType}
+          />
 
-           <CalendarSecondaryHeader 
-              show={showFilters}
-              viewMode={viewMode}
-              currentUser={currentUser}
-              users={users}
-              tasks={tasks}
-              onClose={toggleFilters}
-              activeChipIds={activeChipIds}
-              toggleChip={toggleChip}
-              customChips={customChips || []}
-              channels={channels}
-              onManageFilters={() => setIsCosmicFilterOpen(true)}
-              onOpenCosmicFilter={() => setIsCosmicFilterOpen(true)}
-              activeFiltersCount={selectedCosmicChannelIds.length + selectedCosmicFormats.length + selectedCosmicStatuses.length + selectedCosmicAssigneeIds.length}
-              taskAssigneeScope={taskAssigneeScope}
-              onTaskAssigneeScopeChange={(scope) => setTaskAssigneeScope(scope)}
-              selectedTaskStatuses={selectedTaskStatuses}
-              onToggleTaskStatus={handleToggleTaskStatus}
-              isUrgentOnly={isUrgentOnly}
-              onToggleUrgentOnly={handleToggleUrgentOnly}
-              isDueSoonOnly={isDueSoonOnly}
-              onToggleDueSoonOnly={handleToggleDueSoonOnly}
-              unreadCount={unreadCount}
-              onOpenNotifications={onOpenNotifications}
-              onOpenSettings={onOpenSettings}
-              onToggleWorkbox={onToggleWorkbox}
-              onToggleStock={() => {
-                  if (viewMode === 'TASK') {
-                      showAlert(
-                          'ฟีเจอร์ "คลังเก็บเนื้อหา" จะใช้งานได้เฉพาะในโหมด Content เท่านั้น',
-                          'เปิดหน้าต่างคลังไม่ได้'
-                      );
-                      return;
-                  }
-                  setIsStockOpen(!isStockOpen);
-              }}
-              isWorkboxOpen={!!isWorkboxOpen}
-              isStockOpen={isStockOpen}
-              showPlanOverlay={showPlanOverlay}
-              onTogglePlanOverlay={togglePlanOverlay}
-              taskDisplayMode={taskDisplayMode}
-              setTaskDisplayMode={setTaskDisplayMode}
-              isExpanded={isExpanded}
-           />
+          <CalendarSecondaryHeader 
+            show={showFilters}
+            viewMode={viewMode}
+            currentUser={currentUser}
+            users={users}
+            tasks={tasks}
+            onClose={toggleFilters}
+            activeChipIds={activeChipIds}
+            toggleChip={toggleChip}
+            customChips={customChips || []}
+            channels={channels}
+            onManageFilters={() => filters.setIsCosmicFilterOpen(true)}
+            onOpenCosmicFilter={() => filters.setIsCosmicFilterOpen(true)}
+            activeFiltersCount={filters.activeFiltersCount}
+            taskAssigneeScope={filters.taskAssigneeScope}
+            onTaskAssigneeScopeChange={filters.setTaskAssigneeScope}
+            selectedTaskStatuses={filters.selectedTaskStatuses}
+            onToggleTaskStatus={filters.handleToggleTaskStatus}
+            isUrgentOnly={filters.isUrgentOnly}
+            onToggleUrgentOnly={filters.handleToggleUrgentOnly}
+            isDueSoonOnly={filters.isDueSoonOnly}
+            onToggleDueSoonOnly={filters.handleToggleDueSoonOnly}
+            unreadCount={unreadCount}
+            onOpenNotifications={onOpenNotifications}
+            onOpenSettings={onOpenSettings}
+            onToggleWorkbox={onToggleWorkbox}
+            onToggleStock={handleToggleStock}
+            isWorkboxOpen={!!isWorkboxOpen}
+            isStockOpen={isStockOpen}
+            showPlanOverlay={showPlanOverlay}
+            onTogglePlanOverlay={togglePlanOverlay}
+            taskDisplayMode={taskDisplayMode}
+            setTaskDisplayMode={setTaskDisplayMode}
+            isExpanded={isExpanded}
+          />
         </div>
 
         <MobileLandscapeWrapper
-            isActive={isMobileLandscape}
-            onClose={() => setIsMobileLandscape(false)}
-          >
-        <div className={`relative z-20 hover:z-[45] transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] flex ${isExpanded ? 'h-full max-w-[1920px] mx-auto' : 'flex-1 min-h-[300px] md:min-h-[600px] h-full md:h-auto'}`}>
-          
-          {/* Main Content Area */}
-          <div className={`
+          isActive={isMobileLandscape}
+          onClose={() => setIsMobileLandscape(false)}
+        >
+          <div className={`relative z-20 hover:z-[45] transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] flex ${isExpanded ? 'h-full max-w-[1920px] mx-auto' : 'flex-1 min-h-[300px] md:min-h-[600px] h-full md:h-auto'}`}>
+            {/* Main Content Area */}
+            <div className={`
               flex-1 min-w-0 transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)] flex flex-col h-full md:h-auto
               ${isStockOpen ? 'mr-4' : 'mr-0'}
-          `}>
-
-              <AnimatePresence mode="wait">
-                <motion.div 
-                  key={`${displayMode}-${viewMode}-${calendarViewType}`}
-                  initial={{ opacity: 0, scale: 0.98, y: 10 }}
-                  animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 1.02, y: -10 }}
-                  transition={{ duration: 0.3, ease: [0.25, 0.8, 0.25, 1] }}
-                  className="h-full md:h-auto flex flex-col flex-1"
-                >
-                    {displayMode === 'CALENDAR' ? (
-                        calendarViewType === 'MONTH' ? (
-                            <CalendarGrid 
-                                startDate={startDate}
-                                endDate={endDate}
-                                currentDate={currentDate || new Date()}
-                                isExpanded={isExpanded || isMobileLandscape} // Force expanded mode in landscape
-                                dragOverDate={dragOverDate}
-                                viewMode={viewMode}
-                                taskDisplayMode={taskDisplayMode}
-                                activeChipIds={activeChipIds}
-                                customChips={customChips || []}
-                                highlights={highlights}
-                                masterOptions={masterOptions}
-                                channels={channels}
-                                users={users}
-                                allTasks={tasks}
-                                getTasksForDay={getTasksForDay}
-                                filterTasks={cosmicFilterTasks}
-                                onDayClick={handleDayClick}
-                                onDayContextMenu={handleDayContextMenu}
-                                onDragOver={handleDragOver}
-                                onDragLeave={handleDragLeave}
-                                onDrop={internalHandleDrop}
-                                onTaskDragStart={handleDragStart}
-                                onTaskClick={handleTaskClick}
-                            />
-                        ) : (
-                            <WeeklyView 
-                                currentDate={currentDate || new Date()}
-                                viewMode={viewMode}
-                                taskDisplayMode={taskDisplayMode}
-                                getTasksForDay={getTasksForDay}
-                                filterTasks={cosmicFilterTasks}
-                                channels={channels}
-                                masterOptions={masterOptions}
-                                onTaskClick={handleTaskClick}
-                                onSelectDate={onSelectDate}
-                                isLandscape={isMobileLandscape}
-                                allTasks={tasks}
-                                onMoveTask={handleMoveAttempt}
-                                onDayClick={handleDayClick}
-                            />
-                        )
-                    ) : (
-                        <div 
-                            key="board-view" 
-                            className={`h-full ${isExpanded ? 'h-[90vh]' : ''}`}
-                        >
-                            <BoardView 
-                                tasks={filteredTasksForView}
-                                channels={channels}
-                                users={users}
-                                masterOptions={masterOptions}
-                                viewMode={viewMode}
-                                onEditTask={handleTaskClick}
-                                onAddTask={(status) => onAddTask(status, viewMode)} 
-                                onUpdateStatus={onUpdateStatus}
-                                onOpenSettings={onOpenSettings}
-                            />
-                        </div>
-                    )}
-                </motion.div>
-              </AnimatePresence>
-          </div>
-
-          {/* Stock Side Panel (Animated Slide) - Hidden in Mobile Landscape to save space */}
-          {!isMobileLandscape && (
-              <div 
-                  className={`
-                      shrink-0 hidden lg:block sticky top-24 self-start h-[calc(100vh-120px)]
-                      transition-all duration-500 ease-[cubic-bezier(0.25,0.8,0.25,1)]
-                      overflow-hidden
-
-                      rounded-3xl
-                      border border-white/50
-                      bg-white/40
-                      backdrop-blur-xl
-                      shadow-[0_10px_40px_rgba(0,0,0,0.08)]
-
-                      ${isStockOpen ? 'w-80 opacity-100 translate-x-0' : 'w-0 opacity-0 translate-x-10'}
-                  `}
-              >
-                   <div className="w-80 h-full rounded-3xl overflow-hidden">
-                       <StockSidePanel 
-                          isOpen={isStockOpen}
-                          onClose={() => setIsStockOpen(false)}
-                          tasks={tasks}
-                          channels={channels}
-                          masterOptions={masterOptions}
-                          onEditTask={onSelectTask}
-                          onMoveTask={handleMoveAttempt}
-                       />
-                   </div>
-              </div>
-          )}
-        </div>
-        </MobileLandscapeWrapper>
-        {/* Mobile Stock Panel Overlay (If Open on Mobile & Not Landscape) */}
-        {isStockOpen && !isMobileLandscape && (
-            <div className="lg:hidden fixed inset-0 z-50 bg-black/50 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setIsStockOpen(false)}>
-                 <div 
-                    className="
-                        absolute right-2 top-2 bottom-2 w-80
-                        rounded-3xl
-                        border border-white/50
-                        bg-white/80
-                        backdrop-blur-2xl
-                        shadow-[0_20px_60px_rgba(0,0,0,0.18)]
-                        animate-in slide-in-from-right duration-300
-                        overflow-hidden
-                    "
-                    onClick={e => e.stopPropagation()}
-                 >
-                      <StockSidePanel 
-                          isOpen={isStockOpen}
-                          onClose={() => setIsStockOpen(false)}
-                          tasks={tasks}
-                          channels={channels}
-                          masterOptions={masterOptions}
-                          onEditTask={onSelectTask}
-                          onMoveTask={handleMoveAttempt}
-                      />
-                 </div>
+            `}>
+              <CalendarViewSwitcher 
+                displayMode={displayMode}
+                viewMode={viewMode}
+                calendarViewType={calendarViewType}
+                startDate={startDate}
+                endDate={endDate}
+                currentDate={currentDate || new Date()}
+                isExpanded={isExpanded}
+                isMobileLandscape={isMobileLandscape}
+                dragOverDate={dragOverDate}
+                taskDisplayMode={taskDisplayMode}
+                activeChipIds={activeChipIds}
+                customChips={customChips || []}
+                highlights={highlights}
+                masterOptions={masterOptions}
+                channels={channels}
+                users={users}
+                allTasks={tasks}
+                filteredTasksForView={filters.filteredTasksForView}
+                getTasksForDay={getTasksForDay}
+                filterTasks={filters.cosmicFilterTasks}
+                onDayClick={modals.handleDayClick}
+                onDayContextMenu={modals.handleDayContextMenu}
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={internalHandleDrop}
+                onTaskDragStart={handleDragStart}
+                onTaskClick={modals.handleTaskClick}
+                onSelectDate={onSelectDate}
+                onMoveTask={modals.handleMoveAttempt}
+                onAddTask={onAddTask}
+                onUpdateStatus={onUpdateStatus}
+                onOpenSettings={onOpenSettings}
+                onTouchStart={handleTouchStart}
+                onTouchEnd={handleTouchEnd}
+              />
             </div>
-        )}
 
-        {/* Modals */}
-        <TaskCategoryModal 
-              isOpen={isListModalOpen}
-              onClose={() => setIsListModalOpen(false)}
-              title={`รายการวันที่ ${format(selectedDayDate, 'd MMM yyyy')}`}
-              tasks={selectedDayTasks}
+            {/* Desktop Stock Panel */}
+            <CalendarStockDrawer 
+              isStockOpen={isStockOpen}
+              onClose={() => setIsStockOpen(false)}
+              isMobileLandscape={isMobileLandscape}
+              tasks={tasks}
               channels={channels}
               masterOptions={masterOptions}
-              onEditTask={onSelectTask}
-              colorTheme={viewMode === 'CONTENT' ? 'blue' : 'green'}
-        />
-
-        {/* Commented out SmartFilterModal as requested, replacing it with the fully-featured UnifiedFilterModal */}
-        {/*
-        <SmartFilterModal 
-            isOpen={isManageModalOpen}
-            onClose={() => setIsManageModalOpen(false)}
-            chips={customChips || []} 
-            channels={channels}
-            masterOptions={masterOptions} 
-            users={users}
-            onSave={saveChip}
-            onDelete={deleteChip}
-        />
-        */}
-
-        <UnifiedFilterModal 
-            isOpen={isCosmicFilterOpen}
-            onClose={() => setIsCosmicFilterOpen(false)}
-            channels={channels}
-            masterOptions={masterOptions}
-            users={users}
-            viewMode={viewMode}
-            taskCountsByUser={(() => {
-                const counts: Record<string, number> = {};
-                tasks.forEach(t => {
-                    if (t.status !== 'DONE' && t.status !== 'CANCELLED' && t.assigneeIds) {
-                        t.assigneeIds.forEach(uid => {
-                            counts[uid] = (counts[uid] || 0) + 1;
-                        });
-                    }
-                });
-                return counts;
-            })()}
-            selectedChannelIds={selectedCosmicChannelIds}
-            selectedFormats={selectedCosmicFormats}
-            selectedStatuses={selectedCosmicStatuses}
-            selectedAssigneeIds={selectedCosmicAssigneeIds}
-            onApplyFilters={(filters) => {
-                setSelectedCosmicChannelIds(filters.channelIds);
-                setSelectedCosmicFormats(filters.formats);
-                setSelectedCosmicStatuses(filters.statuses);
-                if (filters.assigneeIds) {
-                    setSelectedCosmicAssigneeIds(filters.assigneeIds);
-                }
-            }}
-            customChips={customChips || []}
-            onSaveChip={saveChip}
-            onDeleteChip={deleteChip}
-        />
-        
-        <DayHighlightModal 
-            isOpen={highlightModalOpen}
-            onClose={() => setHighlightModalOpen(false)}
-            date={selectedHighlightDate}
-            masterOptions={masterOptions}
-            currentHighlightType={highlights.find(h => selectedHighlightDate && isSameDay(h.date, selectedHighlightDate))?.typeKey}
-            onSave={(typeKey, note) => selectedHighlightDate && setHighlight(selectedHighlightDate, typeKey, note)}
-            onRemove={() => selectedHighlightDate && removeHighlight(selectedHighlightDate)}
-            onAddPlan={(date) => {
-                setSelectedPlanDate(date);
-                setSelectedPlanData(null);
-                setPlanModalOpen(true);
-            }}
-        />
-
-        <PlanFormModal 
-            isOpen={planModalOpen}
-            onClose={() => setPlanModalOpen(false)}
-            date={selectedPlanDate}
-            initialData={selectedPlanData}
-            users={users}
-            currentUser={currentUser}
-            onSave={(plan) => {
-                if (onSaveTask) {
-                    onSaveTask(plan);
-                }
-            }}
-            onDelete={(planId) => {
-                if (onDeleteTask) {
-                    onDeleteTask(planId);
-                }
-            }}
-        />
-
-        {pendingDelayTask && (
-            <DelayModal 
-                isOpen={delayModalOpen}
-                onClose={() => {
-                    setDelayModalOpen(false);
-                    setPendingDelayTask(null);
-                }}
-                onConfirm={confirmDelay}
-                taskTitle={pendingDelayTask.title}
-                oldDate={tasks.find(t => t.id === pendingDelayTask.id)?.endDate || new Date()}
-                newDate={pendingDelayTask.endDate}
+              onSelectTask={onSelectTask}
+              onMoveTask={modals.handleMoveAttempt}
+              isMobileOverlay={false}
             />
-        )}
+          </div>
+        </MobileLandscapeWrapper>
+
+        {/* Mobile Stock Panel Overlay */}
+        <CalendarStockDrawer 
+          isStockOpen={isStockOpen}
+          onClose={() => setIsStockOpen(false)}
+          isMobileLandscape={isMobileLandscape}
+          tasks={tasks}
+          channels={channels}
+          masterOptions={masterOptions}
+          onSelectTask={onSelectTask}
+          onMoveTask={modals.handleMoveAttempt}
+          isMobileOverlay={true}
+        />
+
+        {/* Modals Container */}
+        <CalendarModalsContainer 
+          isListModalOpen={modals.isListModalOpen}
+          onCloseListModal={() => modals.setIsListModalOpen(false)}
+          selectedDayDate={modals.selectedDayDate}
+          selectedDayTasks={modals.selectedDayTasks}
+          channels={channels}
+          masterOptions={masterOptions}
+          onSelectTask={onSelectTask}
+          viewMode={viewMode}
+          isCosmicFilterOpen={filters.isCosmicFilterOpen}
+          onCloseCosmicFilter={() => filters.setIsCosmicFilterOpen(false)}
+          users={users}
+          taskCountsByUser={filters.taskCountsByUser}
+          selectedCosmicChannelIds={filters.selectedCosmicChannelIds}
+          selectedCosmicFormats={filters.selectedCosmicFormats}
+          selectedCosmicStatuses={filters.selectedCosmicStatuses}
+          selectedCosmicAssigneeIds={filters.selectedCosmicAssigneeIds}
+          onApplyCosmicFilters={(f) => {
+            filters.setSelectedCosmicChannelIds(f.channelIds);
+            filters.setSelectedCosmicFormats(f.formats);
+            filters.setSelectedCosmicStatuses(f.statuses);
+            if (f.assigneeIds) {
+              filters.setSelectedCosmicAssigneeIds(f.assigneeIds);
+            }
+          }}
+          customChips={customChips || []}
+          onSaveChip={saveChip}
+          onDeleteChip={deleteChip}
+          highlightModalOpen={modals.highlightModalOpen}
+          onCloseHighlightModal={() => modals.setHighlightModalOpen(false)}
+          selectedHighlightDate={modals.selectedHighlightDate}
+          highlights={highlights}
+          onSaveHighlight={(typeKey, note) => modals.selectedHighlightDate && setHighlight(modals.selectedHighlightDate, typeKey, note)}
+          onRemoveHighlight={() => modals.selectedHighlightDate && removeHighlight(modals.selectedHighlightDate)}
+          onAddPlanFromHighlight={(date) => modals.handleOpenPlanForDate(date, null)}
+          planModalOpen={modals.planModalOpen}
+          onClosePlanModal={() => modals.setPlanModalOpen(false)}
+          selectedPlanDate={modals.selectedPlanDate}
+          selectedPlanData={modals.selectedPlanData}
+          currentUser={currentUser}
+          onSaveTask={onSaveTask}
+          onDeleteTask={onDeleteTask}
+          pendingDelayTask={modals.pendingDelayTask}
+          delayModalOpen={modals.delayModalOpen}
+          onCloseDelayModal={() => {
+            modals.setDelayModalOpen(false);
+            modals.setPendingDelayTask(null);
+          }}
+          confirmDelay={modals.confirmDelay}
+          tasks={tasks}
+        />
       </div>
     </AppBackground>
   );

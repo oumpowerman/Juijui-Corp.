@@ -280,20 +280,16 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                         exit={{ opacity: 0, y: 15 }}
                         transition={{ duration: 0.2, ease: "easeOut" }}
                     >
-                        {/* Responsive Container: Stack on Mobile, Row on Desktop */}
-                        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-3 lg:gap-6">
+                        {/* Responsive Container: Clean 2-Row Stack on Mobile, Elegant Flex Row on Desktop */}
+                        <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2.5 lg:gap-6">
                             
-                            {/* --- NAVIGATION & MOBILE TOOLS --- */}
-                            <div className="
-                                flex items-center justify-start lg:justify-start gap-3
-                                w-full lg:w-auto
-                                overflow-x-auto scrollbar-hide
-                                min-w-0
-                            ">
-                                <div className="flex items-center bg-white/70 hover:bg-white/85 backdrop-blur-md rounded-2xl shadow-sm border border-white/60 h-11 p-1 hover:shadow-md hover:border-white/80 transition-all duration-300">
+                            {/* --- ROW 1 (Mobile) / LEFT CLUSTER (Desktop): DATE NAVIGATOR & ACTION TOOLS --- */}
+                            <div className="flex items-center justify-between gap-2 w-full lg:w-auto min-w-0">
+                                {/* Date Navigator */}
+                                <div className="flex-1 lg:flex-initial flex items-center bg-white/70 hover:bg-white/85 backdrop-blur-md rounded-2xl shadow-sm border border-white/60 h-11 p-1 hover:shadow-md hover:border-white/80 transition-all duration-300 min-w-0">
                                     <button 
                                         onClick={handlePrev} 
-                                        className="w-8 h-full flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-white/60 rounded-xl transition-all active:scale-90"
+                                        className="w-8 h-full flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-white/60 rounded-xl transition-all active:scale-90 shrink-0"
                                         title={calendarViewType === 'WEEK' ? "สัปดาห์ก่อนหน้า" : "เดือนก่อนหน้า"}
                                     >
                                         <ChevronLeft className="w-4 h-4" />
@@ -301,19 +297,19 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                                     
                                     <div 
                                         onClick={() => setIsExpanded(!isExpanded)}
-                                        className="px-3 md:px-5 h-full flex items-center justify-center min-w-[130px] sm:min-w-[140px] md:min-w-[160px] cursor-pointer hover:bg-white/50 rounded-xl transition-all relative select-none active:scale-95 overflow-hidden"
+                                        className="flex-1 px-2 md:px-5 h-full flex items-center justify-center min-w-0 cursor-pointer hover:bg-white/50 rounded-xl transition-all relative select-none active:scale-95 overflow-hidden"
                                         title={isExpanded ? "ย่อมุมมอง" : "ขยายเต็มจอ"}
                                     >
                                         <AnimatePresence mode="wait">
                                             <motion.div
                                                 key={`${calendarViewType}-${currentDate.getTime()}`}
-                                                initial={{ y: 10, opacity: 0 }}
+                                                initial={{ y: 8, opacity: 0 }}
                                                 animate={{ y: 0, opacity: 1 }}
-                                                exit={{ y: -10, opacity: 0 }}
-                                                transition={{ duration: 0.3, ease: "easeOut" }}
-                                                className="flex items-center gap-2"
+                                                exit={{ y: -8, opacity: 0 }}
+                                                transition={{ duration: 0.25, ease: "easeOut" }}
+                                                className="flex items-center justify-center gap-1.5 truncate text-center"
                                             >
-                                                <span className="text-xs sm:text-sm md:text-base font-black text-slate-700 tracking-tight transition-colors whitespace-nowrap">
+                                                <span className="text-xs sm:text-sm md:text-base font-black text-slate-700 tracking-tight transition-colors truncate">
                                                     {calendarViewType === 'WEEK' ? (
                                                         <>
                                                             สัปดาห์ที่ <span className="text-indigo-500 font-bold">{format(safeDate, 'w')}</span>
@@ -330,15 +326,37 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
              
                                     <button 
                                         onClick={handleNext} 
-                                        className="w-8 h-full flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-white/60 rounded-xl transition-all active:scale-90"
+                                        className="w-8 h-full flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-white/60 rounded-xl transition-all active:scale-90 shrink-0"
                                         title={calendarViewType === 'WEEK' ? "สัปดาห์ถัดไป" : "เดือนถัดไป"}
                                     >
                                         <ChevronRight className="w-4 h-4" />
                                     </button>
                                 </div>
 
-                                {/* Mobile Only: Tools and Create in the same row */}
-                                <div className="lg:hidden flex items-center gap-2">
+                                {/* Mobile Actions Group (Row 1 Right) */}
+                                <div className="lg:hidden flex items-center gap-1.5 shrink-0">
+                                    {/* Mobile Weekly/Monthly Switcher Button */}
+                                    {displayMode === 'CALENDAR' && (
+                                        <button
+                                            onClick={toggleCalendarViewType}
+                                            className="h-11 px-2.5 flex items-center gap-1 rounded-2xl bg-white/70 hover:bg-white/90 text-slate-600 border border-white/60 shadow-sm active:scale-95 backdrop-blur-md font-black text-[11px]"
+                                            title="สลับมุมมองสัปดาห์/เดือน"
+                                        >
+                                            {calendarViewType === 'MONTH' ? (
+                                                <>
+                                                    <LayoutList className="w-3.5 h-3.5 text-indigo-500" />
+                                                    <span>สัปดาห์</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <CalendarDays className="w-3.5 h-3.5 text-emerald-500" />
+                                                    <span>เดือน</span>
+                                                </>
+                                            )}
+                                        </button>
+                                    )}
+
+                                    {/* Filters Button */}
                                     <button 
                                         onClick={onToggleFilters}
                                         className={`
@@ -347,11 +365,14 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                                                 ? 'bg-indigo-600 text-white border-indigo-600' 
                                                 : 'bg-white/70 hover:bg-white/90 text-slate-500 border-white/60 hover:border-indigo-200'}
                                         `}
+                                        title="ตัวกรองและเครื่องมือ"
                                     >
                                         <SlidersHorizontal className={`w-4 h-4 ${showFilters ? 'rotate-90' : ''}`} />
                                     </button>
+
+                                    {/* Create Button (Mobile) */}
                                     <button 
-                                        onClick={() => onSelectDate(new Date(), viewMode)}
+                                        onClick={() => onSelectDate(calendarViewType === 'WEEK' && safeDate ? safeDate : new Date(), viewMode)}
                                         className={`
                                             h-11 w-11 flex items-center justify-center rounded-2xl transition-all duration-300 shadow-sm active:scale-95 border-2 backdrop-blur-md
                                             ${viewMode === 'CONTENT' 
@@ -360,23 +381,9 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                                                 ? 'bg-fuchsia-500/10 text-fuchsia-600 border-fuchsia-300/50 hover:bg-fuchsia-500/20'
                                                 : 'bg-sky-500/10 text-sky-600 border-sky-300/50 hover:bg-sky-500/20'}
                                         `}
+                                        title="เพิ่มรายการใหม่"
                                     >
                                         <Plus className="w-5 h-5 stroke-[3px]" />
-                                    </button>
-
-                                    {/* Mobile Landscape Toggle Button */}
-                                    <button
-                                        id="mobile-landscape-toggle-btn"
-                                        onClick={onToggleMobileLandscape}
-                                        className={`
-                                            h-11 w-11 flex items-center justify-center rounded-2xl border transition-all duration-300 shadow-sm active:scale-95 backdrop-blur-md
-                                            ${isMobileLandscape 
-                                                ? 'bg-indigo-650 text-white border-indigo-700 shadow-indigo-100' 
-                                                : 'bg-white/70 hover:bg-white/90 text-slate-500 border-white/60 hover:border-indigo-100 hover:text-indigo-600'}
-                                        `}
-                                        title={isMobileLandscape ? "กลับสู่มุมมองแนวตั้ง" : "สลับเป็นมุมมองแนวนอน"}
-                                    >
-                                        <Smartphone className={`w-5 h-5 transition-transform duration-500 ${isMobileLandscape ? 'rotate-90 text-indigo-100' : ''}`} />
                                     </button>
 
                                     {/* Collapse Button (Mobile) */}
@@ -392,93 +399,105 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                                 </div>
                             </div>
              
-                            {/* --- TOGGLES ROW --- */}
-                            <div className="flex items-center gap-2 lg:gap-3 lg:flex-1 justify-start overflow-visible py-0.5 z-40">
+                            {/* --- ROW 2 (Mobile) / CENTER CLUSTER (Desktop): MODE & VIEW SWITCHERS --- */}
+                            <div className="flex items-center justify-between gap-1.5 lg:gap-3 w-full lg:w-auto lg:flex-1 min-w-0 z-40">
                                 
-                                {/* Toggle Cluster 1: Board/Cal & Mode */}
-                                <div className="flex items-center gap-2 bg-white/40 backdrop-blur-md p-1 rounded-2xl border border-white/50 shrink-0 shadow-2xs">
-                                    {/* 1. Display Mode Toggle (Show state NOT selected) */}
+                                {/* 3-Mode Switcher: CONTENT | TASK | PLAN */}
+                                <div className="flex-1 lg:flex-initial flex items-center p-1 bg-white/50 backdrop-blur-md rounded-2xl gap-1 border border-white/60 shadow-2xs min-w-0">
+                                    <button
+                                        onClick={() => setViewMode('CONTENT')}
+                                        className={`
+                                            flex-1 lg:flex-initial flex items-center justify-center gap-1 sm:gap-1.5 h-8.5 sm:h-8 px-2.5 sm:px-3 rounded-xl text-[10px] sm:text-[11px] font-black tracking-wide uppercase transition-all duration-200 active:scale-95 min-w-0
+                                            ${viewMode === 'CONTENT'
+                                                ? 'bg-rose-500 text-white shadow-sm'
+                                                : 'text-slate-600 hover:text-slate-900 hover:bg-white/70'
+                                            }
+                                        `}
+                                        title="โหมด Content Plan"
+                                    >
+                                        <MonitorPlay className="w-4 h-4 sm:w-3.5 sm:h-3.5 stroke-[2.5] shrink-0" />
+                                        <span className="hidden sm:inline truncate">CONTENT</span>
+                                    </button>
+
+                                    <button
+                                        onClick={() => setViewMode('TASK')}
+                                        className={`
+                                            flex-1 lg:flex-initial flex items-center justify-center gap-1 sm:gap-1.5 h-8.5 sm:h-8 px-2.5 sm:px-3 rounded-xl text-[10px] sm:text-[11px] font-black tracking-wide uppercase transition-all duration-200 active:scale-95 min-w-0
+                                            ${viewMode === 'TASK'
+                                                ? 'bg-sky-500 text-white shadow-sm'
+                                                : 'text-slate-600 hover:text-slate-900 hover:bg-white/70'
+                                            }
+                                        `}
+                                        title="โหมด Task Worklist"
+                                    >
+                                        <CheckSquare className="w-4 h-4 sm:w-3.5 sm:h-3.5 stroke-[2.5] shrink-0" />
+                                        <span className="hidden sm:inline truncate">TASK</span>
+                                    </button>
+
+                                    <button
+                                        onClick={() => setViewMode('PLAN')}
+                                        className={`
+                                            flex-1 lg:flex-initial flex items-center justify-center gap-1 sm:gap-1.5 h-8.5 sm:h-8 px-2.5 sm:px-3 rounded-xl text-[10px] sm:text-[11px] font-black tracking-wide uppercase transition-all duration-200 active:scale-95 min-w-0
+                                            ${viewMode === 'PLAN'
+                                                ? 'bg-fuchsia-600 text-white shadow-sm shadow-fuchsia-200'
+                                                : 'text-slate-600 hover:text-slate-900 hover:bg-white/70'
+                                            }
+                                        `}
+                                        title="โหมด Personal Plan & Routine"
+                                    >
+                                        <Sparkles className="w-4 h-4 sm:w-3.5 sm:h-3.5 stroke-[2.5] shrink-0" />
+                                        <span className="hidden sm:inline truncate">PLAN</span>
+                                    </button>
+                                </div>
+
+                                {/* Right Side in Row 2: Board/Calendar Switcher + Landscape Toggle */}
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                    {/* 1. Display Mode Toggle (Board / Calendar) */}
                                     <button 
                                         onClick={() => setDisplayMode(displayMode === 'CALENDAR' ? 'BOARD' : 'CALENDAR')}
-                                        className="flex items-center gap-2 h-9 px-3 bg-white/70 hover:bg-white/90 backdrop-blur-md rounded-xl border border-white/60 transition-all active:scale-95 text-slate-600 group shadow-sm"
-                                        title={displayMode === 'CALENDAR' ? "Switch to Board View" : "Switch to Calendar View"}
+                                        className="flex items-center gap-1.5 h-10 px-2.5 sm:px-3 bg-white/70 hover:bg-white/90 backdrop-blur-md rounded-2xl border border-white/60 transition-all active:scale-95 text-slate-600 group shadow-2xs"
+                                        title={displayMode === 'CALENDAR' ? "สลับเป็นมุมมอง Board" : "สลับเป็นมุมมอง Calendar"}
                                     >
                                         {displayMode === 'CALENDAR' ? (
                                             <>
-                                                <Kanban className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-500 transition-colors" />
+                                                <Kanban className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-500 transition-colors shrink-0" />
                                                 <span className="text-[10px] font-black uppercase tracking-wider">Board</span>
                                             </>
                                         ) : (
                                             <>
-                                                <CalendarDays className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-500 transition-colors" />
-                                                <span className="text-[10px] font-black uppercase tracking-wider">Calendar</span>
+                                                <CalendarDays className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-500 transition-colors shrink-0" />
+                                                <span className="text-[10px] font-black uppercase tracking-wider">Cal</span>
                                             </>
                                         )}
                                     </button>
 
-                                    {/* 2. 3-Mode Switcher: CONTENT | TASK | PLAN */}
-                                    <div className="flex items-center p-1 bg-white/50 backdrop-blur-md rounded-xl gap-1 border border-white/60 shadow-2xs">
-                                        <button
-                                            onClick={() => setViewMode('CONTENT')}
-                                            className={`
-                                                flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[10px] font-black tracking-wide uppercase transition-all duration-200 active:scale-95
-                                                ${viewMode === 'CONTENT'
-                                                    ? 'bg-rose-500 text-white shadow-sm'
-                                                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/70'
-                                                }
-                                            `}
-                                            title="โหมด Content Plan"
-                                        >
-                                            <MonitorPlay className="w-3.5 h-3.5 stroke-[2.5]" />
-                                            <span>CONTENT</span>
-                                        </button>
-
-                                        <button
-                                            onClick={() => setViewMode('TASK')}
-                                            className={`
-                                                flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[10px] font-black tracking-wide uppercase transition-all duration-200 active:scale-95
-                                                ${viewMode === 'TASK'
-                                                    ? 'bg-sky-500 text-white shadow-sm'
-                                                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/70'
-                                                }
-                                            `}
-                                            title="โหมด Task Worklist"
-                                        >
-                                            <CheckSquare className="w-3.5 h-3.5 stroke-[2.5]" />
-                                            <span>TASK</span>
-                                        </button>
-
-                                        <button
-                                            onClick={() => setViewMode('PLAN')}
-                                            className={`
-                                                flex items-center gap-1.5 h-7 px-2.5 rounded-lg text-[10px] font-black tracking-wide uppercase transition-all duration-200 active:scale-95
-                                                ${viewMode === 'PLAN'
-                                                    ? 'bg-fuchsia-600 text-white shadow-sm shadow-fuchsia-200'
-                                                    : 'text-slate-600 hover:text-slate-900 hover:bg-white/70'
-                                                }
-                                            `}
-                                            title="โหมด Personal Plan & Routine"
-                                        >
-                                            <Sparkles className="w-3.5 h-3.5 stroke-[2.5]" />
-                                            <span>PLAN</span>
-                                        </button>
-                                    </div>
+                                    {/* Mobile Landscape Toggle Button (Mobile Only) */}
+                                    <button
+                                        id="mobile-landscape-toggle-btn"
+                                        onClick={onToggleMobileLandscape}
+                                        className={`
+                                            lg:hidden h-10 w-10 flex items-center justify-center rounded-2xl border transition-all duration-300 shadow-2xs active:scale-95 backdrop-blur-md
+                                            ${isMobileLandscape 
+                                                ? 'bg-indigo-650 text-white border-indigo-700 shadow-indigo-100' 
+                                                : 'bg-white/70 hover:bg-white/90 text-slate-500 border-white/60 hover:border-indigo-100 hover:text-indigo-600'}
+                                        `}
+                                        title={isMobileLandscape ? "กลับสู่มุมมองแนวตั้ง" : "สลับเป็นมุมมองแนวนอน"}
+                                    >
+                                        <Smartphone className={`w-4 h-4 transition-transform duration-500 ${isMobileLandscape ? 'rotate-90 text-indigo-100' : ''}`} />
+                                    </button>
                                 </div>
 
-                                {/* Divider for separate group */}
-                                <div className="hidden lg:block w-px h-6 bg-slate-200/60 mx-1" />
-
-                                {/* 3. Calendar View Type Toggle (Month/Week) - Only if in Calendar Mode AND Content Mode as requested */}
+                                {/* Desktop Calendar View Type Toggle (Month/Week) */}
                                 <AnimatePresence>
-                                    {displayMode === 'CALENDAR' && viewMode === 'CONTENT' && (
+                                    {displayMode === 'CALENDAR' && (
                                         <motion.div
                                             initial={{ opacity: 0, width: 0, x: 20 }}
                                             animate={{ opacity: 1, width: 'auto', x: 0 }}
                                             exit={{ opacity: 0, width: 0, x: 20 }}
                                             transition={{ type: "spring", bounce: 0.2, duration: 0.5 }}
-                                            className="overflow-hidden flex items-center shrink-0"
+                                            className="hidden lg:flex items-center shrink-0"
                                         >
-                                            <div className="hidden lg:block w-px h-6 bg-slate-200/60 mx-1 mr-3" />
+                                            <div className="w-px h-6 bg-slate-200/60 mx-1 mr-3" />
                                             <button 
                                                 onClick={toggleCalendarViewType}
                                                 className="flex items-center gap-2 h-9 px-4 bg-white/70 hover:bg-white/90 backdrop-blur-md rounded-xl border border-white/60 shadow-sm transition-all active:scale-95 text-slate-600 group whitespace-nowrap"
@@ -497,11 +516,10 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                                             </button>
                                         </motion.div>
                                     )}
-
                                 </AnimatePresence>
                             </div>
 
-                            {/* --- TOOLS & CREATE (Desktop) --- */}
+                            {/* --- TOOLS & CREATE (Desktop Only) --- */}
                             <div className="hidden lg:flex items-center gap-3 ml-auto shrink-0">
                                 {isExpanded && (
                                     <button
@@ -529,7 +547,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
 
                                 {/* Create Button - Absolute Right */}
                                 <button 
-                                    onClick={() => onSelectDate(new Date(), viewMode)}
+                                    onClick={() => onSelectDate(calendarViewType === 'WEEK' && safeDate ? safeDate : new Date(), viewMode)}
                                     className={`
                                         relative overflow-hidden group h-11 w-11 md:w-auto md:px-5 rounded-2xl active:scale-95 flex items-center justify-center shrink-0 border-2 transition-colors duration-300 backdrop-blur-md
                                         ${viewMode === 'CONTENT' 

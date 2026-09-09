@@ -1,11 +1,33 @@
 
 import React, { useMemo } from 'react';
-import { Activity, CheckSquare, Flag, Tag, Calendar, CalendarDays, Type, Layers, LayoutTemplate, FileText, MapPin, Presentation, Package, AlertTriangle, Briefcase, HeartPulse, Clock, ShieldAlert, Gift, Smile, Monitor, HardDrive, BookOpen, Gamepad2, Coins, Gavel, ShieldCheck, Building2, Film } from 'lucide-react';
+import { Activity, CheckSquare, Flag, Tag, Calendar, CalendarDays, Type, Layers, LayoutTemplate, FileText, MapPin, Presentation, Package, AlertTriangle, Briefcase, HeartPulse, Clock, ShieldAlert, Gift, Smile, Monitor, HardDrive, BookOpen, Gamepad2, Coins, Gavel, ShieldCheck, Building2, Film, Sparkles } from 'lucide-react';
 import { MasterTab } from '../../../hooks/useMasterDataView';
 import { MasterOption } from '../../../types';
 
 // Metadata Configuration
-export const MASTER_META: Record<string, { label: string, icon: any, desc: string, group: string }> = {
+export type MasterTabGroupId = 'WORKFLOW' | 'CONTENT' | 'RESOURCES' | 'SYSTEM';
+
+export interface MasterTabMeta {
+    label: string;
+    icon: any;
+    desc: string;
+    group: MasterTabGroupId;
+}
+
+export interface MasterTabGroupInfo {
+    id: string;
+    title: string;
+    groupCode: MasterTabGroupId;
+}
+
+export const MASTER_TAB_GROUPS: MasterTabGroupInfo[] = [
+    { id: 'workflow', title: 'Production & Workflow', groupCode: 'WORKFLOW' },
+    { id: 'content', title: 'Content Metadata', groupCode: 'CONTENT' },
+    { id: 'resources', title: 'Resources & HR', groupCode: 'RESOURCES' },
+    { id: 'system', title: 'System Config', groupCode: 'SYSTEM' },
+];
+
+export const MASTER_META: Record<string, MasterTabMeta> = {
     // --- WORKFLOW ---
     STATUS: { label: 'Content Status', icon: Activity, desc: 'สถานะของงานวิดีโอ/คอนเทนต์ (เช่น Idea, Script, Shoot)', group: 'WORKFLOW' },
     TASK_STATUS: { label: 'Task Status', icon: CheckSquare, desc: 'สถานะของงานทั่วไป (เช่น To Do, Doing, Done)', group: 'WORKFLOW' },
@@ -25,13 +47,13 @@ export const MASTER_META: Record<string, { label: string, icon: any, desc: strin
     MEETING_CATEGORY: { label: 'Meeting Topics', icon: Presentation, desc: 'หัวข้อการประชุม (เช่น General, Crisis, Project Update)', group: 'CONTENT' },
 
     // --- RESOURCES ---
-    INVENTORY: { label: 'Equipment Categories', icon: Package, desc: 'หมวดหมู่อุปกรณ์หลักและย่อย (ใช้ในหน้า Checklist)', group: 'INVENTORY' },
-    ITEM_CONDITION: { label: 'Item Condition', icon: AlertTriangle, desc: 'สภาพอุปกรณ์ (เช่น Good, Broken, Lost) ใช้แปะป้ายสถานะของ', group: 'INVENTORY' },
-    POSITION: { label: 'Positions', icon: Briefcase, desc: 'ตำแหน่งงานและหน้าที่ความรับผิดชอบ (ใช้ในหน้าสมัครและหน้าทีม)', group: 'TEAM' },
-    COMPANIES: { label: 'บริษัทในเครือ (Companies)', icon: Building2, desc: 'จัดการรายชื่อและข้อมูลบริษัทในเครือ (SaaS Multi-Company)', group: 'TEAM' },
-    ATTENDANCE_RULES: { label: 'HR System Rules', icon: Clock, desc: 'บริหารกฎกติกาการเข้างาน, การลา, ขาด, สาย, และสิทธิ์พนักงานทั้งหมด', group: 'TEAM' },
-    LOCATIONS: { label: 'พิกัดออฟฟิศหลัก', icon: MapPin, desc: 'จัดการพิกัดและรัศมี GPS ของสำนักงานใหญ่หรือออฟฟิศสาขาหลัก', group: 'TEAM' },
-    REJECTION_REASON: { label: 'Reject Reasons', icon: ShieldAlert, desc: 'เหตุผลที่ส่งแก้งาน (QC) ใช้เก็บสถิติปัญหาที่พบบ่อย', group: 'TEAM' },
+    INVENTORY: { label: 'Equipment Categories', icon: Package, desc: 'หมวดหมู่อุปกรณ์หลักและย่อย (ใช้ในหน้า Checklist)', group: 'RESOURCES' },
+    ITEM_CONDITION: { label: 'Item Condition', icon: AlertTriangle, desc: 'สภาพอุปกรณ์ (เช่น Good, Broken, Lost) ใช้แปะป้ายสถานะของ', group: 'RESOURCES' },
+    POSITION: { label: 'Positions', icon: Briefcase, desc: 'ตำแหน่งงานและหน้าที่ความรับผิดชอบ (ใช้ในหน้าสมัครและหน้าทีม)', group: 'RESOURCES' },
+    ATTENDANCE_RULES: { label: 'HR System Rules', icon: Clock, desc: 'บริหารกฎกติกาการเข้างาน, การลา, ขาด, สาย, และสิทธิ์พนักงานทั้งหมด', group: 'RESOURCES' },
+    COMPANIES: { label: 'บริษัทในเครือ (Companies)', icon: Building2, desc: 'จัดการรายชื่อและข้อมูลบริษัทในเครือ (SaaS Multi-Company)', group: 'RESOURCES' },
+    LOCATIONS: { label: 'พิกัดออฟฟิศหลัก', icon: MapPin, desc: 'จัดการพิกัดและรัศมี GPS ของสำนักงานใหญ่หรือออฟฟิศสาขาหลัก', group: 'RESOURCES' },
+    REJECTION_REASON: { label: 'Reject Reasons', icon: ShieldAlert, desc: 'เหตุผลที่ส่งแก้งาน (QC) ใช้เก็บสถิติปัญหาที่พบบ่อย', group: 'RESOURCES' },
 
     // --- SYSTEM ---
     GAME_TUNING: { label: 'Game Balancing', icon: Gamepad2, desc: 'ปรับสมดุลเกม (XP, HP, Gold, Drop Rate)', group: 'SYSTEM' },
@@ -44,7 +66,24 @@ export const MASTER_META: Record<string, { label: string, icon: any, desc: strin
     PAYROLL_RULES: { label: 'Payroll Rules', icon: Coins, desc: 'ตั้งค่าอัตราค่าปรับ (หักเงิน) สำหรับการขาด/ลา/สาย', group: 'SYSTEM' },
     TRIBUNAL_SETTINGS: { label: 'Tribunal Settings', icon: Gavel, desc: 'ตั้งค่าระบบฟ้องร้อง (รางวัล, บทลงโทษ, หมวดหมู่)', group: 'SYSTEM' },
     SYSTEM_POLICY: { label: 'Policy Enforcer', icon: ShieldCheck, desc: 'ข้อตกลงการปฏิบัติงานและระเบียบวินัยสำหรับการใช้ระบบ', group: 'SYSTEM' },
+    MENTOR_TIPS: { label: 'Mentor Tips', icon: Sparkles, desc: 'จัดการและเปิด-ปิดคำแนะนำระบบ (Mentor Tips) ในแต่ละหน้าจอ', group: 'SYSTEM' },
 };
+
+/**
+ * Helper to dynamically get grouped tabs derived directly from MASTER_META
+ */
+export const getMasterTabGroups = () => {
+    return MASTER_TAB_GROUPS.map(group => ({
+        id: group.id,
+        title: group.title,
+        groupCode: group.groupCode,
+        keys: Object.entries(MASTER_META)
+            .filter(([_, meta]) => meta.group === group.groupCode)
+            .map(([key]) => key)
+    }));
+};
+
+export const ALL_MASTER_TAB_KEYS = Object.keys(MASTER_META);
 
 interface MasterTabNavigationProps {
     activeTab: MasterTab;
@@ -84,59 +123,27 @@ const MasterTabNavigation: React.FC<MasterTabNavigationProps> = ({ activeTab, on
         );
     };
 
-    const workflowKeys = useMemo(() => {
-        const keys = ['STATUS', 'TASK_STATUS', 'PROJECT_TYPE', 'TAG_PRESET', 'EVENT_TYPE', 'YEARLY', 'CALENDAR'];
-        return activeTabs ? keys.filter(k => activeTabs.includes(k)) : keys;
-    }, [activeTabs]);
-
-    const contentKeys = useMemo(() => {
-        const keys = ['FORMAT', 'PILLAR', 'CATEGORY', 'SCRIPT_CATEGORY', 'CONTENT_ALERT', 'SHOOT_LOCATION', 'MEETING_CATEGORY'];
-        return activeTabs ? keys.filter(k => activeTabs.includes(k)) : keys;
-    }, [activeTabs]);
-
-    const resourceKeys = useMemo(() => {
-        const keys = ['COMPANIES', 'POSITION', 'ATTENDANCE_RULES', 'LOCATIONS', 'INVENTORY', 'ITEM_CONDITION', 'REJECTION_REASON'];
-        return activeTabs ? keys.filter(k => activeTabs.includes(k)) : keys;
-    }, [activeTabs]);
-
-    const systemKeys = useMemo(() => {
-        const keys = ['GAME_TUNING', 'PAYROLL_RULES', 'TRIBUNAL_SETTINGS', 'REWARDS', 'GREETINGS', 'DASHBOARD', 'MAINTENANCE', 'WIKI_CATEGORY', 'STORAGE_HUB', 'SYSTEM_POLICY'];
-        return activeTabs ? keys.filter(k => activeTabs.includes(k)) : keys;
+    const groupsWithFilteredKeys = useMemo(() => {
+        const groups = getMasterTabGroups();
+        return groups.map(group => {
+            const filteredKeys = activeTabs ? group.keys.filter(k => activeTabs.includes(k)) : group.keys;
+            return {
+                ...group,
+                keys: filteredKeys
+            };
+        }).filter(g => g.keys.length > 0);
     }, [activeTabs]);
 
     return (
         <div className="flex xl:flex-col gap-2 overflow-x-auto xl:w-64 pb-2 xl:pb-0 shrink-0">
-            {/* GROUP: WORKFLOW */}
-            {workflowKeys.length > 0 && (
-                <div className="bg-white p-2 rounded-2xl border border-gray-200 shadow-sm min-w-max">
-                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">Production & Workflow</div>
-                    {workflowKeys.map(key => renderTabButton(key))}
+            {groupsWithFilteredKeys.map(group => (
+                <div key={group.id} className="bg-white p-2 rounded-2xl border border-gray-200 shadow-sm min-w-max">
+                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">
+                        {group.title}
+                    </div>
+                    {group.keys.map(key => renderTabButton(key))}
                 </div>
-            )}
-
-            {/* GROUP: CONTENT */}
-            {contentKeys.length > 0 && (
-                <div className="bg-white p-2 rounded-2xl border border-gray-200 shadow-sm min-w-max">
-                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">Content Metadata</div>
-                    {contentKeys.map(key => renderTabButton(key))}
-                </div>
-            )}
-
-            {/* GROUP: INVENTORY & HR */}
-            {resourceKeys.length > 0 && (
-                <div className="bg-white p-2 rounded-2xl border border-gray-200 shadow-sm min-w-max">
-                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">Resources & HR</div>
-                    {resourceKeys.map(key => renderTabButton(key))}
-                </div>
-            )}
-
-            {/* GROUP: SYSTEM */}
-            {systemKeys.length > 0 && (
-                <div className="bg-white p-2 rounded-2xl border border-gray-200 shadow-sm min-w-max">
-                    <div className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-2 px-2">System Config</div>
-                    {systemKeys.map(key => renderTabButton(key))}
-                </div>
-            )}
+            ))}
         </div>
     );
 };

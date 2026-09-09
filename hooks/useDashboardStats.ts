@@ -72,6 +72,114 @@ export const WEEKLY_THEMES = [
     }
 ];
 
+const computeClientStats = (
+    allTasks: Task[],
+    allConfigs: any[],
+    timeR: TimeRangeOption,
+    cDays: number,
+    vScope: ViewScope,
+    uId: string
+) => {
+    const today = new Date();
+    const checkDateInRange = (dateVal: any) => {
+        if (!dateVal) return false;
+        const date = new Date(dateVal);
+        switch (timeR) {
+            case 'THIS_MONTH': return isSameMonth(date, today);
+            case 'LAST_30': return isAfter(date, addDays(today, -30));
+            case 'LAST_90': return isAfter(date, addDays(today, -90));
+            case 'CUSTOM': return isAfter(date, addDays(today, -cDays));
+            case 'ALL': return true;
+            default: return true;
+        }
+    };
+
+    const filtered = (allTasks || []).filter(t => {
+        const isDone = isTaskCompleted(t.status);
+        if (t.isUnscheduled && !isDone) return false;
+
+        if (vScope === 'ME' && uId) {
+            const isAssignee = t.assigneeIds?.includes(uId);
+            const isOwner = t.ideaOwnerIds?.includes(uId);
+            const isEditor = t.editorIds?.includes(uId);
+            if (!isAssignee && !isOwner && !isEditor) return false;
+        }
+
+        if (timeR === 'ALL') return true;
+        if (!t.endDate) return false;
+
+        const endDateObj = new Date(t.endDate);
+        const isInRange = checkDateInRange(endDateObj);
+
+        if (isDone) {
+            return isInRange;
+        } else {
+            return isInRange || isBefore(endDateObj, today);
+        }
+    });
+
+    const cardStats = (allConfigs || []).map(config => {
+        const statusKeys: string[] = config.status_keys || [];
+        const filterType = config.filter_type || 'STATUS';
+
+        const matchingTasks = filtered.filter(t => {
+            if (filterType === 'STATUS') {
+                return statusKeys.includes(t.status || '');
+            } else if (filterType === 'FORMAT') {
+                const formats = t.contentFormats || [];
+                return statusKeys.some(key => formats.includes(key));
+            } else if (filterType === 'PILLAR') {
+                return statusKeys.includes(t.pillar || '');
+            } else if (filterType === 'CATEGORY') {
+                return statusKeys.includes(t.category || '');
+            }
+            return false;
+        });
+
+        const urgentCount = matchingTasks.filter(t => {
+            const isDone = isTaskCompleted(t.status);
+            if (isDone || t.isUnscheduled || !t.endDate) return false;
+
+            const endDateObj = new Date(t.endDate);
+            const isOverdue = isPast(endDateObj) && !isToday(endDateObj);
+            const isDueSoon = isToday(endDateObj) || isBefore(endDateObj, addDays(new Date(), 1));
+
+            return isOverdue || isDueSoon;
+        }).length;
+
+        return {
+            id: config.id,
+            key: config.key,
+            label: config.label,
+            icon: config.icon,
+            colorTheme: config.color_theme,
+            statusKeys,
+            filterType,
+            sortOrder: config.sort_order,
+            count: matchingTasks.length,
+            urgentCount,
+            tasks: matchingTasks
+        };
+    });
+
+    const totalFilteredTasks = filtered.length;
+    const doneTasksCount = filtered.filter(t => isTaskCompleted(t.status)).length;
+    const progressPercentage = totalFilteredTasks > 0 ? Math.round((doneTasksCount / totalFilteredTasks) * 100) : 0;
+
+    const chartData = cardStats.map(stat => ({
+        name: stat.label,
+        value: stat.count,
+        colorTheme: stat.colorTheme || 'blue'
+    })).filter(d => d.value > 0);
+
+    return {
+        cardStats,
+        chartData,
+        totalFilteredTasks,
+        progressPercentage
+    };
+};
+
 export const useDashboardStats = (tasks: Task[], currentUser: User) => {
     const today = new Date();
     const { configs, isLoading: configLoading } = useDashboardConfig();
@@ -166,7 +274,7 @@ export const useDashboardStats = (tasks: Task[], currentUser: User) => {
         fetchAttendance();
     }, [masterOptions]); // Run when master options load
 
-    // --- Server-side Stats Aggregate Fetching Effect ---
+    // --- Server-side Stats Aggregate Fetching Effect with Robust Client Fallback ---
     useEffect(() => {
         let active = true;
         setStatsLoading(true);
@@ -180,7 +288,7 @@ export const useDashboardStats = (tasks: Task[], currentUser: User) => {
                     userId: currentUser?.id || ''
                 });
                 const res = await fetch(`/api/dashboard/stats?${params.toString()}`);
-                if (!res.ok) throw new Error('Failed to fetch stats');
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 
                 const contentType = res.headers.get('content-type');
                 if (contentType && contentType.includes('application/json')) {
@@ -192,12 +300,16 @@ export const useDashboardStats = (tasks: Task[], currentUser: User) => {
                             totalFilteredTasks: json.totalFilteredTasks || 0,
                             progressPercentage: json.progressPercentage || 0
                         });
+                        return;
                     }
-                } else {
-                    console.warn('Dashboard stats returned non-JSON response');
                 }
+                throw new Error('Invalid JSON response');
             } catch (err) {
-                console.error('Error loading dashboard stats:', err);
+                // Fallback seamlessly to client-side computation using tasks & configs
+                if (active && tasks && tasks.length > 0) {
+                    const fallback = computeClientStats(tasks, configs, timeRange, customDays, viewScope, currentUser?.id || '');
+                    setStats(fallback);
+                }
             } finally {
                 if (active) {
                     setStatsLoading(false);
@@ -210,7 +322,7 @@ export const useDashboardStats = (tasks: Task[], currentUser: User) => {
         return () => {
             active = false;
         };
-    }, [timeRange, customDays, viewScope, currentUser?.id, tasks]); // Live reactivity lock!
+    }, [timeRange, customDays, viewScope, currentUser?.id, tasks, configs]); // Live reactivity lock!
 
     // --- Chart Data Color Mapper ---
     const chartData = useMemo(() => {

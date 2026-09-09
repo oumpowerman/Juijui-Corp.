@@ -123,7 +123,7 @@ const MobileLandscapeWrapper: React.FC<Props> = ({
                     initial={{ y: 20, opacity: 0 }}
                     animate={{ y: 0, opacity: 1 }}
                     transition={{ delay: 0.3 }}
-                    className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-rose-500 mb-4"
+                    className="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 to-rose-500 mb-4"
                   >
                     หมุนจอเพื่อเริ่มสนุก!
                   </motion.h2>

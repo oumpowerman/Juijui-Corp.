@@ -1,28 +1,90 @@
 
-import React, { useState, useEffect } from 'react';
-import { Lightbulb, X, Sparkles, ChevronRight, ChevronLeft, Info, Zap, Quote } from 'lucide-react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { Lightbulb, X, Sparkles, ChevronRight, ChevronLeft, Info, Zap } from 'lucide-react';
+import { MentorTipModuleId, MentorTipVariant, DEFAULT_MENTOR_TIPS, MentorTipsGlobalSettings } from '../config/mentorTips';
+import { useMasterData } from '../hooks/useMasterData';
 
 interface MentorTipProps {
+  moduleId?: MentorTipModuleId;
+  dynamicPrefix?: string;
   messages?: string[];
   message?: string;
   className?: string;
-  variant?: 'blue' | 'yellow' | 'purple' | 'green' | 'pink' | 'orange';
+  variant?: MentorTipVariant;
   autoPlayInterval?: number;
 }
 
 const MentorTip: React.FC<MentorTipProps> = ({ 
-  messages = [], 
+  moduleId,
+  dynamicPrefix,
+  messages, 
   message, 
   className = '', 
-  variant = 'yellow',
+  variant: propVariant,
   autoPlayInterval = 8000 
 }) => {
   const [isVisible, setIsVisible] = useState(true);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
 
-  // Combine props to ensure we have a list
-  const tipList = messages.length > 0 ? messages : (message ? [message] : []);
+  const { masterOptions } = useMasterData();
+
+  // Load Mentor Tips global & module settings from masterOptions
+  const mentorSettings = useMemo<MentorTipsGlobalSettings | null>(() => {
+    const configOption = masterOptions?.find(
+      o => o.type === 'MENTOR_TIP_CONFIG' && o.key === 'SETTINGS'
+    );
+    if (!configOption?.description) return null;
+    try {
+      return JSON.parse(configOption.description) as MentorTipsGlobalSettings;
+    } catch {
+      return null;
+    }
+  }, [masterOptions]);
+
+  // Determine if globally or module-level enabled
+  const isEnabled = useMemo(() => {
+    // If global toggle exists and is false
+    if (mentorSettings?.isGloballyEnabled === false) return false;
+    // If moduleId specified, check module setting
+    if (moduleId && mentorSettings?.moduleSettings?.[moduleId]?.isEnabled === false) {
+      return false;
+    }
+    return true;
+  }, [mentorSettings, moduleId]);
+
+  // Determine variant
+  const variant: MentorTipVariant = useMemo(() => {
+    if (propVariant) return propVariant;
+    if (moduleId && DEFAULT_MENTOR_TIPS[moduleId]) {
+      return DEFAULT_MENTOR_TIPS[moduleId].variant;
+    }
+    return 'yellow';
+  }, [propVariant, moduleId]);
+
+  // Combine props and defaults to build final tip list
+  const tipList = useMemo(() => {
+    let list: string[] = [];
+
+    if (messages && messages.length > 0) {
+      list = [...messages];
+    } else if (message) {
+      list = [message];
+    } else if (moduleId && DEFAULT_MENTOR_TIPS[moduleId]) {
+      const custom = mentorSettings?.moduleSettings?.[moduleId]?.customMessages;
+      if (custom && custom.length > 0) {
+        list = [...custom];
+      } else {
+        list = [...DEFAULT_MENTOR_TIPS[moduleId].defaultMessages];
+      }
+    }
+
+    if (dynamicPrefix && dynamicPrefix.trim()) {
+      list = [dynamicPrefix, ...list];
+    }
+
+    return list;
+  }, [messages, message, moduleId, mentorSettings, dynamicPrefix]);
 
   useEffect(() => {
     if (!isVisible || isPaused || tipList.length <= 1) return;
@@ -34,13 +96,13 @@ const MentorTip: React.FC<MentorTipProps> = ({
     return () => clearInterval(timer);
   }, [isVisible, isPaused, tipList.length, autoPlayInterval]);
 
-  if (!isVisible || tipList.length === 0) return null;
+  if (!isEnabled || !isVisible || tipList.length === 0) return null;
 
   const nextTip = () => setCurrentIndex((prev) => (prev + 1) % tipList.length);
   const prevTip = () => setCurrentIndex((prev) => (prev === 0 ? tipList.length - 1 : prev - 1));
 
   // Modern Vibrant Gradients
-  const themes = {
+  const themes: Record<MentorTipVariant, string> = {
     yellow: 'bg-gradient-to-r from-amber-400 via-orange-400 to-amber-500 shadow-amber-200',
     blue: 'bg-gradient-to-r from-blue-500 via-indigo-500 to-blue-600 shadow-blue-200',
     purple: 'bg-gradient-to-r from-purple-500 via-fuchsia-500 to-purple-600 shadow-purple-200',
@@ -96,7 +158,7 @@ const MentorTip: React.FC<MentorTipProps> = ({
         <div className="flex flex-col items-end gap-2 shrink-0 pl-2">
             <button 
                 onClick={() => setIsVisible(false)}
-                className="p-1.5 bg-white/10 hover:bg-white/30 rounded-full transition-colors backdrop-blur-sm text-white/90 hover:text-white"
+                className="p-1.5 bg-white/10 hover:bg-white/30 rounded-full transition-colors backdrop-blur-sm text-white/90 hover:text-white cursor-pointer"
                 title="ซ่อนคำแนะนำ"
             >
                 <X className="w-4 h-4" />
@@ -106,13 +168,15 @@ const MentorTip: React.FC<MentorTipProps> = ({
                 <div className="flex items-center gap-1 mt-1">
                     <button 
                         onClick={prevTip}
-                        className="p-1 hover:bg-white/20 rounded-lg transition-colors text-white/80 hover:text-white"
+                        className="p-1 hover:bg-white/20 rounded-lg transition-colors text-white/80 hover:text-white cursor-pointer"
+                        title="ก่อนหน้า"
                     >
                         <ChevronLeft className="w-5 h-5" />
                     </button>
                     <button 
                         onClick={nextTip}
-                        className="p-1 hover:bg-white/20 rounded-lg transition-colors text-white/80 hover:text-white"
+                        className="p-1 hover:bg-white/20 rounded-lg transition-colors text-white/80 hover:text-white cursor-pointer"
+                        title="ถัดไป"
                     >
                         <ChevronRight className="w-5 h-5" />
                     </button>

@@ -25,11 +25,7 @@ const LeaderboardView: React.FC<LeaderboardViewProps> = ({ users, currentUser })
     return (
         <PastelStageBackground>
             <div className="space-y-8 animate-in fade-in duration-500 pb-32 relative">
-                 <MentorTip variant="orange" messages={[
-                "🔥 สัปดาห์นี้ใครจะเป็น MVP? ดูคะแนนได้ที่นี่เลย!",
-                "XP ได้จากการทำงานเสร็จตรงเวลา และการช่วยเพื่อนๆ",
-                "อย่าลืมนะ! ส่งงานช้า หรือโดดเวร คะแนนลดนะจ๊ะ 📉"
-            ]} />
+                 <MentorTip moduleId="LEADERBOARD" />
 
             {/* Header & Controls */}
             <div className="flex flex-col md:flex-row justify-between items-center gap-6 relative z-10">

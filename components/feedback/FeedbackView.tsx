@@ -81,11 +81,7 @@ const FeedbackView: React.FC<FeedbackViewProps> = ({ currentUser, users = [] }) 
     return (
         <AppBackground theme={bgTheme} pattern="grid" className="p-4 md:p-8 min-h-screen">
             <div className="space-y-6 animate-in fade-in duration-500 pb-20">
-                <MentorTip variant="pink" messages={[
-                    "พื้นที่ปลอดภัยสำหรับทุกคน! อยากเสนอไอเดียหรือชมเพื่อน จัดไป!",
-                    "เลือก 'Anonymous' ได้นะ ถ้ายอมรับความจริงกันได้ ทีมจะแกร่งขึ้นแน่นอน",
-                    "Admin จะคอยดูอยู่ห่างๆ เพื่อความเรียบร้อยครับ"
-                ]} />
+                <MentorTip moduleId="FEEDBACK" />
 
             <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
                 <div className="flex items-center gap-3">

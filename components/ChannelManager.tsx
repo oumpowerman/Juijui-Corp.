@@ -142,7 +142,7 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({ tasks, channels, onAdd,
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 animate-in fade-in duration-500 pb-20">
-      <MentorTip variant="orange" messages={["อัปโหลด Logo ช่องได้แล้วนะ! จะช่วยให้ดูเป็นทางการขึ้นเยอะเลย", "คลิกที่การ์ดรายการเพื่อแก้ไขข้อมูลได้เลย"]} />
+      <MentorTip moduleId="CHANNEL" />
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>

@@ -65,7 +65,7 @@ export async function getTargetDestination(
     } else {
       console.log(`${record.type} requested but LINE_SUMMARY_DESTINATION is empty or not found.`);
     }
-  } else if (record.type === 'CONTENT_PLANNER_ALERT') {
+  } else if (record.type === 'CONTENT_PLANNER_ALERT' || record.type === 'DAILY_OVERDUE_CONTENT_SUMMARY') {
     // 1. Check dedicated content alert destination
     const { data: contentDestOpt } = await supabaseAdmin
       .from('master_options')

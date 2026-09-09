@@ -194,11 +194,7 @@ const KPIView: React.FC<KPIViewProps> = ({ users, currentUser }) => {
 
     return (
         <div className="space-y-6 animate-in fade-in duration-500 pb-20">
-            <MentorTip variant="orange" messages={[
-                "KPI V10 Complete! 🚀 เพิ่มระบบ Peer Review, เชื่อมเกม และใบสรุปผลแบบ Print ได้แล้ว",
-                "เมื่อสถานะเป็น PAID ระบบจะแจก Coin และ XP ให้พนักงานโดยอัตโนมัติตามเกรด",
-                "อย่าลืมกด 'ส่งคำชม' ให้เพื่อนร่วมทีมบ้างนะ กำลังใจสำคัญมาก!"
-            ]} />
+            <MentorTip moduleId="KPI" />
 
             <KPIHeader 
                 monthLabel={selectedMonth}

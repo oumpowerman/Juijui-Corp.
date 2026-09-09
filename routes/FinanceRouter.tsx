@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, PayrollCycle, PayrollSlip } from '../types';
-import MentorTip from '../components/MentorTip';
 import { DollarSign, FileText, PieChart, Wallet, Plus, Calendar, MapPin, RefreshCw, ArrowRight, Loader2, ArrowLeft, ChevronLeft, ChevronRight, Globe, Coins } from 'lucide-react';
 import AppBackground, { BackgroundTheme } from '../components/common/AppBackground';
 import { useFinance } from '../hooks/useFinance';

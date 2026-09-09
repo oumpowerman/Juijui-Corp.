@@ -128,7 +128,9 @@ export const StatusGateConfigCard: React.FC<StatusGateConfigCardProps> = ({
             {/* Status Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2.5">
                 {availableStatuses.map((status) => {
-                    const isChecked = requiredStatuses.includes(status.key);
+                    const isChecked = requiredStatuses.some(
+                        (s) => s.toUpperCase() === status.key.toUpperCase()
+                    );
                     return (
                         <motion.button
                             key={status.key}

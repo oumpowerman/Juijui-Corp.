@@ -25,6 +25,7 @@ import { buildOTRequestBodyContents } from './templates/otRequestFlex.ts';
 import { buildMonthlyBonusSummaryPayload } from './templates/bonusSummaryFlex.ts';
 import { buildDailySummaryPayload } from './templates/SummaryFlex.ts';
 import { buildMonthlyOTSummaryPayload } from './templates/otSummaryFlex.ts';
+import { buildOverdueContentSummaryPayload } from './templates/OverdueContentSummaryFlex.ts';
 import { buildFooterButtons } from './templates/requestFlex.ts';
 
 Deno.serve(async (req: any) => {
@@ -148,6 +149,8 @@ Deno.serve(async (req: any) => {
           lineMessagePayload = buildMonthlyBonusSummaryPayload(targetDestination, record);
         } else if (record.type === 'MONTHLY_OT_SUMMARY') {
           lineMessagePayload = buildMonthlyOTSummaryPayload(targetDestination, record);
+        } else if (record.type === 'DAILY_OVERDUE_CONTENT_SUMMARY') {
+          lineMessagePayload = buildOverdueContentSummaryPayload(targetDestination, record);
         } else {
           const isBatch = claimedRecords.length > 1;
           

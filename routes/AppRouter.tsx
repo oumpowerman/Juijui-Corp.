@@ -1,15 +1,7 @@
-
-// Trigger re-process
-import React, { useState, Suspense, lazy, useEffect, useCallback, useMemo, useRef } from 'react';
-import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import React, { useState, Suspense, lazy } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabase';
-import { ViewMode, Task } from '../types';
-import { MENU_GROUPS } from '../components/Sidebar';
-import PendingApprovalScreen from '../components/PendingApprovalScreen';
-import InactiveScreen from '../components/InactiveScreen';
-import DeathScreen from '../components/gamification/DeathScreen';
-import { MissingProfileScreen } from '../components/auth/MissingProfileScreen';
 import AppShell from '../components/layout/AppShell';
 import { useTaskManager } from '../hooks/useTaskManager';
 import { useAuth } from '../hooks/useAuth';
@@ -26,17 +18,20 @@ import { BRAND_CONFIG } from '../config/brand';
 import WorkboxPanel from '../components/workbox/WorkboxPanel';
 import WorkboxTrigger from '../components/workbox/WorkboxTrigger';
 
-// --- REFRACTORED MODULE REGISTRIES ---
+// --- REFRACTORED MODULE REGISTRIES & GUARDS ---
 import { ViewRouteRegistry } from './ViewRouteRegistry';
 import { GlobalModalRegistry } from './GlobalModalRegistry';
+import { AccountStatusGuard } from './guards/AccountStatusGuard';
+import { useWarpPortal } from './hooks/useWarpPortal';
+import { useAppNavigation } from './hooks/useAppNavigation';
+import { useTaskDeepLink } from './hooks/useTaskDeepLink';
+import { usePWAShareReceiver } from './hooks/usePWAShareReceiver';
 import { PWAShareTargetModal } from '../components/nexus/PWAShareTargetModal';
 import ChatAssistant from '../components/ChatAssistant';
-
-// --- LAZY LOAD ULTIMATE SCREEN & PALETTE ---
-const UltimateWorkroomView = lazy(() => import('../components/dashboard/member/UltimateWorkroomView'));
-const CommandPalette = lazy(() => import('../components/ui/CommandPalette')); 
-
 import { WarpGateOverlay } from '../components/dashboard/member/ultimate/WarpGateOverlay';
+
+// --- LAZY LOAD ULTIMATE SCREEN ---
+const UltimateWorkroomView = lazy(() => import('../components/dashboard/member/UltimateWorkroomView'));
 
 // Loading Fallback
 const PageLoader = () => (
@@ -69,110 +64,30 @@ interface AppRouterProps {
 
 const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const { showToast } = useToast();
 
-  // --- STABILITY GUARD: Memory for the last known valid view ---
-  const lastValidView = useRef<ViewMode>((searchParams.get('view') as ViewMode) || 'DASHBOARD');
-
+  // --- UI MODAL & DRAWER LOCAL STATES ---
   const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
   const [isNotificationOpen, setIsNotificationOpen] = useState(false);
   const [isNotifSettingsOpen, setIsNotifSettingsOpen] = useState(false);
-  const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState(false); 
+  const [, setIsCommandPaletteOpen] = useState(false); 
   const [isChatAssistantOpen, setIsChatAssistantOpen] = useState(false);
   const [activeDetailNotif, setActiveDetailNotif] = useState<any | null>(null);
 
-  // --- PWA SHARE INTENT RECEIVER ---
-  const [pwaSharedData, setPwaSharedData] = useState<any>(null);
+  // --- HOOK 1: PWA SHARE TARGET LISTENER ---
+  const { pwaSharedData, setPwaSharedData } = usePWAShareReceiver();
 
-  useEffect(() => {
-     const checkPwaShared = () => {
-         const raw = localStorage.getItem('juijui_pwa_shared_ref');
-         if (raw) {
-             try {
-                 const parsed = JSON.parse(raw);
-                 setPwaSharedData(parsed);
-             } catch (e) {
-                 console.warn("Error parsing PWA shared data", e);
-             }
-         }
-     };
+  // --- HOOK 2: COSMIC WARP PORTAL & AUDIO ---
+  const {
+    globalWarpStage,
+    warpTargetView,
+    triggerWarpTransition,
+  } = useWarpPortal();
 
-     // Check immediately on mount/render
-     checkPwaShared();
-
-     // Also listen to window storage event in case they share while the app is active in background!
-     window.addEventListener('storage', checkPwaShared);
-     return () => window.removeEventListener('storage', checkPwaShared);
-  }, [location.pathname]);
-
-  const handleLogout = async () => {
-      await supabase.auth.signOut();
-  };
-
-  // --- STATE: GLOBAL COSMIC PORTAL WARP ANIMATION ---
-  const [globalWarpStage, setGlobalWarpStage] = useState<'IDLE' | 'WARPING_IN' | 'WARPING_OUT'>('IDLE');
-  const [warpTargetView, setWarpTargetView] = useState<ViewMode | null>(null);
-
-  // Play a highly immersive deep interstellar sound when warp gates open inside browser using Web Audio context
-  const playWarpSound = useCallback(() => {
-      try {
-          const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
-          if (!AudioContextClass) return;
-          const ctx = new AudioContextClass();
-          const now = ctx.currentTime;
-
-          // Low rumble bass sound
-          const oscBass = ctx.createOscillator();
-          const oscTreble = ctx.createOscillator();
-          const panner = ctx.createStereoPanner ? ctx.createStereoPanner() : null;
-          const filter = ctx.createBiquadFilter();
-          const gainNode = ctx.createGain();
-
-          oscBass.type = 'sawtooth';
-          oscBass.frequency.setValueAtTime(65, now);
-          oscBass.frequency.exponentialRampToValueAtTime(320, now + 1.2);
-
-          oscTreble.type = 'sine';
-          oscTreble.frequency.setValueAtTime(330, now);
-          oscTreble.frequency.exponentialRampToValueAtTime(1600, now + 0.95);
-
-          filter.type = 'lowpass';
-          filter.Q.setValueAtTime(12, now);
-          filter.frequency.setValueAtTime(150, now);
-          filter.frequency.exponentialRampToValueAtTime(2400, now + 0.8);
-
-          gainNode.gain.setValueAtTime(0.04, now);
-          gainNode.gain.linearRampToValueAtTime(0.12, now + 0.45);
-          gainNode.gain.exponentialRampToValueAtTime(0.0001, now + 1.6);
-
-          oscBass.connect(filter);
-          oscTreble.connect(filter);
-
-          if (panner) {
-              panner.pan.setValueAtTime(-1, now);
-              panner.pan.linearRampToValueAtTime(1, now + 1.2);
-              filter.connect(panner);
-              panner.connect(gainNode);
-          } else {
-              filter.connect(gainNode);
-          }
-
-          gainNode.connect(ctx.destination);
-
-          oscBass.start();
-          oscTreble.start();
-          oscBass.stop(now + 1.6);
-          oscTreble.stop(now + 1.6);
-      } catch (err) {
-          console.warn("Warp gate audio failed:", err);
-      }
-  }, []);
-
-  // --- AUTH HOOK ---
+  // --- HOOK 3: AUTH HOOK ---
   const { currentUserProfile, fetchProfile, updateProfile } = useAuth(user);
 
-  // --- MAIN LOGIC HOOK (Orchestrator) ---
+  // --- HOOK 4: MAIN TASK & DATA MANAGER ---
   const {
     isLoading: isManagerLoading,
     isTaskFetching,
@@ -206,289 +121,36 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
     fetchTaskById
   } = useTaskManager(user, currentUserProfile, fetchProfile, updateProfile);
 
-  const { showToast } = useToast();
+  // --- HOOK 5: ROUTE & URL NAVIGATION ---
+  const {
+    currentView,
+    handleNavigate,
+    searchParams,
+    setSearchParams,
+  } = useAppNavigation({
+    currentUserProfile,
+    masterOptions,
+    isManagerLoading,
+    globalWarpStage,
+    triggerWarpTransition,
+  });
 
-  // --- DYNAMIC ALLOWED VIEWS COMPUTATION ---
-  const allowedViews = useMemo(() => {
-    // 1. ดึงรายการเมนูที่เปิดใช้งานในระบบจาก masterOptions
-    const config = masterOptions?.find(o => o.type === 'SIDEBAR_CONFIG' && o.key === 'ACTIVE_MENUS');
-    let activeViews: string[] = [];
-    if (config) {
-      try {
-        activeViews = JSON.parse(config.label);
-      } catch (e) {
-        console.error("Failed to parse sidebar config", e);
-      }
-    }
+  // --- HOOK 6: DEEP LINK RESTORE & TASK OPENER ---
+  const { handleOpenTaskById } = useTaskDeepLink({
+    isManagerLoading,
+    currentUserProfile,
+    tasks,
+    searchParams,
+    handleNavigate,
+    handleEditTask,
+    fetchTaskById,
+    showToast,
+  });
 
-    const isAdmin = currentUserProfile?.role === 'ADMIN';
-    const views: string[] = [];
+  // --- HOOK 7: WORKBOX CONTEXT ---
+  const { items: workboxItems, addItem: addToWorkbox, isOpen: isWorkboxOpen, setIsOpen: setIsWorkboxOpen } = useWorkboxContext();
 
-    // 2. วนลูปตรวจสอบสิทธิ์และสถานะ Active ทีละเมนูตามสถาปัตยกรรมของ Sidebar
-    MENU_GROUPS.forEach(group => {
-      // ข้ามกลุ่มเมนูสำหรับ Admin หากผู้ใช้ไม่ใช่ Admin
-      if (group.adminOnly && !isAdmin) return;
-
-      group.items.forEach(item => {
-        // ตรวจสอบว่าเมนูนี้ถูกเปิดใช้งาน (หรือถ้าไม่มี Config ให้ถือว่าเปิดทั้งหมดเป็น Default)
-        const isActive = activeViews.length === 0 || activeViews.includes(item.view);
-        if (isActive) {
-          views.push(item.view);
-        }
-      });
-    });
-
-    return views;
-  }, [masterOptions, currentUserProfile]);
-
-  // --- BEST DEFAULT VIEW SELECTION ---
-  const defaultView = useMemo(() => {
-    // กรณีที่ 1: ไม่มีเมนูใดๆ เปิดใช้งานเลย (เป็นไปได้ยาก แต่เผื่อไว้เป็นระบบป้องกัน) -> ใช้ 'DASHBOARD'
-    if (allowedViews.length === 0) return 'DASHBOARD';
-
-    // พิเศษ: หากเป็น MEMBER ที่เปิดใช้งาน Ultimate Workroom ให้เปิด Ultimate Workroom แทน DASHBOARD เป็นหน้าแรก
-    if (currentUserProfile && currentUserProfile.role === 'MEMBER' && currentUserProfile.status === 'ACTIVE') {
-      if (currentUserProfile.ultimateWorkroomEnabled !== false && allowedViews.includes('ULTIMATE_WORKROOM')) {
-        return 'ULTIMATE_WORKROOM';
-      }
-    }
-
-    // กรณีที่ 2: มีสิทธิ์เข้าใช้งานหน้า DASHBOARD ปกติ -> ให้ใช้ 'DASHBOARD' เป็นหน้าแรกเพื่อความคุ้นเคย
-    if (allowedViews.includes('DASHBOARD')) return 'DASHBOARD';
-
-    // กรณีที่ 3: ไม่มีหน้า DASHBOARD หรือเหลือเพียงเมนูเดียว -> ให้เอา "เมนูแรกสุดที่มีสิทธิ์" มาเป็นหน้าแรกทันที
-    return allowedViews[0];
-  }, [allowedViews, currentUserProfile]);
-
-  // Derived currentView from URL - Single Source of Truth with Stability Fallback
-  const currentView = useMemo(() => {
-    const v = searchParams.get('view') as ViewMode;
-    
-    if (v) {
-        lastValidView.current = v;
-        return v;
-    }
-
-    // RACE CONDITION PROTECTION:
-    if (location.pathname === '/' && searchParams.toString().length > 0) {
-        return lastValidView.current;
-    }
-
-    return defaultView as ViewMode;
-  }, [searchParams, location.pathname, defaultView]);
-
-  // --- NAVIGATION HANDLER (Sync with URL - Enhanced with fluid cosmic portals) ---
-  const handleNavigate = useCallback((view: ViewMode, queryParams?: Record<string, string>) => {
-      const isDimensionJump = (currentView === 'ULTIMATE_WORKROOM') || (view === 'ULTIMATE_WORKROOM');
-
-      if (isDimensionJump && globalWarpStage === 'IDLE') {
-          // Play the sound of opening wormholes
-          playWarpSound();
-          setWarpTargetView(view);
-          setGlobalWarpStage('WARPING_IN');
-
-          // Change page in background at peak opacity (850ms)
-          setTimeout(() => {
-              setSearchParams((prev: any) => {
-                  const next = new URLSearchParams(prev);
-                  next.set('view', view);
-                  
-                  if (view !== 'ContentStock') {
-                      next.delete('stockMode');
-                      next.delete('stockTab');
-                      next.delete('stockPage');
-                  }
-                  if (view !== 'SCRIPT_HUB') {
-                      next.delete('scriptId');
-                      next.delete('q');
-                      next.delete('deep');
-                      next.delete('origin');
-                      next.delete('scriptPage');
-                  }
-                  if (view !== 'ATTENDANCE') {
-                      next.delete('tab');
-                      next.delete('highlightReqId');
-                      next.delete('id');
-                      next.delete('reqId');
-                      next.delete('leaveId');
-                  }
-                  if (queryParams) {
-                      Object.entries(queryParams).forEach(([key, val]) => {
-                          if (val) {
-                              next.set(key, val);
-                          } else {
-                              next.delete(key);
-                          }
-                      });
-                  }
-                  return next;
-              }, { replace: true });
-              
-              setGlobalWarpStage('WARPING_OUT');
-              setTimeout(() => {
-                  setGlobalWarpStage('IDLE');
-                  setWarpTargetView(null);
-              }, 1100);
-          }, 950);
-      } else {
-          // Normal instant page switches for efficiency
-          setSearchParams((prev: any) => {
-              const next = new URLSearchParams(prev);
-              next.set('view', view);
-              
-              if (view !== 'ContentStock') {
-                  next.delete('stockMode');
-                  next.delete('stockTab');
-                  next.delete('stockPage');
-              }
-              if (view !== 'SCRIPT_HUB') {
-                  next.delete('scriptId');
-                  next.delete('q');
-                  next.delete('deep');
-                  next.delete('origin');
-                  next.delete('scriptPage');
-              }
-              if (view !== 'ATTENDANCE') {
-                  next.delete('tab');
-                  next.delete('highlightReqId');
-                  next.delete('id');
-                  next.delete('reqId');
-                  next.delete('leaveId');
-              }
-              if (queryParams) {
-                  Object.entries(queryParams).forEach(([key, val]) => {
-                      if (val) {
-                          next.set(key, val);
-                      } else {
-                          next.delete(key);
-                      }
-                  });
-              }
-              return next;
-          }, { replace: true });
-      }
-  }, [currentView, globalWarpStage, playWarpSound, setSearchParams]);
-
-  // --- DEEP LINK RESTORE FROM SESSIONSTORAGE ---
-  useEffect(() => {
-    if (isManagerLoading) return;
-
-    const pendingDeepLink = sessionStorage.getItem('juijui_pending_deep_link');
-    if (pendingDeepLink) {
-      sessionStorage.removeItem('juijui_pending_deep_link');
-      const params = new URLSearchParams(pendingDeepLink);
-      const targetView = params.get('view') as ViewMode;
-      if (targetView) {
-        // Check if the current search parameters are already identical to the deep link parameters
-        let isIdentical = true;
-        const targetMap = new Map<string, string>();
-        params.forEach((val, key) => {
-          if (key !== 'openExternalBrowser') {
-            targetMap.set(key, val);
-          }
-        });
-
-        const currentMap = new Map<string, string>();
-        searchParams.forEach((val, key) => {
-          currentMap.set(key, val);
-        });
-
-        if (targetMap.size !== currentMap.size) {
-          isIdentical = false;
-        } else {
-          for (const [key, val] of targetMap.entries()) {
-            if (currentMap.get(key) !== val) {
-              isIdentical = false;
-              break;
-            }
-          }
-        }
-
-        if (isIdentical) {
-          console.log("Deep link restoration skipped: already identical to current URL.");
-        } else {
-          const queryObj: Record<string, string> = {};
-          params.forEach((val, key) => {
-            if (key !== 'view' && key !== 'openExternalBrowser') {
-              queryObj[key] = val;
-            }
-          });
-          handleNavigate(targetView, queryObj);
-        }
-      }
-    }
-  }, [isManagerLoading, handleNavigate, searchParams]);
-
-  // Sync URL with default view - Enhanced stability with custom member redirect
-  useEffect(() => {
-    // Prevent redirecting before metadata and masterOptions are loaded
-    if (isManagerLoading) return;
-
-    const view = searchParams.get('view');
-    
-    // If we are at root and no view is set, determine default view
-    if (!view && location.pathname === '/' && defaultView) {
-      setSearchParams((next: any) => {
-        // Double check inside the update to handle race conditions in StrictMode
-        if (next.has('view')) return next;
-        next.set('view', defaultView);
-        return next;
-      }, { replace: true });
-      return;
-    }
-
-    // If a view is specified in URL but it is NOT allowed, redirect to default view!
-    if (view && allowedViews.length > 0 && !allowedViews.includes(view)) {
-      setSearchParams((next: any) => {
-        next.set('view', defaultView);
-        return next;
-      }, { replace: true });
-    }
-  }, [location.pathname, searchParams, setSearchParams, defaultView, isManagerLoading, allowedViews]);
-
-  // --- TASK OPENER (Robust ID Resolution) ---
-  const handleOpenTaskById = useCallback(async (taskOrId: any, currentViewMode?: string) => {
-    if (!taskOrId) return;
-
-    let finalTask: Task | undefined;
-    
-    // 1. Resolve from input or local state
-    if (typeof taskOrId === 'string') {
-        finalTask = tasks.find(t => t.id === taskOrId);
-    } else if (taskOrId.title && taskOrId.type && taskOrId.status) {
-        // It's already a full Task object
-        finalTask = taskOrId as Task;
-    } else if (taskOrId.id) {
-        // It's a partial object (likely from TaskDetail's Linked Content)
-        finalTask = tasks.find(t => t.id === taskOrId.id);
-    }
-
-    // 2. Fetch from Supabase if not found locally
-    if (!finalTask && taskOrId) {
-        const targetId = typeof taskOrId === 'string' ? taskOrId : taskOrId.id;
-        const targetType = (typeof taskOrId !== 'string' && taskOrId.type) ? taskOrId.type : 'CONTENT'; // Default to CONTENT if unsure
-        
-        if (targetId) {
-            showToast('กำลังดึงข้อมูลโครงการ...', 'info');
-            const fetchedTask = await fetchTaskById(targetId, targetType);
-            if (fetchedTask) {
-                finalTask = fetchedTask;
-            }
-        }
-    }
-
-    if (finalTask) {
-        handleEditTask(finalTask, currentViewMode);
-    } else {
-        console.warn("[AppRouter] Task not found for resolution:", taskOrId);
-        showToast('ไม่พบข้อมูลโครงการที่ต้องการเปิด', 'error');
-    }
-  }, [tasks, handleEditTask, fetchTaskById, showToast]);
-
-  // --- WORKBOX CONTEXT ---
-  const { items: workboxItems, addItem: addToWorkbox, setIsDragging, isOpen: isWorkboxOpen, setIsOpen: setIsWorkboxOpen } = useWorkboxContext();
-
-  // --- SUB-HOOKS ---
+  // --- HOOK 8: SYSTEM NOTIFICATIONS & UNREAD COUNTS ---
   const { notifications, unreadCount: sysUnread, dismissNotification, markNotificationAsRead, markAllAsRead, markAsViewed } = useSystemNotifications(tasks, currentUserProfile, fetchProfile);
   const { unreadCount: chatUnread } = useChatUnread(currentUserProfile);
   const { requests: leaveRequests, approveRequest, rejectRequest } = useLeaveRequests(
@@ -500,71 +162,43 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
   useAutoJudge(currentUserProfile); 
   useGameEventListener(currentUserProfile, fetchProfile); 
 
-  // --- GLOBAL KEYBOARD SHORTCUTS REMOVED (Moved to ShortcutManager) ---
-
-  // --- DETECT LOCK NOTIFICATION ---
+  // --- DETECT LOCK NOTIFICATIONS ---
   const negligenceNotification = BRAND_CONFIG.gamificationMode === 2 ? undefined : notifications.find(n => n.type === 'NEGLIGENCE' && !n.isRead);
   const deathWarningNotification = BRAND_CONFIG.gamificationMode === 2 ? undefined : notifications.find(n => n.type === 'DEATH_WARNING' && !n.isRead);
   const resurrectionNotification = BRAND_CONFIG.gamificationMode === 2 ? undefined : notifications.find(n => n.type === 'RESURRECTION' && !n.isRead);
 
   const handleToggleNotification = () => {
-      // Changed: Do NOT mark as viewed immediately upon opening
-      // Let the user read it first. Marking happens on Close or explicit 'Read All'
-      setIsNotificationOpen(!isNotificationOpen);
+    setIsNotificationOpen(!isNotificationOpen);
   };
 
-  // Handler for Popover Close
   const handleCloseNotification = () => {
-      setIsNotificationOpen(false);
-      markAsViewed(); // Mark read when closing
+    setIsNotificationOpen(false);
+    markAsViewed();
   };
   
-  // Handler for Lock Modal Acknowledge
   const handleAcknowledgeLock = async (notifId: string) => {
-      await markNotificationAsRead(notifId); // Remove/Mark Read
-      // Trigger refresh if needed, usually handled by realtime
+    await markNotificationAsRead(notifId);
   };
 
   const handleForceLogout = async () => {
-      try {
-          await supabase.auth.signOut();
-      } catch (error) {
-          console.warn("Logout error:", error);
-      } finally {
-          localStorage.clear(); 
-          navigate('/');
-      }
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.warn("Logout error:", error);
+    } finally {
+      localStorage.clear(); 
+      navigate('/');
+    }
   };
-
-  if (isManagerLoading) {
-     return (
-        <div className="flex h-screen items-center justify-center bg-slate-50 flex-col">
-            <Loader2 className="w-12 h-12 animate-spin text-indigo-600 mb-4" />
-            <p className="text-gray-500 font-medium animate-pulse">กำลังเชื่อมต่อฐานข้อมูล...</p>
-        </div>
-     );
-  }
-
-  if (!currentUserProfile) {
-     return <MissingProfileScreen onLogout={handleForceLogout} />;
-  }
-  
-  if (!currentUserProfile.isApproved) {
-    return <PendingApprovalScreen user={currentUserProfile} onLogout={handleForceLogout} />;
-  }
-
-  if (currentUserProfile.status === 'DEATH' && BRAND_CONFIG.gamificationMode !== 2) {
-    return <DeathScreen user={currentUserProfile} onLogout={handleForceLogout} />;
-  }
-
-  if (!currentUserProfile.isActive && BRAND_CONFIG.gamificationMode !== 2) {
-    return <InactiveScreen user={currentUserProfile} onLogout={handleForceLogout} />;
-  }
 
   const isUltimateRoom = currentView === 'ULTIMATE_WORKROOM';
 
   return (
-    <>
+    <AccountStatusGuard
+      isManagerLoading={isManagerLoading}
+      currentUserProfile={currentUserProfile}
+      onLogout={handleForceLogout}
+    >
       {isUltimateRoom ? (
         <motion.div
           key="ultimate-workroom-screen"
@@ -573,23 +207,23 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
           transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
           className="min-h-screen w-full bg-[#0e101a] overflow-hidden"
         >
-            <Suspense fallback={<PageLoader />}>
-              <UltimateWorkroomView
-                tasks={tasks}
-                masterOptions={masterOptions}
-                users={activeUsers}
-                currentUser={currentUserProfile}
-                onEditTask={handleEditTask}
-                onUpdateTask={handleSaveTask}
-                onDeleteTask={handleDeleteTask}
-                onNavigateBack={() => handleNavigate('DASHBOARD')}
-                onNavigate={handleNavigate}
-                onRefreshProfile={fetchProfile}
-                isFetching={isTaskFetching}
-              />
-            </Suspense>
-          </motion.div>
-        ) : (
+          <Suspense fallback={<PageLoader />}>
+            <UltimateWorkroomView
+              tasks={tasks}
+              masterOptions={masterOptions}
+              users={activeUsers}
+              currentUser={currentUserProfile!}
+              onEditTask={handleEditTask}
+              onUpdateTask={handleSaveTask}
+              onDeleteTask={handleDeleteTask}
+              onNavigateBack={() => handleNavigate('DASHBOARD')}
+              onNavigate={handleNavigate}
+              onRefreshProfile={fetchProfile}
+              isFetching={isTaskFetching}
+            />
+          </Suspense>
+        </motion.div>
+      ) : (
         <motion.div
           key="standard-appshell-screen"
           initial={{ opacity: 0, scale: 1.06, filter: 'blur(12px)' }}
@@ -597,124 +231,123 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
           transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
           className="min-h-screen w-full"
         >
-            <AppShell
-                  currentUser={currentUserProfile}
-                  currentView={currentView}
-                  onNavigate={handleNavigate}
-                  onLogout={handleForceLogout}
-                  onEditProfile={() => setIsProfileModalOpen(true)}
-                  onAddTask={handleAddTask}
-                  onOpenTask={handleOpenTaskById}
-                  chatUnreadCount={chatUnread}
-                  systemUnreadCount={sysUnread}
-                  isNotificationOpen={isNotificationOpen}
-                  onToggleNotification={handleToggleNotification}
-                  tasks={tasks}
-                  allUsers={activeUsers}
-                  onOpenChatAssistant={() => setIsChatAssistantOpen(true)}
+          <AppShell
+            currentUser={currentUserProfile!}
+            currentView={currentView}
+            onNavigate={handleNavigate}
+            onLogout={handleForceLogout}
+            onEditProfile={() => setIsProfileModalOpen(true)}
+            onAddTask={handleAddTask}
+            onOpenTask={handleOpenTaskById}
+            chatUnreadCount={chatUnread}
+            systemUnreadCount={sysUnread}
+            isNotificationOpen={isNotificationOpen}
+            onToggleNotification={handleToggleNotification}
+            tasks={tasks}
+            allUsers={activeUsers}
+            onOpenChatAssistant={() => setIsChatAssistantOpen(true)}
+          >
+            <ShortcutManager 
+              onNavigate={handleNavigate}
+              onAddTask={() => handleAddTask('TASK')}
+              onOpenProfile={() => setIsProfileModalOpen(true)}
+              onOpenCommandPalette={() => setIsCommandPaletteOpen(prev => !prev)}
+            />
+    
+            <AnimatePresence mode="wait" initial={false}>
+              <motion.div
+                key={currentView}
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -15 }}
+                transition={{ 
+                  duration: 0.3, 
+                  ease: "easeOut"
+                }}
+                className={`flex flex-col w-full ${['CHAT', 'CALENDAR'].includes(currentView) ? 'h-full min-h-0 flex-1' : 'min-h-full'}`}
               >
-                  <ShortcutManager 
-                      onNavigate={handleNavigate}
-                      onAddTask={() => handleAddTask('TASK')}
-                      onOpenProfile={() => setIsProfileModalOpen(true)}
-                      onOpenCommandPalette={() => setIsCommandPaletteOpen(prev => !prev)}
-                  />
-          
-                  <AnimatePresence mode="wait" initial={false}>
-                    <motion.div
-                      key={currentView}
-                      initial={{ opacity: 0, y: 15 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -15 }}
-                      transition={{ 
-                        duration: 0.3, 
-                        ease: "easeOut"
-                      }}
-                      className={`flex flex-col w-full ${['CHAT', 'CALENDAR'].includes(currentView) ? 'h-full min-h-0 flex-1' : 'min-h-full'}`}
-                    >
-                      <ViewRouteRegistry
-                        currentView={currentView}
-                        currentUserProfile={currentUserProfile}
-                        users={allUsers}
-                        activeUsers={activeUsers}
-                        allUsers={allUsers}
-                        tasks={tasks}
-                        channels={channels}
-                        quests={quests}
-                        masterOptions={masterOptions}
-                        isTaskFetching={isTaskFetching}
-                        sysUnread={sysUnread}
-                        activeChecklistItems={activeChecklistItems}
-                        checklistPresets={checklistPresets}
-                        activePresetId={activePresetId}
-                        activePresetName={activePresetName}
-                        isWorkboxOpen={isWorkboxOpen}
-                        setIsWorkboxOpen={setIsWorkboxOpen}
-                        addToWorkbox={addToWorkbox}
-                        setIsNotifSettingsOpen={setIsNotifSettingsOpen}
-                        setIsProfileModalOpen={setIsProfileModalOpen}
-                        handleToggleNotification={handleToggleNotification}
-                        setSearchParams={setSearchParams}
-                        handleNavigate={handleNavigate}
-                        handleEditTask={handleEditTask}
-                        handleSaveTask={handleSaveTask}
-                        handleDeleteTask={handleDeleteTask}
-                        handleDelayTask={handleDelayTask}
-                        handleSelectDate={handleSelectDate}
-                        handleAddTask={handleAddTask}
-                        approveMember={approveMember}
-                        removeMember={removeMember}
-                        toggleUserStatus={toggleUserStatus}
-                        adjustStatsLocally={adjustStatsLocally}
-                        handleToggleChecklist={handleToggleChecklist}
-                        handleAddChecklistItem={handleAddChecklistItem}
-                        handleDeleteChecklistItem={handleDeleteChecklistItem}
-                        handleResetChecklist={handleResetChecklist}
-                        handleLoadPreset={handleLoadPreset}
-                        handleAddPreset={handleAddPreset}
-                        handleDeletePreset={handleDeletePreset}
-                        handleAddChannel={handleAddChannel}
-                        handleUpdateChannel={handleUpdateChannel}
-                        handleDeleteChannel={handleDeleteChannel}
-                        handleOpenTaskById={handleOpenTaskById}
-                        handleAddQuest={handleAddQuest}
-                        handleDeleteQuest={handleDeleteQuest}
-                        updateManualProgress={updateManualProgress}
-                        updateQuest={updateQuest}
-                        fetchAllTasks={fetchAllTasks}
-                        fetchProfile={fetchProfile}
-                        PageLoader={PageLoader}
-                        checkAndExpandRange={checkAndExpandRange}
-                      />
-                    </motion.div>
-                  </AnimatePresence>
-          
-                  {/* --- WORKBOX TRIGGER & PANEL --- */}
-                  <WorkboxTrigger 
-                      onClick={() => setIsWorkboxOpen(true)} 
-                      itemCount={workboxItems.length} 
-                      onDrop={(data) => addToWorkbox(data)}
-                  />
-                  <WorkboxPanel 
-                      isOpen={isWorkboxOpen} 
-                      onClose={() => setIsWorkboxOpen(false)} 
-                      currentUser={currentUserProfile} 
-                  />
+                <ViewRouteRegistry
+                  currentView={currentView}
+                  currentUserProfile={currentUserProfile!}
+                  users={allUsers}
+                  activeUsers={activeUsers}
+                  allUsers={allUsers}
+                  tasks={tasks}
+                  channels={channels}
+                  quests={quests}
+                  masterOptions={masterOptions}
+                  isTaskFetching={isTaskFetching}
+                  sysUnread={sysUnread}
+                  activeChecklistItems={activeChecklistItems}
+                  checklistPresets={checklistPresets}
+                  activePresetId={activePresetId}
+                  activePresetName={activePresetName}
+                  isWorkboxOpen={isWorkboxOpen}
+                  setIsWorkboxOpen={setIsWorkboxOpen}
+                  addToWorkbox={addToWorkbox}
+                  setIsNotifSettingsOpen={setIsNotifSettingsOpen}
+                  setIsProfileModalOpen={setIsProfileModalOpen}
+                  handleToggleNotification={handleToggleNotification}
+                  setSearchParams={setSearchParams}
+                  handleNavigate={handleNavigate}
+                  handleEditTask={handleEditTask}
+                  handleSaveTask={handleSaveTask}
+                  handleDeleteTask={handleDeleteTask}
+                  handleDelayTask={handleDelayTask}
+                  handleSelectDate={handleSelectDate}
+                  handleAddTask={handleAddTask}
+                  approveMember={approveMember}
+                  removeMember={removeMember}
+                  toggleUserStatus={toggleUserStatus}
+                  adjustStatsLocally={adjustStatsLocally}
+                  handleToggleChecklist={handleToggleChecklist}
+                  handleAddChecklistItem={handleAddChecklistItem}
+                  handleDeleteChecklistItem={handleDeleteChecklistItem}
+                  handleResetChecklist={handleResetChecklist}
+                  handleLoadPreset={handleLoadPreset}
+                  handleAddPreset={handleAddPreset}
+                  handleDeletePreset={handleDeletePreset}
+                  handleAddChannel={handleAddChannel}
+                  handleUpdateChannel={handleUpdateChannel}
+                  handleDeleteChannel={handleDeleteChannel}
+                  handleOpenTaskById={handleOpenTaskById}
+                  handleAddQuest={handleAddQuest}
+                  handleDeleteQuest={handleDeleteQuest}
+                  updateManualProgress={updateManualProgress}
+                  updateQuest={updateQuest}
+                  fetchAllTasks={fetchAllTasks}
+                  fetchProfile={fetchProfile}
+                  PageLoader={PageLoader}
+                  checkAndExpandRange={checkAndExpandRange}
+                />
+              </motion.div>
+            </AnimatePresence>
+    
+            {/* --- WORKBOX TRIGGER & PANEL --- */}
+            <WorkboxTrigger 
+              onClick={() => setIsWorkboxOpen(true)} 
+              itemCount={workboxItems.length} 
+              onDrop={(data) => addToWorkbox(data)}
+            />
+            <WorkboxPanel 
+              isOpen={isWorkboxOpen} 
+              onClose={() => setIsWorkboxOpen(false)} 
+              currentUser={currentUserProfile!} 
+            />
 
-                  {/* AI Floating Chat Assistant - Globally Accessible */}
-                  <ChatAssistant 
-                      tasks={tasks}
-                      channels={channels}
-                      onAddChannel={handleAddChannel}
-                      onDeleteChannel={handleDeleteChannel}
-                      onAddTask={handleSaveTask}
-                      isOpen={isChatAssistantOpen}
-                      setIsOpen={setIsChatAssistantOpen}
-                  />
-                  
-              </AppShell>
-          </motion.div>
-        )}
+            {/* AI Floating Chat Assistant - Globally Accessible */}
+            <ChatAssistant 
+              tasks={tasks}
+              channels={channels}
+              onAddChannel={handleAddChannel}
+              onDeleteChannel={handleDeleteChannel}
+              onAddTask={handleSaveTask}
+              isOpen={isChatAssistantOpen}
+              setIsOpen={setIsChatAssistantOpen}
+            />
+          </AppShell>
+        </motion.div>
+      )}
 
       {/* --- GLOBAL MODAL REGISTRY --- */}
       <GlobalModalRegistry
@@ -733,7 +366,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
         activeUsers={activeUsers}
         lockedTaskType={lockedTaskType}
         masterOptions={masterOptions}
-        currentUserProfile={currentUserProfile}
+        currentUserProfile={currentUserProfile!}
         tasks={tasks}
         handleOpenTaskById={handleOpenTaskById}
         taskStack={taskStack}
@@ -764,16 +397,14 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
 
       {/* --- PWA SHARE INTENT RECEIVER MODAL --- */}
       <PWAShareTargetModal 
-         isOpen={!!pwaSharedData} 
-         onClose={() => setPwaSharedData(null)} 
-         data={pwaSharedData}
-         currentUser={currentUserProfile}
+        isOpen={!!pwaSharedData} 
+        onClose={() => setPwaSharedData(null)} 
+        data={pwaSharedData}
+        currentUser={currentUserProfile}
       />
-    </>
+    </AccountStatusGuard>
   );
 };
-
-import { MasterDataProvider } from '../context/MasterDataContext';
 
 const AppRouter: React.FC<{ user: any }> = ({ user }) => {
   return <AppRouterInner user={user} />;

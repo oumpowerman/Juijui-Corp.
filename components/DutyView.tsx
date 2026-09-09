@@ -284,11 +284,7 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
                     )}
                 </div>
 
-                <MentorTip variant="green" messages={[
-                    "ใหม่! ระบบแลกเวร (Swap Request) 🔄 ขอกันดีๆ ไม่ต้องตีกัน",
-                    "ถ่ายรูปส่งการบ้าน 📸 เพื่อยืนยันความบริสุทธิ์ใจว่าทำจริง!",
-                    "หากลืมทำเวร ระบบจะให้โอกาสแก้ตัวในวันรุ่งขึ้น (Tribunal) อย่าเพิ่งตกใจ!"
-                ]} />
+                <MentorTip moduleId="DUTY" />
 
                 {/* --- HERO SECTION --- */}
                 <div>

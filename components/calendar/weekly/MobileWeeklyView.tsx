@@ -1,8 +1,8 @@
 
-import React from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { format, isSameDay, isToday as isDateToday } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, Plus } from 'lucide-react';
+import { Clock } from 'lucide-react';
 import { th } from 'date-fns/locale';
 import { Task, Channel, MasterOption } from '../../../types';
 import { WeeklyTaskCard } from './WeeklyTaskCard';
@@ -36,6 +36,50 @@ export const MobileWeeklyView: React.FC<MobileWeeklyViewProps> = ({
     isLandscape = false,
     onDayClick
 }) => {
+    const touchStartX = useRef<number | null>(null);
+    const touchStartY = useRef<number | null>(null);
+    const prevDayRef = useRef<Date>(selectedDay);
+    const [slideDirection, setSlideDirection] = useState<number>(0);
+
+    useEffect(() => {
+        if (prevDayRef.current) {
+            const diff = selectedDay.getTime() - prevDayRef.current.getTime();
+            setSlideDirection(diff >= 0 ? 1 : -1);
+        }
+        prevDayRef.current = selectedDay;
+    }, [selectedDay]);
+
+    const handleDayTouchStart = (e: React.TouchEvent) => {
+        touchStartX.current = e.touches[0].clientX;
+        touchStartY.current = e.touches[0].clientY;
+    };
+
+    const handleDayTouchEnd = (e: React.TouchEvent) => {
+        if (touchStartX.current === null || touchStartY.current === null) return;
+        const deltaX = e.changedTouches[0].clientX - touchStartX.current;
+        const deltaY = e.changedTouches[0].clientY - touchStartY.current;
+
+        // If swipe was horizontal and at least 45px
+        if (Math.abs(deltaX) > 45 && Math.abs(deltaX) > Math.abs(deltaY) * 1.5) {
+            const currentIndex = days.findIndex(d => isSameDay(d, selectedDay));
+            if (deltaX > 0) {
+                // Swiped Right -> Previous Day
+                if (currentIndex > 0) {
+                    setSelectedDay(days[currentIndex - 1]);
+                }
+            } else {
+                // Swiped Left -> Next Day
+                if (currentIndex >= 0 && currentIndex < days.length - 1) {
+                    setSelectedDay(days[currentIndex + 1]);
+                }
+            }
+        }
+        touchStartX.current = null;
+        touchStartY.current = null;
+    };
+
+    const dayKey = format(selectedDay, 'yyyy-MM-dd');
+
     return (
         <div className={`${isLandscape ? 'hidden' : 'lg:hidden'} flex flex-col gap-4`}>
             {/* Date Strip */}
@@ -76,13 +120,17 @@ export const MobileWeeklyView: React.FC<MobileWeeklyViewProps> = ({
                                 </div>
                             )}
                         </button>
-                    )
+                    );
                 })}
             </div>
 
-            {/* Task List for Selected Day */}
-            <div className="p-1 space-y-4">
-                <div className="flex items-center justify-between px-2">
+            {/* Task List for Selected Day with Swipe Day-by-Day Interaction */}
+            <div 
+                className="p-1 space-y-4 touch-pan-y overflow-hidden"
+                onTouchStart={handleDayTouchStart}
+                onTouchEnd={handleDayTouchEnd}
+            >
+                <div className="flex items-center justify-between px-2 py-1">
                     <button 
                         onClick={() => onDayClick?.(selectedDay, tasksForSelectedDay)}
                         className="flex flex-col text-left group/mhdr hover:opacity-85 transition-opacity cursor-pointer focus:outline-none"
@@ -94,42 +142,44 @@ export const MobileWeeklyView: React.FC<MobileWeeklyViewProps> = ({
                         </span>
                         <h3 className="text-lg font-bold text-slate-800 transition-colors group-hover/mhdr:text-indigo-700">งานที่คุณวางแผนไว้</h3>
                     </button>
-                    <button 
-                        onClick={() => onSelectDate(selectedDay, viewMode)}
-                        className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-200 active:scale-95 shrink-0"
-                    >
-                        <Plus className="w-5 h-5" />
-                    </button>
                 </div>
 
-                <div className="flex flex-col gap-3 min-h-[300px]">
-                    <AnimatePresence mode="popLayout">
-                        {tasksForSelectedDay.length === 0 ? (
-                            <motion.div 
-                                initial={{ opacity: 0, y: 20 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                className="py-12 bg-white/50 border-2 border-dashed border-slate-200 rounded-[2rem] flex flex-col items-center justify-center text-slate-300 gap-3"
-                            >
-                                <Clock className="w-10 h-10 opacity-20" />
-                                <p className="text-xs font-bold text-slate-400 italic">ไม่มีงานที่วางแผนไว้สำหรับวันนี้</p>
-                                <button 
-                                    onClick={() => onSelectDate(selectedDay, viewMode)}
-                                    className="mt-2 text-[10px] font-black text-indigo-500 bg-indigo-50 px-4 py-2 rounded-xl"
+                {/* Day Task List Container with Smooth Single-Day Transition */}
+                <div className="min-h-[300px]">
+                    <AnimatePresence mode="wait" initial={false}>
+                        <motion.div
+                            key={dayKey}
+                            initial={{ opacity: 0, x: slideDirection * 20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: -slideDirection * 20 }}
+                            transition={{ duration: 0.18, ease: "easeOut" }}
+                            className="flex flex-col gap-3"
+                        >
+                            {tasksForSelectedDay.length === 0 ? (
+                                <div 
+                                    className="py-12 bg-white/50 border-2 border-dashed border-slate-200 rounded-[2rem] flex flex-col items-center justify-center text-slate-300 gap-3"
                                 >
-                                    เพิ่มงานแรก
-                                </button>
-                            </motion.div>
-                        ) : (
-                            tasksForSelectedDay.map((task) => (
-                                <WeeklyTaskCard 
-                                    key={task.id}
-                                    task={task}
-                                    channels={channels}
-                                    masterOptions={masterOptions}
-                                    onTaskClick={onTaskClick}
-                                />
-                            ))
-                        )}
+                                    <Clock className="w-10 h-10 opacity-20" />
+                                    <p className="text-xs font-bold text-slate-400 italic">ไม่มีงานที่วางแผนไว้สำหรับวันนี้</p>
+                                    <button 
+                                        onClick={() => onSelectDate(selectedDay, viewMode)}
+                                        className="mt-2 text-[10px] font-black text-indigo-500 bg-indigo-50 px-4 py-2 rounded-xl active:scale-95 transition-transform"
+                                    >
+                                        เพิ่มงานแรก
+                                    </button>
+                                </div>
+                            ) : (
+                                tasksForSelectedDay.map((task) => (
+                                    <WeeklyTaskCard 
+                                        key={task.id}
+                                        task={task}
+                                        channels={channels}
+                                        masterOptions={masterOptions}
+                                        onTaskClick={onTaskClick}
+                                    />
+                                ))
+                            )}
+                        </motion.div>
                     </AnimatePresence>
                 </div>
             </div>

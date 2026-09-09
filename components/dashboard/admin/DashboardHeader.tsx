@@ -46,13 +46,6 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
 }) => {
     const { randomGreeting } = useGreetings();
     
-    const DASHBOARD_TIPS = [
-        "สัปดาห์นี้มาในธีม: " + currentThemeName,
-        "คลิกที่การ์ดสถานะด้านบน เพื่อดูรายการงานทั้งหมดในกลุ่มนั้นได้เลย",
-        "ช่วง Script คือหัวใจสำคัญ วางโครงเรื่องให้แน่น จะถ่ายง่ายขึ้นเยอะ!",
-        "พักสายตาทุก 45 นาทีด้วยนะ งานเดิน สุขภาพต้องดีด้วย"
-    ];
-
     return (
         <div className="flex flex-col xl:flex-row gap-6 items-stretch mb-4">
             <div className="flex-1 flex flex-col justify-center space-y-4">
@@ -202,7 +195,11 @@ const DashboardHeader: React.FC<DashboardHeaderProps> = ({
             </div>
 
             <div className="flex-1 xl:max-w-2xl h-full flex items-center">
-                 <MentorTip variant="blue" messages={DASHBOARD_TIPS} className="h-full w-full glass-card rounded-[2.5rem] border-none shadow-indigo-100/50" />
+                <MentorTip 
+                    moduleId="DASHBOARD" 
+                    dynamicPrefix={`สัปดาห์นี้มาในธีม: ${currentThemeName}`} 
+                    className="h-full w-full glass-card rounded-[2.5rem] border-none shadow-indigo-100/50" 
+                 />    
             </div>
         </div>
     );

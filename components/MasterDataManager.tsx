@@ -27,6 +27,7 @@ import WikiCategoryMasterView from './admin/master/views/WikiCategoryMasterView'
 import StorageHubMasterView from './admin/master/views/StorageHubMasterView';
 import SystemPolicyView from './admin/master/views/SystemPolicyView';
 import CompanyMasterView from './admin/master/views/CompanyMasterView';
+import MentorTipsMasterView from './admin/master/views/MentorTipsMasterView';
 import ContentAlertRulesView from './admin/master/views/ContentAlertRulesView';
 import MasterDataTabConfigModal from './admin/master/MasterDataTabConfigModal';
 
@@ -122,7 +123,7 @@ const MasterDataManager: React.FC = () => {
 
     return (
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 animate-in fade-in duration-500 pb-20">
-            <MentorTip variant="orange" messages={["Maintenance Menu ใหม่! เช็คพื้นที่ Storage ได้แล้วนะ", "Game Balancing! ปรับค่า XP/HP ได้โดยไม่ต้องแก้โค้ดแล้ว", "Operational Calendar! กำหนดวันทำงาน/วันหยุดพิเศษได้ที่นี่"]} />
+            <MentorTip moduleId="MASTER_DATA" />
 
             {/* Header */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -273,6 +274,12 @@ const MasterDataManager: React.FC = () => {
                                     <StorageHubMasterView />
                                 ) : activeTab === 'SYSTEM_POLICY' ? (
                                     <SystemPolicyView 
+                                        masterOptions={masterOptions}
+                                        onUpdate={updateMasterOption}
+                                        onAdd={addMasterOption}
+                                    />
+                                ) : activeTab === 'MENTOR_TIPS' ? (
+                                    <MentorTipsMasterView 
                                         masterOptions={masterOptions}
                                         onUpdate={updateMasterOption}
                                         onAdd={addMasterOption}

@@ -78,6 +78,7 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
   // Form values
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [email, setEmail] = useState('');
   const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>(['YOUTUBE']);
   const [socialLinks, setSocialLinks] = useState<SocialLinks>({});
   const [followers, setFollowers] = useState<PlatformFollowers>({});
@@ -103,6 +104,7 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
         setTargetId(channel.id);
         setName(channel.name);
         setDescription(channel.description || '');
+        setEmail(channel.email || '');
         setSelectedPlatforms(channel.platforms || []);
         setSocialLinks(channel.social_links || {});
         setFollowers(channel.followers || {});
@@ -114,6 +116,7 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
         setTargetId(crypto.randomUUID());
         setName('');
         setDescription('');
+        setEmail('');
         setSelectedPlatforms(['YOUTUBE']);
         setSocialLinks({});
         setFollowers({});
@@ -209,6 +212,7 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
         id: targetId,
         name: name.trim(),
         description: description.trim(),
+        email: email.trim() || undefined,
         color,
         platforms: selectedPlatforms,
         logoUrl: logoPreview || undefined,
@@ -370,6 +374,8 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
                       setName={setName}
                       description={description}
                       setDescription={setDescription}
+                      email={email}
+                      setEmail={setEmail}
                       color={color}
                       setColor={setColor}
                       brandColors={BRAND_COLORS}

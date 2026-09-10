@@ -293,6 +293,7 @@ export const ViewRouteRegistry: React.FC<ViewRouteRegistryProps> = ({
                 tasks={tasks}
                 channels={channels}
                 users={activeUsers}
+                currentUser={currentUserProfile}
                 masterOptions={masterOptions}
                 onAddChannel={handleAddChannel}
                 onUpdateChannel={handleUpdateChannel}

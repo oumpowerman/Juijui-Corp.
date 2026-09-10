@@ -99,11 +99,42 @@ const AppShell: React.FC<AppShellProps> = ({
         'CALENDAR', 'WEEKLY', 'TEAM', 'FEEDBACK', 'ASSETS', 'CHANNELS', 'MASTER_DATA', 'SYSTEM_GUIDE', 'CHAT'
     ].includes(currentView);
     
-    // Legacy mapping for existing logic
-    const isDarkTheme = currentView === 'QUALITY_GATE' || currentView === 'GOALS';
+    // Theme sync listener
+    const [activeBgTheme, setActiveBgTheme] = useState<string>(() => {
+        if (typeof window !== 'undefined' && (window as any).__activeBackgroundTheme) {
+            return (window as any).__activeBackgroundTheme;
+        }
+        const savedChannelTheme = typeof window !== 'undefined' ? localStorage.getItem('channel_social_theme') : null;
+        if (savedChannelTheme) return savedChannelTheme;
+        return 'creator-vibrant';
+    });
+
+    React.useEffect(() => {
+        const handleBgChange = (e: Event) => {
+            const detail = (e as CustomEvent).detail;
+            if (detail && detail.theme) {
+                setActiveBgTheme(detail.theme);
+            }
+        };
+        window.addEventListener('app-background-changed', handleBgChange);
+        return () => {
+            window.removeEventListener('app-background-changed', handleBgChange);
+        };
+    }, []);
+
+    // Dark theme mapping
+    const isDarkTheme = currentView === 'QUALITY_GATE' || currentView === 'GOALS' || (currentView === 'CHANNELS' && activeBgTheme === 'midnight-studio');
 
     return (
-        <div className={`flex h-[100dvh] overflow-hidden font-sans transition-colors duration-500 ${isDarkTheme ? 'bg-slate-950 text-white' : 'bg-[#f8fafc] text-gray-900'}`}>
+        <div className={`flex h-[100dvh] overflow-hidden font-sans transition-colors duration-500 ${
+            isDarkTheme 
+                ? 'bg-[#0B0F19] text-white' 
+                : currentView === 'CHANNELS' && activeBgTheme === 'creator-vibrant'
+                    ? 'bg-[#FAF9F6] text-gray-900'
+                    : currentView === 'CHANNELS' && activeBgTheme === 'pastel-engagement'
+                        ? 'bg-[#F8FAFC] text-gray-900'
+                        : 'bg-[#f8fafc] text-gray-900'
+        }`}>
             <ConnectionStatus />
             
             {/* Desktop Sidebar */}

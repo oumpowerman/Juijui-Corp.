@@ -1,5 +1,5 @@
 import React from 'react';
-import { Palette, Tag, FileText, Sparkles, CheckCircle2, Eye, Calendar, Layers, CheckCheck } from 'lucide-react';
+import { Palette, Tag, FileText, Sparkles, CheckCircle2, Eye, Calendar, Layers, CheckCheck, Mail } from 'lucide-react';
 import { ChannelLogoSelector } from '../ChannelLogoSelector';
 
 export interface BrandColorOption {
@@ -12,6 +12,8 @@ interface ChannelBrandTabProps {
   setName: (name: string) => void;
   description: string;
   setDescription: (desc: string) => void;
+  email?: string;
+  setEmail: (email: string) => void;
   color: string;
   setColor: (color: string) => void;
   brandColors: BrandColorOption[];
@@ -26,6 +28,8 @@ export const ChannelBrandTab: React.FC<ChannelBrandTabProps> = ({
   setName,
   description,
   setDescription,
+  email = '',
+  setEmail,
   color,
   setColor,
   brandColors,
@@ -38,6 +42,8 @@ export const ChannelBrandTab: React.FC<ChannelBrandTabProps> = ({
   const colorParts = color ? color.split(' ') : ['bg-indigo-100', 'text-indigo-800', 'border-indigo-200', 'ring-indigo-500'];
   const bgClass = colorParts[0] || 'bg-indigo-100';
   const textClass = colorParts[1] || 'text-indigo-800';
+
+  const isEmailValid = email.trim().length === 0 || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
 
   return (
     <div className="space-y-6">
@@ -56,53 +62,134 @@ export const ChannelBrandTab: React.FC<ChannelBrandTabProps> = ({
           </span>
         </div>
 
-        {/* Inputs (Name + Description) */}
+        {/* Inputs (Name + Email + Description) */}
         <div className="flex-1 w-full space-y-4 min-w-0">
-          {/* Name Input */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label htmlFor="channel-name-input" className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <Tag className="w-3.5 h-3.5 text-indigo-500" />
-                <span>ชื่อรายการ / แบรนด์ (Channel Name)</span>
-                <span className="text-rose-500 font-bold">*</span>
-              </label>
-              {name.trim() && (
-                <span className="text-[11px] text-emerald-600 font-medium bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-100 flex items-center gap-1">
-                  <CheckCircle2 className="w-3 h-3" /> พร้อมใช้งาน
+          {/* Name & Email in responsive grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            
+            {/* 1. Name Input */}
+            <div className="space-y-1.5 flex flex-col justify-start">
+              <div className="h-6 flex items-center justify-between">
+                <label htmlFor="channel-name-input" className="text-xs font-bold text-slate-700 flex items-center gap-1.5 cursor-pointer">
+                  <span>ชื่อรายการ / แบรนด์ (Channel Name)</span>
+                  <span className="text-rose-500 font-bold">*</span>
+                </label>
+                <span className="text-[10px] font-medium text-slate-400 bg-slate-100/80 px-2 py-0.5 rounded-full border border-slate-200/60">
+                  จำเป็น
                 </span>
-              )}
+              </div>
+
+              <div className="relative group/field flex items-center">
+                {/* แก้ไขตำแหน่งไอคอนซ้าย */}
+                <div className="absolute left-2.5 z-10 flex items-center pointer-events-none">
+                  <div className="w-7 h-7 rounded-xl bg-indigo-50/80 border border-indigo-100/80 flex items-center justify-center text-indigo-600 shadow-2xs group-focus-within/field:bg-indigo-600 group-focus-within/field:text-white group-focus-within/field:border-indigo-600 transition-all duration-200">
+                    <Tag className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+
+                {/* เพิ่ม pl-12 และ pr-10 */}
+                <input
+                  type="text"
+                  id="channel-name-input"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="เช่น Juijui Vlog, สรุปข่าวเช้า..."
+                  className="w-full pl-12 pr-10 py-2.5 bg-white hover:bg-slate-50/50 focus:bg-white border border-slate-200/90 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 rounded-2xl outline-none font-bold text-slate-800 text-sm shadow-xs transition-all placeholder:text-slate-300 placeholder:font-normal disabled:opacity-70 disabled:bg-slate-50"
+                  autoFocus
+                  disabled={isSubmitting}
+                />
+
+                {name.trim() && (
+                  <div className="absolute right-3 z-10 flex items-center pointer-events-none">
+                    <span className="text-emerald-500 bg-emerald-50 border border-emerald-100 p-1 rounded-full shadow-2xs" title="ชื่อรายการพร้อมใช้งาน">
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
-            <input
-              type="text"
-              id="channel-name-input"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="เช่น Juijui Vlog, สรุปข่าวเช้า, Tech Talk..."
-              className="w-full px-3.5 py-2.5 bg-white border-2 border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none font-bold text-slate-800 transition-all text-sm placeholder:font-normal placeholder:text-slate-300 disabled:opacity-70 disabled:bg-slate-50"
-              autoFocus
-              disabled={isSubmitting}
-            />
+
+            {/* 2. Email Input */}
+            <div className="space-y-1.5 flex flex-col justify-start">
+              <div className="h-6 flex items-center justify-between">
+                <label htmlFor="channel-email-input" className="text-xs font-bold text-slate-700 flex items-center gap-1.5 cursor-pointer">
+                  <span>อีเมลติดต่องาน (Business Email)</span>
+                </label>
+                <span className="text-[10px] font-medium text-slate-400 bg-slate-100/80 px-2 py-0.5 rounded-full border border-slate-200/60">
+                  ทางเลือก
+                </span>
+              </div>
+
+              <div className="relative group/field flex items-center">
+                {/* แก้ไขตำแหน่งไอคอนซ้าย */}
+                <div className="absolute left-2.5 z-10 flex items-center pointer-events-none">
+                  <div className="w-7 h-7 rounded-xl bg-indigo-50/80 border border-indigo-100/80 flex items-center justify-center text-indigo-600 shadow-2xs group-focus-within/field:bg-indigo-600 group-focus-within/field:text-white group-focus-within/field:border-indigo-600 transition-all duration-200">
+                    <Mail className="w-3.5 h-3.5" />
+                  </div>
+                </div>
+
+                {/* เพิ่ม pl-12 และ pr-10 */}
+                <input
+                  type="email"
+                  id="channel-email-input"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="เช่น contact@channel.com"
+                  className={`w-full pl-12 pr-10 py-2.5 bg-white hover:bg-slate-50/50 focus:bg-white border rounded-2xl outline-none font-semibold text-slate-800 text-sm shadow-xs transition-all placeholder:text-slate-300 placeholder:font-normal disabled:opacity-70 disabled:bg-slate-50 ${
+                    !isEmailValid && email.trim()
+                      ? 'border-amber-300 focus:border-amber-500 focus:ring-4 focus:ring-amber-500/10'
+                      : 'border-slate-200/90 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10'
+                  }`}
+                  disabled={isSubmitting}
+                />
+
+                {email.trim() && (
+                  <div className="absolute right-3 z-10 flex items-center pointer-events-none">
+                    <span 
+                      className={`p-1 rounded-full shadow-2xs border ${
+                        isEmailValid 
+                          ? 'text-emerald-500 bg-emerald-50 border-emerald-100' 
+                          : 'text-amber-500 bg-amber-50 border-amber-200'
+                      }`} 
+                      title={isEmailValid ? 'รูปแบบอีเมลถูกต้อง' : 'รูปแบบอีเมลไม่ถูกต้อง'}
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5" />
+                    </span>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
-          {/* Description Input (Expanded height for comfortable input) */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between">
-              <label htmlFor="channel-desc-input" className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <FileText className="w-3.5 h-3.5 text-indigo-500" />
+          {/* Description Input */}
+          <div className="space-y-1.5 flex flex-col justify-start">
+            <div className="h-6 flex items-center justify-between">
+              <label htmlFor="channel-desc-input" className="text-xs font-bold text-slate-700 flex items-center gap-1.5 cursor-pointer">
                 <span>รายละเอียด / คอนเซปต์รายการ (Description)</span>
               </label>
-              <span className="text-[10px] text-slate-400">
+              <span className="text-[10px] font-medium text-slate-400">
                 {description.length > 0 ? `${description.length} ตัวอักษร` : 'ไม่บังคับ'}
               </span>
             </div>
-            <textarea
-              id="channel-desc-input"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="เช่น รายการวาไรตี้เน้นบันเทิงและไลฟ์สไตล์ ถ่ายทำนอกสถานที่ สัปดาห์ละ 2 คลิป กลุ่มผู้ชมวัย 18-35 ปี..."
-              className="w-full px-3.5 py-2.5 bg-white border border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none text-slate-700 transition-all resize-none h-28 sm:h-32 text-xs sm:text-sm leading-relaxed disabled:opacity-70 placeholder:text-slate-300"
-              disabled={isSubmitting}
-            />
+
+            <div className="relative group/field">
+              {/* ปรับ top-2.5 และ left-2.5 ให้ไอคอนวางสวยงาม */}
+              <div className="absolute top-2.5 left-2.5 z-10 flex items-center pointer-events-none">
+                <div className="w-7 h-7 rounded-xl bg-slate-100/80 border border-slate-200/80 flex items-center justify-center text-slate-500 shadow-2xs group-focus-within/field:bg-indigo-600 group-focus-within/field:text-white group-focus-within/field:border-indigo-600 transition-all duration-200">
+                  <FileText className="w-3.5 h-3.5" />
+                </div>
+              </div>
+
+              {/* เปลี่ยนจาก pl-11.5 เป็น pl-12 เพื่อเว้นระยะไม่ให้ตัวอักษรชนไอคอน */}
+              <textarea
+                id="channel-desc-input"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="เช่น รายการวาไรตี้เน้นบันเทิงและไลฟ์สไตล์ ถ่ายทำนอกสถานที่ สัปดาห์ละ 2 คลิป กลุ่มผู้ชมวัย 18-35 ปี..."
+                className="w-full pl-12 pr-4 py-2.5 bg-white hover:bg-slate-50/50 focus:bg-white border border-slate-200/90 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 rounded-2xl outline-none text-slate-700 transition-all resize-none h-24 sm:h-28 text-xs sm:text-sm leading-relaxed disabled:opacity-70 placeholder:text-slate-300 font-normal shadow-xs"
+                disabled={isSubmitting}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -199,11 +286,18 @@ export const ChannelBrandTab: React.FC<ChannelBrandTabProps> = ({
                     </div>
                   )}
                 </div>
-                <div className="min-w-0 pb-1">
+                <div className="min-w-0 pb-1 flex-1">
                   <h4 className="font-bold text-sm text-slate-800 truncate" title={name.trim() || 'ยังไม่ได้ระบุชื่อ'}>
                     {name.trim() || 'ชื่อรายการของคุณ'}
                   </h4>
-                  <p className="text-[10px] text-slate-400">สถานะ: แสดงผลในคลังและแดชบอร์ด</p>
+                  {email.trim() ? (
+                    <p className="text-[10px] text-indigo-600 font-medium truncate flex items-center gap-1 mt-0.5" title={email.trim()}>
+                      <Mail className="w-3 h-3 shrink-0" />
+                      <span className="truncate">{email.trim()}</span>
+                    </p>
+                  ) : (
+                    <p className="text-[10px] text-slate-400">สถานะ: แสดงผลในคลังและแดชบอร์ด</p>
+                  )}
                 </div>
               </div>
 

@@ -96,6 +96,8 @@ export interface Channel {
     group_id?: string | null;
     /** ชื่อกลุ่มของช่อง (Channel Group Name) */
     group_name?: string | null;
+    /** อีเมลทางการของช่อง / ติดต่องาน (Official / Business Contact Email) */
+    email?: string;
 }
 
 export interface TaskPerformance {

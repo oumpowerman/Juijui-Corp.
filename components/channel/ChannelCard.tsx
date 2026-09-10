@@ -1,5 +1,5 @@
 import React from 'react';
-import { Trash2, Users, Layers, Tag } from 'lucide-react';
+import { Trash2, Users, Layers, Tag, Mail } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Channel, ChannelGroup } from '../../types';
 import { PLATFORM_ICONS } from '../../constants';
@@ -148,6 +148,18 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
             <Layers className="w-3.5 h-3.5" />
             <span>{contentCount} คอนเทนต์</span>
           </span>
+
+          {channel.email && channel.email.trim() && (
+            <a
+              href={`mailto:${channel.email.trim()}`}
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-b from-indigo-50/80 to-white text-indigo-700 border border-indigo-200/80 border-b-[2px] border-b-indigo-300/80 text-xs font-bold shadow-2xs hover:bg-indigo-100/80 hover:text-indigo-900 transition-colors max-w-full truncate"
+              title={`อีเมลติดต่อ: ${channel.email.trim()}`}
+            >
+              <Mail className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+              <span className="truncate">{channel.email.trim()}</span>
+            </a>
+          )}
         </div>
 
         <div className="mt-auto pt-4 border-t border-slate-100">

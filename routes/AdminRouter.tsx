@@ -20,6 +20,7 @@ interface AdminRouterProps {
   tasks: Task[];
   channels: Channel[];
   users: User[];
+  currentUser?: User;
   masterOptions: MasterOption[];
   onAddChannel: (channel: Channel, file?: File) => Promise<boolean>;
   onUpdateChannel: (channel: Channel, file?: File) => Promise<boolean>;
@@ -32,6 +33,7 @@ const AdminRouter: React.FC<AdminRouterProps> = ({
   tasks,
   channels,
   users,
+  currentUser,
   masterOptions,
   onAddChannel,
   onUpdateChannel,
@@ -48,6 +50,7 @@ const AdminRouter: React.FC<AdminRouterProps> = ({
                 <ChannelManager 
                   tasks={tasks}
                   channels={channels}
+                  currentUser={currentUser}
                   onAdd={onAddChannel}
                   onEdit={onUpdateChannel}
                   onDelete={onDeleteChannel}

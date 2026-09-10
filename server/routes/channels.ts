@@ -37,34 +37,40 @@ router.get('/api/channels/content-counts', async (req: Request, res: Response) =
     }
 
     try {
-        // Total count (0-byte payload, exact count via HTTP header)
+        // 1. Primary: Try PostgreSQL RPC Function (1 database pass, GROUP BY channel_id)
+        const rpcPromise = serverSupabase.rpc('get_channel_content_counts');
+
+        // Optional: Head count query on contents/tasks table
         const totalPromise = serverSupabase
             .from('contents')
             .select('*', { count: 'exact', head: true });
 
-        // 2. Primary: Try PostgreSQL RPC Function (1 database pass, GROUP BY channel_id)
-        const rpcPromise = serverSupabase.rpc('get_channel_content_counts');
-
-        const [totalResult, rpcResult] = await Promise.allSettled([
-            totalPromise,
+        const [rpcResult, totalResult] = await Promise.allSettled([
             rpcPromise,
+            totalPromise,
         ]);
-
-        const totalCount = totalResult.status === 'fulfilled' && !totalResult.value.error
-            ? (totalResult.value.count || 0)
-            : 0;
 
         // If RPC succeeds, map grouped rows directly
         if (rpcResult.status === 'fulfilled' && !rpcResult.value.error && Array.isArray(rpcResult.value.data)) {
             const countsMap: Record<string, number> = {};
+            let calculatedSum = 0;
+
             rpcResult.value.data.forEach((row: { channel_id?: string; content_count?: number | string }) => {
                 if (row.channel_id) {
-                    countsMap[row.channel_id] = Number(row.content_count || 0);
+                    const countNum = Number(row.content_count || 0);
+                    countsMap[row.channel_id] = countNum;
+                    calculatedSum += countNum;
                 }
             });
 
+            // Derive total directly from the sum of channel card counts
+            const exactTableCount = totalResult.status === 'fulfilled' && !totalResult.value.error
+                ? (totalResult.value.count || 0)
+                : 0;
+            const finalTotal = Math.max(calculatedSum, exactTableCount);
+
             countCache = {
-                total: totalCount,
+                total: finalTotal,
                 counts: countsMap,
                 timestamp: Date.now(),
                 source: 'rpc',
@@ -72,14 +78,14 @@ router.get('/api/channels/content-counts', async (req: Request, res: Response) =
 
             return res.json({
                 success: true,
-                total: totalCount,
+                total: finalTotal,
                 counts: countsMap,
                 source: 'rpc',
                 cached: false,
             });
         }
 
-        // 3. Resilient Fallback: If RPC is not yet created in remote DB, aggregate head counts
+        // 2. Resilient Fallback: If RPC is not available, aggregate head counts
         let targetChannelIds: string[] = [];
         if (rawChannelIds && rawChannelIds.trim()) {
             targetChannelIds = rawChannelIds.split(',').map(s => s.trim()).filter(Boolean);
@@ -102,12 +108,14 @@ router.get('/api/channels/content-counts', async (req: Request, res: Response) =
 
         const fallbackResults = await Promise.all(fallbackPromises);
         const fallbackCountsMap: Record<string, number> = {};
+        let fallbackSum = 0;
         fallbackResults.forEach((item) => {
             fallbackCountsMap[item.channelId] = item.count;
+            fallbackSum += item.count;
         });
 
         countCache = {
-            total: totalCount,
+            total: fallbackSum,
             counts: fallbackCountsMap,
             timestamp: Date.now(),
             source: 'head_aggregate',
@@ -115,7 +123,7 @@ router.get('/api/channels/content-counts', async (req: Request, res: Response) =
 
         return res.json({
             success: true,
-            total: totalCount,
+            total: fallbackSum,
             counts: fallbackCountsMap,
             source: 'head_aggregate',
             cached: false,

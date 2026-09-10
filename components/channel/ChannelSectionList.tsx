@@ -83,7 +83,7 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
           variants={channelContainerVariants}
           initial="hidden"
           animate="show"
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 sm:gap-6"
         >
           {channels.map(channel => {
             const contentCount = contentCountMap[channel.id] || 0;
@@ -185,7 +185,7 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
                 variants={channelContainerVariants}
                 initial="hidden"
                 animate="show"
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 sm:gap-6"
               >
                 {groupChannels.map(channel => {
                   const contentCount = contentCountMap[channel.id] || 0;
@@ -240,7 +240,7 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
             variants={channelContainerVariants}
             initial="hidden"
             animate="show"
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 sm:gap-6"
           >
             {sectionData.ungrouped.map(channel => {
               const contentCount = contentCountMap[channel.id] || 0;

@@ -30,14 +30,14 @@ export const ChannelFilterTabs: React.FC<ChannelFilterTabsProps> = ({
 
   return (
     <div className="flex items-center justify-between gap-3 overflow-x-auto pb-1 scrollbar-none">
-      <div className="flex items-center gap-1.5 p-1.5 bg-gradient-to-b from-slate-100/95 to-slate-200/60 rounded-2xl border border-slate-200/80 shadow-[inset_0_2px_4px_rgba(0,0,0,0.04)]">
+      <div className="flex items-center gap-1.5 p-1.5 bg-white/80 backdrop-blur-md rounded-2xl border border-white/80 border-b-[2.5px] border-b-slate-200/80 shadow-2xs">
         <button
           type="button"
           onClick={() => onSelectFilter('ALL')}
           className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 cursor-pointer ${
             selectedFilter === 'ALL'
               ? 'bg-gradient-to-b from-white to-slate-50/95 text-slate-900 shadow-[0_3px_10px_rgba(0,0,0,0.07)] border border-white border-b-2 border-b-slate-300/80 ring-1 ring-slate-200/60'
-              : 'text-slate-600 hover:text-slate-900 hover:bg-white/40 active:translate-y-[1px]'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-white/60 active:translate-y-[1px]'
           }`}
         >
           ทั้งหมด ({channelsCount})
@@ -55,7 +55,7 @@ export const ChannelFilterTabs: React.FC<ChannelFilterTabsProps> = ({
               className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
                 isSelected
                   ? 'bg-gradient-to-b from-white to-slate-50/95 text-slate-900 shadow-[0_3px_10px_rgba(0,0,0,0.07)] border border-white border-b-2 border-b-slate-300/80 ring-1 ring-slate-200/60'
-                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/40 active:translate-y-[1px]'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-white/60 active:translate-y-[1px]'
               }`}
             >
               <span className={`w-2.5 h-2.5 rounded-full shadow-2xs ${
@@ -66,7 +66,7 @@ export const ChannelFilterTabs: React.FC<ChannelFilterTabsProps> = ({
               }`} />
               <span>{group.name}</span>
               <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-semibold ${
-                isSelected ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' : 'bg-slate-200/70 text-slate-700'
+                isSelected ? 'bg-indigo-50 text-indigo-700 border border-indigo-100' : 'bg-slate-100 text-slate-700'
               }`}>
                 {count}
               </span>
@@ -81,12 +81,12 @@ export const ChannelFilterTabs: React.FC<ChannelFilterTabsProps> = ({
             className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all duration-150 flex items-center gap-1.5 cursor-pointer ${
               selectedFilter === 'UNGROUPED'
                 ? 'bg-gradient-to-b from-white to-slate-50/95 text-slate-900 shadow-[0_3px_10px_rgba(0,0,0,0.07)] border border-white border-b-2 border-b-slate-300/80 ring-1 ring-slate-200/60'
-                : 'text-slate-500 hover:text-slate-700 hover:bg-white/40 active:translate-y-[1px]'
+                : 'text-slate-500 hover:text-slate-700 hover:bg-white/60 active:translate-y-[1px]'
             }`}
           >
             <span className="w-2.5 h-2.5 rounded-full bg-slate-400 shadow-2xs" />
             <span>ยังไม่จัดกลุ่ม</span>
-            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-slate-200/70 text-slate-600">
+            <span className="px-1.5 py-0.2 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-600">
               {sectionData.ungrouped.length}
             </span>
           </button>
@@ -96,7 +96,7 @@ export const ChannelFilterTabs: React.FC<ChannelFilterTabsProps> = ({
       <button
         type="button"
         onClick={onOpenManageModal}
-        className="text-xs font-bold text-indigo-700 bg-white hover:bg-indigo-50/50 px-3.5 py-2 rounded-xl border border-indigo-100 border-b-2 border-b-indigo-200 shadow-2xs hover:shadow-xs transition-all active:translate-y-[1px] active:border-b-[1px] flex items-center gap-1.5 shrink-0 cursor-pointer"
+        className="text-xs font-bold text-indigo-700 bg-white/90 backdrop-blur-md hover:bg-white px-3.5 py-2 rounded-xl border border-indigo-100 border-b-2 border-b-indigo-200 shadow-2xs hover:shadow-xs transition-all active:translate-y-[1px] active:border-b-[1px] flex items-center gap-1.5 shrink-0 cursor-pointer"
       >
         <SlidersHorizontal className="w-3.5 h-3.5 text-indigo-600" />
         <span>ปรับแต่งกลุ่ม & ลากจัดวาง</span>

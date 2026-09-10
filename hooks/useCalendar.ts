@@ -467,6 +467,7 @@ export const useCalendar = ({ tasks, userId, onMoveTask }: UseCalendarProps) => 
         togglePlanOverlay,
         filterChannelId,
         activeChipIds,
+        setActiveChipIds,
         customChips: Array.isArray(customChips) ? customChips : [],
         isExpanded,
         showFilters,

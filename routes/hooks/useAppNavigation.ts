@@ -119,6 +119,13 @@ export function useAppNavigation({
         next.delete('reqId');
         next.delete('leaveId');
       }
+
+      // Always clear transient task deep link parameters on view switch unless explicitly passed
+      if (!queryParams?.taskId) next.delete('taskId');
+      if (!queryParams?.contentId) next.delete('contentId');
+      if (!queryParams?.highlightTaskId) next.delete('highlightTaskId');
+      if (!queryParams?.openTaskId) next.delete('openTaskId');
+
       if (queryParams) {
         Object.entries(queryParams).forEach(([key, val]) => {
           if (val) {

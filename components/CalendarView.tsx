@@ -79,7 +79,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     currentDate,
     viewMode, setViewMode,
     filterChannelId, setFilterChannelId,
-    activeChipIds, toggleChip, toggleFilters, customChips,
+    activeChipIds, setActiveChipIds, toggleChip, toggleFilters, customChips,
     isExpanded, setIsExpanded,
     showFilters,
     startDate, endDate,
@@ -105,9 +105,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     users,
     currentUser,
     viewMode,
+    setViewMode,
     filterTasks,
     startDate,
     endDate,
+    customChips: customChips || [],
+    activeChipIds,
+    setActiveChipIds,
   });
 
   // --- Local View & Display Modes ---
@@ -294,6 +298,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             onClose={toggleFilters}
             activeChipIds={activeChipIds}
             toggleChip={toggleChip}
+            onClearAll={() => {
+              toggleChip('ALL');
+              filters.clearChannelFilter();
+            }}
             customChips={customChips || []}
             channels={channels}
             onManageFilters={() => filters.setIsCosmicFilterOpen(true)}

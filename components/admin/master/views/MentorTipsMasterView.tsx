@@ -272,7 +272,7 @@ const MentorTipsMasterView: React.FC<MentorTipsMasterViewProps> = ({ masterOptio
                 System Guidance & Knowledge Base
               </span>
             </div>
-            <h2 className="text-2xl md:text-3xl font-black tracking-tight">
+            <h2 className="text-2xl md:text-3xl font-bold tracking-tight">
               จัดการคำแนะนำระบบ (Mentor Tips)
             </h2>
             <p className="text-sm text-slate-300 leading-relaxed">

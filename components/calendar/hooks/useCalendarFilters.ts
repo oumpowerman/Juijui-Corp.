@@ -1,14 +1,19 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { Task, User } from '../../../types';
+import { useSearchParams } from 'react-router-dom';
+import { Task, User, ChipConfig } from '../../../types';
 
 interface UseCalendarFiltersProps {
   tasks: Task[];
   users: User[];
   currentUser: User;
   viewMode: 'CONTENT' | 'TASK' | 'PLAN';
+  setViewMode?: (mode: 'CONTENT' | 'TASK' | 'PLAN') => void;
   filterTasks: (tasksToFilter: Task[]) => Task[];
   startDate: Date;
   endDate: Date;
+  customChips?: ChipConfig[];
+  activeChipIds?: string[];
+  setActiveChipIds?: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
 export const useCalendarFilters = ({
@@ -16,16 +21,88 @@ export const useCalendarFilters = ({
   users,
   currentUser,
   viewMode,
+  setViewMode,
   filterTasks,
   startDate,
   endDate,
+  customChips = [],
+  activeChipIds = [],
+  setActiveChipIds,
 }: UseCalendarFiltersProps) => {
+  const [searchParams, setSearchParams] = useSearchParams();
+
   // --- Cosmic / Unified Detailed Filter State ---
   const [selectedCosmicChannelIds, setSelectedCosmicChannelIds] = useState<string[]>([]);
   const [selectedCosmicFormats, setSelectedCosmicFormats] = useState<string[]>([]);
   const [selectedCosmicStatuses, setSelectedCosmicStatuses] = useState<string[]>([]);
   const [selectedCosmicAssigneeIds, setSelectedCosmicAssigneeIds] = useState<string[]>([]);
   const [isCosmicFilterOpen, setIsCosmicFilterOpen] = useState(false);
+
+  // --- Deep Link Channel Detection from URL (?channelId=... or ?channel=...) ---
+  useEffect(() => {
+    const urlChannelParam = searchParams.get('channelId') || searchParams.get('channel');
+    if (urlChannelParam) {
+      const parsedChannelIds = urlChannelParam
+        .split(',')
+        .map(id => id.trim())
+        .filter(Boolean);
+
+      if (parsedChannelIds.length > 0) {
+        setSelectedCosmicChannelIds(parsedChannelIds);
+
+        // Switch to CONTENT mode for content notifications
+        if (viewMode !== 'CONTENT' && setViewMode) {
+          setViewMode('CONTENT');
+        }
+
+        // Sync with active custom chips if a chip exists for this channel
+        if (customChips && customChips.length > 0 && setActiveChipIds) {
+          const matchingChipIds = customChips
+            .filter(c => c.type === 'CHANNEL' && parsedChannelIds.includes(c.value))
+            .map(c => c.id);
+
+          if (matchingChipIds.length > 0) {
+            setActiveChipIds(prev => {
+              const merged = new Set([...prev, ...matchingChipIds]);
+              return Array.from(merged);
+            });
+          }
+        }
+      }
+    }
+  }, [searchParams, viewMode, setViewMode, customChips, setActiveChipIds]);
+
+  // Sync custom chips whenever chips or selectedCosmicChannelIds update
+  useEffect(() => {
+    if (customChips && customChips.length > 0 && selectedCosmicChannelIds.length > 0 && setActiveChipIds) {
+      const matchingChipIds = customChips
+        .filter(c => c.type === 'CHANNEL' && selectedCosmicChannelIds.includes(c.value))
+        .map(c => c.id);
+
+      if (matchingChipIds.length > 0) {
+        setActiveChipIds(prev => {
+          const merged = new Set([...prev, ...matchingChipIds]);
+          return Array.from(merged);
+        });
+      }
+    }
+  }, [customChips, selectedCosmicChannelIds, setActiveChipIds]);
+
+  // Helper to clear channel filter and remove channelId / channel from URL
+  const clearChannelFilter = useCallback(() => {
+    setSelectedCosmicChannelIds([]);
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      let changed = false;
+      ['channelId', 'channel'].forEach(key => {
+        if (next.has(key)) {
+          next.delete(key);
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    }, { replace: true });
+  }, [setSearchParams]);
 
   // --- TASK Mode Filters (Smart Default to current user, Quick Status & Urgency) ---
   const [taskAssigneeScope, setTaskAssigneeScope] = useState<'ONLY_ME' | 'ALL' | string>('ONLY_ME');
@@ -203,5 +280,6 @@ export const useCalendarFilters = ({
     taskCountsByUser,
     activeFiltersCount,
     filteredTasksForView,
+    clearChannelFilter,
   };
 };

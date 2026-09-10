@@ -18,11 +18,13 @@ export const useChannels = () => {
                 
             if (error) throw error;
             if (data) {
-                // Ensure platforms is an array
+                // Ensure platforms is an array and map social_links & followers
                 setChannels(data.map((c:any) => ({
                     ...c,
                     platforms: Array.isArray(c.platforms) ? c.platforms : ['OTHER'],
-                    logoUrl: c.logo_url // Map DB to Type
+                    logoUrl: c.logo_url, // Map DB to Type
+                    social_links: c.social_links || {},
+                    followers: c.followers || {}
                 })));
             }
         } catch (err) { console.error('Fetch channels failed', err); }
@@ -71,7 +73,9 @@ export const useChannels = () => {
                 description: channel.description || '', 
                 color: channel.color,
                 platforms: channel.platforms, 
-                logo_url: logoUrl
+                logo_url: logoUrl,
+                social_links: channel.social_links || {},
+                followers: channel.followers || {}
             };
 
             const { error } = await supabase.from('channels').insert(payload);
@@ -111,7 +115,9 @@ export const useChannels = () => {
                 description: updatedChannel.description || '',
                 color: updatedChannel.color,
                 platforms: updatedChannel.platforms,
-                logo_url: logoUrl
+                logo_url: logoUrl,
+                social_links: updatedChannel.social_links || {},
+                followers: updatedChannel.followers || {}
             };
 
             const { error } = await supabase.from('channels').update(payload).eq('id', updatedChannel.id);

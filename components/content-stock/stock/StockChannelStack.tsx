@@ -9,6 +9,8 @@ interface StockChannelStackProps {
   onSelectChannels: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
+const springTransition = { type: 'spring', stiffness: 400, damping: 32 } as const;
+
 export const StockChannelStack: React.FC<StockChannelStackProps> = ({
   channels,
   selectedChannelIds,
@@ -67,8 +69,8 @@ export const StockChannelStack: React.FC<StockChannelStackProps> = ({
   };
 
   return (
-    <div className="w-full select-none">
-      <div className="flex flex-col xl:flex-row xl:items-center gap-5 bg-white/60 px-6 py-4 rounded-[2.25rem] border border-white/80 shadow-2xl shadow-indigo-500/5 backdrop-blur-2xl">
+    <motion.div layout transition={springTransition} className="w-full select-none">
+      <motion.div layout transition={springTransition} className="flex flex-col xl:flex-row xl:items-center gap-5 bg-white/60 px-6 py-4 rounded-[2.25rem] border border-white/80 shadow-2xl shadow-indigo-500/5 backdrop-blur-2xl">
         
         {/* Left Side Icon and Badge with high-quality animations */}
         <div className="flex items-center gap-3.5 shrink-0 group">
@@ -161,7 +163,7 @@ export const StockChannelStack: React.FC<StockChannelStackProps> = ({
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
             className="flex items-center gap-0 w-full"
-            transition={{ type: 'spring', stiffness: 300, damping: 28 }}
+            transition={springTransition}
           >
             {items.map((item, index) => {
               const isFirst = index === 0;
@@ -198,9 +200,9 @@ export const StockChannelStack: React.FC<StockChannelStackProps> = ({
                   whileTap={{ scale: 0.97 }}
                   transition={{ 
                     type: 'spring', 
-                    stiffness: 300, 
-                    damping: 26,
-                    layout: { type: 'spring', stiffness: 300, damping: 26 }
+                    stiffness: 400, 
+                    damping: 32,
+                    layout: springTransition
                   }}
                   className={`
                     relative h-11 transition-colors border flex items-center gap-2.5 shrink-0 outline-none select-none cursor-pointer
@@ -309,8 +311,8 @@ export const StockChannelStack: React.FC<StockChannelStackProps> = ({
             })}
           </motion.div>
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 

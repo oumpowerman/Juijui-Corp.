@@ -1,13 +1,26 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { X, Check, Palette, Loader2, Edit2, Plus } from 'lucide-react';
-import { Channel, Platform } from '../types';
+import { motion, AnimatePresence, Variants } from 'framer-motion';
+import { 
+  X, 
+  Loader2, 
+  Edit2, 
+  Plus, 
+  Tag, 
+  LayoutTemplate, 
+  Layers, 
+  ChevronLeft, 
+  ChevronRight, 
+  Save, 
+  CheckCircle2, 
+  AlertCircle
+} from 'lucide-react';
+import { Channel, Platform, SocialLinks, PlatformFollowers } from '../types';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
 import { useMasterData } from '../hooks/useMasterData';
-import { ChannelLogoSelector } from './channel/ChannelLogoSelector';
-import { PlatformGridSelector } from './channel/PlatformGridSelector';
-import { ChannelPillarsCategoriesManager } from './channel/ChannelPillarsCategoriesManager';
+import { ChannelBrandTab, BrandColorOption } from './channel/tabs/ChannelBrandTab';
+import { ChannelPlatformsTab } from './channel/tabs/ChannelPlatformsTab';
+import { ChannelPillarsTab } from './channel/tabs/ChannelPillarsTab';
 
 export interface ChannelFormModalProps {
   isOpen: boolean;
@@ -16,7 +29,7 @@ export interface ChannelFormModalProps {
   onSave: (channel: Channel, logoFile?: File | null) => Promise<boolean>;
 }
 
-export const BRAND_COLORS = [
+export const BRAND_COLORS: BrandColorOption[] = [
   { id: 'red', class: 'bg-red-100 text-red-700 border-red-200 ring-red-500' },
   { id: 'orange', class: 'bg-orange-100 text-orange-700 border-orange-200 ring-orange-500' },
   { id: 'amber', class: 'bg-amber-100 text-amber-700 border-amber-200 ring-amber-500' },
@@ -29,13 +42,45 @@ export const BRAND_COLORS = [
   { id: 'slate', class: 'bg-slate-100 text-slate-700 border-slate-200 ring-slate-500' },
 ];
 
+type TabKey = 'BRAND' | 'PLATFORMS' | 'PILLARS';
+
+const TABS: { id: TabKey; label: string; shortLabel: string; icon: React.ElementType }[] = [
+  { id: 'BRAND', label: '1. ข้อมูล & อัตลักษณ์', shortLabel: 'ข้อมูลทั่วไป', icon: Tag },
+  { id: 'PLATFORMS', label: '2. แพลตฟอร์ม & สถิติ', shortLabel: 'แพลตฟอร์ม', icon: LayoutTemplate },
+  { id: 'PILLARS', label: '3. แกนเนื้อหา & หมวดหมู่', shortLabel: 'แกนเนื้อหา', icon: Layers },
+];
+
+const slideVariants: Variants = {
+  enter: (direction: number) => ({
+    x: direction > 0 ? 32 : -32,
+    opacity: 0,
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+    transition: { duration: 0.22, ease: 'easeOut' },
+  },
+  exit: (direction: number) => ({
+    x: direction < 0 ? 32 : -32,
+    opacity: 0,
+    transition: { duration: 0.16, ease: 'easeIn' },
+  }),
+};
+
 const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, channel, onSave }) => {
   const { showAlert } = useGlobalDialog();
   const { addMasterOption } = useMasterData();
+
+  // Active Tab & Direction Tracking for animations
+  const [activeTab, setActiveTab] = useState<TabKey>('BRAND');
+  const [direction, setDirection] = useState<number>(0);
   
+  // Form values
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>(['YOUTUBE']);
+  const [socialLinks, setSocialLinks] = useState<SocialLinks>({});
+  const [followers, setFollowers] = useState<PlatformFollowers>({});
   const [color, setColor] = useState(BRAND_COLORS[0].class);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -51,12 +96,16 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
   // Load and populate fields when the channel prop changes
   useEffect(() => {
     if (isOpen) {
+      setActiveTab('BRAND');
+      setDirection(0);
       setTempOptions([]);
       if (channel) {
         setTargetId(channel.id);
         setName(channel.name);
         setDescription(channel.description || '');
         setSelectedPlatforms(channel.platforms || []);
+        setSocialLinks(channel.social_links || {});
+        setFollowers(channel.followers || {});
         setColor(channel.color || BRAND_COLORS[0].class);
         setLogoPreview(channel.logoUrl || null);
         setLogoFile(null);
@@ -66,6 +115,8 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
         setName('');
         setDescription('');
         setSelectedPlatforms(['YOUTUBE']);
+        setSocialLinks({});
+        setFollowers({});
         setColor(BRAND_COLORS[0].class);
         setLogoFile(null);
         setLogoPreview(null);
@@ -73,10 +124,51 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
     }
   }, [isOpen, channel]);
 
+  const switchTab = (newTab: TabKey) => {
+    const currentIndex = TABS.findIndex(t => t.id === activeTab);
+    const newIndex = TABS.findIndex(t => t.id === newTab);
+    setDirection(newIndex > currentIndex ? 1 : -1);
+    setActiveTab(newTab);
+  };
+
+  const handleNextTab = () => {
+    const currentIndex = TABS.findIndex(t => t.id === activeTab);
+    if (currentIndex === 0 && !name.trim()) {
+      showAlert("กรุณาตั้งชื่อรายการ/แบรนด์ก่อนไปขั้นตอนถัดไปครับ");
+      return;
+    }
+    if (currentIndex < TABS.length - 1) {
+      setDirection(1);
+      setActiveTab(TABS[currentIndex + 1].id);
+    }
+  };
+
+  const handlePrevTab = () => {
+    const currentIndex = TABS.findIndex(t => t.id === activeTab);
+    if (currentIndex > 0) {
+      setDirection(-1);
+      setActiveTab(TABS[currentIndex - 1].id);
+    }
+  };
+
   const togglePlatform = (p: Platform) => {
     setSelectedPlatforms(prev =>
       prev.includes(p) ? prev.filter(i => i !== p) : [...prev, p]
     );
+  };
+
+  const handleSocialLinkChange = (p: Platform, url: string) => {
+    setSocialLinks(prev => ({
+      ...prev,
+      [p]: url
+    }));
+  };
+
+  const handleFollowersChange = (p: Platform, count: number | undefined) => {
+    setFollowers(prev => ({
+      ...prev,
+      [p]: count
+    }));
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -93,15 +185,21 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
     setLogoPreview(null);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
 
     if (!name.trim()) {
       showAlert("กรุณาตั้งชื่อรายการ/แบรนด์ด้วยครับ");
+      if (activeTab !== 'BRAND') {
+        switchTab('BRAND');
+      }
       return;
     }
     if (selectedPlatforms.length === 0) {
       showAlert("ต้องเลือกอย่างน้อย 1 ช่องทาง (Platform) นะครับ");
+      if (activeTab !== 'PLATFORMS') {
+        switchTab('PLATFORMS');
+      }
       return;
     }
 
@@ -114,6 +212,8 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
         color,
         platforms: selectedPlatforms,
         logoUrl: logoPreview || undefined,
+        social_links: socialLinks,
+        followers: followers,
       };
 
       const success = await onSave(payload, logoFile);
@@ -144,6 +244,8 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
     }
   };
 
+  const activeTabIndex = TABS.findIndex(t => t.id === activeTab);
+
   const modalContent = (
     <AnimatePresence>
       {isOpen && (
@@ -151,166 +253,248 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.25 }}
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-md overflow-y-auto"
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-4 md:p-6 bg-slate-950/60 backdrop-blur-md overflow-hidden"
           onClick={() => { if (!isSubmitting) onClose(); }}
         >
+          {/* Stable Fixed Frame Container */}
           <motion.div
-            initial={{ scale: 0.95, opacity: 0, y: 30 }}
+            initial={{ scale: 0.96, opacity: 0, y: 16 }}
             animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.95, opacity: 0, y: 30 }}
-            transition={{ type: "spring", duration: 0.4, bounce: 0.15 }}
-            className="bg-white w-full max-w-2xl rounded-[2.5rem] shadow-2xl overflow-hidden border border-slate-100 my-8"
+            exit={{ scale: 0.96, opacity: 0, y: 16 }}
+            transition={{ type: "spring", duration: 0.35, bounce: 0.1 }}
+            className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden border border-slate-100 flex flex-col h-[88vh] sm:h-[640px] max-h-[92vh]"
             onClick={e => e.stopPropagation()}
           >
-            {/* Modal Header */}
-            <div className="px-8 py-6 border-b border-gray-100 bg-gray-50/70 flex justify-between items-center">
-              <div>
-                <h3 className="text-xl font-bold text-gray-800 flex items-center">
-                  {channel ? (
-                    <Edit2 className="w-5 h-5 mr-2.5 text-indigo-500" />
-                  ) : (
-                    <Plus className="w-5 h-5 mr-2.5 text-indigo-500" />
-                  )}
-                  {channel ? 'แก้ไขข้อมูลรายการ' : 'เพิ่มรายการใหม่'}
-                </h3>
-                <p className="text-xs text-gray-500 font-bold uppercase tracking-wider mt-0.5">
-                  {channel ? 'Update connection and brand show spec' : 'Create new show banner & profile'}
-                </p>
-              </div>
-              <button
-                onClick={() => { if (!isSubmitting) onClose(); }}
-                className="text-gray-400 hover:text-gray-600 p-2 hover:bg-gray-200/60 rounded-full transition-colors disabled:opacity-50"
-                disabled={isSubmitting}
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <form onSubmit={handleSubmit} className="p-8 space-y-8 max-h-[75vh] overflow-y-auto custom-scrollbar">
-              <div className="flex flex-col md:flex-row gap-8">
-                
-                {/* Logo Uploader */}
-                <ChannelLogoSelector
-                  logoPreview={logoPreview}
-                  onFileChange={handleFileChange}
-                  onRemovePhoto={handleRemovePhoto}
-                  isSubmitting={isSubmitting}
-                />
-
-                <div className="flex-1 space-y-6">
-                  {/* Name Input */}
-                  <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-700">
-                      1. ชื่อรายการ / แบรนด์ (Name) <span className="text-red-500">*</span>
-                    </label>
-                    <input
-                      type="text"
-                      id="channel-name-input"
-                      value={name}
-                      onChange={e => setName(e.target.value)}
-                      placeholder="เช่น Juijui Vlog, ข่าวเช้า, เกมมิ่ง..."
-                      className="w-full px-4 py-3 bg-white border-2 border-gray-100 rounded-2xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none font-bold text-gray-800 transition-all text-lg placeholder:font-normal placeholder:text-gray-300 disabled:opacity-70 disabled:bg-gray-50"
-                      autoFocus
-                      disabled={isSubmitting}
-                    />
+            {/* Zone 1: Header + Interactive Tab Navigation (Fixed Top Zone) */}
+            <div className="shrink-0 bg-white border-b border-slate-100">
+              {/* Top Title Bar */}
+              <div className="px-6 py-4 sm:px-8 sm:py-4.5 bg-slate-50/80 flex justify-between items-center border-b border-slate-100/70">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shrink-0">
+                    {channel ? (
+                      <Edit2 className="w-5 h-5" />
+                    ) : (
+                      <Plus className="w-5 h-5" />
+                    )}
                   </div>
-
-                  {/* Description Input */}
-                  <div className="space-y-2">
-                    <label className="block text-sm font-bold text-gray-700">
-                      รายละเอียด / คอนเซปต์ (Description)
-                    </label>
-                    <textarea
-                      id="channel-desc-input"
-                      value={description}
-                      onChange={e => setDescription(e.target.value)}
-                      placeholder="เช่น รายการพาเที่ยว เน้นกิน สบายๆ..."
-                      className="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-2xl focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 outline-none text-gray-700 transition-all resize-none h-24 text-sm disabled:opacity-70"
-                      disabled={isSubmitting}
-                    />
-                  </div>
-
-                  {/* Color Selector */}
-                  <div className="space-y-4">
-                    <label className="block text-sm font-bold text-gray-700 flex items-center">
-                      <Palette className="w-4 h-4 mr-2 text-indigo-500" />
-                      2. สีประจำรายการ (Brand Color)
-                    </label>
-                    <div className="grid grid-cols-5 sm:grid-cols-10 gap-2.5">
-                      {BRAND_COLORS.map((c) => (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() => setColor(c.class)}
-                          disabled={isSubmitting}
-                          className={`
-                            h-9 rounded-xl border-2 transition-all relative flex items-center justify-center
-                            ${c.class.split(' ')[0]} 
-                            ${c.class.split(' ')[2]}
-                            ${color === c.class ? 'ring-2 ring-offset-2 ' + c.class.split(' ')[3] : 'border-transparent hover:scale-105 opacity-80 hover:opacity-100'}
-                            ${isSubmitting ? 'cursor-not-allowed opacity-50' : ''}
-                          `}
-                        >
-                          {color === c.class && <Check className="w-5 h-5" />}
-                        </button>
-                      ))}
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-base sm:text-lg font-bold text-slate-800 truncate">
+                        {channel ? 'แก้ไขข้อมูลรายการ' : 'เพิ่มรายการใหม่'}
+                      </h3>
+                      {name.trim() && (
+                        <span className={`hidden sm:inline-flex px-2 py-0.5 rounded-lg text-[11px] font-bold border truncate max-w-[140px] ${color}`}>
+                          {name}
+                        </span>
+                      )}
                     </div>
+                    <p className="text-[11px] text-slate-400 font-medium truncate">
+                      {channel ? 'อัปเดตข้อมูลอัตลักษณ์ แพลตฟอร์ม และแกนเนื้อหา' : 'สร้างรายการใหม่และตั้งค่าโครงสร้างหมวดหมู่'}
+                    </p>
                   </div>
                 </div>
+                <button
+                  id="close-channel-modal-btn"
+                  type="button"
+                  onClick={() => { if (!isSubmitting) onClose(); }}
+                  className="text-slate-400 hover:text-slate-600 p-2 hover:bg-slate-200/60 rounded-full transition-colors disabled:opacity-50 shrink-0"
+                  disabled={isSubmitting}
+                  aria-label="Close"
+                >
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
-              <div className="border-t border-gray-100 my-6"></div>
+              {/* Tab Navigation Strip */}
+              <div className="px-6 py-2.5 sm:px-8">
+                <div className="grid grid-cols-3 gap-1.5 sm:gap-2 p-1 bg-slate-100/80 rounded-2xl">
+                  {TABS.map((tab) => {
+                    const isActive = activeTab === tab.id;
+                    const Icon = tab.icon;
+                    const isCompleted = 
+                      (tab.id === 'BRAND' && name.trim().length > 0) ||
+                      (tab.id === 'PLATFORMS' && selectedPlatforms.length > 0) ||
+                      (tab.id === 'PILLARS');
 
-              {/* Active Platforms */}
-              <PlatformGridSelector
-                selectedPlatforms={selectedPlatforms}
-                togglePlatform={togglePlatform}
-                isSubmitting={isSubmitting}
-              />
+                    return (
+                      <button
+                        key={tab.id}
+                        type="button"
+                        id={`channel-tab-${tab.id.toLowerCase()}`}
+                        onClick={() => switchTab(tab.id)}
+                        disabled={isSubmitting}
+                        className={`
+                          relative flex items-center justify-center gap-1.5 sm:gap-2 py-2 px-2 sm:px-3 rounded-xl font-bold text-xs transition-all
+                          ${isActive 
+                            ? 'bg-white text-indigo-600 shadow-xs ring-1 ring-slate-200/60' 
+                            : 'text-slate-500 hover:text-slate-800 hover:bg-white/50'
+                          }
+                        `}
+                      >
+                        <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-indigo-600' : 'text-slate-400'}`} />
+                        <span className="truncate hidden sm:inline">{tab.label}</span>
+                        <span className="truncate sm:hidden">{tab.shortLabel}</span>
 
-              <div className="border-t border-gray-100 my-6"></div>
+                        {/* Status indicator dot / badge */}
+                        {isCompleted && !isActive && (
+                          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                        )}
+                        {tab.id === 'PLATFORMS' && selectedPlatforms.length > 0 && (
+                          <span className="hidden md:inline-flex text-[10px] px-1.5 py-0.2 bg-indigo-50 text-indigo-600 rounded-full font-bold">
+                            {selectedPlatforms.length}
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
 
-              {/* Pillars & Categories Settings */}
-              <ChannelPillarsCategoriesManager
-                targetId={targetId}
-                channel={channel}
-                tempOptions={tempOptions}
-                setTempOptions={setTempOptions}
-              />
+            {/* Zone 2: Fixed-Height Viewport with Smooth Horizontal Slide */}
+            <div className="flex-1 overflow-y-auto overflow-x-hidden p-6 sm:p-8 custom-scrollbar relative">
+              <AnimatePresence mode="wait" custom={direction}>
+                {activeTab === 'BRAND' && (
+                  <motion.div
+                    key="tab-brand"
+                    custom={direction}
+                    variants={slideVariants}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    className="h-full"
+                  >
+                    <ChannelBrandTab
+                      name={name}
+                      setName={setName}
+                      description={description}
+                      setDescription={setDescription}
+                      color={color}
+                      setColor={setColor}
+                      brandColors={BRAND_COLORS}
+                      logoPreview={logoPreview}
+                      onFileChange={handleFileChange}
+                      onRemovePhoto={handleRemovePhoto}
+                      isSubmitting={isSubmitting}
+                    />
+                  </motion.div>
+                )}
 
-              {/* Action Buttons */}
-              <div className="flex justify-end pt-6 border-t border-gray-100 gap-3">
+                {activeTab === 'PLATFORMS' && (
+                  <motion.div
+                    key="tab-platforms"
+                    custom={direction}
+                    variants={slideVariants}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    className="h-full"
+                  >
+                    <ChannelPlatformsTab
+                      selectedPlatforms={selectedPlatforms}
+                      togglePlatform={togglePlatform}
+                      socialLinks={socialLinks}
+                      onSocialLinkChange={handleSocialLinkChange}
+                      followers={followers}
+                      onFollowersChange={handleFollowersChange}
+                      isSubmitting={isSubmitting}
+                    />
+                  </motion.div>
+                )}
+
+                {activeTab === 'PILLARS' && (
+                  <motion.div
+                    key="tab-pillars"
+                    custom={direction}
+                    variants={slideVariants}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    className="h-full"
+                  >
+                    <ChannelPillarsTab
+                      targetId={targetId}
+                      channel={channel}
+                      tempOptions={tempOptions}
+                      setTempOptions={setTempOptions}
+                    />
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Zone 3: Footer Control Bar (Fixed Bottom Zone - Absolute Position Stability) */}
+            <div className="px-6 py-4 sm:px-8 border-t border-slate-100 bg-slate-50/80 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+              {/* Step indicator & Cancel */}
+              <div className="flex items-center gap-3 w-full sm:w-auto justify-between sm:justify-start">
                 <button
                   type="button"
                   id="cancel-channel-btn"
                   onClick={onClose}
                   disabled={isSubmitting}
-                  className="px-6 py-3 text-slate-500 hover:bg-slate-100 rounded-xl font-bold font-kanit transition-all hover:text-slate-700 active:scale-95 disabled:opacity-50"
+                  className="px-4 py-2 text-xs font-bold text-slate-500 hover:text-slate-700 hover:bg-slate-200/50 rounded-xl transition-all disabled:opacity-50"
                 >
                   ยกเลิก
                 </button>
+                <span className="text-[11px] font-bold text-slate-400 bg-slate-200/60 px-2.5 py-1 rounded-lg">
+                  ขั้นตอน {activeTabIndex + 1} จาก {TABS.length}
+                </span>
+              </div>
+
+              {/* Navigation Actions (Prev / Next / Save) */}
+              <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                {activeTabIndex > 0 && (
+                  <button
+                    type="button"
+                    id="prev-step-channel-btn"
+                    onClick={handlePrevTab}
+                    disabled={isSubmitting}
+                    className="px-3.5 py-2.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1 shadow-2xs"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    <span>ย้อนกลับ</span>
+                  </button>
+                )}
+
+                {activeTabIndex < TABS.length - 1 ? (
+                  <button
+                    type="button"
+                    id="next-step-channel-btn"
+                    onClick={handleNextTab}
+                    disabled={isSubmitting}
+                    className="px-4 py-2.5 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all active:scale-95 flex items-center gap-1 shadow-2xs"
+                  >
+                    <span>ถัดไป</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                ) : null}
+
+                {/* Primary Save Button - Always Available */}
                 <button
-                  type="submit"
+                  type="button"
                   id="submit-channel-btn"
+                  onClick={() => handleSubmit()}
                   disabled={isSubmitting}
                   className={`
-                    px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold font-kanit shadow-lg shadow-indigo-200 transition-all active:scale-95 flex items-center
+                    px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold shadow-md shadow-indigo-100 transition-all active:scale-95 flex items-center gap-1.5
                     ${isSubmitting ? 'opacity-70 cursor-not-allowed' : ''}
                   `}
                 >
                   {isSubmitting ? (
                     <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      กำลังบันทึก...
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      <span>กำลังบันทึก...</span>
                     </>
                   ) : (
-                    <>{channel ? 'บันทึกการแก้ไข' : 'สร้างรายการใหม่'}</>
+                    <>
+                      <Save className="w-3.5 h-3.5" />
+                      <span>{channel ? 'บันทึกการแก้ไข' : 'สร้างรายการ'}</span>
+                    </>
                   )}
                 </button>
               </div>
-            </form>
+            </div>
           </motion.div>
         </motion.div>
       )}

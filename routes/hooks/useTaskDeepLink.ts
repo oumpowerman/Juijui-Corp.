@@ -6,6 +6,7 @@ interface UseTaskDeepLinkProps {
   currentUserProfile: User | null;
   tasks: Task[];
   searchParams: URLSearchParams;
+  setSearchParams: (params: any, options?: any) => void;
   handleNavigate: (view: ViewMode, queryParams?: Record<string, string>) => void;
   handleEditTask: (task: Task, viewMode?: string) => void;
   fetchTaskById: (id: string, type?: TaskType) => Promise<Task | null>;
@@ -17,6 +18,7 @@ export function useTaskDeepLink({
   currentUserProfile,
   tasks,
   searchParams,
+  setSearchParams,
   handleNavigate,
   handleEditTask,
   fetchTaskById,
@@ -122,8 +124,21 @@ export function useTaskDeepLink({
     if (targetTaskId && initialTaskOpenedRef.current !== targetTaskId) {
       initialTaskOpenedRef.current = targetTaskId;
       handleOpenTaskById(targetTaskId);
+
+      // Clean up URL parameters immediately so the URL stays clean without adding history
+      setSearchParams((prev: any) => {
+        const next = new URLSearchParams(prev);
+        let changed = false;
+        ['taskId', 'contentId', 'highlightTaskId', 'openTaskId'].forEach(key => {
+          if (next.has(key)) {
+            next.delete(key);
+            changed = true;
+          }
+        });
+        return changed ? next : prev;
+      }, { replace: true });
     }
-  }, [isManagerLoading, currentUserProfile, searchParams, handleOpenTaskById]);
+  }, [isManagerLoading, currentUserProfile, searchParams, handleOpenTaskById, setSearchParams]);
 
   return {
     handleOpenTaskById,

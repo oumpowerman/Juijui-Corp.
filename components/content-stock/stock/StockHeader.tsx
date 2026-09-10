@@ -26,6 +26,8 @@ interface StockHeaderProps {
   setSearchParams: any;
 }
 
+const springTransition = { type: "spring", stiffness: 400, damping: 32 } as const;
+
 const StockHeader: React.FC<StockHeaderProps> = ({
   viewTab,
   setViewTab,
@@ -45,16 +47,20 @@ const StockHeader: React.FC<StockHeaderProps> = ({
   setSearchParams
 }) => {
   return (
-    <div className="flex flex-col xl:flex-row justify-between items-stretch xl:items-center gap-6 bg-white/70 backdrop-blur-2xl pt-6 pb-5 px-6 md:px-8 rounded-[2.5rem] border border-white/80 shadow-2xl shadow-indigo-500/10">
-      <div className="flex-1 w-full xl:w-auto min-w-0">
+    <motion.div 
+      layout 
+      transition={springTransition}
+      className="flex flex-col xl:flex-row justify-between items-stretch xl:items-center gap-6 bg-white/70 backdrop-blur-2xl pt-6 pb-5 px-6 md:px-8 rounded-[2.5rem] border border-white/80 shadow-2xl shadow-indigo-500/10"
+    >
+      <motion.div layout transition={springTransition} className="flex-1 w-full xl:w-auto min-w-0">
         <motion.div 
           layout
-          transition={{ type: "spring", stiffness: 300, damping: 28 }}
+          transition={springTransition}
           className="flex flex-col sm:flex-row sm:items-center gap-4 mb-5"
         >
           <motion.h1 
             layout
-            transition={{ type: "spring", stiffness: 300, damping: 28 }}
+            transition={springTransition}
             className="text-2xl md:text-3xl font-black text-slate-800 flex items-center tracking-tight shrink-0 overflow-hidden min-h-[44px] relative"
           >
             <AnimatePresence mode="wait">
@@ -84,7 +90,7 @@ const StockHeader: React.FC<StockHeaderProps> = ({
           {/* Tab Switcher */}
           <motion.div 
             layout
-            transition={{ type: "spring", stiffness: 300, damping: 28 }}
+            transition={springTransition}
             className="relative inline-flex items-center bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/60 shadow-inner w-full sm:w-auto overflow-hidden"
           >
             <button 
@@ -105,7 +111,7 @@ const StockHeader: React.FC<StockHeaderProps> = ({
               {viewTab === 'LIST' && (
                 <motion.div 
                   layoutId="activeStockTabPill" 
-                  transition={{ type: "spring", stiffness: 380, damping: 30 }} 
+                  transition={springTransition} 
                   className="absolute inset-0 bg-emerald-50/60 rounded-xl shadow-sm border border-emerald-100/80 z-0"
                 />
               )}
@@ -122,7 +128,7 @@ const StockHeader: React.FC<StockHeaderProps> = ({
               {viewTab === 'QUEUE' && (
                 <motion.div 
                   layoutId="activeStockTabPill" 
-                  transition={{ type: "spring", stiffness: 380, damping: 30 }} 
+                  transition={springTransition} 
                   className="absolute inset-0 bg-indigo-50/60 rounded-xl shadow-sm border border-indigo-100 z-0"
                 />
               )}
@@ -134,7 +140,7 @@ const StockHeader: React.FC<StockHeaderProps> = ({
                       initial={{ scale: 0, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       exit={{ scale: 0, opacity: 0 }}
-                      transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                      transition={springTransition}
                       className="flex items-center justify-center h-5 px-2 min-w-[20px] rounded-full text-[10px] font-black bg-indigo-500 text-white shadow-sm shadow-indigo-200"
                     >
                       {queueCount}
@@ -148,18 +154,18 @@ const StockHeader: React.FC<StockHeaderProps> = ({
 
         {/* Quick Channel Chips */}
         {viewTab === 'LIST' && (
-          <div className="pt-2 pb-1">
+          <motion.div layout transition={springTransition} className="pt-2 pb-1">
             <StockChannelStack 
               channels={channels}
               selectedChannelIds={filterChannel}
               onSelectChannels={setFilterChannel}
             />
-          </div>
+          </motion.div>
         )}
-      </div>
+      </motion.div>
 
       {/* Action Side */}
-      <div className="flex items-center gap-3 w-full xl:w-auto mt-2 xl:mt-0">
+      <motion.div layout transition={springTransition} className="flex items-center gap-3 w-full xl:w-auto mt-2 xl:mt-0 shrink-0">
         {/* Utilities (Inventory, Import, Template) */}
         {viewTab === 'LIST' && (
           <>
@@ -231,8 +237,8 @@ const StockHeader: React.FC<StockHeaderProps> = ({
             className="flex shrink-0 shadow-sm"
           />
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 };
 

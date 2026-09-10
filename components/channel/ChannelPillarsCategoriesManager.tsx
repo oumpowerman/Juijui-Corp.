@@ -174,16 +174,16 @@ export const ChannelPillarsCategoriesManager: React.FC<ChannelPillarsCategoriesM
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-1">
-        <label className="text-sm font-bold text-gray-700 flex items-center">
-          <LayoutTemplate className="w-4 h-4 mr-2 text-indigo-500" />
-          4. ตั้งค่าแกนเนื้อหาและหมวดหมู่เฉพาะช่อง (Channel-Specific Pillars & Categories)
+    <div className="space-y-4">
+      <div className="flex flex-col gap-0.5">
+        <label className="text-xs font-bold text-slate-700 flex items-center">
+          <LayoutTemplate className="w-4 h-4 mr-1.5 text-indigo-500" />
+          ตั้งค่าแกนเนื้อหาและหมวดหมู่เฉพาะช่อง (Channel-Specific Pillars & Categories)
         </label>
-        <p className="text-xs text-slate-400">กำหนดแกนหลัก (Pillar) และประเภทคลิป (Category) ที่จะใช้สำหรับช่องรายการนี้</p>
+        <p className="text-[11px] text-slate-400">กำหนดแกนหลัก (Pillar) และประเภทคอนเทนต์ (Category) ประจำช่องรายการนี้</p>
       </div>
 
-      <div className="space-y-6 bg-slate-50/50 p-6 rounded-3xl border border-slate-100">
+      <div className="space-y-5 bg-slate-50/70 p-5 rounded-2xl border border-slate-100">
         
         {/* Pillar Section - Channel-Level Pillar Addition */}
         <div className="space-y-4 max-w-xl" ref={pillarInputContainerRef}>

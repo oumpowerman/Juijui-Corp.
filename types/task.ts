@@ -46,6 +46,24 @@ export interface ChannelStrategy {
  * แต่ละ Channel มีบัญชี Social Media ของตัวเองได้หลาย Platform
  * เช่น ช่อง A มีทั้ง YouTube (Channel A), TikTok (Channel A), Facebook (Channel A)
  */
+export interface SocialLinks {
+    YOUTUBE?: string;
+    FACEBOOK?: string;
+    TIKTOK?: string;
+    INSTAGRAM?: string;
+    OTHER?: string;
+    [key: string]: string | undefined;
+}
+
+export interface PlatformFollowers {
+    YOUTUBE?: number;
+    FACEBOOK?: number;
+    TIKTOK?: number;
+    INSTAGRAM?: number;
+    OTHER?: number;
+    [key: string]: number | undefined;
+}
+
 export interface Channel {
     /** รหัสระบุตัวตนของช่อง/รายการ */
     id: string;
@@ -61,6 +79,10 @@ export interface Channel {
     logoUrl?: string;
     /** กลยุทธ์สัดส่วนคอนเทนต์ของช่อง */
     content_strategy?: ChannelStrategy | null;
+    /** ลิงก์หน้าช่องหลักของแต่ละ Platform */
+    social_links?: SocialLinks;
+    /** จำนวนผู้ติดตามแยกตามแต่ละ Platform */
+    followers?: PlatformFollowers;
 }
 
 export interface TaskPerformance {

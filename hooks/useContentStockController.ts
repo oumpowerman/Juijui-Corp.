@@ -223,8 +223,14 @@ export const useContentStockController = ({ globalTasks, channels, users, master
         setIsSubmittingImport(true);
         try {
             const payloads = itemsToInsert.map(item => item.payload);
-            const { error } = await supabase.from('contents').insert(payloads);
-            if (error) throw error;
+            const BATCH_SIZE = 100;
+
+            // Batch insert in chunks of 100 items to prevent request payload overload
+            for (let i = 0; i < payloads.length; i += BATCH_SIZE) {
+                const chunk = payloads.slice(i, i + BATCH_SIZE);
+                const { error } = await supabase.from('contents').insert(chunk);
+                if (error) throw error;
+            }
 
             showToast(`นำเข้าคลังสำเร็จ ${payloads.length} รายการเรียบร้อยแล้ว 🎉`, 'success');
             setIsImportPreviewOpen(false);

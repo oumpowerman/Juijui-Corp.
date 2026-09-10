@@ -21,6 +21,7 @@ interface CalendarSecondaryHeaderProps {
     // Filters logic (CONTENT Mode)
     activeChipIds: string[];
     toggleChip: (id: string) => void;
+    onClearAll?: () => void;
     customChips: ChipConfig[];
     channels: Channel[];
     users?: User[];
@@ -62,7 +63,7 @@ const CalendarSecondaryHeader: React.FC<CalendarSecondaryHeaderProps> = ({
     show, onClose,
     viewMode = 'CONTENT',
     currentUser,
-    activeChipIds, toggleChip, customChips, channels, users = [], onManageFilters, onOpenCosmicFilter,
+    activeChipIds, toggleChip, onClearAll, customChips, channels, users = [], onManageFilters, onOpenCosmicFilter,
     activeFiltersCount = 0,
     tasks = [],
     taskAssigneeScope = 'ONLY_ME',
@@ -271,7 +272,13 @@ const CalendarSecondaryHeader: React.FC<CalendarSecondaryHeaderProps> = ({
                                         /* ========================================================================= */
                                         <>
                                             <button
-                                                onClick={() => toggleChip('ALL')}
+                                                onClick={() => {
+                                                    if (onClearAll) {
+                                                        onClearAll();
+                                                    } else {
+                                                        toggleChip('ALL');
+                                                    }
+                                                }}
                                                 className={`
                                                     px-4 py-2 rounded-2xl text-[10px] font-black tracking-wider uppercase transition-all duration-300 whitespace-nowrap shrink-0 active:scale-95 border relative overflow-hidden group
                                                     ${activeChipIds.length === 0

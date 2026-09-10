@@ -284,30 +284,30 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                         <div className="flex flex-col lg:flex-row items-stretch lg:items-center gap-2.5 lg:gap-6">
                             
                             {/* --- ROW 1 (Mobile) / LEFT CLUSTER (Desktop): DATE NAVIGATOR & ACTION TOOLS --- */}
-                            <div className="flex items-center justify-between gap-2 w-full lg:w-auto min-w-0">
-                                {/* Date Navigator */}
-                                <div className="flex-1 lg:flex-initial flex items-center bg-white/70 hover:bg-white/85 backdrop-blur-md rounded-2xl shadow-sm border border-white/60 h-11 p-1 hover:shadow-md hover:border-white/80 transition-all duration-300 min-w-0">
+                            <div className="flex items-center justify-between gap-1.5 sm:gap-2 w-full lg:w-auto min-w-0">
+                                {/* Date Navigator with Smooth Container & Pure Crossfade */}
+                                <div 
+                                    className="flex-1 lg:flex-initial flex items-center bg-white/70 hover:bg-white/85 backdrop-blur-md rounded-2xl shadow-sm border border-white/60 h-11 p-0.5 sm:p-1 hover:shadow-md hover:border-white/80 transition-all duration-300 min-w-0"
+                                >
                                     <button 
                                         onClick={handlePrev} 
-                                        className="w-8 h-full flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-white/60 rounded-xl transition-all active:scale-90 shrink-0"
+                                        className="w-9 sm:w-8 h-full flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-white/60 rounded-xl transition-all active:scale-90 shrink-0"
                                         title={calendarViewType === 'WEEK' ? "สัปดาห์ก่อนหน้า" : "เดือนก่อนหน้า"}
                                     >
                                         <ChevronLeft className="w-4 h-4" />
                                     </button>
                                     
                                     <div 
-                                        onClick={() => setIsExpanded(!isExpanded)}
-                                        className="flex-1 px-2 md:px-5 h-full flex items-center justify-center min-w-0 cursor-pointer hover:bg-white/50 rounded-xl transition-all relative select-none active:scale-95 overflow-hidden"
-                                        title={isExpanded ? "ย่อมุมมอง" : "ขยายเต็มจอ"}
+                                        className="flex-1 px-1.5 sm:px-3 lg:px-5 h-full flex items-center justify-center min-w-0 lg:min-w-[165px] rounded-xl relative select-none overflow-hidden"
                                     >
-                                        <AnimatePresence mode="wait">
+                                        <AnimatePresence mode="wait" initial={false}>
                                             <motion.div
                                                 key={`${calendarViewType}-${currentDate.getTime()}`}
-                                                initial={{ y: 8, opacity: 0 }}
-                                                animate={{ y: 0, opacity: 1 }}
-                                                exit={{ y: -8, opacity: 0 }}
-                                                transition={{ duration: 0.25, ease: "easeOut" }}
-                                                className="flex items-center justify-center gap-1.5 truncate text-center"
+                                                initial={{ opacity: 0, scale: 0.95 }}
+                                                animate={{ opacity: 1, scale: 1 }}
+                                                exit={{ opacity: 0, scale: 0.95 }}
+                                                transition={{ duration: 0.15, ease: "easeOut" }}
+                                                className="flex items-center justify-center gap-1 sm:gap-1.5 truncate text-center whitespace-nowrap"
                                             >
                                                 <span className="text-xs sm:text-sm md:text-base font-black text-slate-700 tracking-tight transition-colors truncate">
                                                     {calendarViewType === 'WEEK' ? (
@@ -326,7 +326,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
              
                                     <button 
                                         onClick={handleNext} 
-                                        className="w-8 h-full flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-white/60 rounded-xl transition-all active:scale-90 shrink-0"
+                                        className="w-9 sm:w-8 h-full flex items-center justify-center text-slate-400 hover:text-indigo-600 hover:bg-white/60 rounded-xl transition-all active:scale-90 shrink-0"
                                         title={calendarViewType === 'WEEK' ? "สัปดาห์ถัดไป" : "เดือนถัดไป"}
                                     >
                                         <ChevronRight className="w-4 h-4" />
@@ -334,23 +334,25 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                                 </div>
 
                                 {/* Mobile Actions Group (Row 1 Right) */}
-                                <div className="lg:hidden flex items-center gap-1.5 shrink-0">
+                                <div className="lg:hidden flex items-center gap-1 sm:gap-1.5 shrink-0">
                                     {/* Mobile Weekly/Monthly Switcher Button */}
                                     {displayMode === 'CALENDAR' && (
                                         <button
                                             onClick={toggleCalendarViewType}
-                                            className="h-11 px-2.5 flex items-center gap-1 rounded-2xl bg-white/70 hover:bg-white/90 text-slate-600 border border-white/60 shadow-sm active:scale-95 backdrop-blur-md font-black text-[11px]"
+                                            className="h-11 px-2 sm:px-2.5 flex items-center gap-1 rounded-2xl bg-white/70 hover:bg-white/90 text-slate-600 border border-white/60 shadow-sm active:scale-95 backdrop-blur-md font-black text-[11px]"
                                             title="สลับมุมมองสัปดาห์/เดือน"
                                         >
                                             {calendarViewType === 'MONTH' ? (
                                                 <>
                                                     <LayoutList className="w-3.5 h-3.5 text-indigo-500" />
-                                                    <span>สัปดาห์</span>
+                                                    <span className="hidden xs:inline sm:inline">สัปดาห์</span>
+                                                    <span className="xs:hidden">สัปดาห์</span>
                                                 </>
                                             ) : (
                                                 <>
                                                     <CalendarDays className="w-3.5 h-3.5 text-emerald-500" />
-                                                    <span>เดือน</span>
+                                                    <span className="hidden xs:inline sm:inline">เดือน</span>
+                                                    <span className="xs:hidden">เดือน</span>
                                                 </>
                                             )}
                                         </button>
@@ -360,7 +362,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                                     <button 
                                         onClick={onToggleFilters}
                                         className={`
-                                            h-11 w-11 flex items-center justify-center rounded-2xl border transition-all duration-300 shadow-sm active:scale-95 backdrop-blur-md
+                                            h-11 w-9 sm:w-11 flex items-center justify-center rounded-2xl border transition-all duration-300 shadow-sm active:scale-95 backdrop-blur-md
                                             ${showFilters 
                                                 ? 'bg-indigo-600 text-white border-indigo-600' 
                                                 : 'bg-white/70 hover:bg-white/90 text-slate-500 border-white/60 hover:border-indigo-200'}
@@ -374,7 +376,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                                     <button 
                                         onClick={() => onSelectDate(calendarViewType === 'WEEK' && safeDate ? safeDate : new Date(), viewMode)}
                                         className={`
-                                            h-11 w-11 flex items-center justify-center rounded-2xl transition-all duration-300 shadow-sm active:scale-95 border-2 backdrop-blur-md
+                                            h-11 w-9 sm:w-11 flex items-center justify-center rounded-2xl transition-all duration-300 shadow-sm active:scale-95 border-2 backdrop-blur-md
                                             ${viewMode === 'CONTENT' 
                                                 ? 'bg-rose-500/10 text-rose-600 border-rose-300/50 hover:bg-rose-500/20' 
                                                 : viewMode === 'PLAN'
@@ -390,7 +392,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                                     {isExpanded && (
                                         <button
                                             onClick={() => setIsHeaderCollapsed(true)}
-                                            className="h-11 w-11 flex items-center justify-center rounded-2xl bg-white/70 hover:bg-white/90 text-slate-500 border border-white/60 shadow-sm active:scale-95 backdrop-blur-md"
+                                            className="h-11 w-9 sm:w-11 flex items-center justify-center rounded-2xl bg-white/70 hover:bg-white/90 text-slate-500 border border-white/60 shadow-sm active:scale-95 backdrop-blur-md"
                                             title="ซ่อนเครื่องมือ"
                                         >
                                             <Minimize2 className="w-4 h-4" />
@@ -400,7 +402,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                             </div>
              
                             {/* --- ROW 2 (Mobile) / CENTER CLUSTER (Desktop): MODE & VIEW SWITCHERS --- */}
-                            <div className="flex items-center justify-between gap-1.5 lg:gap-3 w-full lg:w-auto lg:flex-1 min-w-0 z-40">
+                            <div className="flex items-center justify-between lg:justify-start gap-1.5 lg:gap-2.5 w-full lg:w-auto lg:flex-initial min-w-0 z-40">
                                 
                                 {/* 3-Mode Switcher: CONTENT | TASK | PLAN */}
                                 <div className="flex-1 lg:flex-initial flex items-center p-1 bg-white/50 backdrop-blur-md rounded-2xl gap-1 border border-white/60 shadow-2xs min-w-0">
@@ -450,12 +452,12 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                                     </button>
                                 </div>
 
-                                {/* Right Side in Row 2: Board/Calendar Switcher + Landscape Toggle */}
-                                <div className="flex items-center gap-1.5 shrink-0">
+                                {/* Display Mode Toggle (Board / Calendar) & Mobile Tools */}
+                                <div className="flex items-center gap-1.5 lg:gap-2.5 shrink-0">
                                     {/* 1. Display Mode Toggle (Board / Calendar) */}
                                     <button 
                                         onClick={() => setDisplayMode(displayMode === 'CALENDAR' ? 'BOARD' : 'CALENDAR')}
-                                        className="flex items-center gap-1.5 h-10 px-2.5 sm:px-3 bg-white/70 hover:bg-white/90 backdrop-blur-md rounded-2xl border border-white/60 transition-all active:scale-95 text-slate-600 group shadow-2xs"
+                                        className="flex items-center justify-center gap-1.5 h-10 lg:h-9 px-2.5 sm:px-3 min-w-[68px] sm:min-w-[82px] lg:min-w-[98px] bg-white/70 hover:bg-white/90 backdrop-blur-md rounded-2xl lg:rounded-xl border border-white/60 transition-all active:scale-95 text-slate-600 group shadow-2xs"
                                         title={displayMode === 'CALENDAR' ? "สลับเป็นมุมมอง Board" : "สลับเป็นมุมมอง Calendar"}
                                     >
                                         {displayMode === 'CALENDAR' ? (
@@ -487,20 +489,20 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                                     </button>
                                 </div>
 
-                                {/* Desktop Calendar View Type Toggle (Month/Week) */}
+                                {/* Desktop Calendar View Type Toggle (Month/Week) - Sticky Next to Board/Cal */}
                                 <AnimatePresence>
                                     {displayMode === 'CALENDAR' && (
                                         <motion.div
-                                            initial={{ opacity: 0, width: 0, x: 20 }}
+                                            initial={{ opacity: 0, width: 0, x: 10 }}
                                             animate={{ opacity: 1, width: 'auto', x: 0 }}
-                                            exit={{ opacity: 0, width: 0, x: 20 }}
-                                            transition={{ type: "spring", bounce: 0.2, duration: 0.5 }}
+                                            exit={{ opacity: 0, width: 0, x: 10 }}
+                                            transition={{ type: "spring", bounce: 0.15, duration: 0.35 }}
                                             className="hidden lg:flex items-center shrink-0"
                                         >
-                                            <div className="w-px h-6 bg-slate-200/60 mx-1 mr-3" />
+                                            <div className="w-px h-6 bg-slate-200/60 mx-1 mr-2" />
                                             <button 
                                                 onClick={toggleCalendarViewType}
-                                                className="flex items-center gap-2 h-9 px-4 bg-white/70 hover:bg-white/90 backdrop-blur-md rounded-xl border border-white/60 shadow-sm transition-all active:scale-95 text-slate-600 group whitespace-nowrap"
+                                                className="flex items-center gap-2 h-9 px-3.5 bg-white/70 hover:bg-white/90 backdrop-blur-md rounded-xl border border-white/60 shadow-2xs transition-all active:scale-95 text-slate-600 group whitespace-nowrap"
                                             >
                                                 {calendarViewType === 'MONTH' ? (
                                                     <>

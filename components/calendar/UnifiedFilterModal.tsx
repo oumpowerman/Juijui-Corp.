@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useSearchParams } from 'react-router-dom';
 import { X, SlidersHorizontal } from 'lucide-react';
 import { Channel, ChipConfig, User } from '../../types';
 import { MasterOption } from '../../types/task';
@@ -63,6 +64,8 @@ const UnifiedFilterModal: React.FC<UnifiedFilterModalProps> = ({
     onSaveChip,
     onDeleteChip
 }) => {
+    const [searchParams, setSearchParams] = useSearchParams();
+
     // Current active tab
     const [activeTab, setActiveTab] = useState<TabType>(initialTab || (viewMode === 'TASK' ? 'ASSIGNEES' : 'CHANNELS'));
 
@@ -155,6 +158,23 @@ const UnifiedFilterModal: React.FC<UnifiedFilterModalProps> = ({
             statuses: tempStatuses,
             assigneeIds: tempAssigneeIds
         });
+
+        // Sync channel filtering with URL Query Parameters
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            if (tempChannelIds.length === 1) {
+                next.set('channelId', tempChannelIds[0]);
+                next.delete('channel');
+            } else if (tempChannelIds.length > 1) {
+                next.set('channelId', tempChannelIds.join(','));
+                next.delete('channel');
+            } else {
+                next.delete('channelId');
+                next.delete('channel');
+            }
+            return next;
+        }, { replace: true });
+
         onClose();
     };
 

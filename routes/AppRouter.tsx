@@ -141,11 +141,28 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
     currentUserProfile,
     tasks,
     searchParams,
+    setSearchParams,
     handleNavigate,
     handleEditTask,
     fetchTaskById,
     showToast,
   });
+
+  // Modal close handler with transient deep link URL cleanup
+  const handleCloseModalWithCleanup = React.useCallback(() => {
+    closeModal();
+    setSearchParams((prev: any) => {
+      let changed = false;
+      const next = new URLSearchParams(prev);
+      ['taskId', 'contentId', 'highlightTaskId', 'openTaskId'].forEach((key) => {
+        if (next.has(key)) {
+          next.delete(key);
+          changed = true;
+        }
+      });
+      return changed ? next : prev;
+    }, { replace: true });
+  }, [closeModal, setSearchParams]);
 
   // --- HOOK 7: WORKBOX CONTEXT ---
   const { items: workboxItems, addItem: addToWorkbox, isOpen: isWorkboxOpen, setIsOpen: setIsWorkboxOpen } = useWorkboxContext();
@@ -357,7 +374,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
         handleAcknowledgeLock={handleAcknowledgeLock}
         handleForceLogout={handleForceLogout}
         isModalOpen={isModalOpen}
-        closeModal={closeModal}
+        closeModal={handleCloseModalWithCleanup}
         handleSaveTask={handleSaveTask}
         handleDeleteTask={handleDeleteTask}
         editingTask={editingTask}

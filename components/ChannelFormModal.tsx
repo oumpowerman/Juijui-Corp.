@@ -263,7 +263,7 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.96, opacity: 0, y: 16 }}
             transition={{ type: "spring", duration: 0.35, bounce: 0.1 }}
-            className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl overflow-hidden border border-slate-100 flex flex-col h-[88vh] sm:h-[640px] max-h-[92vh]"
+            className="bg-white w-full max-w-3xl rounded-3xl shadow-2xl overflow-hidden border border-slate-100 flex flex-col h-[90vh] sm:h-[740px] lg:h-[780px] max-h-[92vh]"
             onClick={e => e.stopPropagation()}
           >
             {/* Zone 1: Header + Interactive Tab Navigation (Fixed Top Zone) */}

@@ -191,7 +191,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                         {/* Left Side: Dynamic Month Title & Nav controls */}
                         <div className="flex items-center gap-2 min-w-0">
                             {/* Focus Aura Badge */}
-                            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-200 text-amber-700 rounded-full text-[10px] font-black uppercase tracking-wider shrink-0 shadow-sm animate-pulse">
+                            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 bg-amber-50 border border-amber-200 text-amber-700 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 shadow-sm animate-pulse">
                                 <Sparkles className="w-3.5 h-3.5" />
                                 <span>โหมดโฟกัส</span>
                             </div>
@@ -208,7 +208,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                                 
                                 <div 
                                     onClick={() => setIsExpanded(!isExpanded)}
-                                    className="px-3 h-full flex items-center justify-center min-w-[110px] sm:min-w-[130px] md:min-w-[150px] cursor-pointer hover:bg-slate-100/30 rounded-lg transition-all select-none active:scale-95 text-xs sm:text-sm font-black text-slate-700 tracking-tight"
+                                    className="px-3 h-full flex items-center justify-center min-w-[110px] sm:min-w-[130px] md:min-w-[150px] cursor-pointer hover:bg-slate-100/30 rounded-lg transition-all select-none active:scale-95 text-xs sm:text-sm font-bold text-slate-700 tracking-tight"
                                     title="ย่อมุมมอง"
                                 >
                                     {calendarViewType === 'WEEK' ? (
@@ -239,7 +239,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                         {/* Right Side: Tools expand & exit controls */}
                         <div className="flex items-center gap-1.5 shrink-0">
                             {/* View state representation */}
-                            <div className="hidden md:flex items-center gap-1.5 text-[10px] font-black text-slate-500 tracking-wider bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-100">
+                            <div className="hidden md:flex items-center gap-1.5 text-[10px] font-boldext-slate-500 tracking-wider bg-slate-50 px-2.5 py-1.5 rounded-xl border border-slate-100">
                                 <span className={
                                     viewMode === 'CONTENT' 
                                         ? 'text-rose-500' 
@@ -255,7 +255,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
 
                             <button
                                 onClick={() => setIsHeaderCollapsed(false)}
-                                className="h-9 px-3 flex items-center gap-1.5 text-xs font-black text-indigo-600 bg-white hover:bg-indigo-50 hover:text-indigo-700 rounded-xl border border-indigo-100 transition-all shadow-sm hover:shadow active:scale-95"
+                                className="h-9 px-3 flex items-center gap-1.5 text-xs font-boldxt-indigo-600 bg-white hover:bg-indigo-50 hover:text-indigo-700 rounded-xl border border-indigo-100 transition-all shadow-sm hover:shadow active:scale-95"
                                 title="แสดงแถบเครื่องมือและตัวกรอง"
                             >
                                 <SlidersHorizontal className="w-3.5 h-3.5" />
@@ -264,7 +264,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
 
                             <button
                                 onClick={() => setIsExpanded(false)}
-                                className="h-9 px-3 flex items-center gap-1.5 text-xs font-black text-slate-500 hover:text-slate-800 bg-white hover:bg-slate-50 rounded-xl border border-slate-200 transition-all shadow-sm active:scale-95"
+                                className="h-9 px-3 flex items-center gap-1.5 text-xs font-bold-slate-500 hover:text-slate-800 bg-white hover:bg-slate-50 rounded-xl border border-slate-200 transition-all shadow-sm active:scale-95"
                                 title="ย่อหน้าจอ (ออกจากการโฟกัส)"
                             >
                                 <Minimize2 className="w-3.5 h-3.5" />
@@ -309,7 +309,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                                                 transition={{ duration: 0.15, ease: "easeOut" }}
                                                 className="flex items-center justify-center gap-1 sm:gap-1.5 truncate text-center whitespace-nowrap"
                                             >
-                                                <span className="text-xs sm:text-sm md:text-base font-black text-slate-700 tracking-tight transition-colors truncate">
+                                                <span className="text-xs sm:text-sm md:text-base font-boldlate-700 tracking-tight transition-colors truncate">
                                                     {calendarViewType === 'WEEK' ? (
                                                         <>
                                                             สัปดาห์ที่ <span className="text-indigo-500 font-bold">{format(safeDate, 'w')}</span>
@@ -339,7 +339,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                                     {displayMode === 'CALENDAR' && (
                                         <button
                                             onClick={toggleCalendarViewType}
-                                            className="h-11 px-2 sm:px-2.5 flex items-center gap-1 rounded-2xl bg-white/70 hover:bg-white/90 text-slate-600 border border-white/60 shadow-sm active:scale-95 backdrop-blur-md font-black text-[11px]"
+                                            className="h-11 px-2 sm:px-2.5 flex items-center gap-1 rounded-2xl bg-white/70 hover:bg-white/90 text-slate-600 border border-white/60 shadow-sm active:scale-95 backdrop-blur-md font-boldx]"
                                             title="สลับมุมมองสัปดาห์/เดือน"
                                         >
                                             {calendarViewType === 'MONTH' ? (
@@ -409,7 +409,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                                     <button
                                         onClick={() => setViewMode('CONTENT')}
                                         className={`
-                                            flex-1 lg:flex-initial flex items-center justify-center gap-1 sm:gap-1.5 h-8.5 sm:h-8 px-2.5 sm:px-3 rounded-xl text-[10px] sm:text-[11px] font-black tracking-wide uppercase transition-all duration-200 active:scale-95 min-w-0
+                                            flex-1 lg:flex-initial flex items-center justify-center gap-1 sm:gap-1.5 h-8.5 sm:h-8 px-2.5 sm:px-3 rounded-xl text-[10px] sm:text-[11px] font-bolduppercase transition-all duration-200 active:scale-95 min-w-0
                                             ${viewMode === 'CONTENT'
                                                 ? 'bg-rose-500 text-white shadow-sm'
                                                 : 'text-slate-600 hover:text-slate-900 hover:bg-white/70'
@@ -424,7 +424,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                                     <button
                                         onClick={() => setViewMode('TASK')}
                                         className={`
-                                            flex-1 lg:flex-initial flex items-center justify-center gap-1 sm:gap-1.5 h-8.5 sm:h-8 px-2.5 sm:px-3 rounded-xl text-[10px] sm:text-[11px] font-black tracking-wide uppercase transition-all duration-200 active:scale-95 min-w-0
+                                            flex-1 lg:flex-initial flex items-center justify-center gap-1 sm:gap-1.5 h-8.5 sm:h-8 px-2.5 sm:px-3 rounded-xl text-[10px] sm:text-[11px] font-boldcase transition-all duration-200 active:scale-95 min-w-0
                                             ${viewMode === 'TASK'
                                                 ? 'bg-sky-500 text-white shadow-sm'
                                                 : 'text-slate-600 hover:text-slate-900 hover:bg-white/70'
@@ -439,7 +439,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                                     <button
                                         onClick={() => setViewMode('PLAN')}
                                         className={`
-                                            flex-1 lg:flex-initial flex items-center justify-center gap-1 sm:gap-1.5 h-8.5 sm:h-8 px-2.5 sm:px-3 rounded-xl text-[10px] sm:text-[11px] font-black tracking-wide uppercase transition-all duration-200 active:scale-95 min-w-0
+                                            flex-1 lg:flex-initial flex items-center justify-center gap-1 sm:gap-1.5 h-8.5 sm:h-8 px-2.5 sm:px-3 rounded-xl text-[10px] sm:text-[11px] font-boldon-all duration-200 active:scale-95 min-w-0
                                             ${viewMode === 'PLAN'
                                                 ? 'bg-fuchsia-600 text-white shadow-sm shadow-fuchsia-200'
                                                 : 'text-slate-600 hover:text-slate-900 hover:bg-white/70'
@@ -463,12 +463,12 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                                         {displayMode === 'CALENDAR' ? (
                                             <>
                                                 <Kanban className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-500 transition-colors shrink-0" />
-                                                <span className="text-[10px] font-black uppercase tracking-wider">Board</span>
+                                                <span className="text-[10px] font-bolduppercase tracking-wider">Board</span>
                                             </>
                                         ) : (
                                             <>
                                                 <CalendarDays className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-500 transition-colors shrink-0" />
-                                                <span className="text-[10px] font-black uppercase tracking-wider">Cal</span>
+                                                <span className="text-[10px] font-bold uppercase tracking-wider">Cal</span>
                                             </>
                                         )}
                                     </button>
@@ -507,12 +507,12 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                                                 {calendarViewType === 'MONTH' ? (
                                                     <>
                                                         <LayoutList className="w-3.5 h-3.5 text-indigo-500 group-hover:scale-110 transition-transform" />
-                                                        <span className="text-[10px] font-black uppercase tracking-wider">Weekly</span>
+                                                        <span className="text-[10px] font-bold uppercase tracking-wider">Weekly</span>
                                                     </>
                                                 ) : (
                                                     <>
                                                         <CalendarDays className="w-3.5 h-3.5 text-emerald-500 group-hover:scale-110 transition-transform" />
-                                                        <span className="text-[10px] font-black uppercase tracking-wider">Monthly</span>
+                                                        <span className="text-[10px] font-bold uppercase tracking-wider">Monthly</span>
                                                     </>
                                                 )}
                                             </button>
@@ -565,7 +565,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                                         }`} />
                                         <div className="hidden md:grid grid-cols-1 grid-rows-1 items-center justify-items-center overflow-hidden h-5">
                                             {/* Sizer Layer: Locks the natural max width without text clipping */}
-                                            <span className="col-start-1 row-start-1 text-sm font-black tracking-wide whitespace-nowrap invisible select-none pointer-events-none opacity-0" aria-hidden="true">
+                                            <span className="col-start-1 row-start-1 text-sm font-bold tracking-wide whitespace-nowrap invisible select-none pointer-events-none opacity-0" aria-hidden="true">
                                                 สร้างคอนเทนต์
                                             </span>
 
@@ -578,7 +578,7 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                                                         animate={{ y: 0, opacity: 1 }}
                                                         exit={{ y: -8, opacity: 0 }}
                                                         transition={{ duration: 0.16, ease: "easeInOut" }}
-                                                        className="text-sm font-black tracking-wide whitespace-nowrap block text-center select-none"
+                                                        className="text-sm font-bold tracking-wide whitespace-nowrap block text-center select-none"
                                                     >
                                                         {viewMode === 'CONTENT' ? 'สร้างคอนเทนต์' : viewMode === 'PLAN' ? 'สร้างแพลน' : 'สร้างงาน'}
                                                     </motion.span>

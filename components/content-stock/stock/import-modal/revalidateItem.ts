@@ -80,7 +80,6 @@ export const revalidateStockItem = (
         start_date: targetDate.toISOString(),
         end_date: targetDate.toISOString(),
         is_unscheduled: item.isUnscheduled,
-        priority: 'MEDIUM',
         content_formats: formatKey ? [formatKey] : [],
         pillar: pillarKey,
         category: categoryKey,

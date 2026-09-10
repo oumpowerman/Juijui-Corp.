@@ -349,12 +349,12 @@ const BoardView: React.FC<BoardViewProps> = ({
                                                 {/* Cover/Tag Line */}
                                                 <div className="flex items-center gap-1.5 mb-2.5 flex-wrap">
                                                     {channel && (
-                                                        <span className={`text-[10px] px-2 py-0.5 rounded border font-black truncate max-w-[120px] ${channel.color}`}>
+                                                        <span className={`text-[10px] px-2 py-0.5 rounded border font-bold truncate max-w-[120px] ${channel.color}`}>
                                                             {channel.name}
                                                         </span>
                                                     )}
                                                     {formatLabel && (
-                                                        <span className="text-[10px] bg-slate-50 text-slate-600 px-2 py-0.5 rounded border border-slate-100 font-black uppercase tracking-wider">
+                                                        <span className="text-[10px] bg-slate-50 text-slate-600 px-2 py-0.5 rounded border border-slate-100 font-bold uppercase tracking-wider">
                                                             {formatLabel}
                                                         </span>
                                                     )}
@@ -364,7 +364,7 @@ const BoardView: React.FC<BoardViewProps> = ({
                                                     )}
                                                     {/* NEW: Sponsored Badge */}
                                                     {task.sponsorship?.isSponsored && (
-                                                        <span className="text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded border border-amber-200 font-black animate-pulse flex items-center gap-1">
+                                                        <span className="text-[10px] bg-amber-50 text-amber-600 px-2 py-0.5 rounded border border-amber-200 font-bold animate-pulse flex items-center gap-1">
                                                             <DollarSign className="w-2.5 h-2.5" /> SPONSORED
                                                         </span>
                                                     )}

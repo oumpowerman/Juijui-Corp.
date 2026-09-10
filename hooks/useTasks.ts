@@ -235,7 +235,6 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
             title: taskToSave.title,
             description: taskToSave.description,
             status: taskToSave.status,
-            priority: taskToSave.priority,
             tags: taskToSave.tags,
             start_date: taskToSave.startDate.toISOString(),
             end_date: taskToSave.endDate.toISOString(),
@@ -243,6 +242,7 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
             scheduled_time: taskToSave.scheduledTime,
             assets: taskToSave.assets || [], 
             ...(isContent ? {} : { 
+                priority: taskToSave.priority,
                 type: taskToSave.type || 'TASK', 
                 target_position: taskToSave.targetPosition,
                 difficulty: taskToSave.difficulty || 'MEDIUM',

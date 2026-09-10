@@ -3,8 +3,8 @@ import { useSearchParams } from 'react-router-dom';
 import { Task, Channel, User, MasterOption, getChecklistGroupKey } from '../types';
 import { useToast } from '../context/ToastContext';
 import { useContentStock } from './useContentStock';
-import { parseContentStockCSV } from '../services/csvService';
-import { validateAndParseStockCSV, StockCSVValidationResult, ParsedStockItemPreview } from '../services/stockImportValidator';
+import { parseContentStockCSV, generateContentStockCSVTemplate, generateContentStockJSONTemplate } from '../services/csvService';
+import { validateAndParseStockFile, validateAndParseStockCSV, StockCSVValidationResult, ParsedStockItemPreview } from '../services/stockImportValidator';
 import { supabase } from '../lib/supabase';
 
 export type SortKey = 'title' | 'status' | 'date' | 'remark' | 'publishDate' | 'shootDate' | 'shortNote' | 'ideaOwner' | 'editor' | 'helper' | 'createdAt';
@@ -162,7 +162,21 @@ export const useContentStockController = ({ globalTasks, channels, users, master
         }
     }, [filterStatuses, filterChecklistProgress, masterOptions]);
 
-    const { contents: paginatedTasks, totalCount, overdueCount, missingStorageCount, isLoading, isRefreshing, fetchContents, updateLocalItem, toggleShootQueue, updateSubChecklistProgress } = useContentStock({
+    const { 
+        contents: paginatedTasks, 
+        totalCount, 
+        overdueCount, 
+        missingStorageCount, 
+        unassignedChannelCount,
+        isLoading, 
+        isRefreshing, 
+        fetchContents, 
+        refreshStock,
+        fetchUnassignedChannelCount,
+        updateLocalItem, 
+        toggleShootQueue, 
+        updateSubChecklistProgress 
+    } = useContentStock({
         page: currentPage,
         pageSize: ITEMS_PER_PAGE,
         searchQuery,
@@ -196,23 +210,28 @@ export const useContentStockController = ({ globalTasks, channels, users, master
         setFilterChecklistProgress([]);
     }, []);
 
-    const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
-        const file = event.target.files?.[0];
+    const handleProcessFile = useCallback(async (file: File) => {
         if (!file) return;
 
         setIsImporting(true);
         try {
-            const validation = await validateAndParseStockCSV(file, users, channels, masterOptions);
+            const validation = await validateAndParseStockFile(file, users, channels, masterOptions);
             setImportValidationResult(validation);
             setIsImportPreviewOpen(true);
         } catch (err: any) {
-            console.error(err);
-            showToast('เกิดข้อผิดพลาดในการอ่านไฟล์ CSV: ' + err.message, 'error');
+            console.error('Import parse error:', err);
+            showToast('เกิดข้อผิดพลาดในการอ่านไฟล์: ' + (err.message || err), 'error');
         } finally {
             setIsImporting(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
         }
     }, [channels, users, masterOptions, showToast]);
+
+    const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        await handleProcessFile(file);
+    }, [handleProcessFile]);
 
     const handleExecuteImport = useCallback(async (itemsToInsert: ParsedStockItemPreview[]) => {
         if (!itemsToInsert || itemsToInsert.length === 0) {
@@ -237,27 +256,35 @@ export const useContentStockController = ({ globalTasks, channels, users, master
             setImportValidationResult(null);
             setCurrentPage(1);
             fetchContents();
+            fetchUnassignedChannelCount();
         } catch (err: any) {
             console.error('Import insert error:', err);
             showToast('เกิดข้อผิดพลาดในการบันทึกข้อมูลลงฐานข้อมูล: ' + err.message, 'error');
         } finally {
             setIsSubmittingImport(false);
         }
-    }, [fetchContents, showToast]);
+    }, [fetchContents, fetchUnassignedChannelCount, showToast]);
 
     const handleDownloadTemplate = useCallback(() => {
-        const exampleFormat = masterOptions.filter(o => o.type === 'FORMAT').length > 0 ? masterOptions.filter(o => o.type === 'FORMAT')[0].key : "Short Form";
-        const headers = ["Content Format","Pillar","Category","Content Topic","Status","Publish Date","Chanel","Owner","IDEA","Edit","Sub","Help","Remark หมายเหตุ","Post"];
-        const exampleRow = [`"${exampleFormat}"`,"Education","Review",`"ตัวอย่าง: รีวิวกล้องใหม่"`,`"TODO"`,`"01/01/2024"`,`"Juijui Vlog"`,`"Admin"`,`"รายละเอียด"`,`"Editor"`,`"Support"`,``,`"หมายเหตุ"`,`"TikTok"`].join(",");
-        const csvContent = "data:text/csv;charset=utf-8,\uFEFF" + headers.join(",") + "\n" + exampleRow;
-        const encodedUri = encodeURI(csvContent);
+        const csvContent = generateContentStockCSVTemplate(masterOptions, channels);
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
-        link.setAttribute("href", encodedUri);
+        link.setAttribute("href", url);
         link.setAttribute("download", `juijui_template.csv`);
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
-    }, [masterOptions]);
+        URL.revokeObjectURL(url);
+    }, [masterOptions, channels]);
+
+    // Dual-Layer Count: In-memory fallback count from globalTasks + DB count
+    const localUnassignedCount = useMemo(() => {
+        if (!globalTasks || globalTasks.length === 0) return 0;
+        return globalTasks.filter(t => !t.channelId || (typeof t.channelId === 'string' && t.channelId.trim() === '')).length;
+    }, [globalTasks]);
+
+    const effectiveUnassignedCount = Math.max(unassignedChannelCount, localUnassignedCount);
 
     return {
         // Filter values & setters
@@ -296,6 +323,7 @@ export const useContentStockController = ({ globalTasks, channels, users, master
         setImportValidationResult,
         isSubmittingImport,
         handleFileUpload,
+        handleProcessFile,
         handleExecuteImport,
         handleDownloadTemplate,
         clearFilters,
@@ -306,9 +334,12 @@ export const useContentStockController = ({ globalTasks, channels, users, master
         totalCount,
         overdueCount,
         missingStorageCount,
+        unassignedChannelCount: effectiveUnassignedCount,
         isLoading,
         isRefreshing,
         fetchContents,
+        refreshStock,
+        fetchUnassignedChannelCount,
         updateLocalItem,
         toggleShootQueue,
         updateSubChecklistProgress,

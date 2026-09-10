@@ -51,6 +51,15 @@ export const ActiveFilterChipsRow: React.FC<ActiveFilterChipsRowProps> = React.m
         const chips: { type: 'channel' | 'format' | 'pillar' | 'category' | 'status' | 'date'; id: string; label: string; colorClass: string }[] = [];
 
         filterChannel.forEach(cId => {
+            if (cId === 'NO_CHANNEL') {
+                chips.push({
+                    type: 'channel',
+                    id: 'NO_CHANNEL',
+                    label: 'ไม่มีช่องทาง',
+                    colorClass: 'bg-amber-50 border-amber-200 text-amber-800 shadow-amber-100/20'
+                });
+                return;
+            }
             const ch = channels.find(c => c.id === cId);
             if (ch) {
                 chips.push({

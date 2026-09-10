@@ -79,9 +79,10 @@ const StockFilterBar: React.FC<StockFilterBarProps> = React.memo(({
 
     const pillarOptions = useMemo(() => {
         const base = masterOptions.filter(o => o.type === 'PILLAR' && o.isActive);
-        const filtered = filterChannel.length === 0 
-            ? base 
-            : base.filter(o => !o.parentKey || filterChannel.includes(o.parentKey));
+        const realChannels = filterChannel.filter(id => id !== 'NO_CHANNEL');
+        const filtered = realChannels.length === 0 
+            ? (filterChannel.includes('NO_CHANNEL') ? base.filter(o => !o.parentKey) : base)
+            : base.filter(o => !o.parentKey || realChannels.includes(o.parentKey));
             
         return filtered.map(o => {
             if (o.parentKey) {
@@ -99,16 +100,19 @@ const StockFilterBar: React.FC<StockFilterBarProps> = React.memo(({
 
     const categoryOptions = useMemo(() => {
         const base = masterOptions.filter(o => o.type === 'CATEGORY' && o.isActive);
+        const realChannels = filterChannel.filter(id => id !== 'NO_CHANNEL');
         
         let filtered = base;
         if (filterPillar.length > 0) {
             filtered = base.filter(o => o.parentKey && filterPillar.includes(o.parentKey));
-        } else if (filterChannel.length > 0) {
+        } else if (realChannels.length > 0) {
             const channelPillars = masterOptions.filter(
-                o => o.type === 'PILLAR' && o.parentKey && filterChannel.includes(o.parentKey)
+                o => o.type === 'PILLAR' && o.parentKey && realChannels.includes(o.parentKey)
             );
             const pillarKeys = channelPillars.map(p => p.key);
             filtered = base.filter(o => o.parentKey && pillarKeys.includes(o.parentKey));
+        } else if (filterChannel.includes('NO_CHANNEL')) {
+            filtered = base.filter(o => !o.parentKey);
         }
             
         return filtered.map(o => {

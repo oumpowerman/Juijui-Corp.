@@ -12,6 +12,8 @@ import dashboardRouter from './server/routes/dashboard.js';
 import chatRouter from './server/routes/chat.js';
 import adminApprovalRouter from './server/routes/adminApproval.js';
 import pushRouter from './server/routes/push.js';
+import previewRouter from './server/routes/preview.js';
+import channelsRouter from './server/routes/channels.js';
 
 const PORT = 3000;
 const app = express();
@@ -41,6 +43,8 @@ app.use(dashboardRouter);
 app.use(chatRouter);
 app.use(adminApprovalRouter);
 app.use(pushRouter);
+app.use(previewRouter);
+app.use(channelsRouter);
 
 async function startServer() {
     try {

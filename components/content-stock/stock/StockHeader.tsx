@@ -1,5 +1,5 @@
-import React from 'react';
-import { Task, Channel } from '../../../types';
+import React, { useState, useRef, useEffect } from 'react';
+import { Task, Channel, User, MasterOption } from '../../../types';
 import { Plus, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import StockChannelStack from './StockChannelStack';
@@ -14,6 +14,7 @@ interface StockHeaderProps {
   filterChannel: string[];
   setFilterChannel: React.Dispatch<React.SetStateAction<string[]>>;
   totalCount: number;
+  unassignedChannelCount?: number;
   isLoading: boolean;
   queueCount: number;
   fileInputRef: React.RefObject<HTMLInputElement>;
@@ -24,9 +25,12 @@ interface StockHeaderProps {
   onAdd: () => void;
   onOpenSettings: () => void;
   setSearchParams: any;
+  users?: User[];
+  masterOptions?: MasterOption[];
+  handleProcessFile?: (file: File) => Promise<void>;
 }
 
-const springTransition = { type: "spring", stiffness: 400, damping: 32 } as const;
+const springTransition = { type: 'spring', stiffness: 380, damping: 30 } as const;
 
 const StockHeader: React.FC<StockHeaderProps> = ({
   viewTab,
@@ -35,6 +39,7 @@ const StockHeader: React.FC<StockHeaderProps> = ({
   filterChannel,
   setFilterChannel,
   totalCount,
+  unassignedChannelCount,
   isLoading,
   queueCount,
   fileInputRef,
@@ -44,23 +49,59 @@ const StockHeader: React.FC<StockHeaderProps> = ({
   setIsInventoryModalOpen,
   onAdd,
   onOpenSettings,
-  setSearchParams
+  setSearchParams,
+  users = [],
+  masterOptions = [],
+  handleProcessFile
 }) => {
+  const [isStackExpanded, setIsStackExpanded] = useState(false);
+  const collapseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleStackMouseEnter = () => {
+    if (collapseTimeoutRef.current) {
+      clearTimeout(collapseTimeoutRef.current);
+      collapseTimeoutRef.current = null;
+    }
+    setIsStackExpanded(true);
+  };
+
+  const handleStackMouseLeave = () => {
+    if (collapseTimeoutRef.current) {
+      clearTimeout(collapseTimeoutRef.current);
+    }
+    collapseTimeoutRef.current = setTimeout(() => {
+      setIsStackExpanded(false);
+      collapseTimeoutRef.current = null;
+    }, 220);
+  };
+
+  const handleActionsMouseEnter = () => {
+    if (collapseTimeoutRef.current) {
+      clearTimeout(collapseTimeoutRef.current);
+      collapseTimeoutRef.current = null;
+    }
+    setIsStackExpanded(false);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (collapseTimeoutRef.current) {
+        clearTimeout(collapseTimeoutRef.current);
+      }
+    };
+  }, []);
+
   return (
-    <motion.div 
-      layout 
-      transition={springTransition}
-      className="flex flex-col xl:flex-row justify-between items-stretch xl:items-center gap-6 bg-white/70 backdrop-blur-2xl pt-6 pb-5 px-6 md:px-8 rounded-[2.5rem] border border-white/80 shadow-2xl shadow-indigo-500/10"
-    >
-      <motion.div layout transition={springTransition} className="flex-1 w-full xl:w-auto min-w-0">
+    <div className="flex flex-col xl:flex-row justify-between items-stretch xl:items-center gap-6 bg-white/70 backdrop-blur-2xl pt-6 pb-5 px-6 md:px-8 rounded-[2.5rem] border border-white/80 shadow-2xl shadow-indigo-500/10">
+      <div className="flex-1 w-full xl:w-auto min-w-0">
         <motion.div 
           layout
-          transition={springTransition}
+          transition={{ type: "spring", stiffness: 300, damping: 28 }}
           className="flex flex-col sm:flex-row sm:items-center gap-4 mb-5"
         >
           <motion.h1 
             layout
-            transition={springTransition}
+            transition={{ type: "spring", stiffness: 300, damping: 28 }}
             className="text-2xl md:text-3xl font-black text-slate-800 flex items-center tracking-tight shrink-0 overflow-hidden min-h-[44px] relative"
           >
             <AnimatePresence mode="wait">
@@ -90,7 +131,7 @@ const StockHeader: React.FC<StockHeaderProps> = ({
           {/* Tab Switcher */}
           <motion.div 
             layout
-            transition={springTransition}
+            transition={{ type: "spring", stiffness: 300, damping: 28 }}
             className="relative inline-flex items-center bg-slate-100/80 p-1.5 rounded-2xl border border-slate-200/60 shadow-inner w-full sm:w-auto overflow-hidden"
           >
             <button 
@@ -111,7 +152,7 @@ const StockHeader: React.FC<StockHeaderProps> = ({
               {viewTab === 'LIST' && (
                 <motion.div 
                   layoutId="activeStockTabPill" 
-                  transition={springTransition} 
+                  transition={{ type: "spring", stiffness: 380, damping: 30 }} 
                   className="absolute inset-0 bg-emerald-50/60 rounded-xl shadow-sm border border-emerald-100/80 z-0"
                 />
               )}
@@ -128,7 +169,7 @@ const StockHeader: React.FC<StockHeaderProps> = ({
               {viewTab === 'QUEUE' && (
                 <motion.div 
                   layoutId="activeStockTabPill" 
-                  transition={springTransition} 
+                  transition={{ type: "spring", stiffness: 380, damping: 30 }} 
                   className="absolute inset-0 bg-indigo-50/60 rounded-xl shadow-sm border border-indigo-100 z-0"
                 />
               )}
@@ -140,7 +181,7 @@ const StockHeader: React.FC<StockHeaderProps> = ({
                       initial={{ scale: 0, opacity: 0 }}
                       animate={{ scale: 1, opacity: 1 }}
                       exit={{ scale: 0, opacity: 0 }}
-                      transition={springTransition}
+                      transition={{ type: "spring", stiffness: 500, damping: 25 }}
                       className="flex items-center justify-center h-5 px-2 min-w-[20px] rounded-full text-[10px] font-black bg-indigo-500 text-white shadow-sm shadow-indigo-200"
                     >
                       {queueCount}
@@ -154,18 +195,27 @@ const StockHeader: React.FC<StockHeaderProps> = ({
 
         {/* Quick Channel Chips */}
         {viewTab === 'LIST' && (
-          <motion.div layout transition={springTransition} className="pt-2 pb-1">
+          <div className="pt-2 pb-1">
             <StockChannelStack 
               channels={channels}
               selectedChannelIds={filterChannel}
               onSelectChannels={setFilterChannel}
+              unassignedCount={unassignedChannelCount}
+              isExpanded={isStackExpanded}
+              onMouseEnter={handleStackMouseEnter}
+              onMouseLeave={handleStackMouseLeave}
             />
-          </motion.div>
+          </div>
         )}
-      </motion.div>
+      </div>
 
       {/* Action Side */}
-      <motion.div layout transition={springTransition} className="flex items-center gap-3 w-full xl:w-auto mt-2 xl:mt-0 shrink-0">
+      <motion.div 
+        layout
+        transition={springTransition}
+        onMouseEnter={handleActionsMouseEnter}
+        className="flex items-center gap-2.5 xl:gap-3 w-full xl:w-auto mt-2 xl:mt-0 shrink-0"
+      >
         {/* Utilities (Inventory, Import, Template) */}
         {viewTab === 'LIST' && (
           <>
@@ -173,7 +223,7 @@ const StockHeader: React.FC<StockHeaderProps> = ({
               type="file" 
               ref={fileInputRef} 
               onChange={handleFileUpload} 
-              accept=".csv" 
+              accept=".csv,.xlsx,.xls,.json" 
               className="hidden" 
             />
             <StockUtilities 
@@ -181,51 +231,75 @@ const StockHeader: React.FC<StockHeaderProps> = ({
               onImportClick={() => fileInputRef.current?.click()}
               onDownloadTemplate={handleDownloadTemplate}
               isImporting={isImporting}
+              channels={channels}
+              users={users}
+              masterOptions={masterOptions}
+              onProcessFile={handleProcessFile}
+              compact={isStackExpanded}
             />
           </>
         )}
 
         {/* Fixed Critical Actions (Add & Notification) */}
-        <div className="flex items-center gap-4 shrink-0 ml-auto xl:ml-0">
+        <div className="flex items-center gap-2.5 xl:gap-3 shrink-0 ml-auto xl:ml-0">
           {/* Premium Pastel Add Button */}
           <motion.button
-            whileHover={{ scale: 1.05, rotate: [0, -1, 1, 0] }}
+            layout
+            transition={springTransition}
+            whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={onAdd}
-            className="
-              relative group flex items-center gap-3 px-7 py-3.5 rounded-[1.5rem]
+            title="เพิ่มคอนเทนต์ใหม่"
+            className={`
+              relative group flex items-center justify-center h-11
+              ${isStackExpanded 
+                ? 'w-11 px-0 rounded-2xl' 
+                : 'px-5 sm:px-6 rounded-[1.25rem]'
+              }
               bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400
               text-white font-bold text-sm tracking-tight
               shadow-[0_10px_25px_-5px_rgba(165,180,252,0.5)]
               hover:shadow-[0_20px_40px_-10px_rgba(192,132,252,0.6)]
-              transition-all duration-500 border border-white/30
-              overflow-hidden
-            "
+              border border-white/30
+              overflow-hidden shrink-0 cursor-pointer
+            `}
           >
-            {/* Floating Sparkle Animation */}
-            <motion.div
-              animate={{ 
-                y: [0, -4, 0],
-                opacity: [0.5, 1, 0.5]
-              }}
-              transition={{ repeat: Infinity, duration: 2 }}
-              className="absolute top-1 right-3 pointer-events-none"
-            >
-              <Sparkles className="w-3 h-3 text-white/80" />
-            </motion.div>
+            {/* Floating Sparkle Animation (only when full) */}
+            {!isStackExpanded && (
+              <motion.div
+                animate={{ 
+                  y: [0, -4, 0],
+                  opacity: [0.5, 1, 0.5]
+                }}
+                transition={{ repeat: Infinity, duration: 2 }}
+                className="absolute top-1 right-3 pointer-events-none"
+              >
+                <Sparkles className="w-3 h-3 text-white/80" />
+              </motion.div>
+            )}
 
             {/* Shimmer Light effect */}
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-shimmer pointer-events-none" />
 
-            <div className="relative z-10 flex items-center gap-2">
-              <motion.div
-                animate={{ rotate: [0, 90, 0] }}
-                transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
-                className="bg-white/20 p-1 rounded-lg backdrop-blur-sm"
-              >
+            <div className="relative z-10 flex items-center justify-center gap-2">
+              <div className="flex items-center justify-center shrink-0">
                 <Plus className="w-5 h-5 stroke-[3.5px]" />
-              </motion.div>
-              <span className="drop-shadow-sm">เพิ่มคอนเทนต์</span>
+              </div>
+              
+              <AnimatePresence initial={false}>
+                {!isStackExpanded && (
+                  <motion.span 
+                    key="add-content-text"
+                    initial={{ opacity: 0, width: 0 }}
+                    animate={{ opacity: 1, width: 'auto' }}
+                    exit={{ opacity: 0, width: 0 }}
+                    transition={{ duration: 0.18, ease: "easeInOut" }}
+                    className="drop-shadow-sm whitespace-nowrap overflow-hidden text-sm font-bold"
+                  >
+                    เพิ่มคอนเทนต์
+                  </motion.span>
+                )}
+              </AnimatePresence>
             </div>
 
             {/* Glow background on hover */}
@@ -238,7 +312,7 @@ const StockHeader: React.FC<StockHeaderProps> = ({
           />
         </div>
       </motion.div>
-    </motion.div>
+    </div>
   );
 };
 

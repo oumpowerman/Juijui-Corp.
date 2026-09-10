@@ -64,6 +64,15 @@ export interface PlatformFollowers {
     [key: string]: number | undefined;
 }
 
+export interface ChannelGroup {
+    id: string;
+    name: string;
+    color?: string;
+    description?: string;
+    sort_order?: number;
+    created_at?: string;
+}
+
 export interface Channel {
     /** รหัสระบุตัวตนของช่อง/รายการ */
     id: string;
@@ -83,6 +92,10 @@ export interface Channel {
     social_links?: SocialLinks;
     /** จำนวนผู้ติดตามแยกตามแต่ละ Platform */
     followers?: PlatformFollowers;
+    /** รหัสกลุ่มของช่อง (Channel Group ID) */
+    group_id?: string | null;
+    /** ชื่อกลุ่มของช่อง (Channel Group Name) */
+    group_name?: string | null;
 }
 
 export interface TaskPerformance {

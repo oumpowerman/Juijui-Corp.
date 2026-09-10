@@ -22,8 +22,210 @@ export const parseCSVLine = (text: string) => {
 export const findUserByName = (name: string, users: User[]): string | null => {
     if (!name) return null;
     const cleanName = name.trim().toLowerCase();
-    const user = users.find(u => u.name.toLowerCase() === cleanName) || users.find(u => u.name.toLowerCase().includes(cleanName));
-    return user ? user.id : null;
+    if (!cleanName) return null;
+
+    // 1. Exact match on full name
+    const exactName = users.find(u => u.name && u.name.trim().toLowerCase() === cleanName);
+    if (exactName) return exactName.id;
+
+    // 2. Exact match on nickname (standard in Thai company workflows)
+    const exactNickname = users.find(u => u.nickname && u.nickname.trim().toLowerCase() === cleanName);
+    if (exactNickname) return exactNickname.id;
+
+    // 3. Exact match on email or username
+    const exactAccount = users.find(u => 
+        (u.email && u.email.trim().toLowerCase() === cleanName) ||
+        (u.username && u.username.trim().toLowerCase() === cleanName)
+    );
+    if (exactAccount) return exactAccount.id;
+
+    // 4. Exact match on first name or last name
+    const exactFirstOrLast = users.find(u => 
+        (u.firstName && u.firstName.trim().toLowerCase() === cleanName) ||
+        (u.lastName && u.lastName.trim().toLowerCase() === cleanName)
+    );
+    if (exactFirstOrLast) return exactFirstOrLast.id;
+
+    // 5. Fuzzy / Substring match on nickname
+    const fuzzyNickname = users.find(u => 
+        u.nickname && (u.nickname.toLowerCase().includes(cleanName) || cleanName.includes(u.nickname.toLowerCase()))
+    );
+    if (fuzzyNickname) return fuzzyNickname.id;
+
+    // 6. Fuzzy / Substring match on full name
+    const fuzzyName = users.find(u => 
+        u.name && (u.name.toLowerCase().includes(cleanName) || cleanName.includes(u.name.toLowerCase()))
+    );
+    if (fuzzyName) return fuzzyName.id;
+
+    return null;
+};
+
+export const findChannelByName = (name: string, channels: Channel[]): Channel | null => {
+    if (!name) return null;
+    const cleanName = name.trim().toLowerCase();
+    if (!cleanName) return null;
+
+    const exact = channels.find(c => c.name.trim().toLowerCase() === cleanName);
+    if (exact) return exact;
+
+    const fuzzy = channels.find(c => 
+        c.name.toLowerCase().includes(cleanName) || cleanName.includes(c.name.toLowerCase())
+    );
+    return fuzzy || null;
+};
+
+export const parseFlexibleDate = (val: any): Date | null => {
+    if (!val) return null;
+    if (val instanceof Date && !isNaN(val.getTime())) return val;
+    
+    const str = String(val).trim();
+    if (!str) return null;
+
+    // Numeric Excel date serial
+    if (/^\d+(\.\d+)?$/.test(str)) {
+        const serial = parseFloat(str);
+        if (serial > 1000 && serial < 100000) {
+            const utcDays = Math.floor(serial - 25569);
+            const d = new Date(utcDays * 86400 * 1000);
+            if (!isNaN(d.getTime())) return d;
+        }
+    }
+
+    const cleanStr = str.replace(/-/g, '/');
+    if (cleanStr.includes('/')) {
+        const parts = cleanStr.split('/');
+        if (parts.length === 3) {
+            let d: number, m: number, y: number;
+            if (parts[0].length === 4) {
+                // YYYY/MM/DD
+                y = parseInt(parts[0], 10);
+                m = parseInt(parts[1], 10) - 1;
+                d = parseInt(parts[2], 10);
+            } else {
+                // DD/MM/YYYY
+                d = parseInt(parts[0], 10);
+                m = parseInt(parts[1], 10) - 1;
+                y = parseInt(parts[2], 10);
+            }
+            if (y > 2400) y -= 543;
+            const date = new Date(y, m, d);
+            if (!isNaN(date.getTime())) return date;
+        }
+    }
+
+    const fallback = new Date(str);
+    return !isNaN(fallback.getTime()) ? fallback : null;
+};
+
+export const generateContentStockCSVTemplate = (masterOptions: MasterOption[] = [], channels: Channel[] = []): string => {
+    const defaultFormat = masterOptions.find(o => o.type === 'FORMAT')?.label || 'Short Form';
+    const defaultPillar = masterOptions.find(o => o.type === 'PILLAR')?.label || 'Entertainment';
+    const defaultCategory = masterOptions.find(o => o.type === 'CATEGORY')?.label || 'Review';
+    const defaultChannel = channels[0]?.name || 'Juijui Vlog';
+
+    const headers = [
+        "Content Topic",
+        "Content Format",
+        "Pillar",
+        "Category",
+        "Status",
+        "Publish Date",
+        "Shoot Date",
+        "Chanel",
+        "Owner",
+        "IDEA",
+        "Edit",
+        "Sub",
+        "Remark หมายเหตุ",
+        "Post",
+        "Storage Path"
+    ];
+
+    const sampleRows = [
+        [
+            `"ตัวอย่าง: รีวิวฟีเจอร์เด่นและวิธีจัดแสงถ่ายคลิป"`,
+            `"${defaultFormat}"`,
+            `"${defaultPillar}"`,
+            `"${defaultCategory}"`,
+            `"TODO"`,
+            `"15/10/2026"`,
+            `"10/10/2026"`,
+            `"${defaultChannel}"`,
+            `"สมชาย"`,
+            `"เน้นเจาะลึกฟังก์ชันกล้องหน้า ถ่ายแนวตั้ง 9:16"`,
+            `"สมหญิง"`,
+            `"น้องบอย"`,
+            `"สปอนเซอร์เข้า ตรวจดราฟต์ก่อนเผยแพร่ 3 วัน"`,
+            `"TikTok, YouTube, FB"`,
+            `"Drive: /2026/Review-Camera"`
+        ],
+        [
+            `"เที่ยวญี่ปุ่น 7 วัน งบประหยัด สรุปทุกค่าใช้จ่าย"`,
+            `"Long Form"`,
+            `"Lifestyle"`,
+            `"Vlog"`,
+            `"IDEA"`,
+            `"20/11/2026"`,
+            `""`,
+            `"${defaultChannel}"`,
+            `"Admin"`,
+            `"พาตะลุยโตเกียวและโอซาก้า พร้อมแจกแพลนเที่ยว"`,
+            `""`,
+            `""`,
+            `"งานถ่ายสต๊อกเก็บไว้ลงปลายปี"`,
+            `"YouTube"`,
+            `""`
+        ]
+    ];
+
+    return "\uFEFF" + headers.join(",") + "\n" + sampleRows.map(r => r.join(",")).join("\n");
+};
+
+export const generateContentStockJSONTemplate = (masterOptions: MasterOption[] = [], channels: Channel[] = []): string => {
+    const defaultFormat = masterOptions.find(o => o.type === 'FORMAT')?.label || 'Short Form';
+    const defaultPillar = masterOptions.find(o => o.type === 'PILLAR')?.label || 'Entertainment';
+    const defaultCategory = masterOptions.find(o => o.type === 'CATEGORY')?.label || 'Review';
+    const defaultChannel = channels[0]?.name || 'Juijui Vlog';
+
+    const sampleData = [
+        {
+            "Content Topic": "ตัวอย่าง: รีวิวฟีเจอร์เด่นและวิธีจัดแสงถ่ายคลิป",
+            "Content Format": defaultFormat,
+            "Pillar": defaultPillar,
+            "Category": defaultCategory,
+            "Status": "TODO",
+            "Publish Date": "15/10/2026",
+            "Shoot Date": "10/10/2026",
+            "Channel": defaultChannel,
+            "Owner": "สมชาย",
+            "IDEA": "เน้นเจาะลึกฟังก์ชันกล้องหน้า ถ่ายแนวตั้ง 9:16",
+            "Edit": "สมหญิง",
+            "Sub": "น้องบอย",
+            "Remark": "สปอนเซอร์เข้า ตรวจดราฟต์ก่อนเผยแพร่ 3 วัน",
+            "Post": "TikTok, YouTube, FB",
+            "Storage Path": "Drive: /2026/Review-Camera"
+        },
+        {
+            "Content Topic": "เที่ยวญี่ปุ่น 7 วัน งบประหยัด สรุปทุกค่าใช้จ่าย",
+            "Content Format": "Long Form",
+            "Pillar": "Lifestyle",
+            "Category": "Vlog",
+            "Status": "IDEA",
+            "Publish Date": "20/11/2026",
+            "Shoot Date": null,
+            "Channel": defaultChannel,
+            "Owner": "Admin",
+            "IDEA": "พาตะลุยโตเกียวและโอซาก้า พร้อมแจกแพลนเที่ยว",
+            "Edit": null,
+            "Sub": null,
+            "Remark": "งานถ่ายสต๊อกเก็บไว้ลงปลายปี",
+            "Post": "YouTube",
+            "Storage Path": ""
+        }
+    ];
+
+    return JSON.stringify(sampleData, null, 2);
 };
 
 export const findMasterKey = (type: string, rawValue: string, masterOptions: MasterOption[]) => {
@@ -184,7 +386,6 @@ export const parseContentStockCSV = async (
                 start_date: targetDate.toISOString(),
                 end_date: targetDate.toISOString(),
                 is_unscheduled: isUnscheduled,
-                priority: 'MEDIUM',
                 content_formats: contentFormat ? [contentFormat] : [],
                 pillar: pillar,
                 category: category,

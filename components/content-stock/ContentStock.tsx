@@ -66,6 +66,7 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
       importValidationResult,
       isSubmittingImport,
       handleFileUpload,
+      handleProcessFile,
       handleExecuteImport,
       handleDownloadTemplate,
       clearFilters,
@@ -74,6 +75,7 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
       totalCount,
       overdueCount,
       missingStorageCount,
+      unassignedChannelCount,
       isLoading,
       setSearchParams,
       updateLocalItem,
@@ -107,6 +109,7 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
           filterChannel={filterChannel}
           setFilterChannel={setFilterChannel}
           totalCount={totalCount}
+          unassignedChannelCount={unassignedChannelCount}
           isLoading={isLoading}
           queueCount={queueCount}
           fileInputRef={fileInputRef}
@@ -117,6 +120,9 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
           onAdd={onAdd}
           onOpenSettings={onOpenSettings}
           setSearchParams={setSearchParams}
+          users={users}
+          masterOptions={masterOptions}
+          handleProcessFile={handleProcessFile}
         />
 
         <AnimatePresence mode="wait">

@@ -1,77 +1,79 @@
-
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { format, startOfDay, endOfDay, parseISO } from 'date-fns';
 import { supabase } from '../lib/supabase';
-import { Task, MasterOption, getChecklistGroupKey } from '../types';
-import { isStockTerminalStatus } from '../config/status';
-import { CONTENT_FULL_SELECT_FIELDS, mapContentRowToTask } from '../lib/taskSchema';
+import { Task } from '../types';
+import { mapContentRowToTask } from '../lib/taskSchema';
 
-interface UseContentStockProps {
-    page: number;
-    pageSize: number;
-    searchQuery: string;
-    filters: {
-        channelId: string[];
-        format: string[];
-        pillar: string[];
-        category: string[];
-        statuses: string[];
-        showStockOnly: boolean;
-        onlyOverdue?: boolean;
-        onlyMissingStorage?: boolean;
-        hasShootDate?: boolean;
-        shootDateStart?: string; // Changed to Start
-        shootDateEnd?: string;   // Changed to End
-        contentSubTab?: 'ACTIVE' | 'ARCHIVE';
-        checklistProgress?: string[];
-    };
-    sortConfig: { key: string; direction: 'asc' | 'desc' } | null;
-    masterOptions?: MasterOption[];
-}
+// Sub-module Imports
+import { 
+    UseContentStockProps, 
+    StockFilters, 
+    StockSortConfig, 
+    stockCacheMap, 
+    clearStockCache, 
+    isStorageRequiredStatus 
+} from './content-stock/types';
+import { checkDoesItMatchFilters } from './content-stock/contentStockFilterMatcher';
+import { 
+    buildContentStockQuery, 
+    buildOverdueCountQuery, 
+    buildMissingStorageCountQuery, 
+    buildUnassignedChannelCountQuery 
+} from './content-stock/contentStockQueryBuilder';
+import { useContentStockRealtime } from './content-stock/useContentStockRealtime';
+import { useContentStockActions } from './content-stock/useContentStockActions';
 
-// Global cache map to persist query results across unmount/remount (SWR-like behavior)
-const cacheMap = new Map<string, {
-    contents: Task[];
-    totalCount: number;
-    overdueCount: number;
-    missingStorageCount: number;
-    timestamp: number;
-}>();
+// Re-exports for complete backward compatibility with external components/hooks
+export { isStorageRequiredStatus, stockCacheMap, clearStockCache, checkDoesItMatchFilters };
+export type { UseContentStockProps, StockFilters, StockSortConfig };
 
-export const isStorageRequiredStatus = (status: string): boolean => {
-    if (!status) return false;
-    const s = status.toUpperCase();
-    return s.includes('EDIT') || 
-           s.includes('FEEDBACK') || 
-           s.includes('APPROVE') || 
-           s.includes('DONE') || 
-           s.includes('PUBLISH') || 
-           s.includes('POSTED') || 
-           s.includes('COMPLETE') || 
-           s.includes('SUCCESS');
-};
-
-export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConfig, masterOptions = [] }: UseContentStockProps) => {
+export const useContentStock = ({
+    page,
+    pageSize,
+    searchQuery,
+    filters,
+    sortConfig,
+    masterOptions = []
+}: UseContentStockProps) => {
     const [contents, setContents] = useState<Task[]>([]);
     const [totalCount, setTotalCount] = useState(0);
     const [overdueCount, setOverdueCount] = useState(0);
     const [missingStorageCount, setMissingStorageCount] = useState(0);
+    const [unassignedChannelCount, setUnassignedChannelCount] = useState(0);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
 
     // Track IDs that have been optimistically added to totalCount to prevent double-counting
     const trackedAddedIds = useRef(new Set<string>());
 
+    // Decoupled count of unassigned channel items: only fetched on initial load or manual refresh
+    const fetchUnassignedChannelCount = useCallback(async () => {
+        try {
+            const { count, error } = await buildUnassignedChannelCountQuery();
+            if (!error && count !== null) {
+                setUnassignedChannelCount(count);
+            }
+        } catch (err) {
+            console.error('Failed to fetch unassigned channel count:', err);
+        }
+    }, []);
+
+    const hasFetchedUnassignedCountRef = useRef(false);
+    useEffect(() => {
+        if (!hasFetchedUnassignedCountRef.current) {
+            hasFetchedUnassignedCountRef.current = true;
+            fetchUnassignedChannelCount();
+        }
+    }, [fetchUnassignedChannelCount]);
+
     const pageRef = useRef(page);
     useEffect(() => {
         pageRef.current = page;
     }, [page]);
 
-    // Refs to access current state inside stable useEffect for Realtime
+    // Refs to access current state inside stable callbacks without stale closures
     const searchRef = useRef(searchQuery);
     const filtersRef = useRef(filters);
     
-    // Update Refs when props change
     useEffect(() => {
         searchRef.current = searchQuery;
         filtersRef.current = filters;
@@ -79,153 +81,19 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
 
     const mapSupabaseToTask = useCallback((data: any): Task => mapContentRowToTask(data), []);
 
-    // --- SMART HYDRATION LOGIC ---
-    // Stable match function using refs to prevent stale closure and avoid resubscribing socket channels on typing.
-    const checkDoesItMatchFilters = useCallback((task: Task, currentFilters?: any, customSearch?: string) => {
+    // Bound filter matching function
+    const checkDoesItMatchFiltersBound = useCallback((task: Task, currentFilters?: any, customSearch?: string) => {
         const activeFilters = currentFilters !== undefined ? currentFilters : filtersRef.current;
-        const activeSearch = (customSearch !== undefined ? customSearch : (currentFilters !== undefined ? searchQuery : searchRef.current)).toLowerCase();
+        const activeSearch = customSearch !== undefined ? customSearch : (currentFilters !== undefined ? searchQuery : searchRef.current);
+        return checkDoesItMatchFilters(task, activeFilters, activeSearch, masterOptions);
+    }, [masterOptions, searchQuery]);
 
-        // Search Match
-        if (activeSearch) {
-            let searchTags: string[] = [];
-            let cleanSearchQuery = activeSearch;
-            
-            const hashTags = activeSearch.match(/#\S+/g);
-            if (hashTags) {
-                searchTags = hashTags.map(tag => tag.slice(1).toLowerCase().trim()).filter(Boolean);
-                cleanSearchQuery = activeSearch.replace(/#\S+/g, '').trim();
-            }
-
-            if (searchTags.length > 0) {
-                const taskTagsLower = (task.tags || []).map(t => (t || '').toLowerCase().trim());
-                const hasAllTags = searchTags.every(st => taskTagsLower.includes(st));
-                if (!hasAllTags) return false;
-            }
-
-            if (cleanSearchQuery) {
-                const titleMatch = (task.title || '').toLowerCase().includes(cleanSearchQuery);
-                const remarkMatch = (task.remark || '').toLowerCase().includes(cleanSearchQuery);
-                const locMatch = (task.shootLocation || '').toLowerCase().includes(cleanSearchQuery);
-                if (!titleMatch && !remarkMatch && !locMatch) return false;
-            }
-        }
-
-        // Filter Match
-        if (activeFilters.channelId && activeFilters.channelId.length > 0 && (!task.channelId || !activeFilters.channelId.includes(task.channelId))) return false;
-        
-        if (activeFilters.format.length > 0) {
-            const taskFormats = task.contentFormats || [];
-            const hasMatch = taskFormats.some(f => activeFilters.format.includes(f));
-            if (!hasMatch) return false;
-        }
-        
-        if (activeFilters.pillar.length > 0 && (!task.pillar || !activeFilters.pillar.includes(task.pillar))) return false;
-        if (activeFilters.category.length > 0 && (!task.category || !activeFilters.category.includes(task.category))) return false;
-        
-        // 2.1 Content Tab: Active vs Archive Invariant
-        const isArchive = activeFilters.contentSubTab === 'ARCHIVE';
-        const isTerminalStatus = isStockTerminalStatus(task.status);
-        
-        if (activeFilters.onlyOverdue) {
-            // Overdue Analytics Match: MUST be explicitly scheduled (false) AND terminal AND > 7 days AND incomplete analytics
-            const sevenDaysAgo = new Date();
-            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-            
-            const endDateObj = task.endDate ? (task.endDate instanceof Date ? task.endDate : new Date(task.endDate)) : null;
-            const isActuallyOverdue = 
-                !task.isUnscheduled && 
-                isTerminalStatus && 
-                task.analyticsStatus !== 'COMPLETE' && 
-                endDateObj && 
-                endDateObj <= sevenDaysAgo;
-            
-            if (!isActuallyOverdue) return false;
-            
-            // Status override check if specific status selected
-            if (activeFilters.statuses.length > 0 && !activeFilters.statuses.includes(task.status as any)) return false;
-        } else {
-            if (isArchive) {
-                if (!isTerminalStatus) return false;
-            } else {
-                // Active Tab case
-                if (isTerminalStatus) return false;
-                // Additional status filter if any
-                if (activeFilters.statuses.length > 0 && !activeFilters.statuses.includes(task.status as any)) return false;
-            }
-        }
-
-        if (activeFilters.showStockOnly && !task.isUnscheduled) return false;
-
-        // Missing Storage Filter
-        if (activeFilters.onlyMissingStorage) {
-            if (!isStorageRequiredStatus(task.status)) return false;
-            const hasLocalPath = !!task.localPath && task.localPath.trim() !== '';
-            const hasDriveLabel = !!task.driveLabel && task.driveLabel.trim() !== '';
-            if (hasLocalPath && hasDriveLabel) return false;
-        }
-
-        // Shoot Date Filter
-        if (activeFilters.hasShootDate && !task.shootDate) return false;
-
-        // Shoot Date Range Match
-        if (task.shootDate) {
-             const taskShootStr = format(task.shootDate, 'yyyy-MM-dd');
-             if (activeFilters.shootDateStart && taskShootStr < activeFilters.shootDateStart) return false;
-             if (activeFilters.shootDateEnd && taskShootStr > activeFilters.shootDateEnd) return false;
-        } else {
-             // If filter is active but task has no date, hide it? 
-             // Usually yes, if searching for specific date range.
-             if (activeFilters.shootDateStart || activeFilters.shootDateEnd) return false;
-        }
-
-        // Checklist Progress Filter Match
-        if (activeFilters.checklistProgress && activeFilters.checklistProgress.length > 0) {
-            const groupKey = getChecklistGroupKey(task.status, masterOptions);
-            const statusSteps = masterOptions
-                .filter(o => o.type === 'STATUS_CHECKLIST' && o.parentKey === groupKey && o.isActive)
-                .sort((a, b) => (a.sortOrder || 0) - (b.sortOrder || 0));
-                
-            // Task matches if it satisfies AT LEAST ONE of the selected filters (OR-logic)
-            const matchedAny = activeFilters.checklistProgress.some((filterKey: string) => {
-                if (statusSteps.length === 0) {
-                    // If there are no sub-steps defined for this status, it shouldn't match any filter except INCOMPLETE
-                    return filterKey === 'INCOMPLETE';
-                }
-                
-                const progress = task.subChecklistProgress || {};
-                
-                if (filterKey === 'STEPS_1_3') {
-                    // First 3 steps must be completed
-                    const stepsToVerify = statusSteps.slice(0, 3);
-                    return stepsToVerify.length > 0 && stepsToVerify.every(s => !!progress[s.key]);
-                } else if (filterKey === 'STEPS_4_5') {
-                    // Steps 4-5 (index 3 and onwards) must be completed
-                    if (statusSteps.length <= 3) return false; // No steps 4-5 exist
-                    const stepsToVerify = statusSteps.slice(3);
-                    return stepsToVerify.every(s => !!progress[s.key]);
-                } else if (filterKey === 'COMPLETED') {
-                    // All active steps must be completed
-                    return statusSteps.every(s => !!progress[s.key]);
-                } else if (filterKey === 'INCOMPLETE') {
-                    // At least one active step is NOT completed
-                    return statusSteps.some(s => !progress[s.key]);
-                } else {
-                    // It must be a specific step key!
-                    return !!progress[filterKey];
-                }
-            });
-
-            if (!matchedAny) return false;
-        }
-
-        return true;
-    }, [masterOptions]);
-
+    // Data Fetching
     const fetchContents = useCallback(async (isBackground = false) => {
         const cacheKey = JSON.stringify({ page, pageSize, searchQuery, filters, sortConfig });
         
         if (!isBackground) {
-            const cached = cacheMap.get(cacheKey);
+            const cached = stockCacheMap.get(cacheKey);
             const now = Date.now();
             if (cached && (now - cached.timestamp < 15000)) {
                 setContents(cached.contents);
@@ -242,165 +110,19 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
         }
 
         try {
-            let query = supabase
-                .from('contents')
-                .select(CONTENT_FULL_SELECT_FIELDS, { count: 'exact' });
+            const isUsingMemoryFilter = Boolean(filters.checklistProgress && filters.checklistProgress.length > 0);
 
-            // 1. Search
-            if (searchQuery) {
-                let searchTags: string[] = [];
-                let cleanSearchQuery = searchQuery;
-                
-                const hashTags = searchQuery.match(/#\S+/g);
-                if (hashTags) {
-                    searchTags = hashTags.map(tag => tag.slice(1).trim()).filter(Boolean);
-                    cleanSearchQuery = searchQuery.replace(/#\S+/g, '').trim();
-                }
+            const query = buildContentStockQuery({
+                page,
+                pageSize,
+                searchQuery,
+                filters,
+                sortConfig,
+                isUsingMemoryFilter
+            });
 
-                if (searchTags.length > 0) {
-                    query = query.contains('tags', searchTags);
-                }
-
-                if (cleanSearchQuery) {
-                    query = query.or(`title.ilike.%${cleanSearchQuery}%,remark.ilike.%${cleanSearchQuery}%,shoot_location.ilike.%${cleanSearchQuery}%`);
-                }
-            }
-
-            // 2. Filters
-            if (filters.channelId && filters.channelId.length > 0) query = query.in('channel_id', filters.channelId);
-            
-            if (filters.format.length > 0) {
-                // Use overlaps for array column
-                query = query.overlaps('content_formats', filters.format);
-            }
-            
-            if (filters.pillar.length > 0) query = query.in('pillar', filters.pillar);
-            if (filters.category.length > 0) query = query.in('category', filters.category);
-            
-            // Filter by stock only if showStockOnly is active
-            if (filters.showStockOnly) {
-                query = query.eq('is_unscheduled', true);
-            }
-
-            // Filter by missing storage only if onlyMissingStorage is active
-            if (filters.onlyMissingStorage) {
-                query = query
-                    .or('local_path.is.null,drive_label.is.null')
-                    .or('status.ilike.%edit%,status.ilike.%feedback%,status.ilike.%approve%,status.ilike.%done%,status.ilike.%publish%,status.ilike.%posted%,status.ilike.%complete%,status.ilike.%success%');
-            }
-
-            // 2.1 Content Tab: Active vs Archive
-            if (filters.onlyOverdue) {
-                // 2.3 Overdue Analytics Filter overrides standard Status/Tab logic
-                const sevenDaysAgo = new Date();
-                sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-                
-                query = query
-                    .or('status.ilike.%done%,status.ilike.%publish%,status.ilike.%posted%,status.ilike.%complete%,status.ilike.%success%')
-                    .lte('end_date', sevenDaysAgo.toISOString())
-                    .eq('is_unscheduled', false)
-                    .neq('analytics_status', 'COMPLETE'); // DB-level indexing optimization
-
-                // If specific statuses were selected AND onlyOverdue is on, 
-                // we should respect them but stay within terminal statuses
-                if (filters.statuses.length > 0) {
-                    query = query.in('status', filters.statuses);
-                }
-            } else if (filters.contentSubTab === 'ARCHIVE') {
-                query = query.or('status.ilike.%done%,status.ilike.%publish%,status.ilike.%posted%,status.ilike.%complete%,status.ilike.%success%');
-            } else {
-                // Default to ACTIVE: show everything EXCEPT statuses containing terminal keywords
-                query = query
-                    .not('status', 'ilike', '%done%')
-                    .not('status', 'ilike', '%publish%')
-                    .not('status', 'ilike', '%posted%')
-                    .not('status', 'ilike', '%complete%')
-                    .not('status', 'ilike', '%success%');
-                
-                // If statuses are selected in the Active tab, apply them
-                if (filters.statuses.length > 0) {
-                    query = query.in('status', filters.statuses);
-                }
-            }
-            
-            // 2.2 Shoot Date Range Filter
-            if (filters.hasShootDate) {
-                query = query.not('shoot_date', 'is', null);
-            }
-            if (filters.shootDateStart) {
-                query = query.gte('shoot_date', filters.shootDateStart);
-            }
-            if (filters.shootDateEnd) {
-                query = query.lte('shoot_date', filters.shootDateEnd);
-            }
-
-            // 3. Sort
-            if (sortConfig) {
-                const sortKeyMap: Record<string, string> = {
-                    'title': 'title', 
-                    'status': 'status', 
-                    'date': 'end_date', 
-                    'publishDate': 'end_date',
-                    'shootDate': 'shoot_date',
-                    'remark': 'remark',
-                    'shortNote': 'remark',
-                    'ideaOwner': 'idea_owner_ids',
-                    'editor': 'editor_ids',
-                    'helper': 'assignee_ids',
-                    'createdAt': 'created_at'
-                };
-                const dbKey = sortKeyMap[sortConfig.key] || 'created_at';
-                
-                // Special handling: Only group by is_unscheduled when explicitly sorting by publish date columns
-                const isPublishDateSort = sortConfig.key === 'publishDate' || sortConfig.key === 'date';
-                if (isPublishDateSort) {
-                    query = query.order('is_unscheduled', { ascending: true });
-                }
-
-                // Use nullsFirst: false to keep items without dates at the bottom for date sorts
-                query = query.order(dbKey, { 
-                    ascending: sortConfig.direction === 'asc',
-                    nullsFirst: false 
-                });
-            } else {
-                query = query.order('created_at', { ascending: false });
-            }
-
-            // 4. Pagination
-            const isUsingMemoryFilter = filters.checklistProgress && filters.checklistProgress.length > 0;
-            if (!isUsingMemoryFilter) {
-                const from = (page - 1) * pageSize;
-                const to = from + pageSize - 1;
-                query = query.range(from, to);
-            }
-
-            const sevenDaysAgo = new Date();
-            sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-            let overdueQuery = supabase
-                .from('contents')
-                .select('*', { count: 'exact', head: true })
-                .or('status.ilike.%done%,status.ilike.%publish%,status.ilike.%posted%,status.ilike.%complete%,status.ilike.%success%')
-                .lte('end_date', sevenDaysAgo.toISOString())
-                .eq('is_unscheduled', false)
-                .neq('analytics_status', 'COMPLETE'); // DB-level indexing optimization
-
-            if (filters.channelId && filters.channelId.length > 0) overdueQuery = overdueQuery.in('channel_id', filters.channelId);
-
-            let missingStorageQuery = supabase
-                .from('contents')
-                .select('*', { count: 'exact', head: true })
-                .or('local_path.is.null,drive_label.is.null');
-
-            if (filters.contentSubTab === 'ARCHIVE') {
-                missingStorageQuery = missingStorageQuery
-                    .or('status.ilike.%done%,status.ilike.%publish%,status.ilike.%posted%,status.ilike.%complete%,status.ilike.%success%');
-            } else {
-                missingStorageQuery = missingStorageQuery
-                    .or('status.ilike.%edit%,status.ilike.%feedback%,status.ilike.%approve%');
-            }
-
-            if (filters.channelId && filters.channelId.length > 0) missingStorageQuery = missingStorageQuery.in('channel_id', filters.channelId);
+            const overdueQuery = buildOverdueCountQuery(filters);
+            const missingStorageQuery = buildMissingStorageCountQuery(filters);
 
             const [response, overdueResponse, missingStorageResponse] = await Promise.all([
                 query,
@@ -421,8 +143,7 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
                 let finalCount = count || 0;
 
                 if (isUsingMemoryFilter) {
-                    // Filter in memory
-                    mapped = mapped.filter(task => checkDoesItMatchFilters(task, filters));
+                    mapped = mapped.filter(task => checkDoesItMatchFiltersBound(task, filters));
                     finalCount = mapped.length;
                     
                     const from = (page - 1) * pageSize;
@@ -439,7 +160,7 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
                 }
                 
                 // Save to SWR Cache
-                cacheMap.set(cacheKey, {
+                stockCacheMap.set(cacheKey, {
                     contents: mapped,
                     totalCount: finalCount,
                     overdueCount: overdueDbCount !== null ? overdueDbCount : 0,
@@ -447,7 +168,6 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
                     timestamp: Date.now()
                 });
                 
-                // Reset tracked IDs since we have a fresh baseline from server
                 trackedAddedIds.current.clear();
             }
         } catch (err) {
@@ -456,272 +176,68 @@ export const useContentStock = ({ page, pageSize, searchQuery, filters, sortConf
             if (!isBackground) setIsLoading(false);
             setIsRefreshing(false);
         }
-    }, [page, pageSize, searchQuery, filters, sortConfig, mapSupabaseToTask, checkDoesItMatchFilters]);
+    }, [page, pageSize, searchQuery, filters, sortConfig, mapSupabaseToTask, checkDoesItMatchFiltersBound]);
 
     // Initial Fetch
     useEffect(() => {
         fetchContents();
     }, [fetchContents]);
 
-    // Ref to access fetch function in realtime callback if needed
     const fetchContentsRef = useRef(fetchContents);
     useEffect(() => {
         fetchContentsRef.current = fetchContents;
     }, [fetchContents]);
 
-    const handleRealtimeUpdate = useCallback(async (eventType: 'INSERT' | 'UPDATE' | 'DELETE', newRec: any, oldRec: any) => {
-        // Any database real-time push means we clear memory cache to ensure safety.
-        cacheMap.clear();
-        try {
-            if (eventType === 'DELETE') {
-                const oldId = oldRec?.id;
-                if (!oldId) return;
-                console.log(`[Realtime] Deleting item: ${oldId}`);
-                setContents(prevList => {
-                    const exists = prevList.some(item => item.id === oldId);
-                    if (exists || trackedAddedIds.current.has(oldId)) {
-                        setTotalCount(prev => Math.max(0, prev - 1));
-                        trackedAddedIds.current.delete(oldId);
-                        return prevList.filter(item => item.id !== oldId);
-                    }
-                    return prevList;
-                });
-                return;
-            }
-
-            // 🚀 SMART STATE HYDRATION (Phase 2): Merge local fields on UPDATE first
-            // to completely bypass database select queries if the row is already in memory!
-            if (eventType === 'UPDATE' && newRec) {
-                let mergedSuccess = false;
-                setContents(prevList => {
-                    const existingItem = prevList.find(item => item.id === newRec.id);
-                    if (existingItem) {
-                        mergedSuccess = true;
-                        const mappedPartial = mapSupabaseToTask(newRec);
-                        const mergedTask: Task = {
-                            ...existingItem,
-                            ...mappedPartial,
-                            // Preserve relations that postgres changes don't send
-                            reviews: existingItem.reviews,
-                            hasAnalytics: existingItem.hasAnalytics,
-                            analyticsStatus: existingItem.analyticsStatus,
-                        };
-
-                        const isMatch = checkDoesItMatchFilters(mergedTask);
-
-                        if (isMatch) {
-                            return prevList.map(item => item.id === newRec.id ? mergedTask : item);
-                        } else {
-                            setTotalCount(prev => Math.max(0, prev - 1));
-                            trackedAddedIds.current.delete(newRec.id);
-                            return prevList.filter(item => item.id !== newRec.id);
-                        }
-                    }
-                    return prevList;
-                });
-
-                if (mergedSuccess) return;
-            }
-
-            const targetId = newRec?.id;
-            if (!targetId) return;
-
-            const { data, error } = await supabase
-                .from('contents')
-                .select(`id, title, status, start_date, end_date, created_at, channel_id, tags, target_platform, pillar, content_formats, category, is_unscheduled, description, remark, shoot_date, shoot_location, is_in_shoot_queue, assignee_ids, idea_owner_ids, editor_ids, local_path, drive_label, sub_checklist_progress, content_analytics(id, platform)`)
-                .eq('id', targetId)
-                .maybeSingle();
-
-            if (error || !data) return; 
-
-            const fullTask = mapSupabaseToTask(data);
-            const isMatch = checkDoesItMatchFilters(fullTask);
-
-            if (isMatch) {
-                // If it's a match, we should check if it's already in the list
-                // If not, it's a new item (INSERT or moved into view), so increment totalCount
-                setContents(prevList => {
-                    const exists = prevList.some(item => item.id === targetId);
-                    if (!exists && !trackedAddedIds.current.has(targetId)) {
-                        setTotalCount(prev => prev + 1);
-                        trackedAddedIds.current.add(targetId);
-                    }
-                    
-                    if (exists) {
-                        return prevList.map(item => item.id === targetId ? fullTask : item);
-                    } else if (pageRef.current === 1) {
-                        return [fullTask, ...prevList];
-                    }
-                    return prevList;
-                });
-            } else {
-                // If it no longer matches filters, remove it and decrement count if it was there
-                setContents(prevList => {
-                    const exists = prevList.some(item => item.id === targetId);
-                    if (exists || trackedAddedIds.current.has(targetId)) {
-                        setTotalCount(prev => Math.max(0, prev - 1));
-                        trackedAddedIds.current.delete(targetId);
-                        return prevList.filter(item => item.id !== targetId);
-                    }
-                    return prevList;
-                });
-            }
-
-        } catch (err) {
-            console.error("Smart Hydration Error:", err);
-        }
-    }, [mapSupabaseToTask, checkDoesItMatchFilters]);
-
     const triggerCountRefresh = useCallback(() => {
-        // Background refresh to update total counts
         fetchContentsRef.current(true); 
     }, []);
 
-    // Manual Update Function (Bridge for Global State Sync)
-    const updateLocalItem = useCallback((task: Task, isDelete: boolean = false) => {
-        // Clear memory cache so future page requests reflect the updated data
-        cacheMap.clear();
-        // Immediate update without DB fetch (Optimistic from Global State)
-        setContents(prevList => {
-            const exists = prevList.some(item => item.id === task.id);
-            
-            if (isDelete) {
-                if (exists || trackedAddedIds.current.has(task.id)) {
-                    setTotalCount(prev => Math.max(0, prev - 1));
-                    trackedAddedIds.current.delete(task.id);
-                    return prevList.filter(item => item.id !== task.id);
-                }
-                return prevList;
-            }
+    // Sub-hook: Realtime WebSocket & Smart State Hydration
+    useContentStockRealtime({
+        setContents,
+        setTotalCount,
+        setUnassignedChannelCount,
+        trackedAddedIds,
+        pageRef,
+        checkDoesItMatchFilters: checkDoesItMatchFiltersBound,
+        triggerCountRefresh,
+        mapSupabaseToTask
+    });
 
-            const isMatch = checkDoesItMatchFilters(task);
+    // Sub-hook: CRUD Actions (Optimistic Local Update, Shoot Queue, Sub Checklist)
+    const { 
+        updateLocalItem, 
+        toggleShootQueue, 
+        updateSubChecklistProgress 
+    } = useContentStockActions({
+        setContents,
+        setTotalCount,
+        setUnassignedChannelCount,
+        trackedAddedIds,
+        pageRef,
+        checkDoesItMatchFilters: checkDoesItMatchFiltersBound
+    });
 
-            if (isMatch) {
-                if (exists) {
-                     return prevList.map(item => {
-                         if (item.id === task.id) {
-                             if ((task as any)._isPartial) {
-                                 return {
-                                     ...item,
-                                     ...task,
-                                     description: item.description || task.description,
-                                     remark: item.remark || task.remark,
-                                     shootNotes: item.shootNotes || task.shootNotes,
-                                     publishedLinks: item.publishedLinks || task.publishedLinks,
-                                     reviews: (item.reviews && item.reviews.length > 0) ? item.reviews : task.reviews,
-                                     sponsorship: item.sponsorship || task.sponsorship,
-                                     _isPartial: item._isPartial && (task as any)._isPartial
-                                 };
-                             }
-                             return task;
-                         }
-                         return item;
-                     });
-                }
-                
-                // Handle Addition: If it matches filters and doesn't exist locally,
-                // we only increment totalCount if we haven't tracked it yet.
-                if (!trackedAddedIds.current.has(task.id)) {
-                    setTotalCount(prev => prev + 1);
-                    trackedAddedIds.current.add(task.id);
-                }
-                
-                // We only add it to the top if we are on page 1 (Page 1 Guard).
-                if (pageRef.current === 1) {
-                    return [task, ...prevList];
-                }
-                
-                return prevList;
-            } else {
-                // Handle Filter Mismatch: Remove from local list if it was there
-                // and decrement the total count since it no longer matches the current view
-                if (exists || trackedAddedIds.current.has(task.id)) {
-                    setTotalCount(prev => Math.max(0, prev - 1));
-                    trackedAddedIds.current.delete(task.id);
-                    return prevList.filter(item => item.id !== task.id);
-                }
-                return prevList;
-            }
-        });
-    }, [checkDoesItMatchFilters]);
+    const refreshStock = useCallback(async () => {
+        await Promise.all([
+            fetchContents(true),
+            fetchUnassignedChannelCount()
+        ]);
+    }, [fetchContents, fetchUnassignedChannelCount]);
 
-    // Realtime Subscription
-    useEffect(() => {
-        let refreshTimeout: ReturnType<typeof setTimeout>;
-        const debouncedCountRefresh = () => {
-            clearTimeout(refreshTimeout);
-            refreshTimeout = setTimeout(() => {
-                triggerCountRefresh();
-            }, 2000); 
-        };
-
-        const channel = supabase
-            .channel('realtime-content-stock-smart-v3')
-            .on(
-                'postgres_changes',
-                { event: '*', schema: 'public', table: 'contents' },
-                async (payload) => {
-                    const eventType = payload.eventType;
-                    const newRec = payload.new as any;
-                    const oldRec = payload.old as any;
-                    
-                    console.log(`[Realtime] Event: ${eventType} on table 'contents'`);
-
-                    if (eventType === 'UPDATE' || eventType === 'INSERT') {
-                        await handleRealtimeUpdate(eventType, newRec, oldRec);
-                        if (eventType === 'INSERT') debouncedCountRefresh();
-                    } else if (eventType === 'DELETE') {
-                        await handleRealtimeUpdate('DELETE', null, oldRec);
-                        debouncedCountRefresh();
-                    }
-                }
-            )
-            .subscribe();
-
-        return () => {
-            supabase.removeChannel(channel);
-            clearTimeout(refreshTimeout);
-        };
-    }, [handleRealtimeUpdate, triggerCountRefresh]);
-
-    const toggleShootQueue = async (id: string, currentStatus: boolean): Promise<boolean> => {
-        // Clear stock view cache
-        cacheMap.clear();
-        try {
-            const { error } = await supabase
-                .from('contents')
-                .update({ is_in_shoot_queue: !currentStatus })
-                .eq('id', id);
-            
-            if (error) throw error;
-            
-            // Optimistic update
-            setContents(prev => prev.map(item => item.id === id ? { ...item, isInShootQueue: !currentStatus } : item));
-            return true;
-        } catch (err) {
-            console.error('Toggle shoot queue failed:', err);
-            return false;
-        }
+    return { 
+        contents, 
+        totalCount, 
+        overdueCount, 
+        missingStorageCount, 
+        unassignedChannelCount, 
+        isLoading, 
+        isRefreshing, 
+        fetchContents, 
+        refreshStock,
+        fetchUnassignedChannelCount,
+        updateLocalItem, 
+        toggleShootQueue, 
+        updateSubChecklistProgress 
     };
-
-    const updateSubChecklistProgress = async (id: string, progress: Record<string, boolean>): Promise<boolean> => {
-        cacheMap.clear();
-        try {
-            const { error } = await supabase
-                .from('contents')
-                .update({ sub_checklist_progress: progress })
-                .eq('id', id);
-            
-            if (error) throw error;
-            
-            // Optimistic update
-            setContents(prev => prev.map(item => item.id === id ? { ...item, subChecklistProgress: progress } : item));
-            return true;
-        } catch (err) {
-            console.error('Update sub checklist progress failed:', err);
-            return false;
-        }
-    };
-
-    return { contents, totalCount, overdueCount, missingStorageCount, isLoading, isRefreshing, fetchContents, updateLocalItem, toggleShootQueue, updateSubChecklistProgress };
 };

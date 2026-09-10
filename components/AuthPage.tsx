@@ -170,7 +170,7 @@ const AuthPage: React.FC<AuthPageProps> = ({
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       transition={{ delay: 0.1 }}
-                      className="text-3xl font-black mb-2 text-slate-800"
+                      className="text-3xl font-bold mb-2 text-slate-800"
                     >
                       {isLogin
                         ? 'ยินดีต้อนรับกลับ! 👋'

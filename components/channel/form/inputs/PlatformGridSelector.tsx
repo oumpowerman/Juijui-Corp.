@@ -1,6 +1,6 @@
 import React from 'react';
 import { Youtube, Facebook, Instagram, Video, Globe, Check, LayoutTemplate, ExternalLink, Link2, Users } from 'lucide-react';
-import { Platform, SocialLinks, PlatformFollowers } from '../../types';
+import { Platform, SocialLinks, PlatformFollowers } from '../../../../types';
 
 export const PLATFORM_OPTIONS: { id: Platform; label: string; icon: any; color: string; placeholder: string; prefixHelp: string }[] = [
   { id: 'YOUTUBE', label: 'YouTube', icon: Youtube, color: 'text-red-600', placeholder: 'https://youtube.com/@channel_name', prefixHelp: 'URL ช่อง YouTube เช่น https://youtube.com/@...' },

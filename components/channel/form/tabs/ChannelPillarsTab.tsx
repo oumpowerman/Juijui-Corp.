@@ -1,6 +1,6 @@
 import React from 'react';
-import { ChannelPillarsCategoriesManager } from '../ChannelPillarsCategoriesManager';
-import { Channel } from '../../../types';
+import { ChannelPillarsCategoriesManager } from '../inputs/ChannelPillarsCategoriesManager';
+import { Channel } from '../../../../types';
 
 interface TempOption {
   id: string;

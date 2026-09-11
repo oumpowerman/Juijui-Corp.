@@ -1,30 +1,25 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, FolderKanban, Sparkles, ChevronDown, RefreshCw } from 'lucide-react';
 import { Channel, Task, User } from '../types';
-import MentorTip from './MentorTip';
-import NotificationBellBtn from './NotificationBellBtn';
-import { useGlobalDialog } from '../context/GlobalDialogContext';
 import { useToast } from '../context/ToastContext';
-import ChannelFormModal from './ChannelFormModal';
-import { ChannelGroupModal } from './channel/ChannelGroupModal';
-import { ChannelStatsCards } from './channel/ChannelStatsCards';
-import { ChannelFilterTabs } from './channel/ChannelFilterTabs';
-import { ChannelSectionList } from './channel/ChannelSectionList';
-import { FollowerSyncProgressModal, SyncModalState } from './channel/FollowerSyncProgressModal';
-import { 
-  FullSyncSummary, 
-  FollowerSyncProgressEvent, 
-  SyncChannelQueueItem, 
-  SyncLogEntry 
-} from './admin/master/views/follower-sync/types';
 import { useChannelGroups } from '../hooks/useChannelGroups';
 import { supabase } from '../lib/supabase';
-import { SocialChannelBackground, SocialTheme, THEME_OPTIONS } from './channel/SocialChannelBackground';
 import { 
+  SocialChannelBackground, 
+  SocialTheme,
+  ChannelManagerHeader,
+  ChannelStatsCards,
+  ChannelGroupFilterBar,
+  ChannelSectionList,
+  ChannelFormModal,
+  ChannelGroupModal,
+  DeleteChannelModal,
+  FollowerSyncProgressModal,
+  useFollowerSync,
+  useContentCounts,
   getChannelTotalFollowers, 
   formatFollowersCompact, 
   getGlowStyles 
-} from './channel/channelHelpers';
+} from './channel';
 
 // Re-export helpers for backward compatibility
 export { formatFollowersCompact, getChannelTotalFollowers, getGlowStyles };
@@ -41,38 +36,15 @@ interface ChannelManagerProps {
 
 const ChannelManager: React.FC<ChannelManagerProps> = ({ 
   channels, 
-  currentUser,
   onAdd, 
   onEdit, 
   onDelete, 
   onOpenSettings 
 }) => {
-  const { showConfirm } = useGlobalDialog();
   const { showToast } = useToast();
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
-  const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
-  const [isSyncingFollowers, setIsSyncingFollowers] = useState(false);
 
-  // Follower Sync Modal States
-  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
-  const [syncModalState, setSyncModalState] = useState<SyncModalState>('syncing');
-  const [syncSummaryResult, setSyncSummaryResult] = useState<FullSyncSummary | null>(null);
-  const [syncErrorMessage, setSyncErrorMessage] = useState<string | null>(null);
-
-  // Real-time Live Progress States (0-100%, queue, logs, active channel)
-  const [syncPercentage, setSyncPercentage] = useState<number>(0);
-  const [syncCurrentIndex, setSyncCurrentIndex] = useState<number>(0);
-  const [syncTotalChannels, setSyncTotalChannels] = useState<number>(0);
-  const [syncCurrentChannelName, setSyncCurrentChannelName] = useState<string>('');
-  const [syncCurrentPlatform, setSyncCurrentPlatform] = useState<string>('');
-  const [syncStatusMessage, setSyncStatusMessage] = useState<string>('');
-  const [syncQueue, setSyncQueue] = useState<SyncChannelQueueItem[]>([]);
-  const [syncLogs, setSyncLogs] = useState<SyncLogEntry[]>([]);
-
-  // Maintain local channels state for instant UI update on sync completion
+  // Local Channels State (for instant UI update on sync/mutate)
   const [localChannels, setLocalChannels] = useState<Channel[]>(channels);
-
   useEffect(() => {
     setLocalChannels(channels);
   }, [channels]);
@@ -101,7 +73,7 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
   // Social Atmosphere Theme State
   const [socialTheme, setSocialTheme] = useState<SocialTheme>(() => {
     const saved = localStorage.getItem('channel_social_theme');
-    if (saved && (saved === 'creator-vibrant' || saved === 'midnight-studio' || saved === 'pastel-engagement')) {
+    if (saved === 'creator-vibrant' || saved === 'midnight-studio' || saved === 'pastel-engagement') {
       return saved as SocialTheme;
     }
     return 'creator-vibrant';
@@ -110,7 +82,17 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
   const handleSelectTheme = (newTheme: SocialTheme) => {
     setSocialTheme(newTheme);
     localStorage.setItem('channel_social_theme', newTheme);
-    setIsThemeMenuOpen(false);
+  };
+
+  // Ranking Scope Mode ('global' | 'group')
+  const [rankingMode, setRankingMode] = useState<'global' | 'group'>(() => {
+    const saved = localStorage.getItem('channel_ranking_mode');
+    return (saved === 'global' || saved === 'group') ? saved : 'global';
+  });
+
+  const handleToggleRankingMode = (mode: 'global' | 'group') => {
+    setRankingMode(mode);
+    localStorage.setItem('channel_ranking_mode', mode);
   };
 
   // Channel Groups hook & state
@@ -123,289 +105,41 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
     enrichChannelsWithGroups,
   } = useChannelGroups();
 
-  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
   const [selectedGroupFilter, setSelectedGroupFilter] = useState<string>('ALL');
+  const enrichedChannels = useMemo(() => enrichChannelsWithGroups(localChannels), [localChannels, enrichChannelsWithGroups]);
 
-  // Server-Side Aggregated Content Count Map
-  const [contentCountMap, setContentCountMap] = useState<Record<string, number>>({});
-  const [totalContentsCount, setTotalContentsCount] = useState<number>(0);
-  const [isRefreshingCounts, setIsRefreshingCounts] = useState(false);
+  // Content Counts Hook
+  const { contentCountMap, totalContentsCount, isRefreshingCounts, refetchCounts } = useContentCounts(localChannels);
 
-  // Enrich channels with group assignments
-  const enrichedChannels = useMemo(() => {
-    return enrichChannelsWithGroups(localChannels);
-  }, [localChannels, enrichChannelsWithGroups]);
+  // Follower Sync Hook
+  const {
+    isSyncingFollowers,
+    isSyncModalOpen,
+    setIsSyncModalOpen,
+    syncModalState,
+    syncSummaryResult,
+    syncErrorMessage,
+    syncPercentage,
+    syncCurrentIndex,
+    syncTotalChannels,
+    syncCurrentChannelName,
+    syncCurrentPlatform,
+    syncStatusMessage,
+    syncQueue,
+    syncLogs,
+    handleSyncFollowersNow,
+  } = useFollowerSync({
+    channels: localChannels,
+    refetchChannelsFromDb,
+    showToast,
+  });
 
-  const fetchDirectContentCounts = useCallback(async (force = false) => {
-    setIsRefreshingCounts(true);
-    try {
-      // 1. Primary: Server-Side Aggregation endpoint
-      const channelIdsParam = localChannels.map(c => c.id).join(',');
-      const res = await fetch(`/api/channels/content-counts?channelIds=${encodeURIComponent(channelIdsParam)}${force ? '&force=1' : ''}`);
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success) {
-          const counts: Record<string, number> = json.counts || {};
-          const sumOfCounts = Object.values(counts).reduce((sum, n) => sum + (Number(n) || 0), 0);
-          const finalTotal = typeof json.total === 'number' && json.total > 0 ? json.total : sumOfCounts;
-          setContentCountMap(counts);
-          setTotalContentsCount(finalTotal);
-          return;
-        }
-      }
-
-      // 2. Resilient Fallback: Direct PostgreSQL requests per channel
-      const channelPromises = localChannels.map(async (ch) => {
-        const { count, error } = await supabase
-          .from('contents')
-          .select('*', { count: 'exact', head: true })
-          .eq('channel_id', ch.id);
-        return { id: ch.id, count: error ? 0 : (count || 0) };
-      });
-
-      const channelResults = await Promise.all(channelPromises);
-
-      const map: Record<string, number> = {};
-      let fallbackSum = 0;
-      channelResults.forEach(r => {
-        map[r.id] = r.count;
-        fallbackSum += r.count;
-      });
-
-      setContentCountMap(map);
-      setTotalContentsCount(fallbackSum);
-    } catch (err) {
-      console.warn('[ChannelManager] Aggregation count error:', err);
-    } finally {
-      setIsRefreshingCounts(false);
-    }
-  }, [localChannels]);
-
-  useEffect(() => {
-    fetchDirectContentCounts();
-  }, [fetchDirectContentCounts]);
-
-  // Trigger Follower Sync across all channels immediately with Modal & instant UI update via Polling
-  const handleSyncFollowersNow = async () => {
-    if (isSyncingFollowers) {
-      setIsSyncModalOpen(true);
-      return;
-    }
-    setIsSyncingFollowers(true);
-    setIsSyncModalOpen(true);
-    setSyncModalState('syncing');
-    setSyncErrorMessage(null);
-    setSyncPercentage(0);
-    setSyncCurrentIndex(0);
-    setSyncTotalChannels(localChannels.length);
-    setSyncCurrentChannelName('');
-    setSyncCurrentPlatform('');
-    setSyncStatusMessage('กำลังเตรียมเชื่อมต่อเซิร์ฟเวอร์...');
-
-    // Initialize initial queue from local channels
-    const initialQueue: SyncChannelQueueItem[] = localChannels.map(c => ({
-      id: c.id,
-      name: c.name,
-      logoUrl: c.logoUrl,
-      status: 'pending',
-    }));
-    setSyncQueue(initialQueue);
-
-    const initialLog: SyncLogEntry = {
-      id: `${Date.now()}-0`,
-      timestamp: new Date().toISOString(),
-      timeStr: new Date().toLocaleTimeString('th-TH', { hour12: false }),
-      message: `เริ่มกระบวนการตรวจสอบและดึงยอดผู้ติดตาม (${localChannels.length} ช่อง)...`,
-      type: 'start',
-    };
-    setSyncLogs([initialLog]);
-
-    showToast('กำลังซิงค์ยอดผู้ติดตามแบบ Real-time... ⏳', 'info');
-
-    try {
-      // 1. Start background worker job on server and obtain sessionId
-      const startRes = await fetch('/api/cron/sync-followers-start?source=manual', {
-        method: 'POST',
-        headers: { 
-          'Accept': 'application/json',
-          'Content-Type': 'application/json' 
-        },
-      });
-
-      const startText = await startRes.text();
-      let startData: any = null;
-      try {
-        startData = startText ? JSON.parse(startText) : null;
-      } catch (parseErr) {
-        console.warn('[ChannelManager] Non-JSON start response:', startText);
-      }
-
-      // If /sync-followers-start is not found (404), fallback to standard /sync-followers endpoint
-      if (startRes.status === 404) {
-        console.warn('[ChannelManager] /api/cron/sync-followers-start returned 404, attempting fallback to /api/cron/sync-followers');
-        setSyncStatusMessage('กำลังเชื่อมต่อผ่านช่องทางสำรอง (Direct Sync)...');
-        
-        const fallbackRes = await fetch('/api/cron/sync-followers?source=manual', {
-          method: 'POST',
-          headers: { 
-            'Accept': 'application/json',
-            'Content-Type': 'application/json' 
-          },
-        });
-
-        const fallbackText = await fallbackRes.text();
-        let fallbackData: any = null;
-        try {
-          fallbackData = fallbackText ? JSON.parse(fallbackText) : null;
-        } catch {
-          // ignore
-        }
-
-        if (fallbackRes.ok && fallbackData && fallbackData.success) {
-          setSyncPercentage(100);
-          setSyncSummaryResult(fallbackData.summary || null);
-          setSyncModalState('success');
-          await refetchChannelsFromDb();
-          const updated = fallbackData.summary?.totalChannelsUpdated || 0;
-          const total = fallbackData.summary?.totalChannelsChecked || localChannels.length;
-          showToast(`ซิงค์ยอดผู้ติดตามสำเร็จ (${total} ช่อง / อัปเดต ${updated} ช่อง) 🎉`, 'success');
-          return;
-        } else {
-          throw new Error(
-            fallbackRes.status === 404
-              ? 'ไม่พบ API Endpoint หลังบ้าน (HTTP 404) — หากกำลังรันบน Localhost กรุณารันด้วยคำสั่ง "npm run dev" (เพื่อให้ Express API หลังบ้านทำงานร่วมกับ Vite)'
-              : fallbackData?.error || `เซิร์ฟเวอร์ตอบสนองผิดพลาด (HTTP ${fallbackRes.status})`
-          );
-        }
-      }
-
-      if (!startRes.ok || !startData || !startData.success || !startData.sessionId) {
-        throw new Error(startData?.error || `เซิร์ฟเวอร์ตอบสนองผิดพลาด (HTTP ${startRes.status})`);
-      }
-
-      const sessionId = startData.sessionId;
-
-      // 2. Poll server session status every 450ms (Completely bypasses Proxy/Nginx buffering)
-      const pollIntervalMs = 450;
-      const maxPollingDurationMs = 180000; // 3 minutes safety timeout
-      const startPollingTime = Date.now();
-
-      await new Promise<void>((resolve, reject) => {
-        const intervalId = setInterval(async () => {
-          // Safety Timeout Check
-          if (Date.now() - startPollingTime > maxPollingDurationMs) {
-            clearInterval(intervalId);
-            reject(new Error('การประมวลผลใช้เวลานานเกินกำหนด (Timeout)'));
-            return;
-          }
-
-          try {
-            const statusRes = await fetch(`/api/cron/sync-status?sessionId=${sessionId}&_t=${Date.now()}`, {
-              headers: { 'Accept': 'application/json' }
-            });
-            if (!statusRes.ok) {
-              // Non-blocking retry if 404 or network hiccup occurs once
-              return;
-            }
-
-            const statusText = await statusRes.text();
-            let statusData: any = null;
-            try {
-              statusData = statusText ? JSON.parse(statusText) : null;
-            } catch {
-              return;
-            }
-
-            if (!statusData || !statusData.success || !statusData.session) return;
-
-            const session = statusData.session;
-
-            // Update UI State with live data from server session
-            if (typeof session.percentage === 'number') {
-              setSyncPercentage(session.percentage);
-            }
-            if (typeof session.currentIndex === 'number') {
-              setSyncCurrentIndex(session.currentIndex);
-            }
-            if (typeof session.totalChannels === 'number' && session.totalChannels > 0) {
-              setSyncTotalChannels(session.totalChannels);
-            }
-            if (session.currentChannelName) {
-              setSyncCurrentChannelName(session.currentChannelName);
-            }
-            if (session.currentPlatform) {
-              setSyncCurrentPlatform(session.currentPlatform);
-            }
-            if (session.statusMessage) {
-              setSyncStatusMessage(session.statusMessage);
-            }
-            if (Array.isArray(session.queue) && session.queue.length > 0) {
-              setSyncQueue(session.queue);
-            }
-            if (Array.isArray(session.logs) && session.logs.length > 0) {
-              setSyncLogs(session.logs);
-            }
-
-            // Check if finished
-            if (session.state === 'completed') {
-              clearInterval(intervalId);
-              setSyncSummaryResult(session.summary || null);
-              setSyncModalState('success');
-              await refetchChannelsFromDb();
-              const updated = session.summary?.totalChannelsUpdated || 0;
-              const total = session.summary?.totalChannelsChecked || session.totalChannels || 0;
-              showToast(`ซิงค์ยอดผู้ติดตามสำเร็จ (${total} ช่อง / อัปเดต ${updated} ช่อง) 🎉`, 'success');
-              resolve();
-            } else if (session.state === 'error') {
-              clearInterval(intervalId);
-              setSyncModalState('error');
-              setSyncErrorMessage(session.errorMessage || 'เกิดข้อผิดพลาดระหว่างการดึงข้อมูล');
-              showToast(`เกิดข้อผิดพลาดในการซิงค์: ${session.errorMessage || 'Error'}`, 'error');
-              resolve();
-            }
-          } catch (pollErr) {
-            console.warn('[ChannelManager] Polling tick error (will retry):', pollErr);
-          }
-        }, pollIntervalMs);
-      });
-    } catch (err: any) {
-      console.error('[ChannelManager] Follower sync error:', err);
-      setSyncModalState('error');
-      setSyncErrorMessage(err?.message || 'การเชื่อมต่อเซิร์ฟเวอร์ล้มเหลว กรุณาลองใหม่อีกครั้ง');
-      showToast(`เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว: ${err?.message || 'Error'}`, 'error');
-    } finally {
-      setIsSyncingFollowers(false);
-    }
-  };
-
-  const handleCreateChannel = () => {
-    setEditingChannel(null);
-    setIsFormOpen(true);
-  };
-
-  const handleEditChannel = (channel: Channel) => {
-    setEditingChannel(channel);
-    setIsFormOpen(true);
-  };
-
-  const handleDeleteChannel = async (id: string, name: string) => {
-    if (await showConfirm(`ยืนยันลบรายการ "${name}" ?`)) {
-      await onDelete(id);
-    }
-  };
-
-  const handleSaveChannel = async (payload: Channel, logoFile?: File | null) => {
-    if (editingChannel) {
-      return await onEdit(payload, logoFile || undefined);
-    } else {
-      return await onAdd(payload, logoFile || undefined);
-    }
-  };
-
-  // Ecosystem Metrics
-  const grandTotalFollowers = useMemo(() => {
-    return enrichedChannels.reduce((sum, ch) => sum + getChannelTotalFollowers(ch), 0);
-  }, [enrichedChannels]);
+  // Modal Dialog States
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
+  const [isGroupModalOpen, setIsGroupModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [channelToDelete, setChannelToDelete] = useState<Channel | null>(null);
 
   // Section Grouping Data Structure
   const sectionData = useMemo(() => {
@@ -424,18 +158,63 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
       }
     });
 
-    const categorizedCount = enrichedChannels.filter(c => c.group_id).length;
-
     return {
       groupedMap,
       ungrouped,
-      categorizedCount,
+      categorizedCount: enrichedChannels.filter(c => c.group_id).length,
       hasGroups: groups.length > 0,
     };
   }, [enrichedChannels, groups]);
 
-  const activeThemeMeta = THEME_OPTIONS.find(t => t.id === socialTheme) || THEME_OPTIONS[0];
-  const ActiveIcon = activeThemeMeta.icon;
+  const grandTotalFollowers = useMemo(() => {
+    return enrichedChannels.reduce((sum, ch) => sum + getChannelTotalFollowers(ch), 0);
+  }, [enrichedChannels]);
+
+  // Form Handlers
+  const handleCreateChannel = () => {
+    setEditingChannel(null);
+    setIsFormOpen(true);
+  };
+
+  const handleEditChannel = (channel: Channel) => {
+    setEditingChannel(channel);
+    setIsFormOpen(true);
+  };
+
+  const handleSaveChannel = async (payload: Channel, logoFile?: File | null) => {
+    if (editingChannel) {
+      return await onEdit(payload, logoFile || undefined);
+    } else {
+      return await onAdd(payload, logoFile || undefined);
+    }
+  };
+
+  // Delete Handlers
+  const handleDeleteChannelPrompt = (id: string, name: string) => {
+    const target = enrichedChannels.find(c => c.id === id) || { id, name } as Channel;
+    setChannelToDelete(target);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async (channelId: string, deleteTaskOption: 'unlink' | 'cascade') => {
+    try {
+      if (deleteTaskOption === 'unlink') {
+        await supabase.from('contents').update({ channel_id: null }).eq('channel_id', channelId);
+        await supabase.from('tasks').update({ channelId: null }).eq('channelId', channelId);
+      } else if (deleteTaskOption === 'cascade') {
+        await supabase.from('contents').delete().eq('channel_id', channelId);
+        await supabase.from('tasks').delete().eq('channelId', channelId);
+      }
+      const success = await onDelete(channelId);
+      if (success) {
+        showToast('ลบช่องรายการเรียบร้อยแล้ว', 'success');
+        refetchCounts();
+      }
+    } catch (err) {
+      console.error('[ChannelManager] Delete error:', err);
+      showToast('เกิดข้อผิดพลาดในการลบช่องรายการ', 'error');
+    }
+  };
 
   return (
     <SocialChannelBackground 
@@ -444,139 +223,19 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
       className="min-h-screen"
     >
       <div className="w-full max-w-[1720px] mx-auto px-4 sm:px-6 lg:px-8 xl:px-10 py-6 space-y-6 animate-in fade-in duration-500 pb-28">
-        <MentorTip moduleId="CHANNEL" />
+        {/* 1. Glassmorphic Header & Actions */}
+        <ChannelManagerHeader
+          groups={groups}
+          socialTheme={socialTheme}
+          onSelectTheme={handleSelectTheme}
+          rankingMode={rankingMode}
+          onToggleRankingMode={handleToggleRankingMode}
+          onOpenGroupModal={() => setIsGroupModalOpen(true)}
+          onCreateChannel={handleCreateChannel}
+          onOpenSettings={onOpenSettings}
+        />
 
-        {/* Floating Glassmorphic Header Section */}
-        <div className={`relative z-50 p-6 md:p-7 rounded-3xl border border-b-[3px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] flex flex-col md:flex-row justify-between items-start md:items-center gap-5 transition-colors duration-500 ${
-          socialTheme === 'midnight-studio'
-            ? 'bg-slate-900/80 backdrop-blur-md border-slate-800 border-b-slate-950 text-slate-100'
-            : 'bg-white/85 backdrop-blur-md border-white/80 border-b-slate-200/90 text-slate-800'
-        }`}>
-          <div>
-            <div className="flex items-center gap-2.5 flex-wrap">
-              <h1 className={`text-2xl sm:text-3xl font-bold flex items-center ${
-                socialTheme === 'midnight-studio' ? 'text-white' : 'text-slate-800'
-              }`}>
-                จัดการช่องรายการ (Brands & Shows)
-              </h1>
-              {groups.length > 0 && (
-                <span className={`px-3 py-1 text-xs font-black rounded-full border border-b-[2px] shadow-2xs ${
-                  socialTheme === 'midnight-studio'
-                    ? 'bg-indigo-950/80 border-indigo-700/60 border-b-indigo-600 text-indigo-300'
-                    : 'bg-gradient-to-b from-indigo-50 to-indigo-100/70 border-indigo-200/80 border-b-indigo-300/70 text-indigo-700'
-                }`}>
-                  {groups.length} ส่วน (Sections)
-                </span>
-              )}
-            </div>
-            <p className={`text-sm mt-1.5 leading-relaxed ${
-              socialTheme === 'midnight-studio' ? 'text-slate-400' : 'text-slate-500'
-            }`}>
-              สร้างและแบ่งกลุ่ม "รายการ" หรือ "แบรนด์" เพื่อติดตามยอดผู้ติดตามรวมและสถิติรายหมวดหมู่
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3 flex-wrap w-full md:w-auto justify-start md:justify-end shrink-0">
-            {/* Social Atmosphere Theme Switcher */}
-            <div className="relative z-50">
-              <button
-                type="button"
-                onClick={() => setIsThemeMenuOpen(!isThemeMenuOpen)}
-                className={`flex items-center gap-2 px-3.5 py-2.5 rounded-xl text-xs font-bold border border-b-[3px] shadow-2xs transition-all active:translate-y-[2px] active:border-b-[1px] cursor-pointer ${
-                  socialTheme === 'midnight-studio'
-                    ? 'bg-slate-800/90 hover:bg-slate-700/90 border-slate-700 border-b-slate-900 text-slate-200'
-                    : 'bg-white/90 hover:bg-white border-slate-200/90 border-b-slate-300/90 text-slate-700'
-                }`}
-                title="เปลี่ยนบรรยากาศ Social Atmosphere"
-              >
-                <div className={`w-4 h-4 rounded-full bg-gradient-to-tr ${activeThemeMeta.badgeColor} flex items-center justify-center text-white shadow-2xs`}>
-                  <ActiveIcon className="w-2.5 h-2.5" />
-                </div>
-                <span>{activeThemeMeta.name}</span>
-                <ChevronDown className="w-3.5 h-3.5 text-slate-400" />
-              </button>
-
-              {/* Theme Dropdown Menu */}
-              {isThemeMenuOpen && (
-                <>
-                  <div 
-                    className="fixed inset-0 z-40" 
-                    onClick={() => setIsThemeMenuOpen(false)} 
-                  />
-                  <div className="absolute right-0 mt-2 w-72 p-2 bg-white white:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-2xl z-60 animate-in fade-in zoom-in-95 duration-150">
-                    <div className="px-2.5 py-1.5 text-[11px] font-extrabold uppercase tracking-wider text-slate-400">
-                      Social Atmosphere Moods
-                    </div>
-                    <div className="space-y-1 mt-1">
-                      {THEME_OPTIONS.map((opt) => {
-                        const IconComponent = opt.icon;
-                        const isSelected = opt.id === socialTheme;
-                        return (
-                          <button
-                            key={opt.id}
-                            type="button"
-                            onClick={() => handleSelectTheme(opt.id)}
-                            className={`w-full text-left p-2.5 rounded-xl transition-all flex items-start gap-2.5 cursor-pointer ${
-                              isSelected
-                                ? 'bg-indigo-50/90 text-indigo-900 font-bold border border-indigo-200/70'
-                                : 'hover:bg-slate-100/80 text-slate-700 hover:text-slate-900'
-                            }`}
-                          >
-                            <div className={`w-7 h-7 rounded-xl bg-gradient-to-tr ${opt.badgeColor} flex items-center justify-center text-white shrink-0 shadow-2xs mt-0.5`}>
-                              <IconComponent className="w-3.5 h-3.5" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                              <div className="text-xs font-bold flex items-center justify-between">
-                                <span>{opt.name}</span>
-                                {isSelected && (
-                                  <span className="w-2 h-2 rounded-full bg-indigo-600" />
-                                )}
-                              </div>
-                              <div className="text-[11px] text-slate-500 line-clamp-1 mt-0.5">
-                                {opt.desc}
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Manage Channel Groups Button */}
-            <button
-              type="button"
-              onClick={() => setIsGroupModalOpen(true)}
-              className={`flex items-center px-4 py-2.5 font-bold text-sm rounded-xl border border-b-[3px] shadow-2xs hover:shadow-xs transition-all active:translate-y-[2px] active:border-b-[1px] cursor-pointer ${
-                socialTheme === 'midnight-studio'
-                  ? 'bg-slate-800/90 hover:bg-slate-700/90 text-slate-200 border-slate-700 border-b-slate-900'
-                  : 'bg-gradient-to-b from-white to-slate-50 hover:to-slate-100 text-slate-700 border-slate-200/90 border-b-slate-300/90'
-              }`}
-            >
-              <FolderKanban className="w-4 h-4 mr-2 text-indigo-500" />
-              จัดการกลุ่ม ({groups.length})
-            </button>
-
-            {/* Create Channel Button */}
-            <button 
-              onClick={handleCreateChannel}
-              className="flex items-center px-5 py-2.5 bg-gradient-to-b from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white font-bold text-sm rounded-xl border border-indigo-500 border-b-[3px] border-b-indigo-700/80 shadow-md shadow-indigo-200/80 hover:shadow-lg hover:shadow-indigo-300/80 transition-all active:translate-y-[2px] active:border-b-[1px] active:shadow-xs cursor-pointer"
-            >
-              <Plus className="w-5 h-5 mr-1.5" />
-              สร้างรายการใหม่
-            </button>
-            
-            {/* Notification Button */}
-            <NotificationBellBtn 
-              onClick={() => onOpenSettings()}
-              className="hidden md:flex"
-            />
-          </div>
-        </div>
-
-        {/* Overview Statistics Cards */}
+        {/* 2. Overview Statistics Cards */}
         {channels.length > 0 && (
           <ChannelStatsCards
             groupsCount={groups.length}
@@ -585,15 +244,15 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
             totalContents={totalContentsCount}
             totalReach={grandTotalFollowers}
             isRefreshingCounts={isRefreshingCounts}
-            onRefreshCounts={() => fetchDirectContentCounts(true)}
+            onRefreshCounts={refetchCounts}
             isSyncingFollowers={isSyncingFollowers}
             onSyncFollowers={handleSyncFollowersNow}
             onManageGroups={() => setIsGroupModalOpen(true)}
           />
         )}
 
-        {/* Section Filter Tabs */}
-        <ChannelFilterTabs
+        {/* 3. Section Filter Tabs */}
+        <ChannelGroupFilterBar
           groups={groups}
           channelsCount={channels.length}
           selectedFilter={selectedGroupFilter}
@@ -602,19 +261,20 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
           onOpenManageModal={() => setIsGroupModalOpen(true)}
         />
 
-        {/* Section Channels Grid and Group Sections */}
+        {/* 4. Section Channels Grid */}
         <ChannelSectionList
           channels={enrichedChannels}
           groups={groups}
           selectedGroupFilter={selectedGroupFilter}
           sectionData={sectionData}
           contentCountMap={contentCountMap}
+          rankingMode={rankingMode}
           onEditChannel={handleEditChannel}
-          onDeleteChannel={handleDeleteChannel}
+          onDeleteChannel={handleDeleteChannelPrompt}
           onOpenGroupModal={() => setIsGroupModalOpen(true)}
         />
 
-        {/* Extracted Channel Form Modal */}
+        {/* 5. Modals */}
         <ChannelFormModal
           isOpen={isFormOpen}
           onClose={() => setIsFormOpen(false)}
@@ -622,7 +282,6 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
           onSave={handleSaveChannel}
         />
 
-        {/* Extracted Channel Group Management Modal */}
         <ChannelGroupModal
           isOpen={isGroupModalOpen}
           onClose={() => setIsGroupModalOpen(false)}
@@ -634,7 +293,17 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
           onAssignChannel={assignChannelToGroup}
         />
 
-        {/* Follower Sync Progress & Result Modal */}
+        <DeleteChannelModal
+          isOpen={isDeleteModalOpen}
+          channel={channelToDelete}
+          contentCount={channelToDelete ? contentCountMap[channelToDelete.id] || 0 : 0}
+          onClose={() => {
+            setIsDeleteModalOpen(false);
+            setChannelToDelete(null);
+          }}
+          onConfirmDelete={handleConfirmDelete}
+        />
+
         <FollowerSyncProgressModal
           isOpen={isSyncModalOpen}
           state={syncModalState}

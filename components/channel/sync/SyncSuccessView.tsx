@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { FullSyncSummary } from '../../admin/master/views/follower-sync/types';
-import { formatFollowersCompact } from '../channelHelpers';
+import { formatFollowersCompact } from '../helpers/channelHelpers';
 
 interface SyncSuccessViewProps {
   summary: FullSyncSummary | null;

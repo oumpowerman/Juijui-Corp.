@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SyncChannelQueueItem, SyncLogEntry } from '../../admin/master/views/follower-sync/types';
-import { formatFollowersCompact } from '../channelHelpers';
+import { formatFollowersCompact } from '../helpers/channelHelpers';
 
 interface SyncProgressViewProps {
   percentage: number;

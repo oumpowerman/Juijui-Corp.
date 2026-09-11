@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ExternalLink, Copy, Check, Users, Sparkles, Loader2, Globe, AlertCircle } from 'lucide-react';
-import { Platform } from '../../types';
-import { PLATFORM_OPTIONS } from './PlatformGridSelector';
+import { Platform } from '../../../../types';
+import { PLATFORM_OPTIONS } from '../../form/inputs/PlatformGridSelector';
 
 interface LinkPreviewData {
   title?: string;

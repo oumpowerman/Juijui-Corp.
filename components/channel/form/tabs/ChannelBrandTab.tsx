@@ -1,6 +1,6 @@
 import React from 'react';
 import { Palette, Tag, FileText, Sparkles, CheckCircle2, Eye, Calendar, Layers, CheckCheck, Mail } from 'lucide-react';
-import { ChannelLogoSelector } from '../ChannelLogoSelector';
+import { ChannelLogoSelector } from '../inputs/ChannelLogoSelector';
 
 export interface BrandColorOption {
   id: string;

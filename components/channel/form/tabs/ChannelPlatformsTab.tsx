@@ -1,6 +1,6 @@
 import React from 'react';
-import { PlatformGridSelector } from '../PlatformGridSelector';
-import { Platform, SocialLinks, PlatformFollowers } from '../../../types';
+import { PlatformGridSelector } from '../inputs/PlatformGridSelector';
+import { Platform, SocialLinks, PlatformFollowers } from '../../../../types';
 
 interface ChannelPlatformsTabProps {
   selectedPlatforms: Platform[];

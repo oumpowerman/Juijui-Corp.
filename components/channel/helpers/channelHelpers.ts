@@ -1,4 +1,4 @@
-import { Channel } from '../../types';
+import { Channel } from '../../../types';
 
 export const formatFollowersCompact = (num?: number): string => {
   if (!num || isNaN(num) || num <= 0) return '0';

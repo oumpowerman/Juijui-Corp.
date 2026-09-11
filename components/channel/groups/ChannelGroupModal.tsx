@@ -4,12 +4,12 @@ import {
   X, Plus, FolderKanban, Layers, FolderPlus, AlertCircle 
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Channel, ChannelGroup } from '../../types';
-import { DEFAULT_GROUP_COLORS } from '../../hooks/useChannelGroups';
-import { useGlobalDialog } from '../../context/GlobalDialogContext';
-import { GroupCreateForm } from './group-modal/GroupCreateForm';
-import { UngroupedChannelPool } from './group-modal/UngroupedChannelPool';
-import { GroupItemCard } from './group-modal/GroupItemCard';
+import { Channel, ChannelGroup } from '../../../types';
+import { DEFAULT_GROUP_COLORS } from '../../../hooks/useChannelGroups';
+import { useGlobalDialog } from '../../../context/GlobalDialogContext';
+import { GroupCreateForm } from './GroupCreateForm';
+import { UngroupedChannelPool } from './UngroupedChannelPool';
+import { GroupItemCard } from './GroupItemCard';
 
 interface ChannelGroupModalProps {
   isOpen: boolean;
@@ -173,13 +173,16 @@ export const ChannelGroupModal: React.FC<ChannelGroupModalProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 15 }}
             transition={{ type: 'spring', duration: 0.32, bounce: 0.08 }}
-            className="bg-white rounded-3xl shadow-2xl border border-slate-200/80 w-full max-w-5xl h-[85vh] min-h-[580px] max-h-[760px] flex flex-col overflow-hidden my-auto relative"
+            className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] border border-white/80 border-b-[4px] border-b-slate-300/90 ring-1 ring-slate-900/10 w-full max-w-5xl h-[85vh] min-h-[580px] max-h-[760px] flex flex-col overflow-hidden my-auto relative"
             onClick={(e) => e.stopPropagation()}
           >
+            {/* 3D Specular Top Highlight */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-white to-transparent opacity-90" />
+
             {/* Modal Header */}
-            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+            <div className="px-6 py-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/70 backdrop-blur-xs">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 shadow-xs">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50/90 border border-indigo-100 shadow-[0_2px_8px_-2px_rgba(99,102,241,0.15)] flex items-center justify-center text-indigo-600">
                   <FolderKanban className="w-5 h-5" />
                 </div>
                 <div>
@@ -187,7 +190,7 @@ export const ChannelGroupModal: React.FC<ChannelGroupModalProps> = ({
                     <h2 className="text-xl font-bold text-slate-800">
                       จัดการกลุ่มรายการ (Channel Groups & Sections)
                     </h2>
-                    <span className="px-2.5 py-0.5 text-xs font-bold rounded-full bg-indigo-100 text-indigo-700">
+                    <span className="px-2.5 py-0.5 text-xs font-bold rounded-full bg-indigo-100/90 text-indigo-700 border border-indigo-200/60 shadow-2xs">
                       {groups.length} กลุ่ม
                     </span>
                   </div>
@@ -202,7 +205,7 @@ export const ChannelGroupModal: React.FC<ChannelGroupModalProps> = ({
                   <button
                     type="button"
                     onClick={handleStartCreate}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-xl shadow-md shadow-indigo-200 transition-all active:scale-95 cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-md shadow-indigo-200 transition-all active:scale-95 cursor-pointer"
                   >
                     <Plus className="w-4 h-4" />
                     สร้างกลุ่มใหม่
@@ -211,7 +214,7 @@ export const ChannelGroupModal: React.FC<ChannelGroupModalProps> = ({
                 <button
                   type="button"
                   onClick={onClose}
-                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                  className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100/80 rounded-xl transition-colors cursor-pointer"
                 >
                   <X className="w-5 h-5" />
                 </button>

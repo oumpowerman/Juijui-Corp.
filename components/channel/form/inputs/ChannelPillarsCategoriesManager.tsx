@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { LayoutTemplate, X, ChevronDown, Sparkles, Layers, Tag, Pencil, ArrowRight, Plus } from 'lucide-react';
-import { Channel } from '../../types';
-import { useMasterData } from '../../hooks/useMasterData';
-import { supabase } from '../../lib/supabase';
+import { Channel } from '../../../../types';
+import { useMasterData } from '../../../../hooks/useMasterData';
+import { supabase } from '../../../../lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useToast } from '../../context/ToastContext';
+import { useToast } from '../../../../context/ToastContext';
 import { PillarCategoryDetailModal } from './PillarCategoryDetailModal';
 
 // Curated default recommendations to ensure excellent fallback options

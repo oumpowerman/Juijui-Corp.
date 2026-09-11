@@ -2,7 +2,7 @@ import React from 'react';
 import { 
   FolderKanban, ArrowRight, Radio, Layers, RefreshCw, Users, Sparkles 
 } from 'lucide-react';
-import { formatFollowersCompact } from './channelHelpers';
+import { formatFollowersCompact } from '../helpers/channelHelpers';
 
 interface ChannelStatsCardsProps {
   groupsCount: number;

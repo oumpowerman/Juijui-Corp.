@@ -1,6 +1,6 @@
 import React from 'react';
 import { SlidersHorizontal } from 'lucide-react';
-import { Channel, ChannelGroup } from '../../types';
+import { Channel, ChannelGroup } from '../../../types';
 
 interface SectionData {
   groupedMap: Record<string, Channel[]>;
@@ -9,7 +9,7 @@ interface SectionData {
   hasGroups: boolean;
 }
 
-interface ChannelFilterTabsProps {
+interface ChannelGroupFilterBarProps {
   groups: ChannelGroup[];
   channelsCount: number;
   selectedFilter: string;
@@ -18,7 +18,7 @@ interface ChannelFilterTabsProps {
   onOpenManageModal: () => void;
 }
 
-export const ChannelFilterTabs: React.FC<ChannelFilterTabsProps> = ({
+export const ChannelGroupFilterBar: React.FC<ChannelGroupFilterBarProps> = ({
   groups,
   channelsCount,
   selectedFilter,

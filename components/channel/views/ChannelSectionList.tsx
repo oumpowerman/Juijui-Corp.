@@ -1,14 +1,14 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Plus, Tag, ArrowRight, FolderPlus, LayoutTemplate } from 'lucide-react';
-import { Channel, ChannelGroup } from '../../types';
-import { ChannelCard } from './ChannelCard';
+import { Channel, ChannelGroup } from '../../../types';
+import { ChannelCard } from './cards/ChannelCard';
 import { 
   getChannelTotalFollowers, 
   getGlowStyles, 
   formatFollowersCompact, 
   channelContainerVariants 
-} from './channelHelpers';
+} from '../helpers/channelHelpers';
 
 interface SectionData {
   groupedMap: Record<string, Channel[]>;
@@ -23,6 +23,7 @@ interface ChannelSectionListProps {
   selectedGroupFilter: string;
   sectionData: SectionData;
   contentCountMap: Record<string, number>;
+  rankingMode?: 'global' | 'group';
   onEditChannel: (channel: Channel) => void;
   onDeleteChannel: (id: string, name: string) => void;
   onOpenGroupModal: () => void;
@@ -34,11 +35,69 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
   selectedGroupFilter,
   sectionData,
   contentCountMap,
+  rankingMode = 'global',
   onEditChannel,
   onDeleteChannel,
   onOpenGroupModal,
 }) => {
-  // Empty State
+  // Compute Rank Map and Tooltip Titles based on selected Ranking Mode ('global' or 'group')
+  const { rankMap, rankTitleMap } = React.useMemo(() => {
+    const rMap: Record<string, number> = {};
+    const tMap: Record<string, string> = {};
+
+    if (rankingMode === 'global') {
+      // Global Rank: Across all channels in the system
+      channels
+        .map(ch => ({ id: ch.id, followers: getChannelTotalFollowers(ch) }))
+        .filter(item => item.followers > 0)
+        .sort((a, b) => b.followers - a.followers)
+        .slice(0, 10)
+        .forEach((item, idx) => {
+          const rankNum = idx + 1;
+          rMap[item.id] = rankNum;
+          tMap[item.id] = `อันดับ #${rankNum} ยอดผู้ติดตามสูงสุดรวมทั้งระบบ`;
+        });
+    } else {
+      // Per-Group Rank: Computed independently for each group
+      // 1. Grouped channels
+      Object.entries(sectionData.groupedMap).forEach(([groupId, grpChannels]) => {
+        const groupObj = groups.find(g => g.id === groupId);
+        const groupName = groupObj?.name || 'กลุ่ม';
+
+        grpChannels
+          .map(ch => ({ id: ch.id, followers: getChannelTotalFollowers(ch) }))
+          .filter(item => item.followers > 0)
+          .sort((a, b) => b.followers - a.followers)
+          .slice(0, 10)
+          .forEach((item, idx) => {
+            const rankNum = idx + 1;
+            rMap[item.id] = rankNum;
+            tMap[item.id] = `อันดับ #${rankNum} ประจำกลุ่ม "${groupName}"`;
+          });
+      });
+
+      // 2. Ungrouped channels (if any)
+      if (sectionData.ungrouped && sectionData.ungrouped.length > 0) {
+        sectionData.ungrouped
+          .map(ch => ({ id: ch.id, followers: getChannelTotalFollowers(ch) }))
+          .filter(item => item.followers > 0)
+          .sort((a, b) => b.followers - a.followers)
+          .slice(0, 10)
+          .forEach((item, idx) => {
+            const rankNum = idx + 1;
+            rMap[item.id] = rankNum;
+            tMap[item.id] = `อันดับ #${rankNum} ประจำกลุ่มทั่วไป (Ungrouped)`;
+          });
+      }
+    }
+
+    return { rankMap: rMap, rankTitleMap: tMap };
+  }, [channels, rankingMode, sectionData, groups]);
+
+  // Sort helper for channels by followers descending
+  const sortChannelsByFollowers = (list: Channel[]) => {
+    return [...list].sort((a, b) => getChannelTotalFollowers(b) - getChannelTotalFollowers(a));
+  };
   if (channels.length === 0) {
     return (
       <div className="py-16 text-center text-gray-400 bg-white rounded-3xl border border-dashed border-gray-300 p-6">
@@ -85,7 +144,7 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
           animate="show"
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 sm:gap-6"
         >
-          {channels.map(channel => {
+          {(rankingMode === 'global' || rankingMode === 'group' ? sortChannelsByFollowers(channels) : channels).map(channel => {
             const contentCount = contentCountMap[channel.id] || 0;
             const channelTotalFollowers = getChannelTotalFollowers(channel);
             const bgClass = (channel.color || 'bg-gray-100').split(' ')[0].replace('bg-', 'bg-');
@@ -97,6 +156,8 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
                 channel={channel}
                 contentCount={contentCount}
                 channelTotalFollowers={channelTotalFollowers}
+                rank={rankMap[channel.id]}
+                rankTitle={rankTitleMap[channel.id]}
                 onEdit={onEditChannel}
                 onDelete={onDeleteChannel}
                 glow={glow}
@@ -119,6 +180,7 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
         }
 
         const groupChannels = sectionData.groupedMap[group.id] || [];
+        const sortedGroupChannels = rankingMode === 'group' ? sortChannelsByFollowers(groupChannels) : groupChannels;
         const groupTotalContents = groupChannels.reduce((sum, ch) => sum + (contentCountMap[ch.id] || 0), 0);
         const groupTotalFollowers = groupChannels.reduce((sum, ch) => sum + getChannelTotalFollowers(ch), 0);
 
@@ -187,7 +249,7 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
                 animate="show"
                 className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 sm:gap-6"
               >
-                {groupChannels.map(channel => {
+                {sortedGroupChannels.map(channel => {
                   const contentCount = contentCountMap[channel.id] || 0;
                   const channelTotalFollowers = getChannelTotalFollowers(channel);
                   const bgClass = (channel.color || 'bg-gray-100').split(' ')[0].replace('bg-', 'bg-');
@@ -200,6 +262,8 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
                       group={group}
                       contentCount={contentCount}
                       channelTotalFollowers={channelTotalFollowers}
+                      rank={rankMap[channel.id]}
+                      rankTitle={rankTitleMap[channel.id]}
                       onEdit={onEditChannel}
                       onDelete={onDeleteChannel}
                       glow={glow}
@@ -242,7 +306,7 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
             animate="show"
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 sm:gap-6"
           >
-            {sectionData.ungrouped.map(channel => {
+            {(rankingMode === 'group' ? sortChannelsByFollowers(sectionData.ungrouped) : sectionData.ungrouped).map(channel => {
               const contentCount = contentCountMap[channel.id] || 0;
               const channelTotalFollowers = getChannelTotalFollowers(channel);
               const bgClass = (channel.color || 'bg-gray-100').split(' ')[0].replace('bg-', 'bg-');
@@ -255,6 +319,8 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
                   group={null}
                   contentCount={contentCount}
                   channelTotalFollowers={channelTotalFollowers}
+                  rank={rankMap[channel.id]}
+                  rankTitle={rankTitleMap[channel.id]}
                   onEdit={onEditChannel}
                   onDelete={onDeleteChannel}
                   glow={glow}

@@ -2,10 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { RefreshCw, CheckCircle2, AlertCircle, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FullSyncSummary, SyncChannelQueueItem, SyncLogEntry } from '../admin/master/views/follower-sync/types';
-import { SyncProgressView } from './sync/SyncProgressView';
-import { SyncSuccessView } from './sync/SyncSuccessView';
-import { SyncErrorView } from './sync/SyncErrorView';
+import { FullSyncSummary, SyncChannelQueueItem, SyncLogEntry } from '../../admin/master/views/follower-sync/types';
+import { SyncProgressView } from './SyncProgressView';
+import { SyncSuccessView } from './SyncSuccessView';
+import { SyncErrorView } from './SyncErrorView';
 
 export type SyncModalState = 'syncing' | 'success' | 'error';
 

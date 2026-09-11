@@ -7,6 +7,7 @@ interface TempOption {
   type: 'PILLAR' | 'CATEGORY';
   key: string;
   label: string;
+  description?: string;
   parentKey?: string;
 }
 

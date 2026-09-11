@@ -144,7 +144,7 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
           animate="show"
           className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 sm:gap-6"
         >
-          {(rankingMode === 'global' || rankingMode === 'group' ? sortChannelsByFollowers(channels) : channels).map(channel => {
+          {sortChannelsByFollowers(channels).map(channel => {
             const contentCount = contentCountMap[channel.id] || 0;
             const channelTotalFollowers = getChannelTotalFollowers(channel);
             const bgClass = (channel.color || 'bg-gray-100').split(' ')[0].replace('bg-', 'bg-');
@@ -180,7 +180,7 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
         }
 
         const groupChannels = sectionData.groupedMap[group.id] || [];
-        const sortedGroupChannels = rankingMode === 'group' ? sortChannelsByFollowers(groupChannels) : groupChannels;
+        const sortedGroupChannels = sortChannelsByFollowers(groupChannels);
         const groupTotalContents = groupChannels.reduce((sum, ch) => sum + (contentCountMap[ch.id] || 0), 0);
         const groupTotalFollowers = groupChannels.reduce((sum, ch) => sum + getChannelTotalFollowers(ch), 0);
 
@@ -306,7 +306,7 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
             animate="show"
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 sm:gap-6"
           >
-            {(rankingMode === 'group' ? sortChannelsByFollowers(sectionData.ungrouped) : sectionData.ungrouped).map(channel => {
+            {sortChannelsByFollowers(sectionData.ungrouped).map(channel => {
               const contentCount = contentCountMap[channel.id] || 0;
               const channelTotalFollowers = getChannelTotalFollowers(channel);
               const bgClass = (channel.color || 'bg-gray-100').split(' ')[0].replace('bg-', 'bg-');

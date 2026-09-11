@@ -88,7 +88,7 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
   const [targetId, setTargetId] = useState('');
 
   // Local state for temp options only when creating a new channel
-  const [tempOptions, setTempOptions] = useState<{ id: string; type: 'PILLAR' | 'CATEGORY'; key: string; label: string; parentKey?: string }[]>([]);
+  const [tempOptions, setTempOptions] = useState<{ id: string; type: 'PILLAR' | 'CATEGORY'; key: string; label: string; description?: string; parentKey?: string }[]>([]);
 
   // Image upload state
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -229,6 +229,7 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
               type: opt.type,
               key: opt.key,
               label: opt.label,
+              description: opt.description?.trim() || undefined,
               color: opt.type === 'PILLAR' 
                 ? 'bg-indigo-100 text-indigo-700 border-indigo-200' 
                 : 'bg-emerald-100 text-emerald-700 border-emerald-200',

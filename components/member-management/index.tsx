@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { User, Role, MasterOption, Task } from '../../types';
 import { X, Users, Loader2, Briefcase } from 'lucide-react';
 import { useGamification } from '../../hooks/useGamification';
+import { useTeam } from '../../hooks/useTeam';
 import { useToast } from '../../context/ToastContext';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
 
@@ -34,9 +35,17 @@ const MemberManagementModal: React.FC<MemberManagementModalProps> = ({
 }) => {
     const { showAlert } = useGlobalDialog();
     const { showToast } = useToast();
+    const { fetchTeamMembers } = useTeam();
     const [searchQuery, setSearchQuery] = useState('');
     const [currentTab, setCurrentTab] = useState<TabType>('ACTIVE');
     const [editingUser, setEditingUser] = useState<string | null>(null);
+
+    // Fetch full team directory on-demand when opening member management modal
+    useEffect(() => {
+        if (isOpen) {
+            fetchTeamMembers();
+        }
+    }, [isOpen]);
     
     // Advanced Filter States
     const [selectedPosition, setSelectedPosition] = useState('ALL');

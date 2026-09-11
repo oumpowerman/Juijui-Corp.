@@ -14,6 +14,8 @@ import adminApprovalRouter from './server/routes/adminApproval.js';
 import pushRouter from './server/routes/push.js';
 import previewRouter from './server/routes/preview.js';
 import channelsRouter from './server/routes/channels.js';
+import cronRouter from './server/routes/cron.js';
+import { initFollowerCronJob } from './server/services/followerSyncService.js';
 
 const PORT = 3000;
 const app = express();
@@ -45,6 +47,16 @@ app.use(adminApprovalRouter);
 app.use(pushRouter);
 app.use(previewRouter);
 app.use(channelsRouter);
+app.use(cronRouter);
+
+// Initialize background cron services (e.g. Daily Follower Sync at 08:00 AM)
+if (!process.env.VERCEL) {
+    try {
+        initFollowerCronJob();
+    } catch (err) {
+        console.error('Failed to initialize Follower Cron Job:', err);
+    }
+}
 
 async function startServer() {
     try {

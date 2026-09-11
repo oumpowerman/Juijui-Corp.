@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Users, Swords, Check } from 'lucide-react';
+import { Users, Swords, Check, AlertTriangle, UserX, X } from 'lucide-react';
 import { User, AssigneeType } from '../../../types';
 import UserStatusBadge from '../../UserStatusBadge';
 import { isWithinInterval } from 'date-fns';
@@ -13,6 +13,7 @@ interface GTAssigneeSelectorProps {
     targetPosition: string;
     setTargetPosition: (pos: string) => void;
     activeUsers: User[];
+    allUsers?: User[];
     toggleUserSelection: (userId: string) => void;
     startDate: string;
     endDate: string;
@@ -21,10 +22,27 @@ interface GTAssigneeSelectorProps {
 
 const GTAssigneeSelector: React.FC<GTAssigneeSelectorProps> = ({
     assigneeType, setAssigneeType, assigneeIds, setAssigneeIds,
-    targetPosition, setTargetPosition, activeUsers, toggleUserSelection,
+    targetPosition, setTargetPosition, activeUsers, allUsers, toggleUserSelection,
     startDate, endDate, isReadOnly = false
 }) => {
     
+    // Check for assignees who are no longer active
+    const inactiveAssignees = React.useMemo(() => {
+        if (!assigneeIds || assigneeIds.length === 0) return [];
+        const activeIdSet = new Set(activeUsers.map(u => u.id));
+        return assigneeIds
+            .filter(id => !activeIdSet.has(id))
+            .map(id => {
+                const user = (allUsers || []).find(u => u.id === id);
+                return {
+                    id,
+                    name: user?.name || `ผู้ใช้เดิม (${id.slice(0, 8)}...)`,
+                    avatarUrl: user?.avatarUrl,
+                    position: user?.position,
+                };
+            });
+    }, [assigneeIds, activeUsers, allUsers]);
+
     // Helper to check user availability
     const isUserUnavailable = (user: User) => {
         if (!startDate || !endDate) return false;
@@ -45,10 +63,68 @@ const GTAssigneeSelector: React.FC<GTAssigneeSelectorProps> = ({
 
     return (
         <div className={`bg-white p-5 rounded-[2rem] border-2 border-indigo-50 shadow-lg relative overflow-hidden group hover:border-indigo-100 transition-all duration-500 ${isReadOnly ? 'bg-slate-50/50 grayscale-[0.2]' : ''}`}>
-            <label className="block text-xl font-bold text-indigo-900 mb-6 flex items-center tracking-tight relative z-10">
+            <label className="block text-xl font-bold text-indigo-900 mb-4 flex items-center tracking-tight relative z-10">
                 <span className="text-3xl mr-2 animate-bounce shadow-sm rounded-full bg-yellow-100 p-1">⚡️</span> 
                 ใครรับจบงานนี้? <span className="text-sm font-normal text-indigo-400 ml-2">(Assignee)</span>
             </label>
+
+            {/* Inactive Assignee Warning Banner */}
+            {inactiveAssignees.length > 0 && (
+                <div className="mb-5 bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 text-amber-900 shadow-sm animate-in fade-in slide-in-from-top-2 relative z-10">
+                    <div className="flex items-start gap-3">
+                        <div className="p-2 bg-amber-200/80 rounded-xl text-amber-800 shrink-0 mt-0.5">
+                            <AlertTriangle className="w-5 h-5" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <span className="text-xs font-black uppercase tracking-wider bg-amber-200 text-amber-900 px-2 py-0.5 rounded-md">
+                                    ผู้รับผิดชอบเดิมพ้นสภาพ (Inactive)
+                                </span>
+                            </div>
+                            <p className="text-sm font-bold text-amber-950 mt-1">
+                                ⚠️ ผู้รับผิดชอบเดิม: <span className="text-amber-800 font-extrabold">{inactiveAssignees.map(u => u.name).join(', ')}</span>
+                                <span className="font-normal text-amber-800 block sm:inline sm:ml-1.5 text-xs sm:text-sm">
+                                    (พ้นสภาพ/ไม่ Active แล้ว - กรุณาเลือกผู้รับผิดชอบใหม่ หรือกดปลดชื่อออก)
+                                </span>
+                            </p>
+                            <div className="flex items-center gap-2 mt-3 flex-wrap">
+                                {inactiveAssignees.map(u => (
+                                    <div key={u.id} className="flex items-center gap-1.5 bg-white border border-amber-300 px-2.5 py-1 rounded-full text-xs font-bold text-amber-900 shadow-xs">
+                                        {u.avatarUrl ? (
+                                            <img src={u.avatarUrl} className="w-4 h-4 rounded-full object-cover grayscale" alt="" />
+                                        ) : (
+                                            <UserX className="w-3.5 h-3.5 text-amber-600" />
+                                        )}
+                                        <span>{u.name}</span>
+                                        {!isReadOnly && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setAssigneeIds(assigneeIds.filter(id => id !== u.id))}
+                                                className="ml-1 text-amber-600 hover:text-rose-600 hover:bg-rose-50 rounded-full p-0.5 transition-colors cursor-pointer"
+                                                title="ปลดผู้รับผิดชอบนี้ออก"
+                                            >
+                                                <X className="w-3.5 h-3.5" />
+                                            </button>
+                                        )}
+                                    </div>
+                                ))}
+                                {!isReadOnly && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const activeIdSet = new Set(activeUsers.map(u => u.id));
+                                            setAssigneeIds(assigneeIds.filter(id => activeIdSet.has(id)));
+                                        }}
+                                        className="text-xs font-bold text-amber-800 hover:text-amber-950 underline underline-offset-2 ml-1 cursor-pointer"
+                                    >
+                                        ปลดชื่อที่ Inactive ทั้งหมดออก
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Toggles */}
             <div className={`flex gap-4 mb-6 relative z-10 ${isReadOnly ? 'opacity-80' : ''}`}>

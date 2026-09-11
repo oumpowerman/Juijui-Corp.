@@ -30,7 +30,7 @@ export const useTaskManager = (
   } = useUI();
 
   // 3. Team Hook
-  const { allUsers, activeUsers, fetchTeamMembers, approveMember, removeMember, toggleUserStatus, updateMember, adjustStatsLocally, setAllUsers } = useTeam();
+  const { allUsers, activeUsers, fetchTeamMembers, fetchMissingProfiles, approveMember, removeMember, toggleUserStatus, updateMember, adjustStatsLocally, setAllUsers } = useTeam();
 
   // 4. Channels Hook
   const { channels, fetchChannels, handleAddChannel, handleUpdateChannel, handleDeleteChannel } = useChannels();
@@ -61,10 +61,7 @@ export const useTaskManager = (
       const profile = await fetchProfile();
       
       if (profile && profile.isApproved) {
-         await Promise.all([
-             fetchChannels(), 
-             fetchMasterOptions() 
-         ]);
+         await fetchMasterOptions();
       }
       setIsLoading(false);
     };
@@ -166,6 +163,7 @@ export const useTaskManager = (
     toggleUserStatus,
     updateMember,
     adjustStatsLocally,
+    fetchMissingProfiles,
     setAllUsers,
 
     // Quest Actions

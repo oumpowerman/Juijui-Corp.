@@ -1,8 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Sunrise, Clock, CheckCircle2, AlertCircle, Sparkles, ShieldCheck, Info, CheckCheck, RotateCcw } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { MasterOption } from '../../../../../types';
-import { DailyOverdueConfigCardProps } from './types';
+import { MasterOption } from '../../../../../../../types';
+import { DailyOverdueConfigCardProps } from '../../types';
+import TimePickerModal from '../../../../../../ui/TimePickerModal';
 
 export type { DailyOverdueConfigCardProps };
 
@@ -38,6 +39,8 @@ export const DailyOverdueConfigCard: React.FC<DailyOverdueConfigCardProps> = ({
     onBatchSelectExcludedStatuses,
     masterOptions,
 }) => {
+    const [isTimePickerOpen, setIsTimePickerOpen] = useState(false);
+
     // Single Source of Truth: Retrieve active content STATUS master options
     const availableStatuses = useMemo(() => {
         const fromMaster = masterOptions
@@ -218,10 +221,18 @@ export const DailyOverdueConfigCard: React.FC<DailyOverdueConfigCardProps> = ({
 
                 {/* Custom Time Input & Tech Info */}
                 <div className="pt-4 border-t border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-3">
                         <label className="text-xs font-bold text-gray-700 whitespace-nowrap">
-                            หรือระบุเวลาเอง:
+                            หรือเลือกเวลาอิสระ:
                         </label>
+                        <button
+                            type="button"
+                            onClick={() => setIsTimePickerOpen(true)}
+                            className="inline-flex items-center gap-2 px-3.5 py-2 text-xs font-bold bg-amber-50 hover:bg-amber-100 border border-amber-300 text-amber-900 rounded-xl transition-all shadow-2xs cursor-pointer active:scale-95"
+                        >
+                            <Clock className="w-4 h-4 text-amber-600" />
+                            <span>เลือกผ่านนาฬิกา ({dailyAlertTime} น.)</span>
+                        </button>
                         <input
                             type="time"
                             value={dailyAlertTime}
@@ -236,6 +247,15 @@ export const DailyOverdueConfigCard: React.FC<DailyOverdueConfigCardProps> = ({
                         <span>เมื่อบันทึก ระบบจะปรับตั้งเวลาบนฐานข้อมูล pg_cron ให้ทันที</span>
                     </div>
                 </div>
+
+                {/* Interactive TimePicker Modal */}
+                <TimePickerModal
+                    isOpen={isTimePickerOpen}
+                    onClose={() => setIsTimePickerOpen(false)}
+                    onSelect={(selectedTime) => onChangeAlertTime(selectedTime)}
+                    initialTime={dailyAlertTime}
+                    title="ตั้งเวลาส่งสรุปประจำวัน"
+                />
             </motion.div>
 
             {/* 3. Excluded Statuses (สถานะที่ยกเว้น ไม่นับว่าค้างลง) */}

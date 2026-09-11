@@ -1,14 +1,22 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Plus, FolderKanban, Sparkles, ChevronDown } from 'lucide-react';
+import { Plus, FolderKanban, Sparkles, ChevronDown, RefreshCw } from 'lucide-react';
 import { Channel, Task, User } from '../types';
 import MentorTip from './MentorTip';
 import NotificationBellBtn from './NotificationBellBtn';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
+import { useToast } from '../context/ToastContext';
 import ChannelFormModal from './ChannelFormModal';
 import { ChannelGroupModal } from './channel/ChannelGroupModal';
 import { ChannelStatsCards } from './channel/ChannelStatsCards';
 import { ChannelFilterTabs } from './channel/ChannelFilterTabs';
 import { ChannelSectionList } from './channel/ChannelSectionList';
+import { FollowerSyncProgressModal, SyncModalState } from './channel/FollowerSyncProgressModal';
+import { 
+  FullSyncSummary, 
+  FollowerSyncProgressEvent, 
+  SyncChannelQueueItem, 
+  SyncLogEntry 
+} from './admin/master/views/follower-sync/types';
 import { useChannelGroups } from '../hooks/useChannelGroups';
 import { supabase } from '../lib/supabase';
 import { SocialChannelBackground, SocialTheme, THEME_OPTIONS } from './channel/SocialChannelBackground';
@@ -40,9 +48,55 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
   onOpenSettings 
 }) => {
   const { showConfirm } = useGlobalDialog();
+  const { showToast } = useToast();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingChannel, setEditingChannel] = useState<Channel | null>(null);
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
+  const [isSyncingFollowers, setIsSyncingFollowers] = useState(false);
+
+  // Follower Sync Modal States
+  const [isSyncModalOpen, setIsSyncModalOpen] = useState(false);
+  const [syncModalState, setSyncModalState] = useState<SyncModalState>('syncing');
+  const [syncSummaryResult, setSyncSummaryResult] = useState<FullSyncSummary | null>(null);
+  const [syncErrorMessage, setSyncErrorMessage] = useState<string | null>(null);
+
+  // Real-time Live Progress States (0-100%, queue, logs, active channel)
+  const [syncPercentage, setSyncPercentage] = useState<number>(0);
+  const [syncCurrentIndex, setSyncCurrentIndex] = useState<number>(0);
+  const [syncTotalChannels, setSyncTotalChannels] = useState<number>(0);
+  const [syncCurrentChannelName, setSyncCurrentChannelName] = useState<string>('');
+  const [syncCurrentPlatform, setSyncCurrentPlatform] = useState<string>('');
+  const [syncStatusMessage, setSyncStatusMessage] = useState<string>('');
+  const [syncQueue, setSyncQueue] = useState<SyncChannelQueueItem[]>([]);
+  const [syncLogs, setSyncLogs] = useState<SyncLogEntry[]>([]);
+
+  // Maintain local channels state for instant UI update on sync completion
+  const [localChannels, setLocalChannels] = useState<Channel[]>(channels);
+
+  useEffect(() => {
+    setLocalChannels(channels);
+  }, [channels]);
+
+  const refetchChannelsFromDb = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('channels')
+        .select('*')
+        .order('created_at', { ascending: true });
+      if (!error && data) {
+        setLocalChannels(data.map((c: any) => ({
+          ...c,
+          platforms: Array.isArray(c.platforms) ? c.platforms : ['OTHER'],
+          logoUrl: c.logo_url,
+          social_links: c.social_links || {},
+          followers: c.followers || {},
+          email: c.email || ''
+        })));
+      }
+    } catch (err) {
+      console.warn('[ChannelManager] Refetch channels failed:', err);
+    }
+  }, []);
 
   // Social Atmosphere Theme State
   const [socialTheme, setSocialTheme] = useState<SocialTheme>(() => {
@@ -79,14 +133,14 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
 
   // Enrich channels with group assignments
   const enrichedChannels = useMemo(() => {
-    return enrichChannelsWithGroups(channels);
-  }, [channels, enrichChannelsWithGroups]);
+    return enrichChannelsWithGroups(localChannels);
+  }, [localChannels, enrichChannelsWithGroups]);
 
   const fetchDirectContentCounts = useCallback(async (force = false) => {
     setIsRefreshingCounts(true);
     try {
       // 1. Primary: Server-Side Aggregation endpoint
-      const channelIdsParam = channels.map(c => c.id).join(',');
+      const channelIdsParam = localChannels.map(c => c.id).join(',');
       const res = await fetch(`/api/channels/content-counts?channelIds=${encodeURIComponent(channelIdsParam)}${force ? '&force=1' : ''}`);
       if (res.ok) {
         const json = await res.json();
@@ -101,7 +155,7 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
       }
 
       // 2. Resilient Fallback: Direct PostgreSQL requests per channel
-      const channelPromises = channels.map(async (ch) => {
+      const channelPromises = localChannels.map(async (ch) => {
         const { count, error } = await supabase
           .from('contents')
           .select('*', { count: 'exact', head: true })
@@ -125,11 +179,204 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
     } finally {
       setIsRefreshingCounts(false);
     }
-  }, [channels]);
+  }, [localChannels]);
 
   useEffect(() => {
     fetchDirectContentCounts();
   }, [fetchDirectContentCounts]);
+
+  // Trigger Follower Sync across all channels immediately with Modal & instant UI update via Polling
+  const handleSyncFollowersNow = async () => {
+    if (isSyncingFollowers) {
+      setIsSyncModalOpen(true);
+      return;
+    }
+    setIsSyncingFollowers(true);
+    setIsSyncModalOpen(true);
+    setSyncModalState('syncing');
+    setSyncErrorMessage(null);
+    setSyncPercentage(0);
+    setSyncCurrentIndex(0);
+    setSyncTotalChannels(localChannels.length);
+    setSyncCurrentChannelName('');
+    setSyncCurrentPlatform('');
+    setSyncStatusMessage('กำลังเตรียมเชื่อมต่อเซิร์ฟเวอร์...');
+
+    // Initialize initial queue from local channels
+    const initialQueue: SyncChannelQueueItem[] = localChannels.map(c => ({
+      id: c.id,
+      name: c.name,
+      logoUrl: c.logoUrl,
+      status: 'pending',
+    }));
+    setSyncQueue(initialQueue);
+
+    const initialLog: SyncLogEntry = {
+      id: `${Date.now()}-0`,
+      timestamp: new Date().toISOString(),
+      timeStr: new Date().toLocaleTimeString('th-TH', { hour12: false }),
+      message: `เริ่มกระบวนการตรวจสอบและดึงยอดผู้ติดตาม (${localChannels.length} ช่อง)...`,
+      type: 'start',
+    };
+    setSyncLogs([initialLog]);
+
+    showToast('กำลังซิงค์ยอดผู้ติดตามแบบ Real-time... ⏳', 'info');
+
+    try {
+      // 1. Start background worker job on server and obtain sessionId
+      const startRes = await fetch('/api/cron/sync-followers-start?source=manual', {
+        method: 'POST',
+        headers: { 
+          'Accept': 'application/json',
+          'Content-Type': 'application/json' 
+        },
+      });
+
+      const startText = await startRes.text();
+      let startData: any = null;
+      try {
+        startData = startText ? JSON.parse(startText) : null;
+      } catch (parseErr) {
+        console.warn('[ChannelManager] Non-JSON start response:', startText);
+      }
+
+      // If /sync-followers-start is not found (404), fallback to standard /sync-followers endpoint
+      if (startRes.status === 404) {
+        console.warn('[ChannelManager] /api/cron/sync-followers-start returned 404, attempting fallback to /api/cron/sync-followers');
+        setSyncStatusMessage('กำลังเชื่อมต่อผ่านช่องทางสำรอง (Direct Sync)...');
+        
+        const fallbackRes = await fetch('/api/cron/sync-followers?source=manual', {
+          method: 'POST',
+          headers: { 
+            'Accept': 'application/json',
+            'Content-Type': 'application/json' 
+          },
+        });
+
+        const fallbackText = await fallbackRes.text();
+        let fallbackData: any = null;
+        try {
+          fallbackData = fallbackText ? JSON.parse(fallbackText) : null;
+        } catch {
+          // ignore
+        }
+
+        if (fallbackRes.ok && fallbackData && fallbackData.success) {
+          setSyncPercentage(100);
+          setSyncSummaryResult(fallbackData.summary || null);
+          setSyncModalState('success');
+          await refetchChannelsFromDb();
+          const updated = fallbackData.summary?.totalChannelsUpdated || 0;
+          const total = fallbackData.summary?.totalChannelsChecked || localChannels.length;
+          showToast(`ซิงค์ยอดผู้ติดตามสำเร็จ (${total} ช่อง / อัปเดต ${updated} ช่อง) 🎉`, 'success');
+          return;
+        } else {
+          throw new Error(
+            fallbackRes.status === 404
+              ? 'ไม่พบ API Endpoint หลังบ้าน (HTTP 404) — หากกำลังรันบน Localhost กรุณารันด้วยคำสั่ง "npm run dev" (เพื่อให้ Express API หลังบ้านทำงานร่วมกับ Vite)'
+              : fallbackData?.error || `เซิร์ฟเวอร์ตอบสนองผิดพลาด (HTTP ${fallbackRes.status})`
+          );
+        }
+      }
+
+      if (!startRes.ok || !startData || !startData.success || !startData.sessionId) {
+        throw new Error(startData?.error || `เซิร์ฟเวอร์ตอบสนองผิดพลาด (HTTP ${startRes.status})`);
+      }
+
+      const sessionId = startData.sessionId;
+
+      // 2. Poll server session status every 450ms (Completely bypasses Proxy/Nginx buffering)
+      const pollIntervalMs = 450;
+      const maxPollingDurationMs = 180000; // 3 minutes safety timeout
+      const startPollingTime = Date.now();
+
+      await new Promise<void>((resolve, reject) => {
+        const intervalId = setInterval(async () => {
+          // Safety Timeout Check
+          if (Date.now() - startPollingTime > maxPollingDurationMs) {
+            clearInterval(intervalId);
+            reject(new Error('การประมวลผลใช้เวลานานเกินกำหนด (Timeout)'));
+            return;
+          }
+
+          try {
+            const statusRes = await fetch(`/api/cron/sync-status?sessionId=${sessionId}&_t=${Date.now()}`, {
+              headers: { 'Accept': 'application/json' }
+            });
+            if (!statusRes.ok) {
+              // Non-blocking retry if 404 or network hiccup occurs once
+              return;
+            }
+
+            const statusText = await statusRes.text();
+            let statusData: any = null;
+            try {
+              statusData = statusText ? JSON.parse(statusText) : null;
+            } catch {
+              return;
+            }
+
+            if (!statusData || !statusData.success || !statusData.session) return;
+
+            const session = statusData.session;
+
+            // Update UI State with live data from server session
+            if (typeof session.percentage === 'number') {
+              setSyncPercentage(session.percentage);
+            }
+            if (typeof session.currentIndex === 'number') {
+              setSyncCurrentIndex(session.currentIndex);
+            }
+            if (typeof session.totalChannels === 'number' && session.totalChannels > 0) {
+              setSyncTotalChannels(session.totalChannels);
+            }
+            if (session.currentChannelName) {
+              setSyncCurrentChannelName(session.currentChannelName);
+            }
+            if (session.currentPlatform) {
+              setSyncCurrentPlatform(session.currentPlatform);
+            }
+            if (session.statusMessage) {
+              setSyncStatusMessage(session.statusMessage);
+            }
+            if (Array.isArray(session.queue) && session.queue.length > 0) {
+              setSyncQueue(session.queue);
+            }
+            if (Array.isArray(session.logs) && session.logs.length > 0) {
+              setSyncLogs(session.logs);
+            }
+
+            // Check if finished
+            if (session.state === 'completed') {
+              clearInterval(intervalId);
+              setSyncSummaryResult(session.summary || null);
+              setSyncModalState('success');
+              await refetchChannelsFromDb();
+              const updated = session.summary?.totalChannelsUpdated || 0;
+              const total = session.summary?.totalChannelsChecked || session.totalChannels || 0;
+              showToast(`ซิงค์ยอดผู้ติดตามสำเร็จ (${total} ช่อง / อัปเดต ${updated} ช่อง) 🎉`, 'success');
+              resolve();
+            } else if (session.state === 'error') {
+              clearInterval(intervalId);
+              setSyncModalState('error');
+              setSyncErrorMessage(session.errorMessage || 'เกิดข้อผิดพลาดระหว่างการดึงข้อมูล');
+              showToast(`เกิดข้อผิดพลาดในการซิงค์: ${session.errorMessage || 'Error'}`, 'error');
+              resolve();
+            }
+          } catch (pollErr) {
+            console.warn('[ChannelManager] Polling tick error (will retry):', pollErr);
+          }
+        }, pollIntervalMs);
+      });
+    } catch (err: any) {
+      console.error('[ChannelManager] Follower sync error:', err);
+      setSyncModalState('error');
+      setSyncErrorMessage(err?.message || 'การเชื่อมต่อเซิร์ฟเวอร์ล้มเหลว กรุณาลองใหม่อีกครั้ง');
+      showToast(`เชื่อมต่อเซิร์ฟเวอร์ล้มเหลว: ${err?.message || 'Error'}`, 'error');
+    } finally {
+      setIsSyncingFollowers(false);
+    }
+  };
 
   const handleCreateChannel = () => {
     setEditingChannel(null);
@@ -339,6 +586,8 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
             totalReach={grandTotalFollowers}
             isRefreshingCounts={isRefreshingCounts}
             onRefreshCounts={() => fetchDirectContentCounts(true)}
+            isSyncingFollowers={isSyncingFollowers}
+            onSyncFollowers={handleSyncFollowersNow}
             onManageGroups={() => setIsGroupModalOpen(true)}
           />
         )}
@@ -383,6 +632,25 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
           onUpdateGroup={updateGroup}
           onDeleteGroup={deleteGroup}
           onAssignChannel={assignChannelToGroup}
+        />
+
+        {/* Follower Sync Progress & Result Modal */}
+        <FollowerSyncProgressModal
+          isOpen={isSyncModalOpen}
+          state={syncModalState}
+          summary={syncSummaryResult}
+          errorMessage={syncErrorMessage}
+          totalReach={grandTotalFollowers}
+          percentage={syncPercentage}
+          currentIndex={syncCurrentIndex}
+          totalChannels={syncTotalChannels}
+          currentChannelName={syncCurrentChannelName}
+          currentPlatform={syncCurrentPlatform}
+          statusMessage={syncStatusMessage}
+          queue={syncQueue}
+          logs={syncLogs}
+          onClose={() => setIsSyncModalOpen(false)}
+          onRetry={handleSyncFollowersNow}
         />
       </div>
     </SocialChannelBackground>

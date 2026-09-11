@@ -12,6 +12,7 @@ interface CachedPreview {
         siteName?: string;
         url: string;
         favicon?: string;
+        extractedFollowers?: number;
     };
     timestamp: number;
 }
@@ -263,14 +264,69 @@ function extractMeta(html: string, propertyPatterns: string[]): string | undefin
 }
 
 function decodeHtmlEntities(str: string): string {
+    if (!str) return '';
     return str
+        // Decode Hexadecimal entities (e.g. &#xe16;, &#x0E16;, &#x27;)
+        .replace(/&#x([0-9a-fA-F]+);/gi, (_, hex) => {
+            try {
+                const codePoint = parseInt(hex, 16);
+                return String.fromCodePoint(codePoint);
+            } catch {
+                return _;
+            }
+        })
+        // Decode Decimal entities (e.g. &#3606;, &#39;)
+        .replace(/&#([0-9]+);/g, (_, dec) => {
+            try {
+                const codePoint = parseInt(dec, 10);
+                return String.fromCodePoint(codePoint);
+            } catch {
+                return _;
+            }
+        })
+        // Standard Named HTML entities
         .replace(/&amp;/g, '&')
         .replace(/&lt;/g, '<')
         .replace(/&gt;/g, '>')
         .replace(/&quot;/g, '"')
         .replace(/&#39;/g, "'")
-        .replace(/&#x27;/g, "'")
-        .replace(/&nbsp;/g, ' ');
+        .replace(/&apos;/g, "'")
+        .replace(/&nbsp;/g, ' ')
+        .replace(/&bull;/g, '•')
+        .replace(/&middot;/g, '·')
+        .replace(/&mdash;/g, '—')
+        .replace(/&ndash;/g, '–');
+}
+
+// Parse numeric followers from Facebook/Social description (e.g. "ถูกใจ 12,175 คน", "12.5K likes")
+function parseFollowersFromText(text?: string): number | undefined {
+    if (!text) return undefined;
+    
+    // Pattern 1: Thai "ถูกใจ 12,175 คน" or "ผู้ติดตาม 12,175 คน"
+    const thaiMatch = text.match(/(?:ถูกใจ|ผู้ติดตาม)\s*([\d,]+(?:\.\d+)?)\s*([kKmMพันล้าน]?)\s*คน?/i);
+    if (thaiMatch) {
+        const rawNum = parseFloat(thaiMatch[1].replace(/,/g, ''));
+        if (!isNaN(rawNum)) {
+            const unit = (thaiMatch[2] || '').toLowerCase();
+            if (unit === 'k' || unit === 'พัน') return Math.round(rawNum * 1000);
+            if (unit === 'm' || unit === 'ล้าน') return Math.round(rawNum * 1000000);
+            return Math.round(rawNum);
+        }
+    }
+
+    // Pattern 2: English "12,175 likes", "12.5K followers"
+    const engMatch = text.match(/([\d,]+(?:\.\d+)?)\s*([kKmM]?)\s*(?:likes|followers)/i);
+    if (engMatch) {
+        const rawNum = parseFloat(engMatch[1].replace(/,/g, ''));
+        if (!isNaN(rawNum)) {
+            const unit = (engMatch[2] || '').toLowerCase();
+            if (unit === 'k') return Math.round(rawNum * 1000);
+            if (unit === 'm') return Math.round(rawNum * 1000000);
+            return Math.round(rawNum);
+        }
+    }
+
+    return undefined;
 }
 
 // Endpoint: GET /api/preview-link?url=...
@@ -377,13 +433,25 @@ router.get('/api/preview-link', async (req: Request, res: ExpressResponse) => {
 
         const siteName = extractMeta(html, ['og:site_name', 'application-name']) || domain;
 
+        let decodedTitle = title ? decodeHtmlEntities(title) : undefined;
+        if (decodedTitle && (domain.includes('facebook.com') || domain.includes('fb.com'))) {
+            decodedTitle = decodedTitle.replace(/\s*([|•-]\s*Facebook).*$/i, '').trim();
+        }
+
+        let decodedDescription = description ? decodeHtmlEntities(description) : undefined;
+        const extractedFollowers = parseFollowersFromText(decodedDescription);
+        if (decodedDescription) {
+            decodedDescription = decodedDescription.replace(/[·•]/g, '·').trim();
+        }
+
         const resultData = {
-            title: title ? decodeHtmlEntities(title) : undefined,
-            description: description ? decodeHtmlEntities(description) : undefined,
+            title: decodedTitle,
+            description: decodedDescription,
             image,
             siteName: decodeHtmlEntities(siteName),
             url: targetUrl,
             favicon,
+            extractedFollowers,
         };
 
         // Cache result

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Tv, Check, Globe } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { ChannelOption, ChannelScopeConfigCardProps } from './types';
+import { ChannelOption, ChannelScopeConfigCardProps } from '../../types';
 
 export type { ChannelOption, ChannelScopeConfigCardProps };
 

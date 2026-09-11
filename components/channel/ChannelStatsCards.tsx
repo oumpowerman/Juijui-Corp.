@@ -12,6 +12,8 @@ interface ChannelStatsCardsProps {
   totalReach: number;
   isRefreshingCounts: boolean;
   onRefreshCounts: () => void;
+  isSyncingFollowers?: boolean;
+  onSyncFollowers?: () => void;
   onManageGroups: () => void;
 }
 
@@ -23,6 +25,8 @@ export const ChannelStatsCards: React.FC<ChannelStatsCardsProps> = ({
   totalReach,
   isRefreshingCounts,
   onRefreshCounts,
+  isSyncingFollowers = false,
+  onSyncFollowers,
   onManageGroups,
 }) => {
   return (
@@ -97,11 +101,33 @@ export const ChannelStatsCards: React.FC<ChannelStatsCardsProps> = ({
         <div className="w-12 h-12 rounded-xl bg-gradient-to-b from-indigo-500 to-purple-600 border border-white/60 border-b-2 border-b-purple-800 shadow-md shadow-purple-200/90 flex items-center justify-center text-white shrink-0">
           <Users className="w-5 h-5" />
         </div>
-        <div className="min-w-0">
-          <p className="text-xs font-bold text-indigo-900/75 flex items-center gap-1">
-            <span>ผู้ติดตามรวม (Reach)</span>
-            <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-          </p>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center justify-between gap-1">
+            <p className="text-xs font-bold text-indigo-900/75 flex items-center gap-1">
+              <span>ผู้ติดตามรวม (Reach)</span>
+              <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+            </p>
+            {onSyncFollowers && (
+              <button
+                type="button"
+                id="btn-sync-reach-card"
+                onClick={onSyncFollowers}
+                title={isSyncingFollowers ? "กำลังดึงข้อมูลผู้ติดตามล่าสุด... คลิกเพื่อดูสถานะใน Modal" : "ซิงค์ยอดผู้ติดตามทุกช่องรายการตอนนี้ (Auto-Sync 08:00 น.)"}
+                className={`transition-all duration-200 cursor-pointer shadow-2xs border shrink-0 flex items-center gap-1.5 ${
+                  isSyncingFollowers
+                    ? 'px-2 py-1 bg-indigo-50 text-indigo-600 border-indigo-200/80 rounded-lg hover:bg-indigo-100 ring-2 ring-indigo-200/50'
+                    : 'p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-100/60 bg-white/70 border-slate-200/60 rounded-lg'
+                }`}
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isSyncingFollowers ? 'animate-spin text-indigo-600' : ''}`} />
+                {isSyncingFollowers && (
+                  <span className="text-[10px] font-bold text-indigo-600 tracking-tight animate-pulse">
+                    กำลังดึงข้อมูล...
+                  </span>
+                )}
+              </button>
+            )}
+          </div>
           <div className="flex items-baseline gap-1.5 mt-0.5 truncate">
             {totalReach > 0 ? (
               <>

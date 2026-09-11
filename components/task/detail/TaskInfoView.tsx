@@ -5,6 +5,7 @@ import TaskMetricsSection from './sections/TaskMetricsSection';
 import TaskSpecsSection from './sections/TaskSpecsSection';
 import TaskDescriptionSection from './sections/TaskDescriptionSection';
 import TaskCrewSection from './sections/TaskCrewSection';
+import InactiveAssigneeWarningBanner, { InactiveUserItem } from './InactiveAssigneeWarningBanner';
 
 interface TaskInfoViewProps {
     task: Task;
@@ -12,6 +13,7 @@ interface TaskInfoViewProps {
     difficultyLevel: number;
     showAlert: (message: string, title?: string) => void;
     onOpenTask?: (task: Task) => void;
+    onEdit?: () => void;
     priorityInfo: {
         label: string;
         color: string;
@@ -27,12 +29,41 @@ const TaskInfoView: React.FC<TaskInfoViewProps> = ({
     difficultyLevel,
     showAlert,
     onOpenTask,
+    onEdit,
     priorityInfo,
     sectionVariants,
     bouncyHover
 }) => {
+    // Detect inactive assignees
+    const inactiveUsers = React.useMemo<InactiveUserItem[]>(() => {
+        if (!task.assigneeIds || task.assigneeIds.length === 0) return [];
+        const result: InactiveUserItem[] = [];
+        
+        task.assigneeIds.forEach(id => {
+            const user = users.find(u => u.id === id);
+            if (!user || !user.isActive) {
+                result.push({
+                    id,
+                    name: user?.name || `ผู้ใช้เดิม (${id.slice(0, 8)}...)`,
+                    avatarUrl: user?.avatarUrl,
+                    roleLabel: 'ผู้รับผิดชอบหลัก'
+                });
+            }
+        });
+        
+        return result;
+    }, [task.assigneeIds, users]);
+
     return (
         <div className="flex-1 overflow-y-auto p-4 sm:p-10 space-y-6 sm:space-y-10 scrollbar-none">
+            {/* --- INACTIVE ASSIGNEE BANNER --- */}
+            {inactiveUsers.length > 0 && (
+                <InactiveAssigneeWarningBanner 
+                    inactiveUsers={inactiveUsers} 
+                    onEdit={onEdit} 
+                />
+            )}
+
             {/* --- SECTION 1: KEY METRICS --- */}
             <TaskMetricsSection 
                 task={task} 
@@ -68,3 +99,4 @@ const TaskInfoView: React.FC<TaskInfoViewProps> = ({
 };
 
 export default TaskInfoView;
+

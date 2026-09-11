@@ -29,6 +29,7 @@ import SystemPolicyView from './admin/master/views/SystemPolicyView';
 import CompanyMasterView from './admin/master/views/CompanyMasterView';
 import MentorTipsMasterView from './admin/master/views/MentorTipsMasterView';
 import ContentAlertRulesView from './admin/master/views/ContentAlertRulesView';
+import FollowerSyncConfigView from './admin/master/views/FollowerSyncConfigView';
 import MasterDataTabConfigModal from './admin/master/MasterDataTabConfigModal';
 
 const MasterDataManager: React.FC = () => {
@@ -237,6 +238,12 @@ const MasterDataManager: React.FC = () => {
                                         onUpdate={updateMasterOption}
                                         onAdd={addMasterOption}
                                         saveMasterOptionsBulk={saveMasterOptionsBulk}
+                                    />
+                                ) : activeTab === 'FOLLOWER_SYNC' ? (
+                                    <FollowerSyncConfigView 
+                                        masterOptions={masterOptions}
+                                        onUpdate={updateMasterOption}
+                                        onAdd={addMasterOption}
                                     />
                                 ) : activeTab === 'SHOOT_LOCATION' ? (
                                     <LocationMasterView 

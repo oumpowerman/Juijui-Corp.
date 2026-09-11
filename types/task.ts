@@ -73,6 +73,16 @@ export interface ChannelGroup {
     created_at?: string;
 }
 
+export type BrandLinkType = 'NOTION' | 'GOOGLE_DOC' | 'GOOGLE_DRIVE' | 'FIGMA' | 'CANVA' | 'WEBSITE' | 'OTHER';
+
+export interface BrandGuidelineLink {
+    id: string;
+    title: string;
+    url: string;
+    type?: BrandLinkType;
+    description?: string;
+}
+
 export interface Channel {
     /** รหัสระบุตัวตนของช่อง/รายการ */
     id: string;
@@ -98,6 +108,8 @@ export interface Channel {
     group_name?: string | null;
     /** อีเมลทางการของช่อง / ติดต่องาน (Official / Business Contact Email) */
     email?: string;
+    /** ลิงก์คู่มือการทำงาน / Brand CI / SOP / Notion / Google Docs ประจำช่อง */
+    guideline_links?: BrandGuidelineLink[];
 }
 
 export interface TaskPerformance {

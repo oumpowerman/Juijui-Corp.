@@ -106,6 +106,7 @@ const TaskDetail: React.FC<TaskDetailProps> = ({
                 difficultyLevel={difficultyLevel}
                 showAlert={showAlert}
                 onOpenTask={onOpenTask}
+                onEdit={onEdit}
                 priorityInfo={priorityInfo}
                 sectionVariants={sectionVariants}
                 bouncyHover={bouncyHover}

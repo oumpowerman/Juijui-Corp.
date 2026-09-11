@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { DailyOverdueConfigCard } from '../DailyOverdueConfigCard';
-import { DailySummaryTabProps } from '../types';
+import { DailyOverdueConfigCard } from './DailyOverdueConfigCard';
+import { DailySummaryTabProps } from '../../types';
 
 export const DailySummaryTab: React.FC<DailySummaryTabProps> = ({
     isDailyAlertEnabled,

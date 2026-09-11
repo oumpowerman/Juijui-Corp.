@@ -394,6 +394,7 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
                             targetPosition={targetPosition}
                             setTargetPosition={setTargetPosition}
                             activeUsers={activeUsers}
+                            allUsers={users}
                             toggleUserSelection={handleUserSelectWrapper} 
                             startDate={startDate}
                             endDate={endDate}

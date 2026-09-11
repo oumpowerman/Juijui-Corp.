@@ -9,15 +9,49 @@ import ProductionSection from './sections/ProductionSection';
 import SponsorshipSection from './sections/SponsorshipSection';
 import TeamSection from './sections/TeamSection';
 import BriefSection from './sections/BriefSection';
+import InactiveAssigneeWarningBanner, { InactiveUserItem } from './InactiveAssigneeWarningBanner';
 
 interface ContentInfoViewProps {
     task: Task;
     users: User[];
     masterOptions?: MasterOption[];
     onSave?: (task: Task) => void;
+    onEdit?: () => void;
 }
 
-const ContentInfoView: React.FC<ContentInfoViewProps> = ({ task, users, masterOptions = [], onSave }) => {
+const ContentInfoView: React.FC<ContentInfoViewProps> = ({ task, users, masterOptions = [], onSave, onEdit }) => {
+    // Detect inactive crew members across Idea Owners, Assignees, and Editors
+    const inactiveUsers = React.useMemo<InactiveUserItem[]>(() => {
+        const result: InactiveUserItem[] = [];
+        const seen = new Set<string>();
+
+        const checkRoleList = (ids: string[] | undefined, roleLabel: string) => {
+            if (!ids || ids.length === 0) return;
+            ids.forEach(id => {
+                if (!id) return;
+                const user = users.find(u => u.id === id);
+                if (!user || !user.isActive) {
+                    const key = `${id}-${roleLabel}`;
+                    if (!seen.has(key)) {
+                        seen.add(key);
+                        result.push({
+                            id,
+                            name: user?.name || `ผู้ใช้เดิม (${id.slice(0, 8)}...)`,
+                            avatarUrl: user?.avatarUrl,
+                            roleLabel
+                        });
+                    }
+                }
+            });
+        };
+
+        checkRoleList(task.ideaOwnerIds, 'Idea Owner');
+        checkRoleList(task.assigneeIds, 'Assignee');
+        checkRoleList(task.editorIds, 'Editor');
+
+        return result;
+    }, [task.ideaOwnerIds, task.assigneeIds, task.editorIds, users]);
+
     const checklistSteps = React.useMemo(() => {
         if (!task.status || !masterOptions) return [];
         const groupKey = getChecklistGroupKey(task.status, masterOptions);
@@ -51,8 +85,17 @@ const ContentInfoView: React.FC<ContentInfoViewProps> = ({ task, users, masterOp
             exit={{ opacity: 0, x: 10 }}
             className="space-y-10"
         >
+            {/* --- INACTIVE ASSIGNEE BANNER --- */}
+            {inactiveUsers.length > 0 && (
+                <InactiveAssigneeWarningBanner 
+                    inactiveUsers={inactiveUsers} 
+                    onEdit={onEdit} 
+                />
+            )}
+
             <StorageSection task={task} />
             <StrategySection task={task} />
+
             
             {/* --- SUB-CHECKLIST SECTION --- */}
             {checklistSteps.length > 0 && (

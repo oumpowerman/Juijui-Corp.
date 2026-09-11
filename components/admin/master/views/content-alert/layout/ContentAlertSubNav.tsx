@@ -1,7 +1,7 @@
 import React from 'react';
 import { Clock, Sunrise, MessageSquare } from 'lucide-react';
 import { motion } from 'framer-motion';
-import { AlertSubTabId, ContentAlertSubNavProps } from './types';
+import { AlertSubTabId, ContentAlertSubNavProps } from '../types';
 
 export type { AlertSubTabId, ContentAlertSubNavProps };
 

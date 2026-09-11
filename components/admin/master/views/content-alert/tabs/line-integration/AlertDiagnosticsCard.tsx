@@ -1,6 +1,6 @@
 import React from 'react';
 import { Sparkles, Clock, Sunrise, Loader2, Send } from 'lucide-react';
-import { AlertDiagnosticsCardProps } from './types';
+import { AlertDiagnosticsCardProps } from '../../types';
 
 export const AlertDiagnosticsCard: React.FC<AlertDiagnosticsCardProps> = ({
     isTestingAlert,

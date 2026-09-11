@@ -153,7 +153,7 @@ const AssigneeFilterGrid: React.FC<AssigneeFilterGridProps> = ({
                             <div className="flex items-center gap-2 shrink-0">
                                 {count > 0 && (
                                     <span
-                                        className={`text-[10px] font-black px-2 py-0.5 rounded-full border transition-all ${
+                                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full border transition-all ${
                                             isSelected
                                                 ? 'bg-indigo-600 text-white border-transparent'
                                                 : 'bg-stone-100 text-stone-600 border-stone-200 group-hover:bg-indigo-50 group-hover:text-indigo-600 group-hover:border-indigo-200'

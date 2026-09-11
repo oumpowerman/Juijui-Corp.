@@ -1,6 +1,6 @@
 
 import React, { useMemo } from 'react';
-import { Activity, CheckSquare, Flag, Tag, Calendar, CalendarDays, Type, Layers, LayoutTemplate, FileText, MapPin, Presentation, Package, AlertTriangle, Briefcase, HeartPulse, Clock, ShieldAlert, Gift, Smile, Monitor, HardDrive, BookOpen, Gamepad2, Coins, Gavel, ShieldCheck, Building2, Film, Sparkles } from 'lucide-react';
+import { Activity, CheckSquare, Flag, Tag, Calendar, CalendarDays, Type, Layers, LayoutTemplate, FileText, MapPin, Presentation, Package, AlertTriangle, Briefcase, HeartPulse, Clock, ShieldAlert, Gift, Smile, Monitor, HardDrive, BookOpen, Gamepad2, Coins, Gavel, ShieldCheck, Building2, Film, Sparkles, RefreshCw } from 'lucide-react';
 import { MasterTab } from '../../../hooks/useMasterDataView';
 import { MasterOption } from '../../../types';
 
@@ -43,6 +43,7 @@ export const MASTER_META: Record<string, MasterTabMeta> = {
     CATEGORY: { label: 'Categories', icon: LayoutTemplate, desc: 'หมวดหมู่ย่อย (เช่น Vlog, Review, Interview)', group: 'CONTENT' },
     SCRIPT_CATEGORY: { label: 'Script Categories', icon: FileText, desc: 'หมวดหมู่สคริปต์ (เช่น Vlog, Storytelling, Review)', group: 'CONTENT' },
     CONTENT_ALERT: { label: 'Content LINE Alerts', icon: Film, desc: 'ตั้งค่าระบบแจ้งเตือนคิวลงคลิปล่วงหน้าผ่าน LINE อัตโนมัติ (Pre-Release)', group: 'CONTENT' },
+    FOLLOWER_SYNC: { label: 'Channel Auto-Sync', icon: RefreshCw, desc: 'ตั้งเวลาและจัดการระบบดึงยอดผู้ติดตามอัตโนมัติ (Cron, Platforms & Bandwidth Optimizer)', group: 'CONTENT' },
     SHOOT_LOCATION: { label: 'พิกัดสถานที่ถ่ายทำ', icon: MapPin, desc: 'จัดการพิกัดและรัศมี GPS ของกองถ่ายหรือสถานที่ถ่ายทำนอกสถานที่ (Onsite)', group: 'CONTENT' },
     MEETING_CATEGORY: { label: 'Meeting Topics', icon: Presentation, desc: 'หัวข้อการประชุม (เช่น General, Crisis, Project Update)', group: 'CONTENT' },
 

@@ -12,12 +12,17 @@ export const useMasterData = () => {
         annualHolidays,
         calendarExceptions,
         inventoryItems,
+        channels,
         isLoading,
         fetchMasterOptions,
+        fetchChannels,
         addMasterOption,
         updateMasterOption,
         deleteMasterOption,
         saveMasterOptionsBulk,
+        handleAddChannel,
+        handleUpdateChannel,
+        handleDeleteChannel,
         seedDefaults
     } = useMasterDataContext();
 
@@ -26,12 +31,17 @@ export const useMasterData = () => {
         annualHolidays,
         calendarExceptions,
         inventoryItems,
+        channels,
         isLoading,
         fetchMasterOptions,
+        fetchChannels,
         addMasterOption,
         updateMasterOption,
         deleteMasterOption,
         saveMasterOptionsBulk,
+        handleAddChannel,
+        handleUpdateChannel,
+        handleDeleteChannel,
         seedDefaults
     };
 };

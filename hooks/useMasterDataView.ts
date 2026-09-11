@@ -11,7 +11,7 @@ export type MasterTab =
     // Workflow
     | 'STATUS' | 'TASK_STATUS' | 'PROJECT_TYPE' | 'TAG_PRESET' | 'SHOOT_LOCATION' | 'EVENT_TYPE' | 'YEARLY' | 'CALENDAR'
     // Content
-    | 'PILLAR' | 'FORMAT' | 'CATEGORY' | 'SCRIPT_CATEGORY' | 'CONTENT_ALERT'
+    | 'PILLAR' | 'FORMAT' | 'CATEGORY' | 'SCRIPT_CATEGORY' | 'CONTENT_ALERT' | 'FOLLOWER_SYNC'
     // Inventory (Split types usually handled by specific views but accessible here)
     | 'INVENTORY' | 'ITEM_CONDITION'
     // Production

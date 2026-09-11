@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { isToday, addDays, isBefore } from 'date-fns';
 import { Task, Channel, User } from '../../../../types';
 import { isTaskCompleted } from '../../../../constants';
+import { useUserSession } from '../../../../context/UserSessionContext';
 
 export type FilterType = 'ALL' | 'OVERDUE' | 'TODAY' | 'SOON';
 
@@ -20,11 +21,35 @@ export const useUrgentTasks = ({
     viewScope,
     currentUser,
 }: UseUrgentTasksProps) => {
+    const { fetchMissingProfiles } = useUserSession();
     const [selectedType, setSelectedType] = useState<'ALL' | 'CONTENT' | 'TASK'>('ALL');
     const [activeFilter, setActiveFilter] = useState<FilterType>('ALL');
     const [isHelpOpen, setIsHelpOpen] = useState(false);
     const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
     const [selectedAssigneeId, setSelectedAssigneeId] = useState<string | null>(null);
+
+    // On-demand fetch missing profiles for all pending task assignees
+    useEffect(() => {
+        const pendingAssigneeIds: string[] = [];
+        tasks.forEach(t => {
+            if (!t.isUnscheduled && !isTaskCompleted(t.status as string)) {
+                if (t.assigneeIds && Array.isArray(t.assigneeIds)) {
+                    pendingAssigneeIds.push(...t.assigneeIds);
+                }
+                if (t.ideaOwnerIds && Array.isArray(t.ideaOwnerIds)) {
+                    pendingAssigneeIds.push(...t.ideaOwnerIds);
+                }
+                if (t.editorIds && Array.isArray(t.editorIds)) {
+                    pendingAssigneeIds.push(...t.editorIds);
+                }
+            }
+        });
+
+        const uniqueIds = Array.from(new Set(pendingAssigneeIds.filter(Boolean)));
+        if (uniqueIds.length > 0) {
+            fetchMissingProfiles(uniqueIds);
+        }
+    }, [tasks, fetchMissingProfiles]);
 
     // --- Filter and Sort Logic ---
     const { displayTasks, stats, counts, channelsWithPending, assigneesWithPending } = useMemo(() => {
@@ -78,9 +103,18 @@ export const useUrgentTasks = ({
         const assigneesWithPendingList = Object.entries(assigneeCounts)
             .map(([uid, count]) => {
                 const u = users.find(user => user.id === uid);
-                return { user: u, count, id: uid };
+                return { 
+                    user: u || ({
+                        id: uid,
+                        name: `Unknown (${uid.slice(0, 6)}...)`,
+                        avatarUrl: '',
+                        isActive: false,
+                        role: 'MEMBER'
+                    } as User), 
+                    count, 
+                    id: uid 
+                };
             })
-            .filter(item => item.user)
             .sort((a, b) => b.count - a.count);
 
         // Filter active tasks by tab selection (Types)

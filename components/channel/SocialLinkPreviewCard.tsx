@@ -13,6 +13,38 @@ interface LinkPreviewData {
   url: string;
   favicon?: string;
   cached?: boolean;
+  extractedFollowers?: number;
+}
+
+// Client-side sanitizer & entity decoder fallback (handles hex &#x...;, decimal &#...;, and named entities)
+function sanitizePreviewText(str?: string): string {
+  if (!str) return '';
+  return str
+    .replace(/&#x([0-9a-fA-F]+);/gi, (_, hex) => {
+      try {
+        return String.fromCodePoint(parseInt(hex, 16));
+      } catch {
+        return _;
+      }
+    })
+    .replace(/&#([0-9]+);/g, (_, dec) => {
+      try {
+        return String.fromCodePoint(parseInt(dec, 10));
+      } catch {
+        return _;
+      }
+    })
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'")
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&bull;/g, '•')
+    .replace(/&middot;/g, '·')
+    .replace(/&mdash;/g, '—')
+    .replace(/&ndash;/g, '–');
 }
 
 interface SocialLinkPreviewCardProps {
@@ -115,6 +147,7 @@ export const SocialLinkPreviewCard: React.FC<SocialLinkPreviewCardProps> = ({
             siteName: json.siteName,
             url: formattedUrl,
             favicon: json.favicon,
+            extractedFollowers: json.extractedFollowers,
           };
           setPreviewData(data);
           clientPreviewCache.set(formattedUrl, { data, timestamp: Date.now() });
@@ -220,15 +253,22 @@ export const SocialLinkPreviewCard: React.FC<SocialLinkPreviewCardProps> = ({
     return num.toLocaleString();
   };
 
-  const formattedFollowers = formatFollowers(followersCount);
+  const effectiveFollowersCount = typeof followersCount === 'number' && followersCount > 0
+    ? followersCount
+    : previewData?.extractedFollowers;
+
+  const formattedFollowers = formatFollowers(effectiveFollowersCount);
 
   // Shorten URL for clean display
   const displayUrl = formattedUrl
     ? formattedUrl.replace(/^https?:\/\/(www\.)?/i, '').replace(/\/$/, '')
     : 'ยังไม่มีการระบุ URL';
 
-  const previewTitle = previewData?.title || channelName;
-  const previewDescription = previewData?.description;
+  const rawTitle = previewData?.title || channelName;
+  const previewTitle = sanitizePreviewText(rawTitle);
+
+  const rawDescription = previewData?.description;
+  const previewDescription = sanitizePreviewText(rawDescription);
   const previewImage = previewData?.image || channelLogoUrl;
 
   return (

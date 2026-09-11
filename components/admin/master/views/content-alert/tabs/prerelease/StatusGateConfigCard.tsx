@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { ShieldCheck, Check, Info, Sparkles, CheckCheck, RotateCcw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MasterOption } from '../../../../../types';
+import { MasterOption } from '../../../../../../../types';
 
 interface StatusGateConfigCardProps {
     masterOptions: MasterOption[];

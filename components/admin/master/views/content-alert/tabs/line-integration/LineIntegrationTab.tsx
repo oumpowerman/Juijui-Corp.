@@ -1,9 +1,9 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { LineDestinationCard } from '../LineDestinationCard';
-import { AlertDiagnosticsCard } from '../AlertDiagnosticsCard';
-import { AlertWorkflowGuideCard } from '../AlertWorkflowGuideCard';
-import { LineIntegrationTabProps } from '../types';
+import { LineDestinationCard } from './LineDestinationCard';
+import { AlertDiagnosticsCard } from './AlertDiagnosticsCard';
+import { AlertWorkflowGuideCard } from './AlertWorkflowGuideCard';
+import { LineIntegrationTabProps } from '../../types';
 
 export const LineIntegrationTab: React.FC<LineIntegrationTabProps> = ({
     targetDestination,

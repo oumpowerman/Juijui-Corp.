@@ -28,16 +28,41 @@ const TaskCrewSection: React.FC<TaskCrewSectionProps> = ({ task, users, variants
                         {task.assigneeIds && task.assigneeIds.length > 0 ? (
                             task.assigneeIds.map(id => {
                                 const user = getUserById(id);
-                                return user ? (
+                                const isInactive = user ? !user.isActive : true;
+                                const displayName = user?.name || `ผู้ใช้เดิม (${id.slice(0, 8)}...)`;
+                                const avatarUrl = user?.avatarUrl;
+
+                                return (
                                     <motion.div 
                                         key={id} 
-                                        whileHover={{ scale: 1.1, x: 5 }}
-                                        className="group flex items-center gap-2 p-1 pr-3 bg-slate-50/50 border border-slate-100/50 rounded-full hover:bg-white hover:shadow-sm transition-all cursor-default"
+                                        whileHover={{ scale: 1.05, x: 3 }}
+                                        className={`group flex items-center gap-2 p-1 pr-3 rounded-full transition-all cursor-default ${
+                                            isInactive 
+                                                ? 'bg-amber-50/80 border border-amber-200/80 hover:bg-amber-100/50 shadow-sm' 
+                                                : 'bg-slate-50/50 border border-slate-100/50 hover:bg-white hover:shadow-sm'
+                                        }`}
                                     >
-                                        <img src={user.avatarUrl} alt={user.name} className="w-7 h-7 rounded-full object-cover border-2 border-white" />
-                                        <span className="text-[11px] font-semibold text-slate-500">{user.name}</span>
+                                        {avatarUrl ? (
+                                            <img 
+                                                src={avatarUrl} 
+                                                alt={displayName} 
+                                                className={`w-7 h-7 rounded-full object-cover border-2 border-white ${isInactive ? 'grayscale opacity-75' : ''}`} 
+                                            />
+                                        ) : (
+                                            <div className="w-7 h-7 rounded-full bg-amber-100 flex items-center justify-center text-amber-700 text-xs font-bold border-2 border-white">
+                                                ?
+                                            </div>
+                                        )}
+                                        <span className={`text-[11px] font-semibold ${isInactive ? 'text-amber-900' : 'text-slate-500'}`}>
+                                            {displayName}
+                                        </span>
+                                        {isInactive && (
+                                            <span className="text-[9px] font-bold bg-amber-200/90 text-amber-900 px-1.5 py-0.5 rounded-md leading-none">
+                                                พ้นสภาพ
+                                            </span>
+                                        )}
                                     </motion.div>
-                                ) : null;
+                                );
                             })
                         ) : (
                             <p className="text-xs text-slate-200 italic">No assignees linked</p>
@@ -50,3 +75,4 @@ const TaskCrewSection: React.FC<TaskCrewSectionProps> = ({ task, users, variants
 };
 
 export default TaskCrewSection;
+

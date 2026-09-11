@@ -109,6 +109,7 @@ export const UrgentTasksWorkloadBreakdown: React.FC<UrgentTasksWorkloadBreakdown
                         {assigneesWithPending.map(({ user, count, id }) => {
                             if (!user) return null;
                             const isSelected = selectedAssigneeId === id;
+                            const isInactive = user.isActive === false;
                             return (
                                 <motion.button
                                     key={id}
@@ -118,14 +119,26 @@ export const UrgentTasksWorkloadBreakdown: React.FC<UrgentTasksWorkloadBreakdown
                                     className={`
                                         flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all text-xs font-black cursor-pointer shrink-0 select-none shadow-sm
                                         ${isSelected 
-                                            ? 'bg-blue-100 border-blue-300 text-blue-800 ring-2 ring-blue-500/10' 
-                                            : 'bg-white border-slate-200/80 hover:border-blue-200 text-slate-600'
+                                            ? (isInactive ? 'bg-amber-100 border-amber-400 text-amber-900 ring-2 ring-amber-500/20' : 'bg-blue-100 border-blue-300 text-blue-800 ring-2 ring-blue-500/10')
+                                            : (isInactive ? 'bg-amber-50/70 border-amber-200 hover:border-amber-300 text-amber-800' : 'bg-white border-slate-200/80 hover:border-blue-200 text-slate-600')
                                         }
                                     `}
+                                    title={isInactive ? `${user.name} (พ้นสภาพ / Inactive)` : user.name}
                                 >
-                                    <img src={user.avatarUrl} className="w-4 h-4 rounded-full object-cover shrink-0 border border-white" referrerPolicy="no-referrer" alt="" />
+                                    {user.avatarUrl ? (
+                                        <img src={user.avatarUrl} className={`w-4 h-4 rounded-full object-cover shrink-0 border border-white ${isInactive ? 'grayscale' : ''}`} referrerPolicy="no-referrer" alt="" />
+                                    ) : (
+                                        <div className="w-4 h-4 rounded-full bg-slate-200 flex items-center justify-center text-[8px] font-bold text-slate-600 shrink-0">
+                                            {user.name?.slice(0, 1) || '?'}
+                                        </div>
+                                    )}
                                     <span className="max-w-[75px] truncate text-[11px] font-bold">{user.name}</span>
-                                    <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-extrabold ${isSelected ? 'bg-blue-200 text-blue-800' : 'bg-slate-100 text-slate-500'}`}>
+                                    {isInactive && (
+                                        <span className="text-[8px] bg-amber-200 text-amber-900 font-extrabold px-1 rounded">
+                                            Inactive
+                                        </span>
+                                    )}
+                                    <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-extrabold ${isSelected ? (isInactive ? 'bg-amber-200 text-amber-900' : 'bg-blue-200 text-blue-800') : (isInactive ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-500')}`}>
                                         {count}
                                     </span>
                                 </motion.button>

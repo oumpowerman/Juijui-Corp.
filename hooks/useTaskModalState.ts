@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Task, User, TaskType, Script } from '../types';
 import { useTaskContext } from '../context/TaskContext';
+import { useUserSession } from '../context/UserSessionContext';
 import { useScripts } from './useScripts';
 import { supabase } from '../lib/supabase';
 
@@ -20,6 +21,7 @@ export const useTaskModalState = ({
     currentUser,
 }: UseTaskModalStateProps) => {
     const { fetchTaskById, setTasks, fetchSubTasksCount } = useTaskContext();
+    const { fetchMissingProfiles } = useUserSession();
     const { getScriptById, updateScript } = useScripts(currentUser || { id: '', name: '', role: 'MEMBER' } as User);
 
     // Subtask count
@@ -110,6 +112,27 @@ export const useTaskModalState = ({
     }, [isOpen, initialData?.id, initialData?.type, lockedType, initialViewMode, fetchTaskById, setTasks, detailedData?.id]);
 
     const taskData = detailedData || initialData;
+
+    // Hydrate missing user profiles (assignees, idea owners, editors) on-demand
+    useEffect(() => {
+        if (isOpen && taskData) {
+            const userIdsToHydrate: string[] = [];
+            if (taskData.assigneeIds && Array.isArray(taskData.assigneeIds)) {
+                userIdsToHydrate.push(...taskData.assigneeIds);
+            }
+            if (taskData.ideaOwnerIds && Array.isArray(taskData.ideaOwnerIds)) {
+                userIdsToHydrate.push(...taskData.ideaOwnerIds);
+            }
+            if (taskData.editorIds && Array.isArray(taskData.editorIds)) {
+                userIdsToHydrate.push(...taskData.editorIds);
+            }
+
+            const uniqueIds = Array.from(new Set(userIdsToHydrate.filter(Boolean)));
+            if (uniqueIds.length > 0) {
+                fetchMissingProfiles(uniqueIds);
+            }
+        }
+    }, [isOpen, taskData?.id, taskData?.assigneeIds, taskData?.ideaOwnerIds, taskData?.editorIds, fetchMissingProfiles]);
 
     // Sync whether a script exists for CONTENT tasks or TASK tasks
     useEffect(() => {

@@ -171,7 +171,7 @@ export const ViewRouteRegistry: React.FC<ViewRouteRegistryProps> = ({
               <Dashboard
                 tasks={tasks}
                 channels={channels}
-                users={activeUsers}
+                users={allUsers || users || activeUsers}
                 currentUser={currentUserProfile}
                 onEditTask={handleEditTask}
                 onNavigateToCalendar={() => handleNavigate('CALENDAR')}
@@ -191,7 +191,7 @@ export const ViewRouteRegistry: React.FC<ViewRouteRegistryProps> = ({
               <CalendarView
                 tasks={tasks}
                 channels={channels}
-                users={activeUsers}
+                users={allUsers || users || activeUsers}
                 currentUser={currentUserProfile}
                 masterOptions={masterOptions}
                 onSelectTask={handleEditTask}

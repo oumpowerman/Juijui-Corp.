@@ -1,6 +1,6 @@
 import React, { Suspense, lazy } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { ViewMode, Task, LeaveRequest } from '../types';
+import { ViewMode, Task, LeaveRequest, User } from '../types';
 
 import NegligenceLockModal from '../components/duty/NegligenceLockModal';
 import DeathLockModal from '../components/gamification/DeathLockModal';
@@ -31,6 +31,7 @@ interface GlobalModalRegistryProps {
   selectedDate: any;
   channels: any[];
   activeUsers: any[];
+  allUsers?: any[];
   lockedTaskType: any;
   masterOptions: any;
   currentUserProfile: any;
@@ -82,6 +83,7 @@ export const GlobalModalRegistry: React.FC<GlobalModalRegistryProps> = ({
   selectedDate,
   channels,
   activeUsers,
+  allUsers,
   lockedTaskType,
   masterOptions,
   currentUserProfile,
@@ -145,7 +147,7 @@ export const GlobalModalRegistry: React.FC<GlobalModalRegistryProps> = ({
               initialData={editingTask}
               selectedDate={selectedDate}
               channels={channels}
-              users={activeUsers}
+              users={allUsers || activeUsers}
               lockedType={lockedTaskType}
               masterOptions={masterOptions}
               currentUser={currentUserProfile}

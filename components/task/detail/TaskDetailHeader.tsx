@@ -67,15 +67,28 @@ const TaskDetailHeader: React.FC<TaskDetailHeaderProps> = ({
                             <div className="flex -space-x-2 mr-2">
                                 {task.assigneeIds?.slice(0, 3).map((id, index) => {
                                     const user = getUserById(id);
-                                    return user ? (
+                                    const isInactive = user ? !user.isActive : true;
+                                    const avatarUrl = user?.avatarUrl;
+                                    const displayName = user?.name || `ผู้ใช้เดิม (${id.slice(0, 8)}...)`;
+
+                                    return avatarUrl ? (
                                         <img 
                                             key={id} 
-                                            src={user.avatarUrl} 
-                                            alt={user.name} 
-                                            className="w-5 h-5 rounded-full border-2 border-white shadow-sm" 
+                                            src={avatarUrl} 
+                                            alt={displayName} 
+                                            className={`w-5 h-5 rounded-full border-2 border-white shadow-sm ${isInactive ? 'grayscale ring-1 ring-amber-400' : ''}`} 
                                             style={{ zIndex: 3 - index }}
                                         />
-                                    ) : null;
+                                    ) : (
+                                        <div 
+                                            key={id} 
+                                            title={displayName}
+                                            className="w-5 h-5 rounded-full bg-amber-100 text-[8px] font-bold flex items-center justify-center text-amber-800 border-2 border-white shadow-sm ring-1 ring-amber-400"
+                                            style={{ zIndex: 3 - index }}
+                                        >
+                                            ?
+                                        </div>
+                                    );
                                 })}
                             </div>
                             <span className="text-[11px] font-medium text-slate-400 group-hover:text-slate-500 transition-colors uppercase tracking-tight">Tap to reveal info</span>

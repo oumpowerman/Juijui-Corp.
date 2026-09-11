@@ -1,11 +1,11 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { ContentAlertToggleCard } from '../ContentAlertToggleCard';
-import { LeadTimeConfigCard } from '../LeadTimeConfigCard';
-import { LookbackConfigCard } from '../LookbackConfigCard';
-import { StatusGateConfigCard } from '../StatusGateConfigCard';
-import { ChannelScopeConfigCard } from '../ChannelScopeConfigCard';
-import { PreReleaseTabProps } from '../types';
+import { ContentAlertToggleCard } from './ContentAlertToggleCard';
+import { LeadTimeConfigCard } from './LeadTimeConfigCard';
+import { LookbackConfigCard } from './LookbackConfigCard';
+import { StatusGateConfigCard } from './StatusGateConfigCard';
+import { ChannelScopeConfigCard } from './ChannelScopeConfigCard';
+import { PreReleaseTabProps } from '../../types';
 
 export const PreReleaseTab: React.FC<PreReleaseTabProps> = ({
     isEnabled,

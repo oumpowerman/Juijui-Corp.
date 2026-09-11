@@ -381,6 +381,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
         selectedDate={selectedDate}
         channels={channels}
         activeUsers={activeUsers}
+        allUsers={allUsers}
         lockedTaskType={lockedTaskType}
         masterOptions={masterOptions}
         currentUserProfile={currentUserProfile!}

@@ -28,6 +28,7 @@ interface UserSessionContextType {
     
     // Team Actions
     fetchTeamMembers: () => Promise<void>;
+    fetchMissingProfiles: (userIds: string[]) => Promise<User[]>;
     approveMember: (userId: string) => Promise<void>;
     removeMember: (userId: string) => Promise<void>;
     toggleUserStatus: (userId: string, currentStatus: boolean) => Promise<void>;
@@ -193,6 +194,72 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
     const { showToast } = useToast();
     const { showConfirm, showAlert } = useGlobalDialog();
 
+    // Cache for missing profiles to avoid redundant network calls
+    const missingProfilesCacheRef = React.useRef<Map<string, User | null>>(new Map());
+    const inflightFetchRef = React.useRef<Map<string, Promise<User | null>>>(new Map());
+
+    // --- ON-DEMAND FETCH FOR MISSING/INACTIVE PROFILES ---
+    const fetchMissingProfiles = useCallback(async (userIds: string[]): Promise<User[]> => {
+        if (!userIds || userIds.length === 0) return [];
+        
+        // Filter out IDs that already exist in allUsers or are invalid
+        const neededIds = userIds.filter(id => {
+            if (!id) return false;
+            return !allUsers.some(u => u.id === id);
+        });
+
+        if (neededIds.length === 0) {
+            return allUsers.filter(u => userIds.includes(u.id));
+        }
+
+        // Check which ones are already cached in ref
+        const uncachedIds: string[] = [];
+        const cachedUsers: User[] = [];
+
+        neededIds.forEach(id => {
+            if (missingProfilesCacheRef.current.has(id)) {
+                const cached = missingProfilesCacheRef.current.get(id);
+                if (cached) cachedUsers.push(cached);
+            } else {
+                uncachedIds.push(id);
+            }
+        });
+
+        if (uncachedIds.length > 0) {
+            try {
+                const { data, error } = await supabase
+                    .from('profiles')
+                    .select('*')
+                    .in('id', uncachedIds);
+
+                if (error) {
+                    console.error('Error fetching missing profiles:', error);
+                } else if (data) {
+                    const fetchedUsers = data.map(mapProfileToUser);
+                    
+                    // Update cache
+                    uncachedIds.forEach(id => {
+                        const found = fetchedUsers.find(u => u.id === id);
+                        missingProfilesCacheRef.current.set(id, found || null);
+                    });
+
+                    if (fetchedUsers.length > 0) {
+                        setAllUsers(prev => {
+                            const map = new Map<string, User>();
+                            prev.forEach(u => map.set(u.id, u));
+                            fetchedUsers.forEach(u => map.set(u.id, u));
+                            return Array.from(map.values());
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to fetch missing profiles:', err);
+            }
+        }
+
+        return allUsers.filter(u => userIds.includes(u.id));
+    }, [allUsers]);
+
     // --- INITIAL BATCH FETCH ---
     const fetchInitialData = useCallback(async () => {
         if (!sessionUser?.id) return;
@@ -202,84 +269,73 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
             const thirtyDaysAgo = format(subDays(today, 30), 'yyyy-MM-dd');
             const sixtyDaysAgo = format(subDays(today, 60), 'yyyy-MM-dd');
 
-            // 1. Hybrid Fetching Strategy:
-            // - Fetch minimal data for EVERYONE (to support history/lookup)
-            // - Fetch full data for ACTIVE users
-            // - Fetch full data for CURRENT user
-            
-            const [minProfilesRes, activeProfilesRes, currentProfileRes] = await Promise.all([
-                supabase.from('profiles').select('id, full_name, first_name, last_name, nickname, avatar_url, is_active, role, position, start_date, emoji, employment_type, company_id').order('full_name', { ascending: true }),
+            // Optimized Strategy:
+            // Fetch ONLY active users and current user on initial startup
+            const [activeProfilesRes, currentProfileRes] = await Promise.all([
                 supabase.from('profiles').select('*').eq('is_active', true),
                 supabase.from('profiles').select('*').eq('id', sessionUser.id).maybeSingle()
             ]);
 
-            if (minProfilesRes.error) throw minProfilesRes.error;
             if (activeProfilesRes.error) throw activeProfilesRes.error;
             if (currentProfileRes.error) throw currentProfileRes.error;
 
-            const minimalData = minProfilesRes.data || [];
             const activeData = activeProfilesRes.data || [];
             const currentData = currentProfileRes.data;
 
-            if (minimalData) {
-                // Merge data: Active full data overwrites minimal data
-                const userMap = new Map<string, any>();
+            const userMap = new Map<string, any>();
+            activeData.forEach(p => userMap.set(p.id, p));
+            if (currentData) userMap.set(currentData.id, currentData);
+
+            const mergedData = Array.from(userMap.values());
+            const mappedUsers = mergedData.map(mapProfileToUser);
+            
+            setAllUsers(mappedUsers);
+            
+            const current = mappedUsers.find(u => u.id === sessionUser.id);
+            if (current) {
+                setCurrentUserProfile(current);
                 
-                minimalData.forEach(p => userMap.set(p.id, p));
-                activeData.forEach(p => userMap.set(p.id, p));
-                if (currentData) userMap.set(currentData.id, currentData);
-
-                const mergedData = Array.from(userMap.values());
-                const mappedUsers = mergedData.map(mapProfileToUser);
-                
-                setAllUsers(mappedUsers);
-                
-                const current = mappedUsers.find(u => u.id === sessionUser.id);
-                if (current) {
-                    setCurrentUserProfile(current);
-                    
-                    // Auto-sync app version to database if different
-                    if (current.appVersion !== __APP_VERSION__) {
-                        supabase.from('profiles')
-                            .update({ app_version: __APP_VERSION__ })
-                            .eq('id', sessionUser.id)
-                            .then(({ error }) => {
-                                if (error) {
-                                    console.error('Failed to auto-update app version:', error);
-                                } else {
-                                    console.log(`App version auto-synced to: ${__APP_VERSION__}`);
-                                    setCurrentUserProfile(prev => prev ? { ...prev, appVersion: __APP_VERSION__ } : null);
-                                    setAllUsers(prev => prev.map(u => u.id === sessionUser.id ? { ...u, appVersion: __APP_VERSION__ } : u));
-                                }
-                            });
-                    }
-                    
-                    // 2. Fetch attendance and leaves based on role
-                    const isAdmin = current.role === 'ADMIN';
-                    
-                    let attendanceQuery = supabase.from('attendance_logs').select('*').gte('date', thirtyDaysAgo);
-                    let leavesQuery = supabase.from('leave_requests').select('*').gte('end_date', sixtyDaysAgo);
-                    let otQuery = supabase.from('ot_requests').select('*').gte('date', sixtyDaysAgo);
-
-                    if (!isAdmin) {
-                        attendanceQuery = attendanceQuery.eq('user_id', sessionUser.id);
-                        leavesQuery = leavesQuery.eq('user_id', sessionUser.id);
-                        otQuery = otQuery.eq('user_id', sessionUser.id);
-                    }
-
-                    const [attendanceRes, leavesRes, otRes] = await Promise.all([
-                        attendanceQuery,
-                        leavesQuery,
-                        Promise.resolve(otQuery).catch(err => {
-                            console.warn("ot_requests table might not exist yet:", err);
-                            return { data: [] } as any;
-                        })
-                    ]);
-
-                    if (attendanceRes.data) setAttendanceLogs(attendanceRes.data.map(mapAttendanceLog));
-                    if (leavesRes.data) setLeaveRequests(leavesRes.data.filter((r: any) => r.type !== 'OVERTIME').map(mapLeaveRequest));
-                    if (otRes.data) setOtRequests(otRes.data.map(mapOtRequest));
+                // Auto-sync app version to database if different
+                if (current.appVersion !== __APP_VERSION__) {
+                    supabase.from('profiles')
+                        .update({ app_version: __APP_VERSION__ })
+                        .eq('id', sessionUser.id)
+                        .then(({ error }) => {
+                            if (error) {
+                                console.error('Failed to auto-update app version:', error);
+                            } else {
+                                console.log(`App version auto-synced to: ${__APP_VERSION__}`);
+                                setCurrentUserProfile(prev => prev ? { ...prev, appVersion: __APP_VERSION__ } : null);
+                                setAllUsers(prev => prev.map(u => u.id === sessionUser.id ? { ...u, appVersion: __APP_VERSION__ } : u));
+                            }
+                        });
                 }
+                
+                // 2. Fetch attendance and leaves based on role
+                const isAdmin = current.role === 'ADMIN';
+                
+                let attendanceQuery = supabase.from('attendance_logs').select('*').gte('date', thirtyDaysAgo);
+                let leavesQuery = supabase.from('leave_requests').select('*').gte('end_date', sixtyDaysAgo);
+                let otQuery = supabase.from('ot_requests').select('*').gte('date', sixtyDaysAgo);
+
+                if (!isAdmin) {
+                    attendanceQuery = attendanceQuery.eq('user_id', sessionUser.id);
+                    leavesQuery = leavesQuery.eq('user_id', sessionUser.id);
+                    otQuery = otQuery.eq('user_id', sessionUser.id);
+                }
+
+                const [attendanceRes, leavesRes, otRes] = await Promise.all([
+                    attendanceQuery,
+                    leavesQuery,
+                    Promise.resolve(otQuery).catch(err => {
+                        console.warn("ot_requests table might not exist yet:", err);
+                        return { data: [] } as any;
+                    })
+                ]);
+
+                if (attendanceRes.data) setAttendanceLogs(attendanceRes.data.map(mapAttendanceLog));
+                if (leavesRes.data) setLeaveRequests(leavesRes.data.filter((r: any) => r.type !== 'OVERTIME').map(mapLeaveRequest));
+                if (otRes.data) setOtRequests(otRes.data.map(mapOtRequest));
             }
 
         } catch (error) {
@@ -572,7 +628,20 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
 
     // --- TEAM ACTIONS (From useTeam) ---
     const fetchTeamMembers = async () => {
-        // Handled by initial fetch and realtime
+        try {
+            const { data, error } = await supabase
+                .from('profiles')
+                .select('*')
+                .order('full_name', { ascending: true });
+                
+            if (error) throw error;
+            if (data) {
+                const mapped = data.map(mapProfileToUser);
+                setAllUsers(mapped);
+            }
+        } catch (err: any) {
+            console.error('Error fetching all team members:', err);
+        }
     };
 
     const approveMember = async (userId: string) => {
@@ -715,6 +784,7 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
         refreshLeaves,
         refreshOTRequests,
         fetchTeamMembers,
+        fetchMissingProfiles,
         approveMember,
         removeMember,
         toggleUserStatus,
@@ -723,7 +793,7 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
         setAllUsers
     }), [
         isReady, currentUserProfile, allUsers, attendanceLogs, leaveRequests, otRequests,
-        fetchProfile, updateProfile, fetchTeamMembers, approveMember,
+        fetchProfile, updateProfile, fetchTeamMembers, fetchMissingProfiles, approveMember,
         removeMember, toggleUserStatus, updateMember, adjustStatsLocally
     ]);
 

@@ -6,6 +6,7 @@ import { useMasterData } from '../../../../hooks/useMasterData';
 import { supabase } from '../../../../lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useToast } from '../../../../context/ToastContext';
+import { useGlobalDialog } from '../../../../context/GlobalDialogContext';
 import { PillarCategoryDetailModal } from './PillarCategoryDetailModal';
 
 // Curated default recommendations to ensure excellent fallback options
@@ -46,6 +47,7 @@ export const ChannelPillarsCategoriesManager: React.FC<ChannelPillarsCategoriesM
 }) => {
   const { masterOptions, addMasterOption, updateMasterOption, deleteMasterOption, fetchMasterOptions } = useMasterData();
   const { showToast } = useToast();
+  const { showConfirm } = useGlobalDialog();
 
   // Input states for adding new Pillar
   const [newPillarLabel, setNewPillarLabel] = useState('');
@@ -228,9 +230,17 @@ export const ChannelPillarsCategoriesManager: React.FC<ChannelPillarsCategoriesM
   };
 
   const handleRemovePillarClick = async (pillarId: string, pillarKey: string, isTemp: boolean) => {
+    const confirmed = await showConfirm(
+      'คุณแน่ใจหรือไม่ว่าต้องการลบแกนเนื้อหานี้และหมวดหมู่ย่อยทั้งหมด? การดำเนินการนี้ไม่สามารถยกเลิกได้',
+      'ยืนยันการลบข้อมูล',
+      true
+    );
+    if (!confirmed) return;
+
     if (isTemp) {
       // Cascading deletion for temp options
       setTempOptions(prev => prev.filter(o => o.id !== pillarId && o.parentKey !== pillarKey));
+      showToast('ลบแกนเนื้อหาและหมวดหมู่ย่อยทั้งหมดเรียบร้อย', 'info');
     } else {
       const success = await deleteMasterOption(pillarId);
       if (success) {
@@ -242,9 +252,9 @@ export const ChannelPillarsCategoriesManager: React.FC<ChannelPillarsCategoriesM
           await supabase.from('master_options').delete().in('id', childCats.map(c => c.id));
         }
         await fetchMasterOptions();
+        showToast('ลบแกนเนื้อหาและหมวดหมู่ย่อยทั้งหมดเรียบร้อย', 'info');
       }
     }
-    showToast('ลบแกนเนื้อหาและหมวดหมู่ย่อยทั้งหมดเรียบร้อย', 'info');
   };
 
   return (
@@ -323,28 +333,33 @@ export const ChannelPillarsCategoriesManager: React.FC<ChannelPillarsCategoriesM
             </div>
 
             {/* Optional Description Input for New Pillar */}
-            {(showDescriptionInput || newPillarDescription.trim().length > 0) && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="pt-1"
-              >
-                <input
-                  type="text"
-                  value={newPillarDescription}
-                  onChange={e => setNewPillarDescription(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleAddPillarClick();
-                    }
-                  }}
-                  placeholder="คำอธิบายแกนเนื้อหา (ไม่บังคับ เช่น เนื้อหาความบันเทิง เบาสมอง เน้นเข้าถึงง่าย)"
-                  className="w-full px-3.5 py-1.5 bg-white border border-slate-200 text-xs text-slate-700 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-300 font-kanit"
-                />
-              </motion.div>
-            )}
+            <AnimatePresence initial={false}>
+              {(showDescriptionInput || newPillarDescription.trim().length > 0) && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.2, ease: 'easeInOut' }}
+                  className="overflow-hidden"
+                >
+                  <div className="pt-1">
+                    <input
+                      type="text"
+                      value={newPillarDescription}
+                      onChange={e => setNewPillarDescription(e.target.value)}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleAddPillarClick();
+                        }
+                      }}
+                      placeholder="คำอธิบายแกนเนื้อหา (ไม่บังคับ เช่น เนื้อหาความบันเทิง เบาสมอง เน้นเข้าถึงง่าย)"
+                      className="w-full px-3.5 py-1.5 bg-white border border-slate-200 text-xs text-slate-700 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all placeholder:text-slate-300 font-kanit"
+                    />
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Smart Suggested Dropdown */}
             <AnimatePresence>

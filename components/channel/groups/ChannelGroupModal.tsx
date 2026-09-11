@@ -205,7 +205,7 @@ export const ChannelGroupModal: React.FC<ChannelGroupModalProps> = ({
                   <button
                     type="button"
                     onClick={handleStartCreate}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-md shadow-indigo-200 transition-all active:scale-95 cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-medium rounded-xl shadow-md shadow-indigo-200 transition-all active:scale-95 cursor-pointer"
                   >
                     <Plus className="w-4 h-4" />
                     สร้างกลุ่มใหม่
@@ -244,16 +244,6 @@ export const ChannelGroupModal: React.FC<ChannelGroupModalProps> = ({
                       <Layers className="w-4 h-4 text-indigo-600" />
                       กลุ่มรายการที่สร้างไว้ ({groups.length} กลุ่ม)
                     </h3>
-                    {groups.length > 0 && !isCreating && (
-                      <button
-                        type="button"
-                        onClick={handleStartCreate}
-                        className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1 cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        เพิ่มอีกกลุ่ม
-                      </button>
-                    )}
                   </div>
 
                   <AnimatePresence mode="wait" initial={false}>

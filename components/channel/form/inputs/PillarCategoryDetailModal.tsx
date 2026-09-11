@@ -4,6 +4,7 @@ import { X, Tag, Pencil, Plus, Layers, Trash2, AlignLeft, Check, Info } from 'lu
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMasterData } from '../../../../hooks/useMasterData';
 import { useToast } from '../../../../context/ToastContext';
+import { useGlobalDialog } from '../../../../context/GlobalDialogContext';
 
 interface TempOption {
   id: string;
@@ -33,6 +34,7 @@ export const PillarCategoryDetailModal: React.FC<PillarCategoryDetailModalProps>
 }) => {
   const { masterOptions, addMasterOption, updateMasterOption, deleteMasterOption, fetchMasterOptions } = useMasterData();
   const { showToast } = useToast();
+  const { showConfirm } = useGlobalDialog();
 
   // Category creation states
   const [newCategoryLabel, setNewCategoryLabel] = useState('');
@@ -191,12 +193,22 @@ export const PillarCategoryDetailModal: React.FC<PillarCategoryDetailModalProps>
   };
 
   const handleRemoveCategory = async (catId: string, isTemp: boolean) => {
+    const confirmed = await showConfirm(
+      'คุณแน่ใจหรือไม่ว่าต้องการลบหมวดหมู่ย่อยนี้? การดำเนินการนี้ไม่สามารถยกเลิกได้',
+      'ยืนยันการลบข้อมูล',
+      true
+    );
+    if (!confirmed) return;
+
     if (isTemp) {
       setTempOptions(prev => prev.filter(o => o.id !== catId));
+      showToast('ลบหมวดหมู่ย่อยเรียบร้อยแล้ว', 'info');
     } else {
-      await deleteMasterOption(catId);
+      const success = await deleteMasterOption(catId);
+      if (success) {
+        showToast('ลบหมวดหมู่ย่อยเรียบร้อยแล้ว', 'info');
+      }
     }
-    showToast('ลบหมวดหมู่ย่อยเรียบร้อยแล้ว', 'info');
   };
 
   const handleStartEditCategory = (cat: any) => {

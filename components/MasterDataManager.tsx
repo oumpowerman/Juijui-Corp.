@@ -30,6 +30,7 @@ import CompanyMasterView from './admin/master/views/CompanyMasterView';
 import MentorTipsMasterView from './admin/master/views/MentorTipsMasterView';
 import ContentAlertRulesView from './admin/master/views/ContentAlertRulesView';
 import FollowerSyncConfigView from './admin/master/views/FollowerSyncConfigView';
+import PillarCategoryMasterView from './admin/master/views/PillarCategoryMasterView';
 import MasterDataTabConfigModal from './admin/master/MasterDataTabConfigModal';
 
 const MasterDataManager: React.FC = () => {
@@ -350,6 +351,14 @@ const MasterDataManager: React.FC = () => {
                                             </div>
                                         ))}
                                     </div>
+                                ) : (activeTab === 'PILLAR' || activeTab === 'CATEGORY') ? (
+                                    <PillarCategoryMasterView 
+                                        masterOptions={masterOptions}
+                                        activeTab={activeTab}
+                                        onEdit={handleEdit}
+                                        onCreate={handleCreate}
+                                        onDelete={deleteMasterOption}
+                                    />
                                 ) : (
                                     <GeneralMasterList 
                                         typeLabel={activeTab}

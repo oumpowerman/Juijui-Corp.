@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { MasterOption } from '../../../types';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Zap, Play, PenTool, ChevronDown, ChevronUp, BarChart3, HardDrive, Archive } from 'lucide-react';
+import { Zap, Play, PenTool, ChevronDown, ChevronUp, BarChart3, HardDrive, Archive, Landmark, Layers } from 'lucide-react';
 
 interface StockQuickFiltersProps {
   masterOptions: MasterOption[];
@@ -16,6 +16,10 @@ interface StockQuickFiltersProps {
   showOnlyMissingStorage: boolean;
   setShowOnlyMissingStorage: (show: boolean) => void;
   missingStorageCount?: number;
+  filterPillar?: string[];
+  setFilterPillar?: React.Dispatch<React.SetStateAction<string[]>>;
+  filterCategory?: string[];
+  setFilterCategory?: React.Dispatch<React.SetStateAction<string[]>>;
 }
 
 const StockQuickFilters: React.FC<StockQuickFiltersProps> = ({ 
@@ -29,7 +33,11 @@ const StockQuickFilters: React.FC<StockQuickFiltersProps> = ({
   overdueCount = 0,
   showOnlyMissingStorage,
   setShowOnlyMissingStorage,
-  missingStorageCount = 0
+  missingStorageCount = 0,
+  filterPillar = [],
+  setFilterPillar,
+  filterCategory = [],
+  setFilterCategory
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [animating, setAnimating] = useState(false);
@@ -65,15 +73,38 @@ const StockQuickFilters: React.FC<StockQuickFiltersProps> = ({
     return keys.length > 0 && keys.every(k => currentStatuses.includes(k)) && currentStatuses.length === keys.length;
   };
 
+  const isNoPillarActive = filterPillar.includes('NO_PILLAR');
+  const isNoCategoryActive = filterCategory.includes('NO_CATEGORY');
+
+  const toggleNoPillar = () => {
+    if (!setFilterPillar) return;
+    if (isNoPillarActive) {
+      setFilterPillar(prev => prev.filter(p => p !== 'NO_PILLAR'));
+    } else {
+      setFilterPillar(['NO_PILLAR']);
+    }
+  };
+
+  const toggleNoCategory = () => {
+    if (!setFilterCategory) return;
+    if (isNoCategoryActive) {
+      setFilterCategory(prev => prev.filter(c => c !== 'NO_CATEGORY'));
+    } else {
+      setFilterCategory(['NO_CATEGORY']);
+    }
+  };
+
+  const hasAlertConditions = overdueCount > 0 || missingStorageCount > 0 || isNoPillarActive || isNoCategoryActive;
+
   return (
-    <div className={`bg-white/40 backdrop-blur-md rounded-3xl border shadow-sm transition-all duration-300 ${isExpanded && !animating ? 'overflow-visible' : 'overflow-hidden'} ${!isExpanded && (overdueCount > 0 || missingStorageCount > 0) ? 'border-amber-200 shadow-amber-100/30 shadow-md ring-1 ring-amber-300/20' : 'border-white/60'}`}>
+    <div className={`bg-white/40 backdrop-blur-md rounded-3xl border shadow-sm transition-all duration-300 ${isExpanded && !animating ? 'overflow-visible' : 'overflow-hidden'} ${!isExpanded && hasAlertConditions ? 'border-amber-200 shadow-amber-100/30 shadow-md ring-1 ring-amber-300/20' : 'border-white/60'}`}>
       <button 
         onClick={() => setIsExpanded(!isExpanded)}
         className="w-full px-5 py-3 flex items-center justify-between hover:bg-white/40 transition-colors group"
       >
         <div className="flex items-center gap-2">
-          <div className={`p-1.5 rounded-lg group-hover:scale-110 transition-transform ${!isExpanded && (overdueCount > 0 || missingStorageCount > 0) ? 'bg-amber-50' : 'bg-indigo-100'}`}>
-            <Zap className={`w-3.5 h-3.5 ${!isExpanded && (overdueCount > 0 || missingStorageCount > 0) ? 'text-amber-500 animate-pulse' : 'text-indigo-600'}`} />
+          <div className={`p-1.5 rounded-lg group-hover:scale-110 transition-transform ${!isExpanded && hasAlertConditions ? 'bg-amber-50' : 'bg-indigo-100'}`}>
+            <Zap className={`w-3.5 h-3.5 ${!isExpanded && hasAlertConditions ? 'text-amber-500 animate-pulse' : 'text-indigo-600'}`} />
           </div>
           <span className="text-[11px] font-black uppercase tracking-widest text-slate-600 flex flex-wrap items-center gap-2">
             Quick Filters & Views
@@ -97,6 +128,26 @@ const StockQuickFilters: React.FC<StockQuickFiltersProps> = ({
                 ค้างเก็บพาร์ท/ไดรฟ์ {missingStorageCount} 💾
               </motion.span>
             )}
+            {!isExpanded && isNoPillarActive && (
+              <motion.span 
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-kanit font-medium text-white bg-amber-600 rounded-full shadow-sm shadow-amber-200"
+              >
+                <Landmark className="w-2.5 h-2.5" />
+                ไม่มี Pillar
+              </motion.span>
+            )}
+            {!isExpanded && isNoCategoryActive && (
+              <motion.span 
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                className="inline-flex items-center gap-1 px-2.5 py-0.5 text-[11px] font-kanit font-medium text-white bg-amber-600 rounded-full shadow-sm shadow-amber-200"
+              >
+                <Layers className="w-2.5 h-2.5" />
+                ไม่มี Category
+              </motion.span>
+            )}
           </span>
         </div>
         <div className="flex items-center gap-3">
@@ -105,17 +156,17 @@ const StockQuickFilters: React.FC<StockQuickFiltersProps> = ({
               ARCHIVE ACTIVE
             </span>
           )}
-          {!isExpanded && (overdueCount > 0 || missingStorageCount > 0) && (
+          {!isExpanded && hasAlertConditions && (
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
             </span>
           )}
           <motion.div
-            animate={(!isExpanded && (overdueCount > 0 || missingStorageCount > 0)) ? { y: [0, 3, 0] } : {}}
-            transition={(!isExpanded && (overdueCount > 0 || missingStorageCount > 0)) ? { repeat: Infinity, duration: 1.5, ease: "easeInOut" } : {}}
+            animate={(!isExpanded && hasAlertConditions) ? { y: [0, 3, 0] } : {}}
+            transition={(!isExpanded && hasAlertConditions) ? { repeat: Infinity, duration: 1.5, ease: "easeInOut" } : {}}
           >
-            {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className={`w-4 h-4 ${(overdueCount > 0 || missingStorageCount > 0) ? 'text-amber-500' : 'text-slate-400'}`} />}
+            {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className={`w-4 h-4 ${hasAlertConditions ? 'text-amber-500' : 'text-slate-400'}`} />}
           </motion.div>
         </div>
       </button>
@@ -235,14 +286,53 @@ const StockQuickFilters: React.FC<StockQuickFiltersProps> = ({
                 )}
               </button>
 
-              {(currentStatuses.length > 0 || showOnlyOverdue || showOnlyMissingStorage) && (
+              {/* Quick Filter: No Pillar */}
+              {setFilterPillar && (
                 <button
+                  id="quick-filter-no-pillar"
+                  onClick={toggleNoPillar}
+                  className={`
+                    flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-medium transition-all cursor-pointer
+                    ${isNoPillarActive 
+                      ? 'bg-amber-600 text-white shadow-lg shadow-amber-200 ring-2 ring-amber-600 ring-offset-2 font-bold' 
+                      : 'bg-white text-slate-500 border border-slate-200 hover:border-amber-400 hover:text-amber-700 hover:bg-amber-50/30'}
+                  `}
+                  title={isNoPillarActive ? "ยกเลิกตัวกรองไม่มี Pillar" : "กรองเฉพาะงานที่ยังไม่มี Pillar"}
+                >
+                  <Landmark className={`w-3.5 h-3.5 ${isNoPillarActive ? 'text-amber-100' : 'text-amber-500'}`} />
+                  <span>ไม่มี Pillar</span>
+                </button>
+              )}
+
+              {/* Quick Filter: No Category */}
+              {setFilterCategory && (
+                <button
+                  id="quick-filter-no-category"
+                  onClick={toggleNoCategory}
+                  className={`
+                    flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-medium transition-all cursor-pointer
+                    ${isNoCategoryActive 
+                      ? 'bg-amber-600 text-white shadow-lg shadow-amber-200 ring-2 ring-amber-600 ring-offset-2 font-bold' 
+                      : 'bg-white text-slate-500 border border-slate-200 hover:border-amber-400 hover:text-amber-700 hover:bg-amber-50/30'}
+                  `}
+                  title={isNoCategoryActive ? "ยกเลิกตัวกรองไม่มี Category" : "กรองเฉพาะงานที่ยังไม่มี Category"}
+                >
+                  <Layers className={`w-3.5 h-3.5 ${isNoCategoryActive ? 'text-amber-100' : 'text-amber-500'}`} />
+                  <span>ไม่มี Category</span>
+                </button>
+              )}
+
+              {(currentStatuses.length > 0 || showOnlyOverdue || showOnlyMissingStorage || filterPillar.length > 0 || filterCategory.length > 0) && (
+                <button
+                  id="quick-filter-clear-all"
                   onClick={() => {
                     setStatuses([]);
                     setShowOnlyOverdue(false);
                     setShowOnlyMissingStorage(false);
+                    if (setFilterPillar) setFilterPillar([]);
+                    if (setFilterCategory) setFilterCategory([]);
                   }}
-                  className="px-4 py-2.5 text-[10px] font-bold text-slate-400 hover:text-rose-500 transition-colors uppercase tracking-tight"
+                  className="px-4 py-2.5 text-[10px] font-bold text-slate-400 hover:text-rose-500 transition-colors uppercase tracking-tight cursor-pointer"
                 >
                   Clear Filters
                 </button>

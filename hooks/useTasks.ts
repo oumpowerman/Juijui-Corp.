@@ -298,21 +298,21 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
         if (isUpdate) {
             const previousTasks = [...tasks];
             
-            // Update Context State Immediately
-            if (tasks.some(t => t.id === task.id)) {
-                if (task.contentId && task.showOnBoard === false) {
-                     setTasks(prev => prev.filter(t => t.id !== task.id));
+            // Update Context State Immediately (always check inside prev to avoid closure/stale state race)
+            setTasks(prev => {
+                const existsInPrev = prev.some(t => t.id === task.id);
+                if (existsInPrev) {
+                    if (task.contentId && task.showOnBoard === false) {
+                        return prev.filter(t => t.id !== task.id);
+                    }
+                    return prev.map(t => t.id === task.id ? { ...t, ...task } : t);
                 } else {
-                     setTasks(prev => prev.map(t => t.id === task.id ? { ...t, ...task } : t));
+                    if (task.type === 'CONTENT' || (task.contentId && task.showOnBoard === true)) {
+                        return [...prev, task];
+                    }
+                    return prev;
                 }
-            } else {
-                if (task.type === 'CONTENT') {
-                    // Always append content task to tasks list so useStockSync can catch it!
-                    setTasks(prev => [...prev, task]);
-                } else if (task.contentId && task.showOnBoard === true) {
-                    setTasks(prev => [...prev, task]);
-                }
-            }
+            });
             
             if (!task.contentId && setIsModalOpen) {
                 setIsModalOpen(false); 

@@ -37,7 +37,7 @@ export const NotificationProvider: React.FC<{ currentUser: User | null, children
 
         try {
             // Fetch Notifications (Personal)
-            const notifLimit = currentUser.role === 'ADMIN' ? 100 : 50;
+            const notifLimit = currentUser.role === 'ADMIN' ? 50 : 25;
             const { data: notifs } = await supabase
                 .from('notifications')
                 .select('*')

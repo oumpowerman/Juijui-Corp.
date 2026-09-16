@@ -76,9 +76,31 @@ export const useAttendanceJudge = (
         return false;
     };
 
-    const hasNotification = (type: string, messageMatch: string) => {
-        if (isLoading) return true; // Assume exists while loading to be safe
-        return notifications.some(n => n.type === type && n.message && n.message.includes(messageMatch));
+    const hasNotification = async (type: string, messageMatch: string) => {
+        if (isLoading || !currentUser) return true; // Assume exists while loading to be safe
+        // 1. Check local context notifications first (Fast in-memory check)
+        const inMemory = notifications.some(n => n.type === type && n.message && n.message.includes(messageMatch));
+        if (inMemory) return true;
+
+        // 2. Direct DB Query fallback (Robust & prevents duplicate triggers when limit is 30)
+        try {
+            const { data, error } = await supabase
+                .from('notifications')
+                .select('id')
+                .eq('user_id', currentUser.id)
+                .eq('type', type)
+                .ilike('message', `%${messageMatch}%`)
+                .limit(1);
+
+            if (error) {
+                console.error("[AttendanceJudge] Direct DB notification check error:", error);
+                return false;
+            }
+            return !!(data && data.length > 0);
+        } catch (err) {
+            console.error("[AttendanceJudge] DB notification check exception:", err);
+            return false;
+        }
     };
 
     const runAttendanceChecks = async (
@@ -118,7 +140,7 @@ export const useAttendanceJudge = (
                     const adminPenaltyOpt = masterOptions.find(o => o.type === 'WORK_CONFIG' && o.key === 'ADMIN_ABSENT_PENALTY_ENABLED');
                     const isAdminPenaltyEnabled = adminPenaltyOpt ? adminPenaltyOpt.label === 'true' : false;
                     
-                    const alreadyNotified = hasNotification('INFO', checkDateStr);
+                    const alreadyNotified = await hasNotification('INFO', checkDateStr);
                     if (!alreadyNotified && !(isAdmin && !isAdminPenaltyEnabled)) {
                         const lockKey = `PENDING-LEAVE-${checkDateStr}`;
                         if (!isProcessingRef.current.has(lockKey)) {

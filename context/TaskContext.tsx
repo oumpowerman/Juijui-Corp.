@@ -37,7 +37,34 @@ interface TaskContextType {
 const TaskContext = createContext<TaskContextType | undefined>(undefined);
 
 export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [tasks, setTasks] = useState<Task[]>([]);
+    const [tasks, setTasksState] = useState<Task[]>([]);
+    
+    // Custom setTasks wrapper that enforces strictly unique task IDs
+    const setTasks: React.Dispatch<React.SetStateAction<Task[]>> = useCallback((action) => {
+        setTasksState(prev => {
+            const rawNext = typeof action === 'function' ? action(prev) : action;
+            if (!Array.isArray(rawNext)) return rawNext;
+            
+            const seen = new Set<string>();
+            const unique: Task[] = [];
+            for (let i = 0; i < rawNext.length; i++) {
+                const item = rawNext[i];
+                if (item && item.id) {
+                    if (seen.has(item.id)) {
+                        const existingIdx = unique.findIndex(u => u.id === item.id);
+                        if (existingIdx >= 0) {
+                            unique[existingIdx] = { ...unique[existingIdx], ...item };
+                        }
+                        continue;
+                    }
+                    seen.add(item.id);
+                }
+                unique.push(item);
+            }
+            return unique;
+        });
+    }, []);
+
     const [isFetching, setIsFetching] = useState(false);
     const [hasFetchedInitial, setHasFetchedInitial] = useState(false);
     const isFetchingRef = useRef(false);

@@ -101,10 +101,13 @@ const StockFilterBar: React.FC<StockFilterBarProps> = React.memo(({
     const categoryOptions = useMemo(() => {
         const base = masterOptions.filter(o => o.type === 'CATEGORY' && o.isActive);
         const realChannels = filterChannel.filter(id => id !== 'NO_CHANNEL');
+        const realPillars = filterPillar.filter(p => p !== 'NO_PILLAR');
         
         let filtered = base;
-        if (filterPillar.length > 0) {
-            filtered = base.filter(o => o.parentKey && filterPillar.includes(o.parentKey));
+        if (realPillars.length > 0) {
+            filtered = base.filter(o => o.parentKey && realPillars.includes(o.parentKey));
+        } else if (filterPillar.includes('NO_PILLAR')) {
+            filtered = base;
         } else if (realChannels.length > 0) {
             const channelPillars = masterOptions.filter(
                 o => o.type === 'PILLAR' && o.parentKey && realChannels.includes(o.parentKey)

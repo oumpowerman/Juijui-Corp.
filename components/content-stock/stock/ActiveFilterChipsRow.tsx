@@ -84,6 +84,15 @@ export const ActiveFilterChipsRow: React.FC<ActiveFilterChipsRowProps> = React.m
         });
 
         filterPillar.forEach(pKey => {
+            if (pKey === 'NO_PILLAR') {
+                chips.push({
+                    type: 'pillar',
+                    id: 'NO_PILLAR',
+                    label: 'ไม่มี Pillar',
+                    colorClass: 'bg-amber-50 border-amber-200 text-amber-800 shadow-amber-100/20'
+                });
+                return;
+            }
             const opt = masterOptions.find(o => o.type === 'PILLAR' && o.key === pKey);
             if (opt) {
                 const ch = opt.parentKey ? channels.find(c => c.id === opt.parentKey) : null;
@@ -98,6 +107,15 @@ export const ActiveFilterChipsRow: React.FC<ActiveFilterChipsRowProps> = React.m
         });
 
         filterCategory.forEach(cKey => {
+            if (cKey === 'NO_CATEGORY') {
+                chips.push({
+                    type: 'category',
+                    id: 'NO_CATEGORY',
+                    label: 'ไม่มี Category',
+                    colorClass: 'bg-amber-50 border-amber-200 text-amber-800 shadow-amber-100/20'
+                });
+                return;
+            }
             const opt = masterOptions.find(o => o.type === 'CATEGORY' && o.key === cKey);
             if (opt) {
                 const ch = opt.parentKey ? channels.find(c => c.id === opt.parentKey) : null;

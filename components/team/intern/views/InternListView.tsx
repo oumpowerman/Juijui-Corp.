@@ -36,10 +36,14 @@ const InternListView: React.FC<InternListViewProps> = ({ interns, onEdit, onDele
     };
 
     const getPositionTheme = (position: string) => {
-        const p = position.toUpperCase();
-        if (p.includes('GRAPHIC')) return { bg: 'bg-indigo-50/60', border: 'border-indigo-100', text: 'text-indigo-600', iconBg: 'bg-indigo-100' };
+        const p = (position || '').toUpperCase();
+        if (p.includes('GRAPHIC') || p.includes('DESIGN')) return { bg: 'bg-indigo-50/60', border: 'border-indigo-100', text: 'text-indigo-600', iconBg: 'bg-indigo-100' };
         if (p.includes('CREATIVE')) return { bg: 'bg-amber-50/60', border: 'border-amber-100', text: 'text-amber-600', iconBg: 'bg-amber-100' };
-        if (p.includes('EDITOR')) return { bg: 'bg-emerald-50/60', border: 'border-emerald-100', text: 'text-emerald-600', iconBg: 'bg-emerald-100' };
+        if (p.includes('EDITOR') || p.includes('VIDEO')) return { bg: 'bg-emerald-50/60', border: 'border-emerald-100', text: 'text-emerald-600', iconBg: 'bg-emerald-100' };
+        if (p.includes('PM') || p.includes('PROJECT')) return { bg: 'bg-blue-50/60', border: 'border-blue-100', text: 'text-blue-600', iconBg: 'bg-blue-100' };
+        if (p.includes('PA') || p.includes('PERSONAL')) return { bg: 'bg-teal-50/60', border: 'border-teal-100', text: 'text-teal-600', iconBg: 'bg-teal-100' };
+        if (p.includes('EA') || p.includes('EXECUTIVE')) return { bg: 'bg-purple-50/60', border: 'border-purple-100', text: 'text-purple-600', iconBg: 'bg-purple-100' };
+        if (p.includes('AE') || p.includes('ACCOUNT')) return { bg: 'bg-rose-50/60', border: 'border-rose-100', text: 'text-rose-600', iconBg: 'bg-rose-100' };
         return { bg: 'bg-slate-50/60', border: 'border-slate-100', text: 'text-slate-600', iconBg: 'bg-slate-100' };
     };
 

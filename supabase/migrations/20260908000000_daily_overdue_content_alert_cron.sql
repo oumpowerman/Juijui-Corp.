@@ -33,6 +33,7 @@ DECLARE
     now_bkk TIMESTAMP;
     cur_date DATE;
     is_enabled_val TEXT := 'true';
+    alert_time_val TEXT := '08:00';
     excluded_statuses_val TEXT := 'PUBLISHED,DONE,POSTED,COMPLETED,APPROVED';
     admin_user_id UUID;
     app_name_val TEXT := 'Kontent OS';
@@ -87,6 +88,10 @@ BEGIN
         RAISE NOTICE 'Daily overdue content alert is disabled in WORK_CONFIG.';
         RETURN;
     END IF;
+
+    SELECT COALESCE(label, '08:00') INTO alert_time_val 
+    FROM public.master_options 
+    WHERE type = 'WORK_CONFIG' AND key = 'DAILY_OVERDUE_ALERT_TIME' LIMIT 1;
 
     SELECT COALESCE(label, 'PUBLISHED,DONE,POSTED,COMPLETED,APPROVED') INTO excluded_statuses_val
     FROM public.master_options 
@@ -275,7 +280,7 @@ BEGIN
             'status', COALESCE(NULLIF(content_rec.status, ''), 'IDEA'),
             'status_label', COALESCE(NULLIF(status_label_str, ''), content_rec.status, 'IDEA'),
             'status_color', COALESCE(NULLIF(status_color_str, ''), '#64748b'),
-            'target_platform', COALESCE(content_rec.target_platform, '[]'::jsonb),
+            'target_platform', COALESCE(to_jsonb(content_rec.target_platform), '[]'::jsonb),
             'assignee_names', COALESCE(NULLIF(assigned_user_names, ''), '-'),
             'editor_names', COALESCE(NULLIF(editor_names, ''), '-')
         );
@@ -314,13 +319,14 @@ BEGIN
 
     -- G. Format Notification message & metadata
     date_formatted_str := to_char(cur_date, 'DD/MM/YYYY');
-    message_content := '⚠️ สรุปรายงานคลิปค้างลงประจำเช้า 08:00 น. (' || date_formatted_str || ')' || E'\n\n' ||
+    message_content := '⚠️ สรุปรายงานคลิปค้างลงประจำเช้า ' || alert_time_val || ' น. (' || date_formatted_str || ')' || E'\n\n' ||
                        'พบคลิปที่เลยกำหนดลงทั้งหมด ' || total_overdue_count::TEXT || ' รายการ:' || E'\n' ||
                        channel_text_summary || E'\n' ||
                        'กรุณาตรวจสอบและอัปเดตสถานะการเผยแพร่ครับ';
 
     summary_metadata := jsonb_build_object(
         'date_str', date_formatted_str,
+        'summary_time', alert_time_val,
         'total_overdue_count', total_overdue_count,
         'channels', final_channels_array,
         'app_name', app_name_val
@@ -339,7 +345,7 @@ BEGIN
     ) VALUES (
         admin_user_id,
         'DAILY_OVERDUE_CONTENT_SUMMARY',
-        '⚠️ รายงานคลิปค้างลงประจำเช้า 08:00 น. (' || date_formatted_str || ')',
+        '⚠️ รายงานคลิปค้างลงประจำเช้า ' || alert_time_val || ' น. (' || date_formatted_str || ')',
         message_content,
         FALSE,
         'CALENDAR',
@@ -364,13 +370,21 @@ DECLARE
     cron_expr TEXT;
 BEGIN
     IF (NEW.type = 'WORK_CONFIG' AND (NEW.key = 'DAILY_OVERDUE_ALERT_TIME' OR NEW.key = 'DAILY_OVERDUE_ALERT_ENABLED')) THEN
-        SELECT COALESCE(label, '08:00') INTO alert_time_val 
-        FROM public.master_options 
-        WHERE type = 'WORK_CONFIG' AND key = 'DAILY_OVERDUE_ALERT_TIME' LIMIT 1;
+        IF NEW.key = 'DAILY_OVERDUE_ALERT_TIME' AND NEW.label IS NOT NULL AND NEW.label <> '' THEN
+            alert_time_val := NEW.label;
+        ELSE
+            SELECT COALESCE(label, '08:00') INTO alert_time_val 
+            FROM public.master_options 
+            WHERE type = 'WORK_CONFIG' AND key = 'DAILY_OVERDUE_ALERT_TIME' LIMIT 1;
+        END IF;
 
-        SELECT COALESCE(label, 'true') INTO is_enabled_val 
-        FROM public.master_options 
-        WHERE type = 'WORK_CONFIG' AND key = 'DAILY_OVERDUE_ALERT_ENABLED' LIMIT 1;
+        IF NEW.key = 'DAILY_OVERDUE_ALERT_ENABLED' AND NEW.label IS NOT NULL AND NEW.label <> '' THEN
+            is_enabled_val := NEW.label;
+        ELSE
+            SELECT COALESCE(label, 'true') INTO is_enabled_val 
+            FROM public.master_options 
+            WHERE type = 'WORK_CONFIG' AND key = 'DAILY_OVERDUE_ALERT_ENABLED' LIMIT 1;
+        END IF;
 
         IF is_enabled_val = 'false' THEN
             BEGIN

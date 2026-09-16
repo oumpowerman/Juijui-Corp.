@@ -64,8 +64,37 @@ export const checkDoesItMatchFilters = (
     }
     
     // 4. Pillar & Category Match
-    if (activeFilters.pillar && activeFilters.pillar.length > 0 && (!task.pillar || !activeFilters.pillar.includes(task.pillar))) return false;
-    if (activeFilters.category && activeFilters.category.length > 0 && (!task.category || !activeFilters.category.includes(task.category))) return false;
+    if (activeFilters.pillar && activeFilters.pillar.length > 0) {
+        const hasNoPillarFilter = activeFilters.pillar.includes('NO_PILLAR');
+        const realPillarFilters = activeFilters.pillar.filter((p: string) => p !== 'NO_PILLAR');
+        const isTaskPillarEmpty = !task.pillar || task.pillar.trim() === '';
+
+        let pillarMatched = false;
+        if (hasNoPillarFilter && isTaskPillarEmpty) {
+            pillarMatched = true;
+        }
+        if (!pillarMatched && realPillarFilters.length > 0 && task.pillar && realPillarFilters.includes(task.pillar)) {
+            pillarMatched = true;
+        }
+
+        if (!pillarMatched) return false;
+    }
+
+    if (activeFilters.category && activeFilters.category.length > 0) {
+        const hasNoCategoryFilter = activeFilters.category.includes('NO_CATEGORY');
+        const realCategoryFilters = activeFilters.category.filter((c: string) => c !== 'NO_CATEGORY');
+        const isTaskCategoryEmpty = !task.category || task.category.trim() === '';
+
+        let categoryMatched = false;
+        if (hasNoCategoryFilter && isTaskCategoryEmpty) {
+            categoryMatched = true;
+        }
+        if (!categoryMatched && realCategoryFilters.length > 0 && task.category && realCategoryFilters.includes(task.category)) {
+            categoryMatched = true;
+        }
+
+        if (!categoryMatched) return false;
+    }
     
     // 5. Content Tab: Active vs Archive Invariant
     const isArchive = activeFilters.contentSubTab === 'ARCHIVE';

@@ -72,12 +72,31 @@ export const useAutoJudge = (currentUser: User | null) => {
         });
     };
 
-    const hasNotification = (type: string, messageMatch: string) => {
-        if (isLoading) return true; // Assume exists while loading to be safe
-        // Check ALL notifications in context. 
-        // We should ensure NotificationContext maintains a reasonable history or check DB.
-        // For now, we check if ANY notification (read or unread) exists with this message.
-        return notifications.some(n => n.type === type && n.message && n.message.includes(messageMatch));
+    const hasNotification = async (type: string, messageMatch: string) => {
+        if (isLoading || !currentUser) return true; // Assume exists while loading to be safe
+        // 1. Check local context notifications first (Fast in-memory check)
+        const inMemory = notifications.some(n => n.type === type && n.message && n.message.includes(messageMatch));
+        if (inMemory) return true;
+
+        // 2. Direct DB Query fallback (Robust & prevents duplicate triggers when limit is 30)
+        try {
+            const { data, error } = await supabase
+                .from('notifications')
+                .select('id')
+                .eq('user_id', currentUser.id)
+                .eq('type', type)
+                .ilike('message', `%${messageMatch}%`)
+                .limit(1);
+
+            if (error) {
+                console.error("[AutoJudge] Direct DB notification check error:", error);
+                return false;
+            }
+            return !!(data && data.length > 0);
+        } catch (err) {
+            console.error("[AutoJudge] DB notification check exception:", err);
+            return false;
+        }
     };
 
     const checkAndPunish = useCallback(async () => {
@@ -105,7 +124,7 @@ export const useAutoJudge = (currentUser: User | null) => {
             // =========================================================
             if (isResurrecting) {
                 // Pre-check: Avoid duplicate notifications and redundant updates
-                const alreadyNotified = hasNotification('RESURRECTION', 'หัวใจของคุณกลับมาเต้นอีกครั้ง');
+                const alreadyNotified = await hasNotification('RESURRECTION', 'หัวใจของคุณกลับมาเต้นอีกครั้ง');
                 
                 if (!alreadyNotified) {
                     console.log(`[AutoJudge] 🌟 RESURRECTION DETECTED: Restoring status for ${currentUser.name}`);
@@ -239,7 +258,8 @@ export const useAutoJudge = (currentUser: User | null) => {
                         // Send Warnings using Notifications (similar to Negligence but for Death)
                         const daysRemaining = 7 - workingDaysPassed;
                         
-                        if (daysRemaining <= 3 && !hasNotification('DEATH_WARNING', `${daysRemaining} วันสุดท้าย`)) {
+                        const alreadyWarned = await hasNotification('DEATH_WARNING', `${daysRemaining} วันสุดท้าย`);
+                        if (daysRemaining <= 3 && !alreadyWarned) {
                             try {
                                 // Clear out older DEATH_WARNING notifications by marking them as read (to avoid stacks of modals)
                                 await supabase

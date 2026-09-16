@@ -20,7 +20,10 @@ import {
   buildSingleBodyContents,
   buildBatchBodyContents
 } from './templates/attendanceFlex.ts';
-import { buildContentPlannerBodyContents } from './templates/contentPlannerFlex.ts';
+import {
+  buildContentPlannerAlertPayload,
+  buildContentPlannerBodyContents
+} from './templates/ContentPlannerFlex.ts';
 import { buildOTRequestBodyContents } from './templates/otRequestFlex.ts';
 import { buildMonthlyBonusSummaryPayload } from './templates/bonusSummaryFlex.ts';
 import { buildDailySummaryPayload } from './templates/SummaryFlex.ts';
@@ -151,6 +154,8 @@ Deno.serve(async (req: any) => {
           lineMessagePayload = buildMonthlyOTSummaryPayload(targetDestination, record);
         } else if (record.type === 'DAILY_OVERDUE_CONTENT_SUMMARY') {
           lineMessagePayload = buildOverdueContentSummaryPayload(targetDestination, record);
+        } else if (record.type === 'CONTENT_PLANNER_ALERT' || (record.type === 'OVERDUE' && record.link_path === 'CALENDAR')) {
+          lineMessagePayload = buildContentPlannerAlertPayload(targetDestination, record, lineHeaderTitle);
         } else {
           const isBatch = claimedRecords.length > 1;
           

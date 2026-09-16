@@ -62,11 +62,27 @@ export const buildContentStockQuery = (
     }
     
     if (filters.pillar && filters.pillar.length > 0) {
-        query = query.in('pillar', filters.pillar);
+        const hasNoPillar = filters.pillar.includes('NO_PILLAR');
+        const realPillars = filters.pillar.filter(p => p !== 'NO_PILLAR');
+        if (hasNoPillar && realPillars.length > 0) {
+            query = query.or(`pillar.in.(${realPillars.join(',')}),pillar.is.null,pillar.eq.`);
+        } else if (hasNoPillar) {
+            query = query.or('pillar.is.null,pillar.eq.');
+        } else {
+            query = query.in('pillar', realPillars);
+        }
     }
 
     if (filters.category && filters.category.length > 0) {
-        query = query.in('category', filters.category);
+        const hasNoCategory = filters.category.includes('NO_CATEGORY');
+        const realCategories = filters.category.filter(c => c !== 'NO_CATEGORY');
+        if (hasNoCategory && realCategories.length > 0) {
+            query = query.or(`category.in.(${realCategories.join(',')}),category.is.null,category.eq.`);
+        } else if (hasNoCategory) {
+            query = query.or('category.is.null,category.eq.');
+        } else {
+            query = query.in('category', realCategories);
+        }
     }
     
     // 4. Stock Only

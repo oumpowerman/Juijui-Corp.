@@ -163,6 +163,10 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
                                 showOnlyMissingStorage={filterOnlyMissingStorage}
                                 setShowOnlyMissingStorage={setFilterOnlyMissingStorage}
                                 missingStorageCount={missingStorageCount}
+                                filterPillar={filterPillar}
+                                setFilterPillar={setFilterPillar}
+                                filterCategory={filterCategory}
+                                setFilterCategory={setFilterCategory}
                             />
                         </motion.div>
 

@@ -19,7 +19,10 @@ export const mapChannel = (c: any): Channel => ({
     content_strategy: c.content_strategy || null,
     group_id: c.group_id || null,
     group_name: c.group_name || null,
-    email: c.email || ''
+    email: c.email || '',
+    brand_links: Array.isArray(c.brand_links) 
+        ? c.brand_links 
+        : (Array.isArray(c.guideline_links) ? c.guideline_links : (c.social_links?._brand_links || []))
 });
 
 export const useChannelsDomain = () => {
@@ -135,6 +138,12 @@ export const useChannelsDomain = () => {
                 logoUrl = data.publicUrl;
             }
             
+            const brandLinksList = channel.brand_links || [];
+            const socialLinksPayload = {
+                ...(channel.social_links || {}),
+                _brand_links: brandLinksList
+            };
+
             const payload = {
                 id: finalId,
                 name: channel.name,
@@ -142,12 +151,13 @@ export const useChannelsDomain = () => {
                 color: channel.color,
                 platforms: channel.platforms, 
                 logo_url: logoUrl,
-                social_links: channel.social_links || {},
+                social_links: socialLinksPayload,
                 followers: channel.followers || {},
                 content_strategy: channel.content_strategy || null,
                 group_id: channel.group_id || null,
                 group_name: channel.group_name || null,
-                email: channel.email?.trim() || null
+                email: channel.email?.trim() || null,
+                guideline_links: brandLinksList
             };
 
             const { data, error } = await supabase.from('channels').insert(payload).select().single();
@@ -156,7 +166,7 @@ export const useChannelsDomain = () => {
                 console.error("Supabase Error (Insert Channel):", error);
                 throw error;
             }
-            await updateChannelsLocalCache('ADD', data || payload); 
+            await updateChannelsLocalCache('ADD', data ? { ...data, brand_links: brandLinksList } : { ...payload, brand_links: brandLinksList }); 
             showToast('เพิ่มแบรนด์ใหม่สำเร็จ 🎉', 'success');
             return true;
         } catch (dbError: any) {
@@ -181,24 +191,31 @@ export const useChannelsDomain = () => {
                 logoUrl = data.publicUrl;
             }
 
+            const brandLinksList = updatedChannel.brand_links || [];
+            const socialLinksPayload = {
+                ...(updatedChannel.social_links || {}),
+                _brand_links: brandLinksList
+            };
+
             const payload = {
                 name: updatedChannel.name,
                 description: updatedChannel.description || '',
                 color: updatedChannel.color,
                 platforms: updatedChannel.platforms,
                 logo_url: logoUrl,
-                social_links: updatedChannel.social_links || {},
+                social_links: socialLinksPayload,
                 followers: updatedChannel.followers || {},
                 content_strategy: updatedChannel.content_strategy || null,
                 group_id: updatedChannel.group_id || null,
                 group_name: updatedChannel.group_name || null,
-                email: updatedChannel.email?.trim() || null
+                email: updatedChannel.email?.trim() || null,
+                guideline_links: brandLinksList
             };
 
             const { data, error } = await supabase.from('channels').update(payload).eq('id', updatedChannel.id).select().single();
             
             if (error) throw error;
-            await updateChannelsLocalCache('UPDATE', data || { id: updatedChannel.id, ...payload });
+            await updateChannelsLocalCache('UPDATE', data ? { ...data, brand_links: brandLinksList } : { id: updatedChannel.id, ...payload, brand_links: brandLinksList });
             showToast('อัปเดตข้อมูลสำเร็จ ✨', 'success');
             return true;
         } catch (dbError: any) {

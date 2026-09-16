@@ -124,19 +124,19 @@ export function buildFooterButtons(
             type: "button",
             action: {
               type: "uri",
-              label: "อนุมัติคลิป ✅",
+              label: "ตรวจผ่าน / อนุมัติ",
               uri: quickApproveLink
             },
             style: "primary",
             height: "sm",
-            color: "#6366f1",
+            color: "#4f46e5",
             flex: 1
           },
           {
             type: "button",
             action: {
               type: "uri",
-              label: "เสร็จสิ้น (DONE) 🎉",
+              label: "โพสต์คลิปแล้ว (Done)",
               uri: quickDoneLink
             },
             style: "secondary",
@@ -150,7 +150,7 @@ export function buildFooterButtons(
         type: "button",
         action: {
           type: "uri",
-          label: "ดูในตารางคอนเทนต์ 📅",
+          label: "ดูในตารางคอนเทนต์ ↗",
           uri: contentDeepLink
         },
         style: "link",

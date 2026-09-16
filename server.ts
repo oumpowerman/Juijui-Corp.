@@ -15,6 +15,7 @@ import pushRouter from './server/routes/push.js';
 import previewRouter from './server/routes/preview.js';
 import channelsRouter from './server/routes/channels.js';
 import cronRouter from './server/routes/cron.js';
+import internAiRouter from './server/routes/internAi.js';
 import { initFollowerCronJob } from './server/services/followerSyncService.js';
 
 const PORT = 3000;
@@ -25,8 +26,9 @@ app.set('trust proxy', true);
 
 const isProd = process.env.NODE_ENV === 'production' || !!process.env.VERCEL;
 
-// Middleware
-app.use(express.json());
+// Middleware - allow up to 25mb for high-res screenshot pastes
+app.use(express.json({ limit: '25mb' }));
+app.use(express.urlencoded({ extended: true, limit: '25mb' }));
 app.use(cookieParser());
 app.use(cookieSession({
     name: 'session',
@@ -48,6 +50,7 @@ app.use(pushRouter);
 app.use(previewRouter);
 app.use(channelsRouter);
 app.use(cronRouter);
+app.use(internAiRouter);
 
 // Initialize background cron services (e.g. Daily Follower Sync at 08:00 AM)
 if (!process.env.VERCEL) {

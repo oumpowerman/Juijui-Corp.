@@ -417,6 +417,7 @@ export const useCalendar = ({ tasks, userId, onMoveTask }: UseCalendarProps) => 
 
     const handleDrop = useCallback((e: React.DragEvent, targetDate: Date) => {
         e.preventDefault();
+        e.stopPropagation();
         setDragOverDate(null);
         
         const taskId = e.dataTransfer.getData("taskId");
@@ -443,7 +444,7 @@ export const useCalendar = ({ tasks, userId, onMoveTask }: UseCalendarProps) => 
         // ALLOW DROP IF: 
         // 1. Task exists AND
         // 2. Dates are different OR Task was Unscheduled (Stock)
-        if (taskToMove) {
+        if (taskToMove && taskToMove.id) {
              const isDifferentDate = !isSameDay(taskToMove.endDate, targetDate);
              const wasUnscheduled = taskToMove.isUnscheduled;
 

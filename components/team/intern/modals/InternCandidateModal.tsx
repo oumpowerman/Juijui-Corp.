@@ -15,6 +15,7 @@
     import { useGoogleDriveContext } from '../../../../context/GoogleDriveContext';
     import { useGlobalDialog } from '../../../../context/GlobalDialogContext';
     import DatePickerModal, { formatDisplayDate } from '../../../ui/DatePickerModal';
+    import InternAiExtractModal from './InternAiExtractModal';
 
     interface InternCandidateModalProps {
         isOpen: boolean;
@@ -54,6 +55,22 @@
         const [isSubmitting, setIsSubmitting] = useState(false);
         const [isStartOpen, setIsStartOpen] = useState(false);
         const [isEndOpen, setIsEndOpen] = useState(false);
+        const [isAiModalOpen, setIsAiModalOpen] = useState(false);
+        const [recentlyAiFilled, setRecentlyAiFilled] = useState(false);
+
+        const handleAiExtracted = (candidate: Partial<InternCandidate>) => {
+            setFormData(prev => ({
+                ...prev,
+                ...candidate,
+                startDate: candidate.startDate ? new Date(candidate.startDate) : prev.startDate,
+                endDate: candidate.endDate ? new Date(candidate.endDate) : prev.endDate,
+                status: candidate.status || prev.status || 'APPLIED',
+                gender: candidate.gender || prev.gender || 'OTHER',
+            }));
+            setRecentlyAiFilled(true);
+            setTimeout(() => setRecentlyAiFilled(false), 5000);
+            showAlert('AI ดึงข้อมูลจากรูปภาพ/ข้อความ และเติมลงในแบบฟอร์มเรียบร้อยแล้ว ✨ ตรวจทานและกดบันทึกได้เลย', 'AI Auto-Fill สำเร็จ');
+        };
 
         const uniqueUniversities = useMemo(() => {
             const unis = allInterns.map(i => i.university).filter(u => u && u.trim() !== '');
@@ -151,6 +168,7 @@
         const isSavingDisabled = uploadStatus === 'UPLOADING' || uploadStatus === 'CROPPING';
 
         const modalContent = (
+            <>
             <AnimatePresence>
                 {isOpen && (
                     <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 overflow-hidden">
@@ -195,18 +213,71 @@
                                         </div>
                                     </div>
                                 </div>
-                                <button 
-                                    type="button"
-                                    onClick={onClose} 
-                                    className="p-2 bg-gray-50 hover:bg-gray-100 rounded-lg text-gray-400 transition-all"
-                                >
-                                    <X className="w-5 h-5" />
-                                </button>
+                                <div className="flex items-center gap-2">
+                                    <button 
+                                        id="btn-trigger-ai-autofill"
+                                        type="button"
+                                        onClick={() => setIsAiModalOpen(true)}
+                                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-gradient-to-r from-indigo-50 via-purple-50 to-pink-50 hover:from-indigo-100 hover:to-purple-100 text-indigo-700 font-bold text-xs border border-indigo-200/80 shadow-xs transition-all hover:shadow group cursor-pointer"
+                                        title="วางรูปภาพ Resume, หน้าแชท หรือข้อความ เพื่อให้ AI ช่วยกรอกฟอร์มให้อัตโนมัติ"
+                                    >
+                                        <Sparkles className="w-3.5 h-3.5 text-indigo-600 group-hover:rotate-12 transition-transform" />
+                                        <span className="hidden sm:inline">AI Auto-Fill (วางรูป/แชท)</span>
+                                        <span className="sm:hidden">AI Auto-Fill</span>
+                                    </button>
+                                    <button 
+                                        type="button"
+                                        onClick={onClose} 
+                                        className="p-2 bg-gray-50 hover:bg-gray-100 rounded-lg text-gray-400 transition-all cursor-pointer"
+                                    >
+                                        <X className="w-5 h-5" />
+                                    </button>
+                                </div>
                             </div>
 
                             {/* Form Content - Compact Stacked Blocks */}
                             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-4 space-y-3 custom-scrollbar">
                                 
+                                {/* AI Quick Fill Notification Banner */}
+                                {!intern && (
+                                    <div className={`rounded-2xl p-3.5 flex items-center justify-between transition-all duration-500 ${
+                                        recentlyAiFilled 
+                                            ? 'bg-emerald-50 border-2 border-emerald-300 shadow-md' 
+                                            : 'bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-indigo-500/5 border border-indigo-200/80 shadow-xs'
+                                    }`}>
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-8 h-8 rounded-xl flex items-center justify-center shadow-xs shrink-0 ${
+                                                recentlyAiFilled ? 'bg-emerald-600 text-white' : 'bg-indigo-600 text-white'
+                                            }`}>
+                                                <Sparkles className={`w-4 h-4 ${recentlyAiFilled ? 'text-emerald-200 animate-spin' : 'text-amber-300'}`} />
+                                            </div>
+                                            <div>
+                                                <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                                                    <span>{recentlyAiFilled ? '✨ AI เติมข้อมูลลงฟอร์มเรียบร้อยแล้ว' : 'มีรูปเรซูเม่ หรือแชท LINE จากน้องฝึกงานไหม?'}</span>
+                                                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                                                        recentlyAiFilled ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-700'
+                                                    }`}>
+                                                        {recentlyAiFilled ? 'พร้อมตรวจทาน' : 'Gemini Flash'}
+                                                    </span>
+                                                </div>
+                                                <div className="text-[11px] text-slate-500 mt-0.5">
+                                                    {recentlyAiFilled 
+                                                        ? 'คุณสามารถแก้ไขรายละเอียดเพิ่มเติมในแต่ละช่อง หรือกดปุ่ม "บันทึกข้อมูล" ด้านล่างได้ทันที'
+                                                        : 'แคปภาพหน้าจอแล้วกด Ctrl+V เพื่อให้ AI ช่วยสแกนและกรอกข้อมูลทุกช่องในคลิกเดียว'}
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsAiModalOpen(true)}
+                                            className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs transition-colors shrink-0 flex items-center gap-1.5 cursor-pointer ml-2"
+                                        >
+                                            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                                            <span>{recentlyAiFilled ? 'สแกนอีกครั้ง' : 'เปิด AI Auto-Fill'}</span>
+                                        </button>
+                                    </div>
+                                )}
+
                                 {/* Block 1: Profile & Identity */}
                                 <div className="bg-white rounded-2xl p-6 border border-gray-200 shadow-sm">
                                     <div className="flex flex-col sm:flex-row gap-8 items-start">
@@ -576,6 +647,13 @@
                     </div>
                 )}
             </AnimatePresence>
+
+            <InternAiExtractModal
+                isOpen={isAiModalOpen}
+                onClose={() => setIsAiModalOpen(false)}
+                onExtracted={handleAiExtracted}
+            />
+        </>
         );
 
         return createPortal(modalContent, document.body);

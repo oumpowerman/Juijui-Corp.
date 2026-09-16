@@ -73,14 +73,14 @@ export interface ChannelGroup {
     created_at?: string;
 }
 
-export type BrandLinkType = 'NOTION' | 'GOOGLE_DOC' | 'GOOGLE_DRIVE' | 'FIGMA' | 'CANVA' | 'WEBSITE' | 'OTHER';
+export type BrandLinkType = 'NOTION' | 'GOOGLE_DOCS' | 'GOOGLE_DRIVE' | 'FIGMA' | 'SLACK' | 'WEBSITE' | 'OTHER';
 
-export interface BrandGuidelineLink {
+export interface BrandLink {
     id: string;
-    title: string;
-    url: string;
-    type?: BrandLinkType;
-    description?: string;
+    title: string;          // เช่น "คู่มือการทำคอนเทนต์ (CI Guidelines)", "Notion Content Tracker"
+    url: string;            // URL ลิงก์ปลายทาง
+    type: BrandLinkType;    // ประเภทบริการเพื่อเลือกแสดงไอคอนและสีที่ถูกต้อง
+    description?: string;   // คำอธิบายสั้นๆ เกี่ยวกับเอกสารนั้นๆ
 }
 
 export interface Channel {
@@ -108,8 +108,8 @@ export interface Channel {
     group_name?: string | null;
     /** อีเมลทางการของช่อง / ติดต่องาน (Official / Business Contact Email) */
     email?: string;
-    /** ลิงก์คู่มือการทำงาน / Brand CI / SOP / Notion / Google Docs ประจำช่อง */
-    guideline_links?: BrandGuidelineLink[];
+    /** รายการคู่มือ & เอกสารทำงานภายในของแบรนด์ (Internal Brand Docs / Guidelines) */
+    brand_links?: BrandLink[];
 }
 
 export interface TaskPerformance {

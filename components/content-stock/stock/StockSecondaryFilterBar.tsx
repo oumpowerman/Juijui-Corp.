@@ -89,6 +89,34 @@ export const StockSecondaryFilterBar: React.FC<StockSecondaryFilterBarProps> = R
         ];
     }, [filterStatuses, masterOptions]);
 
+    // Enhanced Pillar Options with NO_PILLAR pseudo-key
+    const enhancedPillarOptions = React.useMemo(() => {
+        const noPillarOption: MasterOption = {
+            id: 'no-pillar-pseudo',
+            type: 'PILLAR',
+            key: 'NO_PILLAR',
+            label: '⚠️ ไม่มี Pillar (ไม่ได้ระบุ)',
+            color: '#f59e0b',
+            isActive: true,
+            sortOrder: -999
+        };
+        return [noPillarOption, ...pillarOptions];
+    }, [pillarOptions]);
+
+    // Enhanced Category Options with NO_CATEGORY pseudo-key
+    const enhancedCategoryOptions = React.useMemo(() => {
+        const noCategoryOption: MasterOption = {
+            id: 'no-category-pseudo',
+            type: 'CATEGORY',
+            key: 'NO_CATEGORY',
+            label: '⚠️ ไม่มี Category (ไม่ได้ระบุ)',
+            color: '#f59e0b',
+            isActive: true,
+            sortOrder: -999
+        };
+        return [noCategoryOption, ...categoryOptions];
+    }, [categoryOptions]);
+
     return (
         <motion.div
             initial={{ height: 0, opacity: 0, marginTop: 0 }}
@@ -137,7 +165,7 @@ export const StockSecondaryFilterBar: React.FC<StockSecondaryFilterBarProps> = R
                         <MultiSelectFilter 
                             label="Pillar"
                             values={filterPillar}
-                            options={pillarOptions}
+                            options={enhancedPillarOptions}
                             onChange={setFilterPillar}
                             icon={<Landmark className="w-3.5 h-3.5" />}
                             activeColorClass="bg-blue-50 border-blue-200 text-blue-700 shadow-sm ring-2 ring-blue-100 ring-offset-1 font-extrabold"
@@ -149,14 +177,15 @@ export const StockSecondaryFilterBar: React.FC<StockSecondaryFilterBarProps> = R
                         <MultiSelectFilter 
                             label="Category"
                             values={filterCategory}
-                            options={categoryOptions}
+                            options={enhancedCategoryOptions}
                             onChange={(newCategories) => {
                                 setFilterCategory(newCategories);
                                 
                                 // Find parent Pillars for newly selected categories and add them to filterPillar
                                 const newPillarsToAdd = new Set<string>();
                                 newCategories.forEach(catKey => {
-                                    const catOpt = categoryOptions.find(o => o.key === catKey);
+                                    if (catKey === 'NO_CATEGORY') return;
+                                    const catOpt = enhancedCategoryOptions.find(o => o.key === catKey);
                                     if (catOpt && catOpt.parentKey) {
                                         newPillarsToAdd.add(catOpt.parentKey);
                                     }

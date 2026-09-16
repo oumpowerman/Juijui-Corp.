@@ -9,18 +9,20 @@ import {
   Tag, 
   LayoutTemplate, 
   Layers, 
+  BookOpen,
   ChevronLeft, 
   ChevronRight, 
   Save, 
   CheckCircle2, 
   AlertCircle
 } from 'lucide-react';
-import { Channel, Platform, SocialLinks, PlatformFollowers } from '../../../types';
+import { Channel, Platform, SocialLinks, PlatformFollowers, BrandLink } from '../../../types';
 import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 import { useMasterData } from '../../../hooks/useMasterData';
 import { ChannelBrandTab, BrandColorOption } from './tabs/ChannelBrandTab';
 import { ChannelPlatformsTab } from './tabs/ChannelPlatformsTab';
 import { ChannelPillarsTab } from './tabs/ChannelPillarsTab';
+import { ChannelDocsTab } from './tabs/ChannelDocsTab';
 
 export interface ChannelFormModalProps {
   isOpen: boolean;
@@ -42,12 +44,13 @@ export const BRAND_COLORS: BrandColorOption[] = [
   { id: 'slate', class: 'bg-slate-100 text-slate-700 border-slate-200 ring-slate-500' },
 ];
 
-type TabKey = 'BRAND' | 'PLATFORMS' | 'PILLARS';
+type TabKey = 'BRAND' | 'PLATFORMS' | 'PILLARS' | 'DOCS';
 
 const TABS: { id: TabKey; label: string; shortLabel: string; icon: React.ElementType }[] = [
   { id: 'BRAND', label: '1. ข้อมูล & อัตลักษณ์', shortLabel: 'ข้อมูลทั่วไป', icon: Tag },
   { id: 'PLATFORMS', label: '2. แพลตฟอร์ม & สถิติ', shortLabel: 'แพลตฟอร์ม', icon: LayoutTemplate },
   { id: 'PILLARS', label: '3. แกนเนื้อหา & หมวดหมู่', shortLabel: 'แกนเนื้อหา', icon: Layers },
+  { id: 'DOCS', label: '4. คู่มือ SOP & เอกสารทำงาน', shortLabel: 'คู่มือ SOP', icon: BookOpen },
 ];
 
 const slideVariants: Variants = {
@@ -83,6 +86,7 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
   const [socialLinks, setSocialLinks] = useState<SocialLinks>({});
   const [followers, setFollowers] = useState<PlatformFollowers>({});
   const [color, setColor] = useState(BRAND_COLORS[0].class);
+  const [brandLinks, setBrandLinks] = useState<BrandLink[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [targetId, setTargetId] = useState('');
@@ -109,6 +113,7 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
         setSocialLinks(channel.social_links || {});
         setFollowers(channel.followers || {});
         setColor(channel.color || BRAND_COLORS[0].class);
+        setBrandLinks(channel.brand_links || []);
         setLogoPreview(channel.logoUrl || null);
         setLogoFile(null);
       } else {
@@ -121,6 +126,7 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
         setSocialLinks({});
         setFollowers({});
         setColor(BRAND_COLORS[0].class);
+        setBrandLinks([]);
         setLogoFile(null);
         setLogoPreview(null);
       }
@@ -218,6 +224,7 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
         logoUrl: logoPreview || undefined,
         social_links: socialLinks,
         followers: followers,
+        brand_links: brandLinks,
       };
 
       const success = await onSave(payload, logoFile);
@@ -313,14 +320,15 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
 
               {/* Tab Navigation Strip */}
               <div className="px-6 py-2.5 sm:px-8">
-                <div className="grid grid-cols-3 gap-1.5 sm:gap-2 p-1 bg-slate-100/80 rounded-2xl">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 sm:gap-2 p-1 bg-slate-100/80 rounded-2xl">
                   {TABS.map((tab) => {
                     const isActive = activeTab === tab.id;
                     const Icon = tab.icon;
                     const isCompleted = 
                       (tab.id === 'BRAND' && name.trim().length > 0) ||
                       (tab.id === 'PLATFORMS' && selectedPlatforms.length > 0) ||
-                      (tab.id === 'PILLARS');
+                      (tab.id === 'PILLARS') ||
+                      (tab.id === 'DOCS' && brandLinks.length > 0);
 
                     return (
                       <button
@@ -346,8 +354,13 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
                           <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
                         )}
                         {tab.id === 'PLATFORMS' && selectedPlatforms.length > 0 && (
-                          <span className="hidden md:inline-flex text-[10px] px-1.5 py-0.2 bg-indigo-50 text-indigo-600 rounded-full font-bold">
+                          <span className="hidden md:inline-flex text-[10px] px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded-full font-bold shrink-0 min-w-[18px] justify-center items-center">
                             {selectedPlatforms.length}
+                          </span>
+                        )}
+                        {tab.id === 'DOCS' && brandLinks.length > 0 && (
+                          <span className="hidden md:inline-flex text-[10px] px-1.5 py-0.5 bg-indigo-50 text-indigo-600 rounded-full font-bold shrink-0 min-w-[18px] justify-center items-center">
+                            {brandLinks.length}
                           </span>
                         )}
                       </button>
@@ -384,6 +397,8 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
                       onFileChange={handleFileChange}
                       onRemovePhoto={handleRemovePhoto}
                       isSubmitting={isSubmitting}
+                      brandLinksCount={brandLinks.length}
+                      onNavigateToDocsTab={() => switchTab('DOCS')}
                     />
                   </motion.div>
                 )}
@@ -425,6 +440,27 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
                       channel={channel}
                       tempOptions={tempOptions}
                       setTempOptions={setTempOptions}
+                    />
+                  </motion.div>
+                )}
+
+                {activeTab === 'DOCS' && (
+                  <motion.div
+                    key="tab-docs"
+                    custom={direction}
+                    variants={slideVariants}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    className="min-h-full"
+                  >
+                    <ChannelDocsTab
+                      brandLinks={brandLinks}
+                      setBrandLinks={setBrandLinks}
+                      channelName={name}
+                      channelColor={color}
+                      logoPreview={logoPreview}
+                      isSubmitting={isSubmitting}
                     />
                   </motion.div>
                 )}

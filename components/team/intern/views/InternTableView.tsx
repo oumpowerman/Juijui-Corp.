@@ -38,10 +38,14 @@ const InternTableView: React.FC<InternTableViewProps> = ({
     };
 
     const getPositionTheme = (position: string) => {
-        const p = position.toUpperCase();
-        if (p.includes('GRAPHIC')) return { bg: 'hover:bg-indigo-50/40', text: 'text-indigo-600', iconBg: 'bg-indigo-100' };
+        const p = (position || '').toUpperCase();
+        if (p.includes('GRAPHIC') || p.includes('DESIGN')) return { bg: 'hover:bg-indigo-50/40', text: 'text-indigo-600', iconBg: 'bg-indigo-100' };
         if (p.includes('CREATIVE')) return { bg: 'hover:bg-amber-50/40', text: 'text-amber-600', iconBg: 'bg-amber-100' };
-        if (p.includes('EDITOR')) return { bg: 'hover:bg-emerald-50/40', text: 'text-emerald-600', iconBg: 'bg-emerald-100' };
+        if (p.includes('EDITOR') || p.includes('VIDEO')) return { bg: 'hover:bg-emerald-50/40', text: 'text-emerald-600', iconBg: 'bg-emerald-100' };
+        if (p.includes('PM') || p.includes('PROJECT')) return { bg: 'hover:bg-blue-50/40', text: 'text-blue-600', iconBg: 'bg-blue-100' };
+        if (p.includes('PA') || p.includes('PERSONAL')) return { bg: 'hover:bg-teal-50/40', text: 'text-teal-600', iconBg: 'bg-teal-100' };
+        if (p.includes('EA') || p.includes('EXECUTIVE')) return { bg: 'hover:bg-purple-50/40', text: 'text-purple-600', iconBg: 'bg-purple-100' };
+        if (p.includes('AE') || p.includes('ACCOUNT')) return { bg: 'hover:bg-rose-50/40', text: 'text-rose-600', iconBg: 'bg-rose-100' };
         return { bg: 'hover:bg-slate-50/40', text: 'text-slate-600', iconBg: 'bg-slate-100' };
     };
 

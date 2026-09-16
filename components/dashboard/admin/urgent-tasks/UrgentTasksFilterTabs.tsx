@@ -36,7 +36,7 @@ export const UrgentTasksFilterTabs: React.FC<UrgentTasksFilterTabsProps> = ({
                             key={tab.id}
                             id={`tab-btn-${tab.id.toLowerCase()}`}
                             onClick={() => onChangeType(tab.id)}
-                            className="flex-1 relative py-2 rounded-full flex items-center justify-center gap-1.5 text-xs font-black transition-all cursor-pointer select-none"
+                            className="flex-1 relative py-2 rounded-full flex items-center justify-center gap-1.5 text-xs font-bold transition-all cursor-pointer select-none"
                             style={{ WebkitTapHighlightColor: 'transparent' }}
                         >
                             {isActive && (

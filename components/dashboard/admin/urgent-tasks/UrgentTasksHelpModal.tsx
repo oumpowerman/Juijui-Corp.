@@ -47,7 +47,7 @@ export const UrgentTasksHelpModal: React.FC<UrgentTasksHelpModalProps> = ({ isOp
                                 <span className="p-1.5 sm:p-2 bg-indigo-50 text-indigo-600 rounded-2xl border border-indigo-100">
                                     <HelpCircle className="w-5 h-5" />
                                 </span>
-                                <h3 className="font-black text-lg sm:text-xl text-slate-800 tracking-tight">ทำความรู้จัก "งานด่วน"</h3>
+                                <h3 className="font-bold text-lg sm:text-xl text-slate-800 tracking-tight">ทำความรู้จัก "งานด่วน"</h3>
                             </div>
                             <button
                                 onClick={onClose}
@@ -64,7 +64,7 @@ export const UrgentTasksHelpModal: React.FC<UrgentTasksHelpModalProps> = ({ isOp
                             <div className="bg-gradient-to-r from-red-50 to-orange-50 border border-red-100 p-4 rounded-2xl flex gap-3">
                                 <Siren className="w-8 h-8 text-red-500 shrink-0 mt-0.5 animate-pulse" />
                                 <div className="text-sm">
-                                    <h4 className="font-black text-red-800 tracking-tight">สูตรคำนวณลำดับความด่วน</h4>
+                                    <h4 className="font-bold text-red-800 tracking-tight">สูตรคำนวณลำดับความด่วน</h4>
                                     <p className="text-red-700/80 font-bold mt-0.5 leading-relaxed">
                                         ระบบจะดึงเฉพาะ <strong className="text-red-900 font-extrabold">"งานที่ยังทำไม่เสร็จ"</strong> 
                                         แล้วเรียงลำดับความเร่งด่วนตามเงื่อนไข:
@@ -79,7 +79,7 @@ export const UrgentTasksHelpModal: React.FC<UrgentTasksHelpModalProps> = ({ isOp
 
                             {/* Bullet explanation of Card designs */}
                             <div className="space-y-4">
-                                <h4 className="font-black text-sm uppercase tracking-widest text-indigo-600">สัญลักษณ์สีแถบด้านข้าง (Visual Indicators)</h4>
+                                <h4 className="font-bold text-sm uppercase tracking-widest text-indigo-600">สัญลักษณ์สีแถบด้านข้าง (Visual Indicators)</h4>
                                 
                                 <div className="grid grid-cols-1 gap-2.5">
                                     <div className="flex items-center gap-3 p-2.5 rounded-xl bg-slate-50 border border-slate-100">
@@ -116,7 +116,7 @@ export const UrgentTasksHelpModal: React.FC<UrgentTasksHelpModalProps> = ({ isOp
 
                             {/* Explanation of the new design swapping */}
                             <div className="space-y-3.5">
-                                <h4 className="font-black text-sm uppercase tracking-widest text-purple-600">การแสดงสัญญลักษณ์หลัก (New Update!)</h4>
+                                <h4 className="font-bold text-sm uppercase tracking-widest text-purple-600">การแสดงสัญญลักษณ์หลัก (New Update!)</h4>
                                 
                                 <div className="space-y-2 text-xs font-bold text-slate-600">
                                     <div className="p-3 bg-purple-50/50 rounded-2xl border border-purple-100/50 flex gap-3">
@@ -124,7 +124,7 @@ export const UrgentTasksHelpModal: React.FC<UrgentTasksHelpModalProps> = ({ isOp
                                         <div>
                                             <p className="font-extrabold text-purple-950">คอนเทนต์ลงสื่อ (Content)</p>
                                             <p className="text-purple-900/70 font-semibold mt-1 leading-relaxed">
-                                                เปลี่ยนมาใช้ <strong className="text-purple-950 font-black">โลโก้ช่องทางสื่อออนไลน์ (Channel Logo)</strong> เป็นภาพหลัก 
+                                                เปลี่ยนมาใช้ <strong className="text-purple-950 font-bold">โลโก้ช่องทางสื่อออนไลน์ (Channel Logo)</strong> เป็นภาพหลัก 
                                                 เพื่อความชัดเจนเพราะหนึ่งชิ้นงานมีทีมทำงานร่วมกันหลายคน (พร้อมแสดงรูปผู้รับผิดชอบเป็นวงกลมเล็กซ้อนมุมขวา)
                                             </p>
                                         </div>
@@ -135,7 +135,7 @@ export const UrgentTasksHelpModal: React.FC<UrgentTasksHelpModalProps> = ({ isOp
                                         <div>
                                             <p className="font-extrabold text-blue-950">งานทั่วไป (General Task)</p>
                                             <p className="text-blue-900/70 font-semibold mt-1 leading-relaxed">
-                                                แสดง <strong className="text-blue-950 font-black">โปรไฟล์ผู้รับผิดชอบงาน (Assignee)</strong> คู่กับโลโก้ช่องแบรนด์ขนาดกะทัดรัด 
+                                                แสดง <strong className="text-blue-950 font-bold">โปรไฟล์ผู้รับผิดชอบงาน (Assignee)</strong> คู่กับโลโก้ช่องแบรนด์ขนาดกะทัดรัด 
                                                 เนื่องจากงานทั่วไปเป็นงานเดี่ยวที่มีโอกาสสืบค้นผู้ดูแลเดี่ยวได้ง่าย
                                             </p>
                                         </div>

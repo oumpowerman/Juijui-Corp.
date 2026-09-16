@@ -187,7 +187,7 @@ export const useUrgentTasks = ({
         });
 
         const isDefaultView = activeFilter === 'ALL' && !selectedChannelId && !selectedAssigneeId;
-        const finalDisplayList = isDefaultView ? smartSorted.slice(0, 5) : smartSorted;
+        const finalDisplayList = isDefaultView ? smartSorted.slice(0, 8) : smartSorted;
 
         return {
             displayTasks: finalDisplayList,

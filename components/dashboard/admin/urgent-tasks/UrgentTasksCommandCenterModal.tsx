@@ -73,11 +73,42 @@ export const UrgentTasksCommandCenterModal: React.FC<UrgentTasksCommandCenterMod
         });
     }, [tasks, viewScope, currentUser]);
 
+    // Helpers to filter by timeline status and search query
+    const matchesTimeFilter = (task: Task, filter: typeof timeFilter, today: Date) => {
+        if (filter === 'ALL') return true;
+        const date = new Date(task.endDate);
+        date.setHours(0, 0, 0, 0);
+        if (filter === 'OVERDUE') return isBefore(date, today);
+        if (filter === 'TODAY') return isToday(date);
+        if (filter === 'SOON') return isBefore(date, addDays(today, 3)) && !isBefore(date, today) && !isToday(date);
+        if (filter === 'NORMAL') return !isBefore(date, addDays(today, 3));
+        return true;
+    };
+
+    const matchesSearchQuery = (task: Task, query: string) => {
+        if (!query.trim()) return true;
+        const q = query.toLowerCase();
+        const matchTitle = task.title.toLowerCase().includes(q);
+        const channelName = channels.find((c) => c.id === task.channelId)?.name || '';
+        const matchChannel = channelName.toLowerCase().includes(q);
+        const matchUser =
+            task.assigneeIds?.some((uid) => {
+                const u = users.find((usr) => usr.id === uid);
+                return u?.name.toLowerCase().includes(q);
+            }) || false;
+        return matchTitle || matchChannel || matchUser;
+    };
+
     // --- Dynamic Bottleneck & Workload Analysis for Scalability ---
     const channelsAnalytics = useMemo(() => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
         const counts: Record<string, number> = {};
         allPendingTasks
             .filter((t) => t.type === 'CONTENT')
+            .filter((t) => matchesTimeFilter(t, timeFilter, today))
+            .filter((t) => matchesSearchQuery(t, searchQuery))
             .forEach((t) => {
                 if (t.channelId) {
                     counts[t.channelId] = (counts[t.channelId] || 0) + 1;
@@ -89,14 +120,19 @@ export const UrgentTasksCommandCenterModal: React.FC<UrgentTasksCommandCenterMod
                 const ch = channels.find((c) => c.id === id);
                 return { id, count, channel: ch };
             })
-            .filter((item) => item.channel)
+            .filter((item): item is { id: string; count: number; channel: Channel } => Boolean(item.channel) && item.count > 0)
             .sort((a, b) => b.count - a.count);
-    }, [allPendingTasks, channels]);
+    }, [allPendingTasks, channels, timeFilter, searchQuery, users]);
 
     const assigneesAnalytics = useMemo(() => {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
         const counts: Record<string, number> = {};
         allPendingTasks
             .filter((t) => t.type === 'TASK')
+            .filter((t) => matchesTimeFilter(t, timeFilter, today))
+            .filter((t) => matchesSearchQuery(t, searchQuery))
             .forEach((t) => {
                 t.assigneeIds?.forEach((uid) => {
                     if (uid) {
@@ -110,9 +146,22 @@ export const UrgentTasksCommandCenterModal: React.FC<UrgentTasksCommandCenterMod
                 const u = users.find((user) => user.id === id);
                 return { id, count, user: u };
             })
-            .filter((item) => item.user)
+            .filter((item): item is { id: string; count: number; user: User } => Boolean(item.user) && item.count > 0)
             .sort((a, b) => b.count - a.count);
-    }, [allPendingTasks, users]);
+    }, [allPendingTasks, users, timeFilter, searchQuery, channels]);
+
+    // Auto-clear active channel or assignee if they are filtered out
+    useEffect(() => {
+        if (activeChannelId && !channelsAnalytics.some((c) => c.id === activeChannelId)) {
+            setActiveChannelId(null);
+        }
+    }, [channelsAnalytics, activeChannelId]);
+
+    useEffect(() => {
+        if (activeAssigneeId && !assigneesAnalytics.some((a) => a.id === activeAssigneeId)) {
+            setActiveAssigneeId(null);
+        }
+    }, [assigneesAnalytics, activeAssigneeId]);
 
     // Overall Metrics & Scalability Risk index algorithms
     const metrics = useMemo(() => {
@@ -179,31 +228,14 @@ export const UrgentTasksCommandCenterModal: React.FC<UrgentTasksCommandCenterMod
                 if (selectedType === 'TASK' && t.type !== 'TASK') return false;
 
                 // 2. Timeline Status Filter
-                const date = new Date(t.endDate);
-                date.setHours(0, 0, 0, 0);
-                if (timeFilter === 'OVERDUE' && !isBefore(date, today)) return false;
-                if (timeFilter === 'TODAY' && !isToday(date)) return false;
-                if (timeFilter === 'SOON' && !(isBefore(date, addDays(today, 3)) && !isBefore(date, today) && !isToday(date))) return false;
-                if (timeFilter === 'NORMAL' && isBefore(date, addDays(today, 3))) return false;
+                if (!matchesTimeFilter(t, timeFilter, today)) return false;
 
                 // 3. Interactive Sidebar Lock Filters
                 if (activeChannelId && t.channelId !== activeChannelId) return false;
                 if (activeAssigneeId && !t.assigneeIds?.includes(activeAssigneeId)) return false;
 
                 // 4. Input Search Query Match
-                if (searchQuery.trim()) {
-                    const query = searchQuery.toLowerCase();
-                    const matchTitle = t.title.toLowerCase().includes(query);
-                    const channelName = channels.find((c) => c.id === t.channelId)?.name || '';
-                    const matchChannel = channelName.toLowerCase().includes(query);
-                    const matchUser =
-                        t.assigneeIds?.some((uid) => {
-                            const u = users.find((usr) => usr.id === uid);
-                            return u?.name.toLowerCase().includes(query);
-                        }) || false;
-
-                    if (!matchTitle && !matchChannel && !matchUser) return false;
-                }
+                if (!matchesSearchQuery(t, searchQuery)) return false;
 
                 return true;
             })
@@ -375,11 +407,11 @@ export const UrgentTasksCommandCenterModal: React.FC<UrgentTasksCommandCenterMod
                                     activeAssigneeId={activeAssigneeId}
                                     onChannelSelect={(id) => {
                                         setActiveChannelId(id);
-                                        setActiveAssigneeId(null);
+                                        if (id) setActiveAssigneeId(null);
                                     }}
                                     onAssigneeSelect={(id) => {
                                         setActiveAssigneeId(id);
-                                        setActiveChannelId(null);
+                                        if (id) setActiveChannelId(null);
                                     }}
                                     setMobileTab={setMobileTab}
                                 />

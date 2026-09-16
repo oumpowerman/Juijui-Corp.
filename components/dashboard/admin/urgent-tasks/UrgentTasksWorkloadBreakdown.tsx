@@ -32,7 +32,7 @@ export const UrgentTasksWorkloadBreakdown: React.FC<UrgentTasksWorkloadBreakdown
             {hasChannels && (
                 <div className="flex flex-col gap-1">
                     <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                             ค้างตามช่องทาง ({channelsWithPending.length})
                         </span>
                         {selectedChannelId && (
@@ -56,7 +56,7 @@ export const UrgentTasksWorkloadBreakdown: React.FC<UrgentTasksWorkloadBreakdown
                                     whileTap={{ scale: 0.97 }}
                                     onClick={() => setSelectedChannelId(isSelected ? null : id)}
                                     className={`
-                                        flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all text-xs font-black cursor-pointer shrink-0 select-none shadow-sm
+                                        flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all text-xs font-bold cursor-pointer shrink-0 select-none shadow-sm
                                         ${isSelected 
                                             ? 'bg-purple-100 border-purple-300 text-purple-800 ring-2 ring-purple-500/10' 
                                             : 'bg-white border-slate-200/80 hover:border-purple-200 text-slate-600'
@@ -67,12 +67,12 @@ export const UrgentTasksWorkloadBreakdown: React.FC<UrgentTasksWorkloadBreakdown
                                         {channel.logoUrl ? (
                                             <img src={channel.logoUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" />
                                         ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-[7px] font-black text-white" style={{ backgroundColor: channel.color || '#8b5cf6' }}>
+                                            <div className="w-full h-full flex items-center justify-center text-[7px] font-bold text-white" style={{ backgroundColor: channel.color || '#8b5cf6' }}>
                                                 {channel.name.slice(0, 1).toUpperCase()}
                                             </div>
                                         )}
                                     </div>
-                                    <span className="max-w-[70px] truncate text-[11px] font-black">{channel.name}</span>
+                                    <span className="max-w-[70px] truncate text-[11px] font-bold">{channel.name}</span>
                                     <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-extrabold ${isSelected ? 'bg-purple-200 text-purple-800' : 'bg-slate-100 text-slate-500'}`}>
                                         {count}
                                     </span>
@@ -92,7 +92,7 @@ export const UrgentTasksWorkloadBreakdown: React.FC<UrgentTasksWorkloadBreakdown
             {hasAssignees && (
                 <div className="flex flex-col gap-1">
                     <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                             งานค้างรายบุคคล ({assigneesWithPending.length})
                         </span>
                         {selectedAssigneeId && (
@@ -117,7 +117,7 @@ export const UrgentTasksWorkloadBreakdown: React.FC<UrgentTasksWorkloadBreakdown
                                     whileTap={{ scale: 0.97 }}
                                     onClick={() => setSelectedAssigneeId(isSelected ? null : id)}
                                     className={`
-                                        flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all text-xs font-black cursor-pointer shrink-0 select-none shadow-sm
+                                        flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all text-xs font-bold cursor-pointer shrink-0 select-none shadow-sm
                                         ${isSelected 
                                             ? (isInactive ? 'bg-amber-100 border-amber-400 text-amber-900 ring-2 ring-amber-500/20' : 'bg-blue-100 border-blue-300 text-blue-800 ring-2 ring-blue-500/10')
                                             : (isInactive ? 'bg-amber-50/70 border-amber-200 hover:border-amber-300 text-amber-800' : 'bg-white border-slate-200/80 hover:border-blue-200 text-slate-600')

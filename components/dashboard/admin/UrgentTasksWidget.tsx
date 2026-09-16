@@ -173,7 +173,7 @@ const UrgentTasksWidget: React.FC<UrgentTasksWidgetProps> = ({
             </div>
 
             {/* --- Footer: View All --- */}
-            {activeFilter === 'ALL' && stats.total > 5 && (
+            {activeFilter === 'ALL' && stats.total > 8 && (
                 <div className="p-4 border-t border-white/40 bg-white/30 backdrop-blur-md">
                     <motion.button 
                         whileHover={{ scale: 1.02 }}
@@ -183,7 +183,7 @@ const UrgentTasksWidget: React.FC<UrgentTasksWidgetProps> = ({
                         id="btn-view-all-pending-command-center"
                     >
                         <CalendarClock className="w-4 h-4" />
-                        ดูงานที่เหลืออีก {stats.total - 5} รายการ
+                        ดูงานที่เหลืออีก {stats.total - 8} รายการ
                     </motion.button>
                 </div>
             )}

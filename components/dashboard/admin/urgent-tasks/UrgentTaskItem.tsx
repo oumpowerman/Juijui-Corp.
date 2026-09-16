@@ -69,7 +69,7 @@ export const UrgentTaskItem: React.FC<UrgentTaskItemProps> = ({
             else if (daysLate > 3) badgeClass = "bg-red-100 text-red-700";
 
             return (
-                <div className={`flex items-center gap-1 text-[10px] font-black px-1.5 py-0.5 rounded shadow-sm border shrink-0 ${badgeClass}`}>
+                <div className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm border shrink-0 ${badgeClass}`}>
                     <AlertTriangle className="w-3 h-3" />
                     สาย {daysLate} วัน
                 </div>
@@ -77,7 +77,7 @@ export const UrgentTaskItem: React.FC<UrgentTaskItemProps> = ({
         }
         if (diff === 0) {
             return (
-                <div className="flex items-center gap-1 text-[10px] font-black text-orange-700 bg-orange-100 px-1.5 py-0.5 rounded border border-orange-200 shrink-0">
+                <div className="flex items-center gap-1 text-[10px] font-bold text-orange-700 bg-orange-100 px-1.5 py-0.5 rounded border border-orange-200 shrink-0">
                     <Clock className="w-3 h-3" />
                     วันนี้!
                 </div>
@@ -135,7 +135,7 @@ export const UrgentTaskItem: React.FC<UrgentTaskItemProps> = ({
                                     />
                                 ) : (
                                     <div 
-                                        className="w-full h-full flex items-center justify-center text-sm font-black text-white"
+                                        className="w-full h-full flex items-center justify-center text-sm font-bold text-white"
                                         style={{ backgroundColor: channel.color || '#a855f7' }}
                                     >
                                         {channel.name.slice(0, 1).toUpperCase()}
@@ -215,7 +215,7 @@ export const UrgentTaskItem: React.FC<UrgentTaskItemProps> = ({
                                     />
                                 ) : (
                                     <div 
-                                        className="w-full h-full flex items-center justify-center text-[8px] font-black text-white leading-none"
+                                        className="w-full h-full flex items-center justify-center text-[8px] font-bold text-white leading-none"
                                         style={{ backgroundColor: channel.color || '#3b82f6' }}
                                     >
                                         {channel.name.slice(0, 1).toUpperCase()}
@@ -230,19 +230,19 @@ export const UrgentTaskItem: React.FC<UrgentTaskItemProps> = ({
             {/* Mid Section: Details & Labels */}
             <div className="flex-1 min-w-0 pr-1">
                 <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
-                    <div className={`flex items-center gap-1 text-[9px] font-black px-1.5 py-0.5 rounded-full border uppercase select-none ${isContent ? 'text-purple-600 bg-purple-50 border-purple-100' : 'text-blue-600 bg-blue-50 border-blue-100'}`}>
+                    <div className={`flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full border uppercase select-none ${isContent ? 'text-purple-600 bg-purple-50 border-purple-100' : 'text-blue-600 bg-blue-50 border-blue-100'}`}>
                         {isContent ? <LayoutTemplate className="w-3 h-3"/> : <CheckSquare className="w-3 h-3"/>}
                         {isContent ? 'CONTENT' : 'TASK'}
                     </div>
                     {getDelayBadge(new Date(task.endDate))}
                 </div>
 
-                <h4 className="font-black text-sm sm:text-base text-slate-800 line-clamp-2 sm:truncate group-hover:text-indigo-600 transition-colors tracking-tight">
+                <h4 className="font-bold text-sm sm:text-base text-slate-800 line-clamp-2 sm:truncate group-hover:text-indigo-600 transition-colors tracking-tight">
                     {task.title}
                 </h4>
 
                 <div className="mt-1.5 flex items-center gap-1.5 flex-wrap">
-                    <span className={`text-[10px] font-black px-2 mt-0.5 py-0.5 sm:py-1 rounded-full border truncate max-w-[140px] sm:max-w-[200px] shadow-sm select-none ${statusColor}`}>
+                    <span className={`text-[10px] font-bold px-2 mt-0.5 py-0.5 sm:py-1 rounded-full border truncate max-w-[140px] sm:max-w-[200px] shadow-sm select-none ${statusColor}`}>
                         {statusLabel}
                     </span>
                     

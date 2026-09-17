@@ -3,6 +3,7 @@ import { Channel } from '../../../types';
 import { SyncModalState } from '../sync/FollowerSyncProgressModal';
 import { 
   FullSyncSummary, 
+  ChannelSyncResult,
   SyncChannelQueueItem, 
   SyncLogEntry 
 } from '../../admin/master/views/follower-sync/types';
@@ -24,6 +25,15 @@ export function useFollowerSync({
   const [syncSummaryResult, setSyncSummaryResult] = useState<FullSyncSummary | null>(null);
   const [syncErrorMessage, setSyncErrorMessage] = useState<string | null>(null);
 
+  // Per-channel sync result modal state
+  const [singleSyncResult, setSingleSyncResult] = useState<ChannelSyncResult | null>(null);
+  const [isSingleSyncModalOpen, setIsSingleSyncModalOpen] = useState(false);
+
+  const closeSingleSyncModal = () => {
+    setIsSingleSyncModalOpen(false);
+    setSingleSyncResult(null);
+  };
+
   // Real-time Live Progress States (0-100%, queue, logs, active channel)
   const [syncPercentage, setSyncPercentage] = useState<number>(0);
   const [syncCurrentIndex, setSyncCurrentIndex] = useState<number>(0);
@@ -33,6 +43,68 @@ export function useFollowerSync({
   const [syncStatusMessage, setSyncStatusMessage] = useState<string>('');
   const [syncQueue, setSyncQueue] = useState<SyncChannelQueueItem[]>([]);
   const [syncLogs, setSyncLogs] = useState<SyncLogEntry[]>([]);
+
+  // Per-channel loading state map
+  const [syncingChannelIdMap, setSyncingChannelIdMap] = useState<Record<string, boolean>>({});
+
+  const handleSyncSingleChannel = async (channelId: string, channelName?: string): Promise<boolean> => {
+    if (syncingChannelIdMap[channelId]) return false;
+
+    setSyncingChannelIdMap(prev => ({ ...prev, [channelId]: true }));
+    const nameToDisplay = channelName || channels.find(c => c.id === channelId)?.name || 'ช่อง';
+
+    showToast(`กำลังอัปเดตยอดผู้ติดตาม "${nameToDisplay}"... ⏳`, 'info');
+
+    try {
+      const res = await fetch(`/api/channels/${channelId}/sync-followers`, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
+        },
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data?.error || 'เกิดข้อผิดพลาดในการดึงข้อมูล');
+      }
+
+      await refetchChannelsFromDb();
+
+      const result: ChannelSyncResult = data.result;
+      const totalFollowers: number = result?.totalFollowers || 0;
+
+      // Calculate net change
+      const totalNetDiff = result?.platforms?.reduce((sum, plat) => {
+        if (typeof plat.newCount === 'number' && typeof plat.previousCount === 'number') {
+          return sum + (plat.newCount - plat.previousCount);
+        }
+        return sum;
+      }, 0) || 0;
+
+      // Open per-channel detail result modal
+      setSingleSyncResult(result);
+      setIsSingleSyncModalOpen(true);
+
+      if (result?.updated && totalNetDiff !== 0) {
+        const sign = totalNetDiff > 0 ? `+${totalNetDiff.toLocaleString()}` : totalNetDiff.toLocaleString();
+        showToast(`✨ อัปเดตยอดผู้ติดตาม "${nameToDisplay}" เรียบร้อย (${sign} รวม ${totalFollowers.toLocaleString()} คน)`, 'success');
+      } else {
+        showToast(`ตรวจสอบยอด "${nameToDisplay}" แล้ว ยอดตรงกับปัจจุบัน (${totalFollowers.toLocaleString()} คน)`, 'info');
+      }
+      return true;
+    } catch (err: any) {
+      console.error(`[useFollowerSync] Error syncing channel ${channelId}:`, err);
+      showToast(`ดึงข้อมูลช่อง "${nameToDisplay}" ล้มเหลว: ${err?.message || 'Error'}`, 'error');
+      return false;
+    } finally {
+      setSyncingChannelIdMap(prev => {
+        const next = { ...prev };
+        delete next[channelId];
+        return next;
+      });
+    }
+  };
 
   const handleSyncFollowersNow = async () => {
     if (isSyncingFollowers) {
@@ -237,6 +309,11 @@ export function useFollowerSync({
     syncStatusMessage,
     syncQueue,
     syncLogs,
+    syncingChannelIdMap,
+    singleSyncResult,
+    isSingleSyncModalOpen,
+    closeSingleSyncModal,
     handleSyncFollowersNow,
+    handleSyncSingleChannel,
   };
 }

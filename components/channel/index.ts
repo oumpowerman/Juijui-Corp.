@@ -32,6 +32,7 @@ export * from './groups/GroupItemCard';
 export * from './groups/UngroupedChannelPool';
 
 export * from './sync/FollowerSyncProgressModal';
+export * from './sync/SingleChannelSyncResultModal';
 export * from './sync/SyncProgressView';
 export * from './sync/SyncSuccessView';
 export * from './sync/SyncErrorView';

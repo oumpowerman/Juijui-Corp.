@@ -27,6 +27,8 @@ interface ChannelSectionListProps {
   onEditChannel: (channel: Channel) => void;
   onDeleteChannel: (id: string, name: string) => void;
   onOpenGroupModal: () => void;
+  onSyncFollowers?: (channelId: string, channelName?: string) => void;
+  syncingChannelIdMap?: Record<string, boolean>;
 }
 
 export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
@@ -39,6 +41,8 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
   onEditChannel,
   onDeleteChannel,
   onOpenGroupModal,
+  onSyncFollowers,
+  syncingChannelIdMap = {},
 }) => {
   // Compute Rank Map and Tooltip Titles based on selected Ranking Mode ('global' or 'group')
   const { rankMap, rankTitleMap } = React.useMemo(() => {
@@ -160,6 +164,8 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
                 rankTitle={rankTitleMap[channel.id]}
                 onEdit={onEditChannel}
                 onDelete={onDeleteChannel}
+                onSyncFollowers={onSyncFollowers}
+                isSyncingFollowers={Boolean(syncingChannelIdMap[channel.id])}
                 glow={glow}
                 bgClass={bgClass}
               />
@@ -266,6 +272,8 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
                       rankTitle={rankTitleMap[channel.id]}
                       onEdit={onEditChannel}
                       onDelete={onDeleteChannel}
+                      onSyncFollowers={onSyncFollowers}
+                      isSyncingFollowers={Boolean(syncingChannelIdMap[channel.id])}
                       glow={glow}
                       bgClass={bgClass}
                     />
@@ -323,6 +331,8 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
                   rankTitle={rankTitleMap[channel.id]}
                   onEdit={onEditChannel}
                   onDelete={onDeleteChannel}
+                  onSyncFollowers={onSyncFollowers}
+                  isSyncingFollowers={Boolean(syncingChannelIdMap[channel.id])}
                   glow={glow}
                   bgClass={bgClass}
                 />

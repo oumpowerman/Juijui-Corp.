@@ -34,6 +34,16 @@ export const SyncSuccessView: React.FC<SyncSuccessViewProps> = ({
   // Total reach computed from summary results if available
   const computedReach = summary?.results?.reduce((sum, ch) => sum + (ch.totalFollowers || 0), 0) || totalReach || 0;
 
+  // Total net diff across all channels
+  const totalNetChange = summary?.results?.reduce((sum, ch) => {
+    return sum + ch.platforms.reduce((pSum, plat) => {
+      if (typeof plat.newCount === 'number' && typeof plat.previousCount === 'number') {
+        return pSum + (plat.newCount - plat.previousCount);
+      }
+      return pSum;
+    }, 0);
+  }, 0) || 0;
+
   // Filter channels with changes
   const changedChannels = summary?.results?.filter(r => r.updated) || [];
   const unchangedChannels = summary?.results?.filter(r => !r.updated) || [];
@@ -51,6 +61,17 @@ export const SyncSuccessView: React.FC<SyncSuccessViewProps> = ({
         <p className="text-xs text-slate-600 mt-1 max-w-md mx-auto">
           ระบบดึงข้อมูลสถิติล่าสุดจาก YouTube, Facebook, TikTok และ Instagram พร้อมอัปเดตลงฐานข้อมูลเรียบร้อยแล้ว
         </p>
+        
+        {totalNetChange !== 0 ? (
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100/90 text-emerald-800 border border-emerald-200 mt-2.5 shadow-2xs">
+            <TrendingUp className="w-3.5 h-3.5" />
+            <span>ผลต่างสุทธิรวม: {totalNetChange > 0 ? `+${totalNetChange.toLocaleString()}` : totalNetChange.toLocaleString()} ผู้ติดตามใหม่</span>
+          </div>
+        ) : (
+          <div className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium bg-white/80 text-slate-600 border border-slate-200 mt-2.5">
+            <span>ผลการตรวจสอบ: ยอดผู้ติดตามทุกช่องตรงกับปัจจุบัน</span>
+          </div>
+        )}
       </div>
 
       {/* 2. Key Metrics Grid (4 Stat Cards) */}
@@ -94,9 +115,16 @@ export const SyncSuccessView: React.FC<SyncSuccessViewProps> = ({
           </span>
         </div>
 
-        <div className="max-h-[220px] overflow-y-auto space-y-2 pr-1 border border-slate-150 rounded-xl p-2.5 bg-slate-50/40">
+        <div className="max-h-[240px] overflow-y-auto space-y-2 pr-1 border border-slate-150 rounded-xl p-2.5 bg-slate-50/40">
           {summary?.results && summary.results.length > 0 ? (
             summary.results.map((ch) => {
+              const chDiff = ch.platforms.reduce((sum, plat) => {
+                if (typeof plat.newCount === 'number' && typeof plat.previousCount === 'number') {
+                  return sum + (plat.newCount - plat.previousCount);
+                }
+                return sum;
+              }, 0);
+
               return (
                 <div 
                   key={ch.channelId}
@@ -113,7 +141,7 @@ export const SyncSuccessView: React.FC<SyncSuccessViewProps> = ({
                       </span>
                       {ch.updated ? (
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-100 text-emerald-800 flex-shrink-0">
-                          ✨ ยอดอัปเดตใหม่
+                          ✨ อัปเดตยอดใหม่
                         </span>
                       ) : (
                         <span className="px-1.5 py-0.5 rounded text-[10px] text-slate-500 bg-slate-100 flex-shrink-0">
@@ -122,38 +150,66 @@ export const SyncSuccessView: React.FC<SyncSuccessViewProps> = ({
                       )}
                     </div>
 
-                    <div className="text-right font-mono font-bold text-slate-800 flex-shrink-0 text-xs">
-                      {ch.totalFollowers.toLocaleString()} followers
+                    <div className="text-right flex flex-col items-end flex-shrink-0 text-xs">
+                      <div className="font-mono font-bold text-slate-800">
+                        {ch.totalFollowers.toLocaleString()} followers
+                      </div>
+                      {chDiff > 0 && (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.2 rounded-md mt-0.5">
+                          +{chDiff.toLocaleString()} ผู้ติดตามใหม่
+                        </span>
+                      )}
+                      {chDiff < 0 && (
+                        <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.2 rounded-md mt-0.5">
+                          {chDiff.toLocaleString()}
+                        </span>
+                      )}
                     </div>
                   </div>
 
                   {/* Platform breakdown pills */}
                   <div className="flex flex-wrap items-center gap-1.5 pt-1.5 border-t border-slate-100">
                     {ch.platforms.map((plat, pIdx) => {
-                      const hasChanged = plat.previousCount !== plat.newCount && typeof plat.newCount === 'number';
+                      const prev = typeof plat.previousCount === 'number' ? plat.previousCount : undefined;
+                      const curr = typeof plat.newCount === 'number' ? plat.newCount : undefined;
+                      const diff = (curr !== undefined && prev !== undefined) ? curr - prev : 0;
+                      const hasChanged = diff !== 0 && curr !== undefined;
+
                       return (
                         <span 
                           key={pIdx} 
-                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] border ${
-                            hasChanged 
-                              ? 'bg-emerald-50 border-emerald-200 text-emerald-800 font-medium' 
+                          className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] border transition-all ${
+                            hasChanged && diff > 0
+                              ? 'bg-emerald-50 border-emerald-300 text-emerald-900 font-medium' 
+                              : hasChanged && diff < 0
+                              ? 'bg-rose-50 border-rose-300 text-rose-900 font-medium'
                               : plat.success 
                               ? 'bg-slate-50 border-slate-200 text-slate-700' 
                               : 'bg-rose-50 border-rose-200 text-rose-700'
                           }`}
                         >
                           {getPlatformIcon(plat.platform)}
-                          <span>{plat.platform}:</span>
+                          <span className="capitalize">{plat.platform}:</span>
                           <span className="font-mono">
-                            {plat.newCount !== undefined 
-                              ? formatFollowersCompact(plat.newCount) 
+                            {curr !== undefined 
+                              ? formatFollowersCompact(curr) 
                               : plat.error 
                               ? 'error' 
                               : '-'}
                           </span>
-                          {hasChanged && (
-                            <span className="text-[10px] text-emerald-600 font-bold ml-0.5">
-                              (↑)
+                          {hasChanged && diff > 0 && (
+                            <span className="text-[10px] text-emerald-700 bg-emerald-100/90 px-1 py-0.2 rounded font-bold ml-0.5">
+                              +{diff.toLocaleString()}
+                            </span>
+                          )}
+                          {hasChanged && diff < 0 && (
+                            <span className="text-[10px] text-rose-700 bg-rose-100/90 px-1 py-0.2 rounded font-bold ml-0.5">
+                              {diff.toLocaleString()}
+                            </span>
+                          )}
+                          {!hasChanged && curr !== undefined && (
+                            <span className="text-[10px] text-slate-400 font-medium ml-0.5">
+                              (=)
                             </span>
                           )}
                         </span>

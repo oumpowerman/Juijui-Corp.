@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { serverSupabase } from '../utils/supabase.js';
+import { syncSingleChannelFollowers } from '../services/followerSyncService.js';
 
 const router = Router();
 
@@ -136,6 +137,36 @@ router.get('/api/channels/content-counts', async (req: Request, res: Response) =
             error: err?.message || 'Failed to aggregate content counts',
             total: 0,
             counts: {},
+        });
+    }
+});
+
+/**
+ * Endpoint: POST /api/channels/:id/sync-followers
+ * Synchronizes followers for a single channel in isolation.
+ * Runs in ~1-2 seconds with parallel platform scrapers.
+ */
+router.post('/api/channels/:id/sync-followers', async (req: Request, res: Response) => {
+    const rawId = req.params.id;
+    const channelId = Array.isArray(rawId) ? rawId[0] : rawId;
+    if (!channelId || typeof channelId !== 'string') {
+        return res.status(400).json({
+            success: false,
+            error: 'Missing channelId parameter',
+        });
+    }
+
+    try {
+        const result = await syncSingleChannelFollowers(channelId);
+        return res.json({
+            success: true,
+            result,
+        });
+    } catch (err: any) {
+        console.error(`[Channels API] Error syncing followers for channel ${channelId}:`, err);
+        return res.status(500).json({
+            success: false,
+            error: err?.message || 'Failed to sync channel followers',
         });
     }
 });

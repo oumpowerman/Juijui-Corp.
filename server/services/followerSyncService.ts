@@ -22,11 +22,11 @@ export const DEFAULT_FOLLOWER_SYNC_CONFIG: FollowerSyncConfig = {
     platforms: {
         YOUTUBE: true,
         FACEBOOK: true,
-        TIKTOK: false, // Default off to save bandwidth / rate limit safety as requested
+        TIKTOK: true, // Default off to save bandwidth / rate limit safety as requested
         INSTAGRAM: true,
     },
     enabledChannelIds: [], // Empty means all channels
-    rateLimitDelayMs: 1200,
+    rateLimitDelayMs: 500,
 };
 
 let currentCronTask: ScheduledTask | null = null;
@@ -151,26 +151,13 @@ async function extractFollowersFromUrl(platformKey: string, targetUrl: string): 
     if (!targetUrl || !/^https?:\/\//i.test(targetUrl)) return undefined;
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 6000);
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
 
     try {
         const normKey = platformKey.toUpperCase();
         
-        // 1. YouTube
+        // 1. YouTube (Direct page fetch - oEmbed removed to eliminate redundant latency)
         if (normKey === 'YOUTUBE' || targetUrl.includes('youtube.com') || targetUrl.includes('youtu.be')) {
-            // Priority: oEmbed for basic details
-            try {
-                const oembedRes = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(targetUrl)}&format=json`, {
-                    signal: controller.signal,
-                    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' }
-                });
-                if (oembedRes.ok) {
-                    // oEmbed does not provide subscriber counts directly, so we attempt scraping metadata
-                }
-            } catch {
-                // Ignore oembed error and proceed to metadata
-            }
-
             const htmlRes = await fetch(targetUrl, {
                 signal: controller.signal,
                 headers: {
@@ -399,168 +386,178 @@ export async function syncAllChannelFollowers(
             }))
         });
 
-        const delayMs = config.rateLimitDelayMs || 1200;
+        // Channel Batching (Process 3-4 channels concurrently)
+        const BATCH_SIZE = 3;
+        const delayBetweenBatchesMs = Math.min(config.rateLimitDelayMs || 500, 600);
+        let completedChannelsCount = 0;
 
-        // Iterate through each channel with throttling
-        for (let i = 0; i < channels.length; i++) {
-            const channel = channels[i];
-            const socialLinks = (channel.social_links || {}) as Record<string, string>;
-            const existingFollowers = (channel.followers || {}) as Record<string, number>;
-            const newFollowersMap: Record<string, number> = { ...existingFollowers };
+        for (let bIdx = 0; bIdx < channels.length; bIdx += BATCH_SIZE) {
+            const currentBatch = channels.slice(bIdx, bIdx + BATCH_SIZE);
 
-            const platformResults: SyncPlatformResult[] = [];
-            let hasChanges = false;
+            await Promise.allSettled(
+                currentBatch.map(async (channel, batchInnerIdx) => {
+                    const overallIndex = bIdx + batchInnerIdx;
+                    const socialLinks = (channel.social_links || {}) as Record<string, string>;
+                    const existingFollowers = (channel.followers || {}) as Record<string, number>;
+                    const newFollowersMap: Record<string, number> = { ...existingFollowers };
 
-            const platformEntries = Object.entries(socialLinks).filter(([_, url]) => !!url && typeof url === 'string' && url.trim().length > 0);
+                    const platformResults: SyncPlatformResult[] = [];
+                    let hasChanges = false;
 
-            // Emit Channel Start Event
-            onProgress?.({
-                type: 'channel_start',
-                currentIndex: i,
-                totalChannels: channels.length,
-                percentage: Math.round((i / channels.length) * 100),
-                channelId: channel.id,
-                channelName: channel.name,
-                message: `กำลังเชื่อมต่อและดึงข้อมูลช่อง "${channel.name}" (${i + 1}/${channels.length})...`,
-                timestamp: new Date().toISOString(),
-            });
+                    const platformEntries = Object.entries(socialLinks).filter(([_, url]) => !!url && typeof url === 'string' && url.trim().length > 0);
 
-            for (let pIdx = 0; pIdx < platformEntries.length; pIdx++) {
-                const [platformKey, rawUrl] = platformEntries[pIdx];
-                const url = rawUrl.trim();
-                const prevCount = existingFollowers[platformKey];
-                const normKey = platformKey.toUpperCase() as keyof FollowerSyncPlatformSettings;
-
-                // Check if this platform is enabled in config
-                if (config.platforms && config.platforms[normKey] === false) {
-                    platformResults.push({
-                        platform: platformKey,
-                        url,
-                        previousCount: prevCount,
-                        newCount: prevCount,
-                        success: true,
-                        skipped: true,
+                    // Emit Channel Start Event
+                    onProgress?.({
+                        type: 'channel_start',
+                        currentIndex: completedChannelsCount,
+                        totalChannels: channels.length,
+                        percentage: Math.round((completedChannelsCount / channels.length) * 100),
+                        channelId: channel.id,
+                        channelName: channel.name,
+                        message: `กำลังเชื่อมต่อและดึงข้อมูลช่อง "${channel.name}" (${overallIndex + 1}/${channels.length})...`,
+                        timestamp: new Date().toISOString(),
                     });
-                    continue;
-                }
 
-                try {
-                    const fetchedCount = await extractFollowersFromUrl(platformKey, url);
-                    
-                    if (typeof fetchedCount === 'number' && fetchedCount > 0) {
-                        newFollowersMap[platformKey] = fetchedCount;
-                        if (fetchedCount !== prevCount) {
-                            hasChanges = true;
+                    // Platform Concurrency: Parallelize all platform requests for this channel
+                    await Promise.allSettled(
+                        platformEntries.map(async ([platformKey, rawUrl]) => {
+                            const url = rawUrl.trim();
+                            const prevCount = existingFollowers[platformKey];
+                            const normKey = platformKey.toUpperCase() as keyof FollowerSyncPlatformSettings;
+
+                            // Check if this platform is enabled in config
+                            if (config.platforms && config.platforms[normKey] === false) {
+                                platformResults.push({
+                                    platform: platformKey,
+                                    url,
+                                    previousCount: prevCount,
+                                    newCount: prevCount,
+                                    success: true,
+                                    skipped: true,
+                                });
+                                return;
+                            }
+
+                            try {
+                                const fetchedCount = await extractFollowersFromUrl(platformKey, url);
+                                
+                                if (typeof fetchedCount === 'number' && fetchedCount > 0) {
+                                    newFollowersMap[platformKey] = fetchedCount;
+                                    if (fetchedCount !== prevCount) {
+                                        hasChanges = true;
+                                    }
+                                    platformResults.push({
+                                        platform: platformKey,
+                                        url,
+                                        previousCount: prevCount,
+                                        newCount: fetchedCount,
+                                        success: true,
+                                    });
+                                } else {
+                                    // Keep previous count if fetch returned nothing
+                                    platformResults.push({
+                                        platform: platformKey,
+                                        url,
+                                        previousCount: prevCount,
+                                        newCount: prevCount,
+                                        success: false,
+                                        error: 'Could not extract follower number',
+                                    });
+                                }
+                            } catch (err: any) {
+                                platformResults.push({
+                                    platform: platformKey,
+                                    url,
+                                    previousCount: prevCount,
+                                    newCount: prevCount,
+                                    success: false,
+                                    error: err?.message || 'Scrape failed',
+                                });
+                            }
+
+                            // Emit Platform Done Event
+                            onProgress?.({
+                                type: 'platform_done',
+                                currentIndex: completedChannelsCount,
+                                totalChannels: channels.length,
+                                percentage: Math.min(99, Math.round(((completedChannelsCount + 0.5) / channels.length) * 100)),
+                                channelId: channel.id,
+                                channelName: channel.name,
+                                platform: platformKey,
+                                message: `ดึงข้อมูลแพลตฟอร์ม ${platformKey} ของ "${channel.name}" สำเร็จ`,
+                                timestamp: new Date().toISOString(),
+                            });
+                        })
+                    );
+
+                    // Calculate total followers for this channel
+                    const totalFollowers = Object.values(newFollowersMap).reduce((sum, count) => sum + (Number(count) || 0), 0);
+
+                    let channelSyncResult: ChannelSyncResult;
+
+                    // If changes detected, update Supabase
+                    if (hasChanges) {
+                        const { error: updateError } = await serverSupabase
+                            .from('channels')
+                            .update({ 
+                                followers: newFollowersMap,
+                                updated_at: new Date().toISOString()
+                            })
+                            .eq('id', channel.id);
+
+                        if (updateError) {
+                            console.error(`[FollowerSync] Error updating channel ${channel.name} (${channel.id}):`, updateError);
+                            channelSyncResult = {
+                                channelId: channel.id,
+                                channelName: channel.name,
+                                platforms: platformResults,
+                                totalFollowers,
+                                updated: false,
+                                error: updateError.message,
+                            };
+                        } else {
+                            updatedCount++;
+                            channelSyncResult = {
+                                channelId: channel.id,
+                                channelName: channel.name,
+                                platforms: platformResults,
+                                totalFollowers,
+                                updated: true,
+                            };
                         }
-                        platformResults.push({
-                            platform: platformKey,
-                            url,
-                            previousCount: prevCount,
-                            newCount: fetchedCount,
-                            success: true,
-                        });
                     } else {
-                        // Keep previous count if fetch returned nothing
-                        platformResults.push({
-                            platform: platformKey,
-                            url,
-                            previousCount: prevCount,
-                            newCount: prevCount,
-                            success: false,
-                            error: 'Could not extract follower number',
-                        });
+                        channelSyncResult = {
+                            channelId: channel.id,
+                            channelName: channel.name,
+                            platforms: platformResults,
+                            totalFollowers,
+                            updated: false,
+                        };
                     }
-                } catch (err: any) {
-                    // Gracefully catch individual platform errors
-                    platformResults.push({
-                        platform: platformKey,
-                        url,
-                        previousCount: prevCount,
-                        newCount: prevCount,
-                        success: false,
-                        error: err?.message || 'Scrape failed',
+
+                    results.push(channelSyncResult);
+                    completedChannelsCount++;
+
+                    // Emit Channel Done Event
+                    onProgress?.({
+                        type: 'channel_done',
+                        currentIndex: completedChannelsCount,
+                        totalChannels: channels.length,
+                        percentage: Math.round((completedChannelsCount / channels.length) * 100),
+                        channelId: channel.id,
+                        channelName: channel.name,
+                        channelResult: channelSyncResult,
+                        message: channelSyncResult.updated 
+                            ? `✨ อัปเดตยอดผู้ติดตามช่อง "${channel.name}" ใหม่เรียบร้อย (รวม ${totalFollowers.toLocaleString()} followers)`
+                            : `ช่อง "${channel.name}" ตรวจสอบแล้ว ยอดตรงกับปัจจุบัน (${totalFollowers.toLocaleString()} followers)`,
+                        timestamp: new Date().toISOString(),
                     });
-                }
+                })
+            );
 
-                // Emit Platform Done Event
-                onProgress?.({
-                    type: 'platform_done',
-                    currentIndex: i,
-                    totalChannels: channels.length,
-                    percentage: Math.min(99, Math.round(((i + (pIdx + 1) / Math.max(1, platformEntries.length)) / channels.length) * 100)),
-                    channelId: channel.id,
-                    channelName: channel.name,
-                    platform: platformKey,
-                    message: `ดึงข้อมูลแพลตฟอร์ม ${platformKey} ของ "${channel.name}" สำเร็จ`,
-                    timestamp: new Date().toISOString(),
-                });
-            }
-
-            // Calculate total followers for this channel
-            const totalFollowers = Object.values(newFollowersMap).reduce((sum, count) => sum + (Number(count) || 0), 0);
-
-            let channelSyncResult: ChannelSyncResult;
-
-            // If changes detected, update Supabase
-            if (hasChanges) {
-                const { error: updateError } = await serverSupabase
-                    .from('channels')
-                    .update({ 
-                        followers: newFollowersMap,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', channel.id);
-
-                if (updateError) {
-                    console.error(`[FollowerSync] Error updating channel ${channel.name} (${channel.id}):`, updateError);
-                    channelSyncResult = {
-                        channelId: channel.id,
-                        channelName: channel.name,
-                        platforms: platformResults,
-                        totalFollowers,
-                        updated: false,
-                        error: updateError.message,
-                    };
-                } else {
-                    updatedCount++;
-                    channelSyncResult = {
-                        channelId: channel.id,
-                        channelName: channel.name,
-                        platforms: platformResults,
-                        totalFollowers,
-                        updated: true,
-                    };
-                }
-            } else {
-                channelSyncResult = {
-                    channelId: channel.id,
-                    channelName: channel.name,
-                    platforms: platformResults,
-                    totalFollowers,
-                    updated: false,
-                };
-            }
-
-            results.push(channelSyncResult);
-
-            // Emit Channel Done Event
-            onProgress?.({
-                type: 'channel_done',
-                currentIndex: i + 1,
-                totalChannels: channels.length,
-                percentage: Math.round(((i + 1) / channels.length) * 100),
-                channelId: channel.id,
-                channelName: channel.name,
-                channelResult: channelSyncResult,
-                message: channelSyncResult.updated 
-                    ? `✨ อัปเดตยอดผู้ติดตามช่อง "${channel.name}" ใหม่เรียบร้อย (รวม ${totalFollowers.toLocaleString()} followers)`
-                    : `ช่อง "${channel.name}" ตรวจสอบแล้ว ยอดตรงกับปัจจุบัน (${totalFollowers.toLocaleString()} followers)`,
-                timestamp: new Date().toISOString(),
-            });
-
-            // Delay between channels to protect server IP from rate limits
-            if (i < channels.length - 1) {
-                await new Promise(resolve => setTimeout(resolve, delayMs));
+            // Delay between batches to protect server IP from rate limits
+            if (bIdx + BATCH_SIZE < channels.length) {
+                await new Promise(resolve => setTimeout(resolve, delayBetweenBatchesMs));
             }
         }
     } catch (globalErr: any) {
@@ -598,6 +595,122 @@ export async function syncAllChannelFollowers(
     });
 
     return finalSummary;
+}
+
+/**
+ * Synchronize follower count for a single channel immediately.
+ * Executes all platforms concurrently (takes only ~1-2 seconds).
+ */
+export async function syncSingleChannelFollowers(channelId: string): Promise<ChannelSyncResult & { newFollowers?: Record<string, number> }> {
+    const config = await getFollowerSyncConfig();
+
+    const { data: channel, error: fetchErr } = await serverSupabase
+        .from('channels')
+        .select('*')
+        .eq('id', channelId)
+        .single();
+
+    if (fetchErr || !channel) {
+        throw new Error(fetchErr?.message || `Channel with ID ${channelId} not found`);
+    }
+
+    const socialLinks = (channel.social_links || {}) as Record<string, string>;
+    const existingFollowers = (channel.followers || {}) as Record<string, number>;
+    const newFollowersMap: Record<string, number> = { ...existingFollowers };
+
+    const platformResults: SyncPlatformResult[] = [];
+    let hasChanges = false;
+
+    const platformEntries = Object.entries(socialLinks).filter(([_, url]) => !!url && typeof url === 'string' && url.trim().length > 0);
+
+    // Parallel platform execution
+    await Promise.allSettled(
+        platformEntries.map(async ([platformKey, rawUrl]) => {
+            const url = rawUrl.trim();
+            const prevCount = existingFollowers[platformKey];
+            const normKey = platformKey.toUpperCase() as keyof FollowerSyncPlatformSettings;
+
+            if (config.platforms && config.platforms[normKey] === false) {
+                platformResults.push({
+                    platform: platformKey,
+                    url,
+                    previousCount: prevCount,
+                    newCount: prevCount,
+                    success: true,
+                    skipped: true,
+                });
+                return;
+            }
+
+            try {
+                const fetchedCount = await extractFollowersFromUrl(platformKey, url);
+                if (typeof fetchedCount === 'number' && fetchedCount > 0) {
+                    newFollowersMap[platformKey] = fetchedCount;
+                    if (fetchedCount !== prevCount) {
+                        hasChanges = true;
+                    }
+                    platformResults.push({
+                        platform: platformKey,
+                        url,
+                        previousCount: prevCount,
+                        newCount: fetchedCount,
+                        success: true,
+                    });
+                } else {
+                    platformResults.push({
+                        platform: platformKey,
+                        url,
+                        previousCount: prevCount,
+                        newCount: prevCount,
+                        success: false,
+                        error: 'Could not extract follower number',
+                    });
+                }
+            } catch (err: any) {
+                platformResults.push({
+                    platform: platformKey,
+                    url,
+                    previousCount: prevCount,
+                    newCount: prevCount,
+                    success: false,
+                    error: err?.message || 'Scrape failed',
+                });
+            }
+        })
+    );
+
+    const totalFollowers = Object.values(newFollowersMap).reduce((sum, count) => sum + (Number(count) || 0), 0);
+
+    if (hasChanges) {
+        const { error: updateError } = await serverSupabase
+            .from('channels')
+            .update({
+                followers: newFollowersMap,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', channel.id);
+
+        if (updateError) {
+            return {
+                channelId: channel.id,
+                channelName: channel.name,
+                platforms: platformResults,
+                totalFollowers,
+                updated: false,
+                error: updateError.message,
+                newFollowers: newFollowersMap,
+            };
+        }
+    }
+
+    return {
+        channelId: channel.id,
+        channelName: channel.name,
+        platforms: platformResults,
+        totalFollowers,
+        updated: hasChanges,
+        newFollowers: newFollowersMap,
+    };
 }
 
 /**

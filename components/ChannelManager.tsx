@@ -14,6 +14,7 @@ import {
   ChannelGroupModal,
   DeleteChannelModal,
   FollowerSyncProgressModal,
+  SingleChannelSyncResultModal,
   useFollowerSync,
   useContentCounts,
   getChannelTotalFollowers, 
@@ -127,7 +128,12 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
     syncStatusMessage,
     syncQueue,
     syncLogs,
+    syncingChannelIdMap,
+    singleSyncResult,
+    isSingleSyncModalOpen,
+    closeSingleSyncModal,
     handleSyncFollowersNow,
+    handleSyncSingleChannel,
   } = useFollowerSync({
     channels: localChannels,
     refetchChannelsFromDb,
@@ -272,6 +278,8 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
           onEditChannel={handleEditChannel}
           onDeleteChannel={handleDeleteChannelPrompt}
           onOpenGroupModal={() => setIsGroupModalOpen(true)}
+          onSyncFollowers={handleSyncSingleChannel}
+          syncingChannelIdMap={syncingChannelIdMap}
         />
 
         {/* 5. Modals */}
@@ -320,6 +328,13 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
           logs={syncLogs}
           onClose={() => setIsSyncModalOpen(false)}
           onRetry={handleSyncFollowersNow}
+        />
+
+        {/* 6. Per-Channel Sync Diff Result Modal */}
+        <SingleChannelSyncResultModal
+          isOpen={isSingleSyncModalOpen}
+          result={singleSyncResult}
+          onClose={closeSingleSyncModal}
         />
       </div>
     </SocialChannelBackground>

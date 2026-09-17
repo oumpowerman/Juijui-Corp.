@@ -6,7 +6,7 @@ import {
   Tag, 
   Mail, 
   BookOpen, 
-  RotateCw, 
+  RefreshCw, 
   ExternalLink, 
   Plus, 
   ArrowLeft
@@ -30,6 +30,8 @@ interface ChannelCardProps {
   rankTitle?: string;
   onEdit: (channel: Channel) => void;
   onDelete: (id: string, name: string) => void;
+  onSyncFollowers?: (channelId: string, channelName?: string) => void;
+  isSyncingFollowers?: boolean;
   glow: {
     gradient: string;
     shadow: string;
@@ -49,6 +51,8 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
   rankTitle,
   onEdit,
   onDelete,
+  onSyncFollowers,
+  isSyncingFollowers = false,
   glow,
   bgClass,
 }) => {
@@ -141,10 +145,10 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
                   e.stopPropagation();
                   setIsFlipped(true);
                 }}
-                className="w-6 h-6 ml-0.5 rounded-full bg-white/80 backdrop-blur-md text-slate-500 border border-white/90 border-b-[2px] border-b-slate-200/80 shadow-2xs hover:bg-white hover:text-indigo-600 hover:border-indigo-200 transition-all flex items-center justify-center active:scale-95 cursor-pointer z-20 group/flip"
-                title="พลิกดูคู่มือและเอกสาร (Flip Card)"
+                className="w-6 h-6 ml-0.5 rounded-full bg-white/85 backdrop-blur-md text-slate-500 border border-white/90 border-b-[2px] border-b-slate-200/80 shadow-2xs hover:bg-white hover:text-indigo-600 hover:border-indigo-200 transition-all flex items-center justify-center active:scale-95 cursor-pointer z-20 group/flip"
+                title="พลิกดูคู่มือและเอกสาร (Flip to Docs)"
               >
-                <RotateCw className="w-3 h-3 group-hover/flip:rotate-180 transition-transform duration-500" />
+                <BookOpen className="w-3 h-3 group-hover/flip:scale-110 transition-transform duration-300" />
               </button>
             </div>
           </div>
@@ -216,6 +220,26 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
                 >
                   <Users className={`w-3.5 h-3.5 ${aura ? 'text-current' : 'text-indigo-500'}`} />
                   <span>{channelTotalFollowers > 0 ? `${formatFollowersCompact(channelTotalFollowers)} ผู้ติดตาม` : '0 ผู้ติดตาม'}</span>
+
+                  {/* Per-Channel Quick Sync Button */}
+                  {onSyncFollowers && (
+                    <button
+                      type="button"
+                      disabled={isSyncingFollowers}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSyncFollowers(channel.id, channel.name);
+                      }}
+                      className={`ml-1 -mr-1 p-0.5 rounded-lg transition-all flex items-center justify-center cursor-pointer active:scale-90 ${
+                        isSyncingFollowers
+                          ? 'opacity-90 cursor-wait text-indigo-600'
+                          : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50/80'
+                      }`}
+                      title={isSyncingFollowers ? 'กำลังดึงยอดผู้ติดตามช่องนี้...' : 'ตรวจหาและอัปเดตยอดผู้ติดตามช่องนี้ทันที (1-2 วิ)'}
+                    >
+                      <RefreshCw className={`w-3 h-3 ${isSyncingFollowers ? 'animate-spin text-indigo-600' : ''}`} />
+                    </button>
+                  )}
                 </div>
 
                 <span 
@@ -380,7 +404,8 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
               className="relative z-10 px-2.5 py-1.5 rounded-xl bg-white/95 hover:bg-white text-slate-700 hover:text-indigo-600 text-xs font-bold border border-slate-200/90 border-b-[2px] border-b-slate-300/80 shadow-2xs hover:shadow-xs flex items-center gap-1.5 active:scale-95 transition-all cursor-pointer whitespace-nowrap shrink-0"
               title="พลิกกลับไปหน้าหลักของการ์ด"
             >
-              <RotateCw className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+              <ArrowLeft className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+              <span className="text-[11px] text-slate-600 font-semibold">กลับ</span>
             </button>
           </div>
 

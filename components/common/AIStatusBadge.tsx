@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Sparkles, AlertCircle, CheckCircle2, Loader2, SignalHigh, SignalLow, RefreshCw } from 'lucide-react';
+import { Sparkles, AlertCircle, CheckCircle2, Loader2, SignalLow, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { validateApiKey } from '../../services/geminiService';
 
@@ -10,16 +10,55 @@ interface AIStatusBadgeProps {
 
 type AIStatus = 'VALIDATING' | 'ACTIVE' | 'ERROR' | 'OFFLINE';
 
-const AIStatusBadge: React.FC<AIStatusBadgeProps> = ({ collapsed = false }) => {
-    const [status, setStatus] = useState<AIStatus>('VALIDATING');
-    const [errorMessage, setErrorMessage] = useState<string>('');
+const CACHE_KEY = 'gemini_api_status_cache';
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
-    const checkStatus = async () => {
-        if (status === 'VALIDATING' && errorMessage === '') {
-            // Only skip if it's the very first validation
-        } else if (status === 'VALIDATING') {
-            return; // Prevent multiple clicks during validation
+interface CachedStatus {
+    status: AIStatus;
+    error?: string;
+    timestamp: number;
+}
+
+const AIStatusBadge: React.FC<AIStatusBadgeProps> = ({ collapsed = false }) => {
+    // Initial state derived synchronously to avoid any flicker or unsolicited API call
+    const [status, setStatus] = useState<AIStatus>(() => {
+        if (!process.env.GEMINI_API_KEY) return 'OFFLINE';
+        
+        try {
+            const cached = sessionStorage.getItem(CACHE_KEY);
+            if (cached) {
+                const parsed: CachedStatus = JSON.parse(cached);
+                if (Date.now() - parsed.timestamp < ONE_DAY_MS) {
+                    return parsed.status;
+                }
+            }
+        } catch {
+            // Ignore sessionStorage parse errors
         }
+
+        // When API key exists, assume ACTIVE/READY without wasting an API ping request
+        return 'ACTIVE';
+    });
+
+    const [errorMessage, setErrorMessage] = useState<string>(() => {
+        if (!process.env.GEMINI_API_KEY) return 'Missing API Key';
+        try {
+            const cached = sessionStorage.getItem(CACHE_KEY);
+            if (cached) {
+                const parsed: CachedStatus = JSON.parse(cached);
+                if (Date.now() - parsed.timestamp < ONE_DAY_MS && parsed.error) {
+                    return parsed.error;
+                }
+            }
+        } catch {
+            // Ignore
+        }
+        return '';
+    });
+
+    // On-Demand: only triggered when user clicks to ping/test the connection
+    const handleManualPing = async () => {
+        if (status === 'VALIDATING') return;
 
         if (!process.env.GEMINI_API_KEY) {
             setStatus('OFFLINE');
@@ -28,24 +67,40 @@ const AIStatusBadge: React.FC<AIStatusBadgeProps> = ({ collapsed = false }) => {
         }
 
         setStatus('VALIDATING');
+        setErrorMessage('');
+
         try {
             const result = await validateApiKey();
             if (result.isValid) {
                 setStatus('ACTIVE');
                 setErrorMessage('');
+                try {
+                    sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+                        status: 'ACTIVE',
+                        timestamp: Date.now()
+                    }));
+                } catch {
+                    // Ignore storage quota
+                }
             } else {
+                const err = result.error || 'Connection Failed';
                 setStatus('ERROR');
-                setErrorMessage(result.error || 'Connection Failed');
+                setErrorMessage(err);
+                try {
+                    sessionStorage.setItem(CACHE_KEY, JSON.stringify({
+                        status: 'ERROR',
+                        error: err,
+                        timestamp: Date.now()
+                    }));
+                } catch {
+                    // Ignore
+                }
             }
-        } catch (err) {
+        } catch {
             setStatus('ERROR');
             setErrorMessage('Unexpected Error');
         }
     };
-
-    useEffect(() => {
-        checkStatus();
-    }, []);
 
     const getStatusConfig = () => {
         switch (status) {
@@ -55,7 +110,7 @@ const AIStatusBadge: React.FC<AIStatusBadgeProps> = ({ collapsed = false }) => {
                     border: 'border-slate-200',
                     text: 'text-slate-500',
                     icon: <Loader2 className="w-3 h-3 animate-spin" />,
-                    label: 'Validating...',
+                    label: 'Testing ping...',
                     dotColor: 'bg-slate-400'
                 };
             case 'ACTIVE':
@@ -94,10 +149,10 @@ const AIStatusBadge: React.FC<AIStatusBadgeProps> = ({ collapsed = false }) => {
     if (collapsed) {
         return (
             <button 
-                onClick={checkStatus}
+                onClick={handleManualPing}
                 disabled={status === 'VALIDATING'}
                 className={`flex items-center justify-center w-8 h-8 rounded-xl transition-all duration-300 hover:scale-105 active:scale-95 ${config.bg} ${config.text} ${status === 'VALIDATING' ? 'cursor-wait' : 'cursor-pointer hover:shadow-md'}`}
-                title={`AI System: ${config.label}. Click to re-check.`}
+                title={`AI System: ${config.label}. คลิกเพื่อทดสอบ Ping สัญญาณจริง`}
             >
                 {status === 'ACTIVE' ? <Sparkles className="w-4 h-4" /> : config.icon}
             </button>
@@ -108,9 +163,9 @@ const AIStatusBadge: React.FC<AIStatusBadgeProps> = ({ collapsed = false }) => {
         <motion.div 
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
-            onClick={checkStatus}
+            onClick={handleManualPing}
             className={`flex items-center gap-2 px-3 py-1.5 rounded-2xl border transition-all duration-300 group relative ${config.bg} ${config.border} ${config.text} ${status === 'VALIDATING' ? 'cursor-wait' : 'cursor-pointer hover:shadow-md hover:border-slate-300'}`}
-            title="Click to re-check AI connection"
+            title="คลิกเพื่อทดสอบ Ping สัญญาณจริงกับ Gemini API"
         >
             <div className={`p-1 rounded-full transition-transform duration-300 ${status === 'ACTIVE' ? 'bg-emerald-500' : status === 'VALIDATING' ? 'bg-slate-400' : status === 'ERROR' ? 'bg-orange-500' : 'bg-rose-500'} text-white group-hover:scale-110`}>
                 {status === 'VALIDATING' ? <RefreshCw className="w-3 h-3 animate-spin" /> : config.icon}
@@ -157,8 +212,8 @@ const AIStatusBadge: React.FC<AIStatusBadgeProps> = ({ collapsed = false }) => {
             </AnimatePresence>
 
             {/* Hover Tooltip Hint */}
-            <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap">
-                Click to re-validate connection
+            <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-800 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap shadow-lg z-50">
+                คลิกเพื่อทดสอบ Ping สัญญาณจริง
             </div>
         </motion.div>
     );

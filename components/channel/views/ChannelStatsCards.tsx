@@ -1,8 +1,9 @@
 import React from 'react';
 import { 
-  FolderKanban, ArrowRight, Radio, Layers, RefreshCw, Users, Sparkles 
+  FolderKanban, ArrowRight, Radio, Layers, RefreshCw, Users, Sparkles, Clock 
 } from 'lucide-react';
-import { formatFollowersCompact } from '../helpers/channelHelpers';
+import { formatFollowersCompact, formatThaiFollowerSyncTime } from '../helpers/channelHelpers';
+import { FollowerSyncLastRunInfo } from '../../admin/master/views/follower-sync/types';
 
 interface ChannelStatsCardsProps {
   groupsCount: number;
@@ -14,6 +15,8 @@ interface ChannelStatsCardsProps {
   onRefreshCounts: () => void;
   isSyncingFollowers?: boolean;
   onSyncFollowers?: () => void;
+  lastGlobalSyncInfo?: FollowerSyncLastRunInfo | null;
+  latestChannelSyncAt?: string | null;
   onManageGroups: () => void;
 }
 
@@ -27,8 +30,12 @@ export const ChannelStatsCards: React.FC<ChannelStatsCardsProps> = ({
   onRefreshCounts,
   isSyncingFollowers = false,
   onSyncFollowers,
+  lastGlobalSyncInfo,
+  latestChannelSyncAt,
   onManageGroups,
 }) => {
+  const effectiveLastSyncAt = lastGlobalSyncInfo?.last_sync_at || latestChannelSyncAt;
+  const isAutoCron = lastGlobalSyncInfo?.triggered_by === 'cron';
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
       {/* Card 1: Channel Groups / Sections */}
@@ -138,6 +145,25 @@ export const ChannelStatsCards: React.FC<ChannelStatsCardsProps> = ({
               <span className="text-sm font-semibold text-slate-400">ยังไม่ระบุ</span>
             )}
           </div>
+          {effectiveLastSyncAt ? (
+            <div 
+              className="mt-1 flex items-center gap-1 text-[11px] font-medium text-slate-500 truncate"
+              title={`ตรวจสอบยอดล่าสุด: ${formatThaiFollowerSyncTime(effectiveLastSyncAt)}${lastGlobalSyncInfo?.triggered_by ? ` (${isAutoCron ? 'Auto-Sync รายวัน' : 'อัปเดตด้วยตนเอง'})` : ''}${lastGlobalSyncInfo?.updated_channels !== undefined ? ` • มีการเปลี่ยนแปลง ${lastGlobalSyncInfo.updated_channels} ช่อง` : ''}`}
+            >
+              <Clock className="w-3 h-3 text-indigo-400 shrink-0" />
+              <span className="truncate">ตรวจล่าสุด: {formatThaiFollowerSyncTime(effectiveLastSyncAt)}</span>
+              {isAutoCron && (
+                <span className="text-[9.5px] bg-indigo-50 text-indigo-600 px-1 py-0.5 rounded font-bold border border-indigo-100/70 ml-0.5 shrink-0">
+                  Auto
+                </span>
+              )}
+            </div>
+          ) : (
+            <div className="mt-1 flex items-center gap-1 text-[11px] font-medium text-slate-400 truncate">
+              <Clock className="w-3 h-3 text-slate-300 shrink-0" />
+              <span>ยังไม่เคยตรวจยอด</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

@@ -1,13 +1,13 @@
-import { UserProfile, Channel, MasterDataOption } from '../../../types';
+import { User, Channel, MasterOption } from '../../../types';
 
 /**
  * Fuzzy entity matching and resolving functions for Users, Channels, and Master Options.
  */
 
 /**
- * Resolves a UserProfile from user input (Display name, nickname, email, or id) using exact and fuzzy matching.
+ * Resolves a User from user input (Display name, nickname, email, or id) using exact and fuzzy matching.
  */
-export const findUserByName = (input: string, users: UserProfile[]): UserProfile | null => {
+export const findUserByName = (input: string, users: User[]): User | null => {
     if (!input || !users || users.length === 0) return null;
     const clean = input.trim().toLowerCase();
 
@@ -19,9 +19,11 @@ export const findUserByName = (input: string, users: UserProfile[]): UserProfile
     const byEmail = users.find(u => u.email?.toLowerCase() === clean);
     if (byEmail) return byEmail;
 
-    // Full name match (first_name + last_name)
+    // Full name match (firstName + lastName or first_name + last_name)
     const byFullName = users.find(u => {
-        const full = `${u.first_name || ''} ${u.last_name || ''}`.trim().toLowerCase();
+        const first = u.firstName || (u as any).first_name || '';
+        const last = u.lastName || (u as any).last_name || '';
+        const full = `${first} ${last}`.trim().toLowerCase();
         return full && full === clean;
     });
     if (byFullName) return byFullName;
@@ -36,7 +38,9 @@ export const findUserByName = (input: string, users: UserProfile[]): UserProfile
 
     // Fuzzy partial contains match
     const partial = users.find(u => {
-        const full = `${u.first_name || ''} ${u.last_name || ''} ${u.name || ''} ${u.nickname || ''}`.toLowerCase();
+        const first = u.firstName || (u as any).first_name || '';
+        const last = u.lastName || (u as any).last_name || '';
+        const full = `${first} ${last} ${u.name || ''} ${u.nickname || ''}`.toLowerCase();
         return full.includes(clean) || clean.includes((u.nickname || '___').toLowerCase());
     });
     return partial || null;
@@ -64,20 +68,37 @@ export const findChannelByName = (input: string, channels: Channel[]): Channel |
 
 /**
  * Resolves a Master Data option key based on label or key match.
+ * Supports both findMasterKey(input, options) and findMasterKey(type, input, options)
  */
-export const findMasterKey = (input: string, options: MasterDataOption[]): string | null => {
+export function findMasterKey(inputOrType: string, optionsOrInput: MasterOption[] | string, maybeOptions?: MasterOption[]): string | null {
+    let typeFilter: string | undefined;
+    let input: string;
+    let options: MasterOption[];
+
+    if (Array.isArray(optionsOrInput)) {
+        input = inputOrType;
+        options = optionsOrInput;
+    } else {
+        typeFilter = inputOrType;
+        input = optionsOrInput;
+        options = maybeOptions || [];
+    }
+
     if (!input || !options || options.length === 0) return null;
     const clean = input.trim().toLowerCase();
+    const filteredOptions = typeFilter 
+        ? options.filter(o => o.type?.toLowerCase() === typeFilter?.toLowerCase())
+        : options;
 
     // Direct key match
-    const byKey = options.find(o => o.key.toLowerCase() === clean);
+    const byKey = filteredOptions.find(o => o.key.toLowerCase() === clean);
     if (byKey) return byKey.key;
 
     // Direct label match
-    const byLabel = options.find(o => o.label.toLowerCase() === clean);
+    const byLabel = filteredOptions.find(o => o.label.toLowerCase() === clean);
     if (byLabel) return byLabel.key;
 
     // Partial label match
-    const partial = options.find(o => o.label.toLowerCase().includes(clean) || clean.includes(o.label.toLowerCase()));
+    const partial = filteredOptions.find(o => o.label.toLowerCase().includes(clean) || clean.includes(o.label.toLowerCase()));
     return partial ? partial.key : null;
-};
+}

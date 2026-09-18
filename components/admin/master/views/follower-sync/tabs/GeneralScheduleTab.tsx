@@ -29,10 +29,10 @@ export const GeneralScheduleTab: React.FC<GeneralScheduleTabProps> = ({
                         </div>
                         <div>
                             <h3 className="font-bold text-slate-900 text-base">
-                                เปิดใช้งาน Cronjob อัตโนมัติ (Automated Schedule)
+                                กำหนดรอบเวลาอัปเดตอัตโนมัติ (Automated Schedule)
                             </h3>
                             <p className="text-xs text-slate-500 mt-0.5">
-                                สั่งให้เซิร์ฟเวอร์รันดึงข้อมูลตามรอบเวลาประจำวันโดยอัตโนมัติ
+                                รันตรงเวลา 100% ผ่าน <strong>Supabase pg_cron + pg_net (Database-level)</strong> ปลุกเซิร์ฟเวอร์อัตโนมัติแม้ไม่มีผู้ใช้งานเปิดเว็บ
                             </p>
                         </div>
                     </div>
@@ -50,19 +50,24 @@ export const GeneralScheduleTab: React.FC<GeneralScheduleTabProps> = ({
                 </div>
 
                 {/* Status Badge */}
-                <div className={`flex items-center justify-between p-3.5 rounded-2xl border text-xs font-semibold ${
+                <div className={`flex flex-col sm:flex-row sm:items-center justify-between p-3.5 rounded-2xl border text-xs font-semibold gap-2 ${
                     config.isEnabled 
                         ? 'bg-emerald-50 text-emerald-800 border-emerald-200' 
                         : 'bg-slate-50 text-slate-600 border-slate-200'
                 }`}>
                     <div className="flex items-center gap-2">
-                        <span className={`w-2.5 h-2.5 rounded-full ${config.isEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
-                        <span>สถานะปัจจุบัน: {config.isEnabled ? 'เปิดใช้งาน (Active)' : 'ปิดการทำงาน (Paused)'}</span>
+                        <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${config.isEnabled ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                        <span>สถานะระบบ: {config.isEnabled ? 'เปิดใช้งาน (Active via Supabase pg_cron)' : 'ปิดการทำงาน (Paused)'}</span>
                     </div>
                     {config.isEnabled && (
-                        <span className="bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full text-[11px] font-bold">
-                            รันทุกวันเวลา {config.syncTime} น. (Asia/Bangkok)
-                        </span>
+                        <div className="flex items-center gap-1.5 self-start sm:self-auto">
+                            <span className="bg-emerald-100 text-emerald-800 px-2.5 py-0.5 rounded-full text-[11px] font-bold">
+                                รันทุกวันเวลา {config.syncTime} น. (Asia/Bangkok)
+                            </span>
+                            <span className="bg-indigo-100 text-indigo-700 px-2.5 py-0.5 rounded-full text-[11px] font-bold">
+                                Database-level 24/7
+                            </span>
+                        </div>
                     )}
                 </div>
             </div>

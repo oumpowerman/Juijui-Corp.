@@ -61,7 +61,8 @@ export interface PlatformFollowers {
     TIKTOK?: number;
     INSTAGRAM?: number;
     OTHER?: number;
-    [key: string]: number | undefined;
+    _last_synced_at?: string;
+    [key: string]: number | string | undefined;
 }
 
 export interface ChannelGroup {
@@ -110,6 +111,8 @@ export interface Channel {
     email?: string;
     /** รายการคู่มือ & เอกสารทำงานภายในของแบรนด์ (Internal Brand Docs / Guidelines) */
     brand_links?: BrandLink[];
+    /** วันเวลาล่าสุดที่มีการตรวจสอบหรืออัปเดตยอดผู้ติดตาม (Follower Verification Timestamp) */
+    last_sync_followers_at?: string | null;
 }
 
 export interface TaskPerformance {

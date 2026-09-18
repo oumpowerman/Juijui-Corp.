@@ -157,7 +157,7 @@ const processSingleStockRecord = (
     if (rawDate) {
         const parsedDate = parseFlexibleDate(rawDate);
         if (parsedDate) {
-            targetDate = parsedDate;
+            targetDate = new Date(parsedDate);
             isUnscheduled = false;
         } else {
             warnings.push(`รูปแบบวันที่เผยแพร่ "${rawDate}" ไม่ถูกต้อง (จะถูกตั้งเป็น Unscheduled ในคลัง)`);
@@ -174,7 +174,7 @@ const processSingleStockRecord = (
     if (rawShootDate) {
         const parsedShootDate = parseFlexibleDate(rawShootDate);
         if (parsedShootDate) {
-            shootDateObj = parsedShootDate;
+            shootDateObj = new Date(parsedShootDate);
         }
     }
 
@@ -182,11 +182,10 @@ const processSingleStockRecord = (
     const ideaOwnerIds: string[] = [];
     const ownerNames: string[] = [];
     if (rawOwner) {
-        const uid = findUserByName(rawOwner, users);
-        if (uid) {
-            ideaOwnerIds.push(uid);
-            const u = users.find(x => x.id === uid);
-            if (u) ownerNames.push(u.name || u.nickname || 'Unknown');
+        const foundUser = findUserByName(rawOwner, users);
+        if (foundUser) {
+            ideaOwnerIds.push(foundUser.id);
+            ownerNames.push(foundUser.name || foundUser.nickname || 'Unknown');
         } else {
             warnings.push(`ไม่พบผู้รับผิดชอบ Owner "${rawOwner}" ในระบบ`);
         }
@@ -195,11 +194,10 @@ const processSingleStockRecord = (
     const editorIds: string[] = [];
     const editorNames: string[] = [];
     if (rawEdit) {
-        const uid = findUserByName(rawEdit, users);
-        if (uid) {
-            editorIds.push(uid);
-            const u = users.find(x => x.id === uid);
-            if (u) editorNames.push(u.name || u.nickname || 'Unknown');
+        const foundUser = findUserByName(rawEdit, users);
+        if (foundUser) {
+            editorIds.push(foundUser.id);
+            editorNames.push(foundUser.name || foundUser.nickname || 'Unknown');
         } else {
             warnings.push(`ไม่พบผู้ตัดต่อ Editor "${rawEdit}" ในระบบ`);
         }
@@ -208,11 +206,10 @@ const processSingleStockRecord = (
     const assigneeIds: string[] = [];
     const subNames: string[] = [];
     if (rawSub) {
-        const uid = findUserByName(rawSub, users);
-        if (uid) {
-            assigneeIds.push(uid);
-            const u = users.find(x => x.id === uid);
-            if (u) subNames.push(u.name || u.nickname || 'Unknown');
+        const foundUser = findUserByName(rawSub, users);
+        if (foundUser) {
+            assigneeIds.push(foundUser.id);
+            subNames.push(foundUser.name || foundUser.nickname || 'Unknown');
         } else {
             warnings.push(`ไม่พบผู้ช่วย Sub "${rawSub}" ในระบบ`);
         }

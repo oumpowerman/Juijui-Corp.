@@ -1,5 +1,10 @@
 import { Router, Request, Response } from 'express';
-import { syncAllChannelFollowers } from '../services/followerSyncService.js';
+import { 
+  syncAllChannelFollowers, 
+  getFollowerSyncLastRun,
+  rescheduleFollowerCronJob
+} from '../services/followerSyncService.js';
+import { serverSupabase } from '../utils/supabase.js';
 import { 
   createSyncSession, 
   getSyncSession, 
@@ -240,6 +245,62 @@ router.get('/api/cron/sync-followers', async (req: Request, res: Response) => {
             success: false,
             error: err?.message || 'Failed to sync followers',
         });
+    }
+});
+
+/**
+ * Endpoint: GET /api/cron/follower-sync-last-run
+ * Returns the most recent global follower sync run status and timestamp
+ */
+router.get('/api/cron/follower-sync-last-run', async (req: Request, res: Response) => {
+    try {
+        const lastRun = await getFollowerSyncLastRun();
+        res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+        return res.json({
+            success: true,
+            lastRun,
+        });
+    } catch (err: any) {
+        return res.status(500).json({
+            success: false,
+            error: err?.message || 'Failed to fetch last run info',
+        });
+    }
+});
+
+/**
+ * Endpoint: POST /api/cron/reschedule
+ * Updates configuration in backend memory
+ */
+router.post('/api/cron/reschedule', async (req: Request, res: Response) => {
+    try {
+        const config = req.body?.config;
+        await rescheduleFollowerCronJob(config);
+        return res.json({ success: true, message: 'Follower sync configuration updated' });
+    } catch (err: any) {
+        return res.status(500).json({ success: false, error: err?.message || 'Failed to update schedule' });
+    }
+});
+
+/**
+ * Endpoint: GET /api/cron/info
+ * Returns cron webhook URL, secret hints, and example SQL snippet for Supabase pg_cron setup
+ */
+router.get('/api/cron/info', async (req: Request, res: Response) => {
+    try {
+        const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https';
+        const host = req.headers['x-forwarded-host'] || req.headers.host || '';
+        const appUrl = `${protocol}://${host}`;
+        const configuredSecret = process.env.CRON_SECRET || 'juijui-cron-secret-key-2026';
+
+        return res.json({
+            success: true,
+            appUrl,
+            webhookUrl: `${appUrl}/api/cron/sync-followers?source=cron`,
+            cronSecret: configuredSecret,
+        });
+    } catch (err: any) {
+        return res.status(500).json({ success: false, error: err?.message || 'Failed to get cron info' });
     }
 });
 

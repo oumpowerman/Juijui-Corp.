@@ -9,14 +9,15 @@ import {
   RefreshCw, 
   ExternalLink, 
   Plus, 
-  ArrowLeft
+  ArrowLeft,
+  Clock
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Channel, ChannelGroup } from '../../../../types';
 import { PLATFORM_ICONS } from '../../../../constants';
 import { PLATFORM_OPTIONS } from '../../form/inputs/PlatformGridSelector';
 import { SocialLinkPreviewCard } from './SocialLinkPreviewCard';
-import { formatFollowersCompact } from '../../helpers/channelHelpers';
+import { formatFollowersCompact, formatThaiFollowerSyncTime } from '../../helpers/channelHelpers';
 import { getRankAuraConfig } from './channelAuraConfig';
 import { RankAmbientGlow, RankTopBadge } from './RankAuraDecorations';
 import { BRAND_LINK_SERVICES, normalizeUrl, extractDomain } from '../../helpers/brandLinkConfig';
@@ -60,6 +61,8 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
   const aura = getRankAuraConfig(rank);
   const brandLinks = channel.brand_links || [];
   const brandLinksCount = brandLinks.length;
+  const channelSyncAt = channel.last_sync_followers_at || (channel.followers as any)?._last_synced_at;
+  const syncTimeFormatted = channelSyncAt ? formatThaiFollowerSyncTime(channelSyncAt) : null;
 
   return (
     <motion.div
@@ -216,7 +219,7 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
                       ? aura.followerPillClass 
                       : 'bg-gradient-to-b from-white to-slate-50/90 backdrop-blur-sm border-slate-200/80 border-b-slate-300/80 text-slate-700 shadow-2xs'
                   }`}
-                  title={`ยอดผู้ติดตามรวม: ${channelTotalFollowers.toLocaleString()} คน`}
+                  title={`ยอดผู้ติดตามรวม: ${channelTotalFollowers.toLocaleString()} คน${syncTimeFormatted ? ` • ตรวจล่าสุด: ${syncTimeFormatted}` : ''}`}
                 >
                   <Users className={`w-3.5 h-3.5 ${aura ? 'text-current' : 'text-indigo-500'}`} />
                   <span>{channelTotalFollowers > 0 ? `${formatFollowersCompact(channelTotalFollowers)} ผู้ติดตาม` : '0 ผู้ติดตาม'}</span>
@@ -235,12 +238,23 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
                           ? 'opacity-90 cursor-wait text-indigo-600'
                           : 'text-slate-400 hover:text-indigo-600 hover:bg-indigo-50/80'
                       }`}
-                      title={isSyncingFollowers ? 'กำลังดึงยอดผู้ติดตามช่องนี้...' : 'ตรวจหาและอัปเดตยอดผู้ติดตามช่องนี้ทันที (1-2 วิ)'}
+                      title={isSyncingFollowers ? 'กำลังดึงยอดผู้ติดตามช่องนี้...' : `ตรวจหาและอัปเดตยอดผู้ติดตามช่องนี้ทันที (1-2 วิ)${syncTimeFormatted ? ` • ตรวจล่าสุด: ${syncTimeFormatted}` : ''}`}
                     >
                       <RefreshCw className={`w-3 h-3 ${isSyncingFollowers ? 'animate-spin text-indigo-600' : ''}`} />
                     </button>
                   )}
                 </div>
+
+                {/* Per-Channel Last Sync Badge */}
+                {syncTimeFormatted && (
+                  <span 
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-white/90 border border-slate-200/80 border-b-[2px] text-slate-600 shadow-2xs hover:bg-slate-50 transition-colors"
+                    title={`เวลาตรวจเช็คยอดผู้ติดตามช่องนี้ล่าสุด: ${syncTimeFormatted}`}
+                  >
+                    <Clock className="w-3 h-3 text-indigo-500 shrink-0" />
+                    <span>{syncTimeFormatted}</span>
+                  </span>
+                )}
 
                 <span 
                   className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border border-b-[2px] backdrop-blur-sm transition-colors shadow-2xs ${glow.badgeClass}`}
@@ -273,7 +287,8 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
                     const Icon = PLATFORM_ICONS[p];
                     const pColor = PLATFORM_OPTIONS.find(opt => opt.id === p)?.color || 'text-gray-500';
                     const link = channel.social_links?.[p];
-                    const followerCount = channel.followers?.[p];
+                    const rawFollower = channel.followers?.[p];
+                    const followerCount = typeof rawFollower === 'number' ? rawFollower : undefined;
                     const hasLink = Boolean(link && link.trim());
                     if (!Icon) return null;
 

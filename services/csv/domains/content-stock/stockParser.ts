@@ -1,4 +1,4 @@
-import { Task, UserProfile, Channel, MasterDataOption } from '../../../types';
+import { Task, User, Channel, MasterOption } from '../../../../types';
 import { parseCSVLine } from '../../core/csvParser';
 import { parseFlexibleDate } from '../../core/dateParsers';
 import { findUserByName, findChannelByName, findMasterKey } from '../../core/entityMatchers';
@@ -17,10 +17,10 @@ export interface ParsedStockRow {
 export const parseContentStockCSV = (
     csvText: string,
     channels: Channel[],
-    users: UserProfile[],
-    formats: MasterDataOption[],
-    pillars: MasterDataOption[],
-    categories: MasterDataOption[]
+    users: User[],
+    formats: MasterOption[],
+    pillars: MasterOption[],
+    categories: MasterOption[]
 ): ParsedStockRow[] => {
     // Split lines cleanly handling CRLF and LF
     const lines = csvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(line => line.trim().length > 0);
@@ -100,22 +100,23 @@ export const parseContentStockCSV = (
         // Storage path & desc
         const storagePath = idxStorage !== -1 ? (cells[idxStorage] || '').trim() : '';
         const description = idxDesc !== -1 ? (cells[idxDesc] || '').trim() : '';
-        const rawStatus = idxStatus !== -1 ? (cells[idxStatus] || '').trim() : 'Stock';
+        const rawStatus = idxStatus !== -1 ? (cells[idxStatus] || '').trim() : 'TODO';
 
-        const task: Partial<Task> = {
+        const task: Partial<Task> & Record<string, any> = {
             title,
             channelId: matchedChannel?.id || '',
-            assigneeId: matchedUser?.id || '',
-            format: formatKey || rawFormat || '',
+            assigneeIds: matchedUser ? [matchedUser.id] : [],
+            contentFormats: formatKey ? [formatKey] : (rawFormat ? [rawFormat] : []),
             pillar: pillarKey || rawPillar || '',
             category: categoryKey || rawCategory || '',
-            storagePath: storagePath,
+            localPath: storagePath,
             description: description,
-            status: (rawStatus.toLowerCase() === 'done' || rawStatus.toLowerCase() === 'เสร็จสิ้น') ? 'Done' : 'Stock',
-            shootDate: shootDate || undefined,
-            dueDate: dueDate || undefined,
+            status: (rawStatus.toLowerCase() === 'done' || rawStatus.toLowerCase() === 'เสร็จสิ้น') ? 'DONE' : 'TODO',
+            shootDate: shootDate ? new Date(shootDate) : undefined,
+            startDate: dueDate ? new Date(dueDate) : new Date(),
+            endDate: dueDate ? new Date(dueDate) : new Date(),
             tags: tags,
-            taskType: 'CONTENT'
+            type: 'CONTENT'
         };
 
         const rawData: Record<string, string> = {};

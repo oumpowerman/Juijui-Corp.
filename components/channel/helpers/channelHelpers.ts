@@ -111,3 +111,52 @@ export const channelContainerVariants = {
     }
   }
 };
+
+/**
+ * แปลงเวลาการตรวจสอบยอดผู้ติดตามเป็นภาษาไทยที่อ่านง่ายและเป็นมิตร
+ * - < 1 นาที: "เมื่อสักครู่"
+ * - < 60 นาที: "X นาทีที่แล้ว"
+ * - วันนี้: "วันนี้ เวลา HH:mm น."
+ * - เมื่อวาน: "เมื่อวานนี้ เวลา HH:mm น."
+ * - วันก่อนหน้า: "DD/MM/YYYY HH:mm น."
+ */
+export const formatThaiFollowerSyncTime = (timestamp?: string | Date | null): string => {
+  if (!timestamp) return '';
+  const date = typeof timestamp === 'string' ? new Date(timestamp) : timestamp;
+  if (!date || isNaN(date.getTime())) return '';
+
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffSec = Math.floor(diffMs / 1000);
+  const diffMin = Math.floor(diffSec / 60);
+
+  // รองรับกรณี server clock เร็วกว่าเล็กน้อย หรือไม่ถึง 1 นาที
+  if (diffSec < 60) {
+    return 'เมื่อสักครู่';
+  }
+
+  if (diffMin < 60) {
+    return `${diffMin} นาทีที่แล้ว`;
+  }
+
+  const isToday = now.toDateString() === date.toDateString();
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const timeStr = `เวลา ${hours}:${minutes} น.`;
+
+  if (isToday) {
+    return `วันนี้ ${timeStr}`;
+  }
+
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (yesterday.toDateString() === date.toDateString()) {
+    return `เมื่อวานนี้ ${timeStr}`;
+  }
+
+  const day = String(date.getDate()).padStart(2, '0');
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const year = date.getFullYear();
+  return `${day}/${month}/${year} ${timeStr}`;
+};
+

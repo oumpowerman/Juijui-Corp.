@@ -1,6 +1,8 @@
 
 import React from 'react';
-import { Sparkles, Facebook, Instagram, Youtube, MessageCircle } from 'lucide-react';
+// แยกไอคอนทั่วไปมาจาก lucide-react และไอคอนโซเชียลมาจาก react-icons
+import { Sparkles, MessageCircle } from 'lucide-react';
+import { FaFacebook, FaInstagram, FaYoutube } from 'react-icons/fa';
 import { SocialLinks, FooterCategory } from '../../services/landingService';
 import { BRAND_CONFIG } from '../../config/brand.ts';
 
@@ -72,7 +74,7 @@ const Footer: React.FC<FooterProps> = ({ socialLinks, onNavigate }) => {
                 className="w-9 h-9 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:text-blue-600 hover:bg-blue-50 transition-all border border-transparent hover:border-blue-100"
                 title="Facebook"
                >
-                  <Facebook className="w-4 h-4" />
+                  <FaFacebook className="w-4 h-4" />
                </a>
                <a 
                 href={socialLinks?.instagram || "#"} 
@@ -81,7 +83,7 @@ const Footer: React.FC<FooterProps> = ({ socialLinks, onNavigate }) => {
                 className="w-9 h-9 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:text-pink-600 hover:bg-pink-50 transition-all border border-transparent hover:border-pink-100"
                 title="Instagram"
                >
-                  <Instagram className="w-4 h-4" />
+                  <FaInstagram className="w-4 h-4" />
                </a>
                <a 
                 href={socialLinks?.youtube || "#"} 
@@ -90,7 +92,7 @@ const Footer: React.FC<FooterProps> = ({ socialLinks, onNavigate }) => {
                 className="w-9 h-9 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 transition-all border border-transparent hover:border-red-100"
                 title="Youtube"
                >
-                  <Youtube className="w-4 h-4" />
+                  <FaYoutube className="w-4 h-4" />
                </a>
             </div>
           </div>

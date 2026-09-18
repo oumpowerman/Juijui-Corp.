@@ -1,4 +1,4 @@
-import { LeaveRequest, UserProfile } from '../../../types';
+import { LeaveRequest, LeaveType, RequestStatus, User } from '../../../../types';
 import * as XLSX from 'xlsx';
 import { parseCSVLine, readFileAsTextWithAutoEncoding } from '../../core/csvParser';
 import { parseFlexibleDate } from '../../core/dateParsers';
@@ -16,9 +16,35 @@ export interface ParsedHistoricalLeaveRow {
     error?: string;
 }
 
+const resolveLeaveType = (rawType: string, warnings: string[]): LeaveType => {
+    const cleanType = rawType.toLowerCase();
+    if (cleanType.includes('ป่วย') || cleanType.includes('sick')) return 'SICK';
+    if (cleanType.includes('พักร้อน') || cleanType.includes('annual') || cleanType.includes('vacation')) return 'VACATION';
+    if (cleanType.includes('ไม่รับค่าจ้าง') || cleanType.includes('unpaid')) return 'UNPAID';
+    if (cleanType.includes('wfh')) return 'WFH';
+    if (cleanType.includes('onsite') || cleanType.includes('site')) return 'ONSITE';
+    if (cleanType.includes('กิจ') || cleanType.includes('personal') || cleanType.includes('business')) return 'PERSONAL';
+    
+    if (rawType) {
+        warnings.push(`ประเภทการลา "${rawType}" ถูกปรับเป็น "PERSONAL"`);
+    }
+    return 'PERSONAL';
+};
+
+const resolveStatus = (rawStatus: string): RequestStatus => {
+    const cleanStatus = rawStatus.toLowerCase();
+    if (cleanStatus.includes('reject') || cleanStatus.includes('ปฏิเสธ') || cleanStatus.includes('ไม่อนุมัติ') || cleanStatus.includes('cancel') || cleanStatus.includes('ยกเลิก')) {
+        return 'REJECTED';
+    }
+    if (cleanStatus.includes('pend') || cleanStatus.includes('รอ')) {
+        return 'PENDING';
+    }
+    return 'APPROVED';
+};
+
 export const parseHistoricalLeaveCSV = (
     csvText: string,
-    users: UserProfile[]
+    users: User[]
 ): ParsedHistoricalLeaveRow[] => {
     const lines = csvText.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n').filter(l => l.trim().length > 0);
     if (lines.length < 2) return [];
@@ -62,21 +88,12 @@ export const parseHistoricalLeaveCSV = (
         }
 
         // Normalize Leave Type
-        let leaveType: LeaveRequest['leave_type'] = 'personal';
-        const cleanType = rawType.toLowerCase();
-        if (cleanType.includes('ป่วย') || cleanType.includes('sick')) leaveType = 'sick';
-        else if (cleanType.includes('พักร้อน') || cleanType.includes('annual') || cleanType.includes('vacation')) leaveType = 'annual';
-        else if (cleanType.includes('คลอด') || cleanType.includes('maternity')) leaveType = 'maternity';
-        else if (cleanType.includes('บวช') || cleanType.includes('ordination')) leaveType = 'ordination';
-        else if (cleanType.includes('ไม่รับค่าจ้าง') || cleanType.includes('unpaid')) leaveType = 'unpaid';
-        else if (cleanType.includes('กิจ') || cleanType.includes('personal') || cleanType.includes('business')) leaveType = 'personal';
-        else {
-            leaveType = 'other';
-            if (rawType) warnings.push(`ประเภทการลา "${rawType}" ถูกปรับเป็น "other"`);
-        }
+        const leaveType = resolveLeaveType(rawType, warnings);
 
-        const startDate = parseFlexibleDate(rawStartDate);
-        const endDate = parseFlexibleDate(rawEndDate) || startDate;
+        const startDateStr = parseFlexibleDate(rawStartDate);
+        const endDateStr = parseFlexibleDate(rawEndDate) || startDateStr;
+        const startDate = startDateStr ? new Date(startDateStr) : new Date();
+        const endDate = endDateStr ? new Date(endDateStr) : startDate;
 
         let is_full_day = true;
         let half_day_period: 'morning' | 'afternoon' | undefined = undefined;
@@ -100,23 +117,23 @@ export const parseHistoricalLeaveCSV = (
         }
 
         // Normalize Status
-        let status: LeaveRequest['status'] = 'approved';
-        const cleanStatus = rawStatus.toLowerCase();
-        if (cleanStatus.includes('reject') || cleanStatus.includes('ปฏิเสธ') || cleanStatus.includes('ไม่อนุมัติ')) status = 'rejected';
-        else if (cleanStatus.includes('cancel') || cleanStatus.includes('ยกเลิก')) status = 'cancelled';
-        else if (cleanStatus.includes('pend') || cleanStatus.includes('รอ')) status = 'pending';
-        else status = 'approved';
+        const status = resolveStatus(rawStatus);
 
-        const leaveRequest: Partial<LeaveRequest> = {
+        const leaveRequest: Partial<LeaveRequest> & Record<string, any> = {
+            userId: matchedUser?.id || '',
             user_id: matchedUser?.id || '',
-            leave_type: leaveType,
-            start_date: startDate || '',
-            end_date: endDate || '',
+            type: leaveType,
+            leaveType: leaveType,
+            startDate: startDate,
+            endDate: endDate,
+            start_date: startDateStr || '',
+            end_date: endDateStr || '',
             reason: rawReason || 'ประวัติการลาเก่านำเข้าสู่ระบบ (Historical Data)',
             status: status,
-            is_full_day: is_full_day,
-            half_day_period: half_day_period,
-            approver_id: matchedUser ? 'historical_migration_admin' : undefined
+            isHalfDay: !is_full_day,
+            halfDaySession: half_day_period === 'morning' ? 'AM' : (half_day_period === 'afternoon' ? 'PM' : null),
+            approverId: matchedUser ? 'historical_migration_admin' : undefined,
+            createdAt: new Date()
         };
 
         const rawData: Record<string, any> = {};
@@ -128,8 +145,8 @@ export const parseHistoricalLeaveCSV = (
             raw: rawData,
             leaveRequest,
             warnings,
-            isValid: Boolean(matchedUser && startDate),
-            error: !matchedUser ? 'ไม่พบพนักงานในระบบ' : (!startDate ? 'รูปแบบวันที่ไม่ถูกต้อง' : undefined)
+            isValid: Boolean(matchedUser && startDateStr),
+            error: !matchedUser ? 'ไม่พบพนักงานในระบบ' : (!startDateStr ? 'รูปแบบวันที่ไม่ถูกต้อง' : undefined)
         });
     }
 
@@ -138,7 +155,7 @@ export const parseHistoricalLeaveCSV = (
 
 export const parseHistoricalLeaveExcel = async (
     file: File | Blob,
-    users: UserProfile[]
+    users: User[]
 ): Promise<ParsedHistoricalLeaveRow[]> => {
     const buffer = await file.arrayBuffer();
     const workbook = XLSX.read(buffer, { type: 'array', cellDates: false });
@@ -184,21 +201,12 @@ export const parseHistoricalLeaveExcel = async (
             warnings.push(`ไม่พบผู้ใช้งาน "${rawName}" ในระบบ`);
         }
 
-        let leaveType: LeaveRequest['leave_type'] = 'personal';
-        const cleanType = rawType.toLowerCase();
-        if (cleanType.includes('ป่วย') || cleanType.includes('sick')) leaveType = 'sick';
-        else if (cleanType.includes('พักร้อน') || cleanType.includes('annual') || cleanType.includes('vacation')) leaveType = 'annual';
-        else if (cleanType.includes('คลอด') || cleanType.includes('maternity')) leaveType = 'maternity';
-        else if (cleanType.includes('บวช') || cleanType.includes('ordination')) leaveType = 'ordination';
-        else if (cleanType.includes('ไม่รับค่าจ้าง') || cleanType.includes('unpaid')) leaveType = 'unpaid';
-        else if (cleanType.includes('กิจ') || cleanType.includes('personal') || cleanType.includes('business')) leaveType = 'personal';
-        else {
-            leaveType = 'other';
-            if (rawType) warnings.push(`ประเภทการลา "${rawType}" ถูกปรับเป็น "other"`);
-        }
+        const leaveType = resolveLeaveType(rawType, warnings);
 
-        const startDate = parseFlexibleDate(rawStartDate);
-        const endDate = parseFlexibleDate(rawEndDate) || startDate;
+        const startDateStr = parseFlexibleDate(rawStartDate);
+        const endDateStr = parseFlexibleDate(rawEndDate) || startDateStr;
+        const startDate = startDateStr ? new Date(startDateStr) : new Date();
+        const endDate = endDateStr ? new Date(endDateStr) : startDate;
 
         let is_full_day = true;
         let half_day_period: 'morning' | 'afternoon' | undefined = undefined;
@@ -221,23 +229,23 @@ export const parseHistoricalLeaveExcel = async (
             }
         }
 
-        let status: LeaveRequest['status'] = 'approved';
-        const cleanStatus = rawStatus.toLowerCase();
-        if (cleanStatus.includes('reject') || cleanStatus.includes('ปฏิเสธ') || cleanStatus.includes('ไม่อนุมัติ')) status = 'rejected';
-        else if (cleanStatus.includes('cancel') || cleanStatus.includes('ยกเลิก')) status = 'cancelled';
-        else if (cleanStatus.includes('pend') || cleanStatus.includes('รอ')) status = 'pending';
-        else status = 'approved';
+        const status = resolveStatus(rawStatus);
 
-        const leaveRequest: Partial<LeaveRequest> = {
+        const leaveRequest: Partial<LeaveRequest> & Record<string, any> = {
+            userId: matchedUser?.id || '',
             user_id: matchedUser?.id || '',
-            leave_type: leaveType,
-            start_date: startDate || '',
-            end_date: endDate || '',
+            type: leaveType,
+            leaveType: leaveType,
+            startDate: startDate,
+            endDate: endDate,
+            start_date: startDateStr || '',
+            end_date: endDateStr || '',
             reason: rawReason || 'ประวัติการลาเก่านำเข้าสู่ระบบ (Historical Data)',
             status: status,
-            is_full_day: is_full_day,
-            half_day_period: half_day_period,
-            approver_id: matchedUser ? 'historical_migration_admin' : undefined
+            isHalfDay: !is_full_day,
+            halfDaySession: half_day_period === 'morning' ? 'AM' : (half_day_period === 'afternoon' ? 'PM' : null),
+            approverId: matchedUser ? 'historical_migration_admin' : undefined,
+            createdAt: new Date()
         };
 
         const rawData: Record<string, any> = {};
@@ -249,8 +257,8 @@ export const parseHistoricalLeaveExcel = async (
             raw: rawData,
             leaveRequest,
             warnings,
-            isValid: Boolean(matchedUser && startDate),
-            error: !matchedUser ? 'ไม่พบพนักงานในระบบ' : (!startDate ? 'รูปแบบวันที่ไม่ถูกต้อง' : undefined)
+            isValid: Boolean(matchedUser && startDateStr),
+            error: !matchedUser ? 'ไม่พบพนักงานในระบบ' : (!startDateStr ? 'รูปแบบวันที่ไม่ถูกต้อง' : undefined)
         });
     }
 
@@ -259,7 +267,7 @@ export const parseHistoricalLeaveExcel = async (
 
 export const parseHistoricalLeaveJSON = (
     jsonContent: any,
-    users: UserProfile[]
+    users: User[]
 ): ParsedHistoricalLeaveRow[] => {
     const list = Array.isArray(jsonContent) ? jsonContent : (jsonContent.leaves || jsonContent.data || []);
     if (!Array.isArray(list) || list.length === 0) return [];
@@ -280,50 +288,41 @@ export const parseHistoricalLeaveJSON = (
             warnings.push(`ไม่พบผู้ใช้งาน "${rawName}" ในระบบ`);
         }
 
-        let leaveType: LeaveRequest['leave_type'] = 'personal';
-        const cleanType = rawType.toLowerCase();
-        if (cleanType.includes('ป่วย') || cleanType.includes('sick')) leaveType = 'sick';
-        else if (cleanType.includes('พักร้อน') || cleanType.includes('annual') || cleanType.includes('vacation')) leaveType = 'annual';
-        else if (cleanType.includes('คลอด') || cleanType.includes('maternity')) leaveType = 'maternity';
-        else if (cleanType.includes('บวช') || cleanType.includes('ordination')) leaveType = 'ordination';
-        else if (cleanType.includes('ไม่รับค่าจ้าง') || cleanType.includes('unpaid')) leaveType = 'unpaid';
-        else if (cleanType.includes('กิจ') || cleanType.includes('personal')) leaveType = 'personal';
-        else {
-            leaveType = 'other';
-            if (rawType) warnings.push(`ประเภทการลา "${rawType}" ถูกปรับเป็น "other"`);
-        }
+        const leaveType = resolveLeaveType(rawType, warnings);
 
-        const startDate = parseFlexibleDate(rawStartDate);
-        const endDate = parseFlexibleDate(rawEndDate) || startDate;
+        const startDateStr = parseFlexibleDate(rawStartDate);
+        const endDateStr = parseFlexibleDate(rawEndDate) || startDateStr;
+        const startDate = startDateStr ? new Date(startDateStr) : new Date();
+        const endDate = endDateStr ? new Date(endDateStr) : startDate;
 
         const is_full_day = item.is_full_day !== undefined ? Boolean(item.is_full_day) : true;
         const half_day_period = item.half_day_period === 'morning' || item.half_day_period === 'afternoon' ? item.half_day_period : undefined;
 
-        let status: LeaveRequest['status'] = 'approved';
-        const cleanStatus = rawStatus.toLowerCase();
-        if (cleanStatus.includes('reject') || cleanStatus.includes('ปฏิเสธ')) status = 'rejected';
-        else if (cleanStatus.includes('cancel') || cleanStatus.includes('ยกเลิก')) status = 'cancelled';
-        else if (cleanStatus.includes('pend')) status = 'pending';
-        else status = 'approved';
+        const status = resolveStatus(rawStatus);
 
-        const leaveRequest: Partial<LeaveRequest> = {
+        const leaveRequest: Partial<LeaveRequest> & Record<string, any> = {
+            userId: matchedUser?.id || '',
             user_id: matchedUser?.id || '',
-            leave_type: leaveType,
-            start_date: startDate || '',
-            end_date: endDate || '',
+            type: leaveType,
+            leaveType: leaveType,
+            startDate: startDate,
+            endDate: endDate,
+            start_date: startDateStr || '',
+            end_date: endDateStr || '',
             reason: rawReason || 'ประวัติการลาเก่านำเข้าสู่ระบบ (Historical Data)',
             status: status,
-            is_full_day: is_full_day,
-            half_day_period: half_day_period,
-            approver_id: matchedUser ? 'historical_migration_admin' : undefined
+            isHalfDay: !is_full_day,
+            halfDaySession: half_day_period === 'morning' ? 'AM' : (half_day_period === 'afternoon' ? 'PM' : null),
+            approverId: matchedUser ? 'historical_migration_admin' : undefined,
+            createdAt: new Date()
         };
 
         results.push({
             raw: item,
             leaveRequest,
             warnings,
-            isValid: Boolean(matchedUser && startDate),
-            error: !matchedUser ? 'ไม่พบพนักงานในระบบ' : (!startDate ? 'รูปแบบวันที่ไม่ถูกต้อง' : undefined)
+            isValid: Boolean(matchedUser && startDateStr),
+            error: !matchedUser ? 'ไม่พบพนักงานในระบบ' : (!startDateStr ? 'รูปแบบวันที่ไม่ถูกต้อง' : undefined)
         });
     }
 
@@ -335,7 +334,7 @@ export const parseHistoricalLeaveJSON = (
  */
 export const parseHistoricalLeaveFile = async (
     file: File,
-    users: UserProfile[]
+    users: User[]
 ): Promise<ParsedHistoricalLeaveRow[]> => {
     const filename = file.name.toLowerCase();
 

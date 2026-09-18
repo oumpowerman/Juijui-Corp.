@@ -1,4 +1,3 @@
-import cron, { ScheduledTask } from 'node-cron';
 import { serverSupabase } from '../utils/supabase.js';
 
 export interface FollowerSyncPlatformSettings {
@@ -29,7 +28,6 @@ export const DEFAULT_FOLLOWER_SYNC_CONFIG: FollowerSyncConfig = {
     rateLimitDelayMs: 500,
 };
 
-let currentCronTask: ScheduledTask | null = null;
 let cachedConfig: FollowerSyncConfig = { ...DEFAULT_FOLLOWER_SYNC_CONFIG };
 
 /**
@@ -64,6 +62,64 @@ export async function getFollowerSyncConfig(): Promise<FollowerSyncConfig> {
     }
 }
 
+/**
+ * Persist the global follower sync execution summary to master_options (FOLLOWER_SYNC_LAST_RUN)
+ */
+export async function recordFollowerSyncLastRun(summary: FollowerSyncLastRunSummary): Promise<void> {
+    try {
+        const { data: existing } = await serverSupabase
+            .from('master_options')
+            .select('id')
+            .eq('type', 'MASTER_DATA_CONFIG')
+            .eq('key', 'FOLLOWER_SYNC_LAST_RUN')
+            .maybeSingle();
+
+        if (existing?.id) {
+            await serverSupabase
+                .from('master_options')
+                .update({
+                    label: JSON.stringify(summary),
+                    description: `Follower sync executed at ${summary.last_sync_at} (${summary.triggered_by})`,
+                    is_active: true
+                })
+                .eq('id', existing.id);
+        } else {
+            await serverSupabase
+                .from('master_options')
+                .insert({
+                    type: 'MASTER_DATA_CONFIG',
+                    key: 'FOLLOWER_SYNC_LAST_RUN',
+                    label: JSON.stringify(summary),
+                    description: `Follower sync executed at ${summary.last_sync_at} (${summary.triggered_by})`,
+                    is_active: true,
+                    sort_order: 99
+                });
+        }
+    } catch (err) {
+        console.error('[FollowerSync] Failed to record FOLLOWER_SYNC_LAST_RUN:', err);
+    }
+}
+
+/**
+ * Retrieve the latest global follower sync execution summary
+ */
+export async function getFollowerSyncLastRun(): Promise<FollowerSyncLastRunSummary | null> {
+    try {
+        const { data } = await serverSupabase
+            .from('master_options')
+            .select('label')
+            .eq('type', 'MASTER_DATA_CONFIG')
+            .eq('key', 'FOLLOWER_SYNC_LAST_RUN')
+            .maybeSingle();
+
+        if (!data?.label) return null;
+        return JSON.parse(data.label) as FollowerSyncLastRunSummary;
+    } catch (err) {
+        console.warn('[FollowerSync] Failed to parse FOLLOWER_SYNC_LAST_RUN:', err);
+        return null;
+    }
+}
+
 interface SyncPlatformResult {
     platform: string;
     url: string;
@@ -81,6 +137,15 @@ export interface ChannelSyncResult {
     totalFollowers: number;
     updated: boolean;
     error?: string;
+    last_sync_followers_at?: string;
+}
+
+export interface FollowerSyncLastRunSummary {
+    last_sync_at: string;
+    triggered_by: 'cron' | 'api' | 'manual';
+    total_channels: number;
+    updated_channels: number;
+    duration_ms: number;
 }
 
 export interface FullSyncSummary {
@@ -398,8 +463,8 @@ export async function syncAllChannelFollowers(
                 currentBatch.map(async (channel, batchInnerIdx) => {
                     const overallIndex = bIdx + batchInnerIdx;
                     const socialLinks = (channel.social_links || {}) as Record<string, string>;
-                    const existingFollowers = (channel.followers || {}) as Record<string, number>;
-                    const newFollowersMap: Record<string, number> = { ...existingFollowers };
+                    const existingFollowers = (channel.followers || {}) as Record<string, any>;
+                    const newFollowersMap: Record<string, any> = { ...existingFollowers };
 
                     const platformResults: SyncPlatformResult[] = [];
                     let hasChanges = false;
@@ -492,46 +557,57 @@ export async function syncAllChannelFollowers(
 
                     // Calculate total followers for this channel
                     const totalFollowers = Object.values(newFollowersMap).reduce((sum, count) => sum + (Number(count) || 0), 0);
+                    const syncTimestamp = new Date().toISOString();
+                    newFollowersMap._last_synced_at = syncTimestamp;
 
                     let channelSyncResult: ChannelSyncResult;
 
-                    // If changes detected, update Supabase
+                    // Always persist latest sync timestamp and followers
+                    const updatePayload: Record<string, any> = {
+                        followers: newFollowersMap,
+                        last_sync_followers_at: syncTimestamp,
+                    };
                     if (hasChanges) {
-                        const { error: updateError } = await serverSupabase
-                            .from('channels')
-                            .update({ 
-                                followers: newFollowersMap,
-                                updated_at: new Date().toISOString()
-                            })
-                            .eq('id', channel.id);
+                        updatePayload.updated_at = syncTimestamp;
+                    }
 
-                        if (updateError) {
-                            console.error(`[FollowerSync] Error updating channel ${channel.name} (${channel.id}):`, updateError);
-                            channelSyncResult = {
-                                channelId: channel.id,
-                                channelName: channel.name,
-                                platforms: platformResults,
-                                totalFollowers,
-                                updated: false,
-                                error: updateError.message,
-                            };
-                        } else {
-                            updatedCount++;
-                            channelSyncResult = {
-                                channelId: channel.id,
-                                channelName: channel.name,
-                                platforms: platformResults,
-                                totalFollowers,
-                                updated: true,
-                            };
-                        }
-                    } else {
+                    let { error: updateError } = await serverSupabase
+                        .from('channels')
+                        .update(updatePayload)
+                        .eq('id', channel.id);
+
+                    // Dual-compatible fallback if column last_sync_followers_at is not created yet
+                    if (updateError && (updateError.message?.includes('last_sync_followers_at') || (updateError as any).code === '42703')) {
+                        delete updatePayload.last_sync_followers_at;
+                        const retryRes = await serverSupabase
+                            .from('channels')
+                            .update(updatePayload)
+                            .eq('id', channel.id);
+                        updateError = retryRes.error;
+                    }
+
+                    if (updateError) {
+                        console.error(`[FollowerSync] Error updating channel ${channel.name} (${channel.id}):`, updateError);
                         channelSyncResult = {
                             channelId: channel.id,
                             channelName: channel.name,
                             platforms: platformResults,
                             totalFollowers,
                             updated: false,
+                            error: updateError.message,
+                            last_sync_followers_at: syncTimestamp,
+                        };
+                    } else {
+                        if (hasChanges) {
+                            updatedCount++;
+                        }
+                        channelSyncResult = {
+                            channelId: channel.id,
+                            channelName: channel.name,
+                            platforms: platformResults,
+                            totalFollowers,
+                            updated: hasChanges,
+                            last_sync_followers_at: syncTimestamp,
                         };
                     }
 
@@ -584,6 +660,15 @@ export async function syncAllChannelFollowers(
         durationMs,
     };
 
+    // Save global last run summary to master_options table
+    await recordFollowerSyncLastRun({
+        last_sync_at: finalSummary.timestamp,
+        triggered_by: triggeredBy,
+        total_channels: results.length,
+        updated_channels: updatedCount,
+        duration_ms: durationMs,
+    });
+
     onProgress?.({
         type: 'finish',
         currentIndex: results.length,
@@ -615,8 +700,8 @@ export async function syncSingleChannelFollowers(channelId: string): Promise<Cha
     }
 
     const socialLinks = (channel.social_links || {}) as Record<string, string>;
-    const existingFollowers = (channel.followers || {}) as Record<string, number>;
-    const newFollowersMap: Record<string, number> = { ...existingFollowers };
+    const existingFollowers = (channel.followers || {}) as Record<string, any>;
+    const newFollowersMap: Record<string, any> = { ...existingFollowers };
 
     const platformResults: SyncPlatformResult[] = [];
     let hasChanges = false;
@@ -680,27 +765,44 @@ export async function syncSingleChannelFollowers(channelId: string): Promise<Cha
     );
 
     const totalFollowers = Object.values(newFollowersMap).reduce((sum, count) => sum + (Number(count) || 0), 0);
+    const syncTimestamp = new Date().toISOString();
+    newFollowersMap._last_synced_at = syncTimestamp;
 
+    // Always persist latest sync timestamp and followers
+    const updatePayload: Record<string, any> = {
+        followers: newFollowersMap,
+        last_sync_followers_at: syncTimestamp,
+    };
     if (hasChanges) {
-        const { error: updateError } = await serverSupabase
-            .from('channels')
-            .update({
-                followers: newFollowersMap,
-                updated_at: new Date().toISOString()
-            })
-            .eq('id', channel.id);
+        updatePayload.updated_at = syncTimestamp;
+    }
 
-        if (updateError) {
-            return {
-                channelId: channel.id,
-                channelName: channel.name,
-                platforms: platformResults,
-                totalFollowers,
-                updated: false,
-                error: updateError.message,
-                newFollowers: newFollowersMap,
-            };
-        }
+    let { error: updateError } = await serverSupabase
+        .from('channels')
+        .update(updatePayload)
+        .eq('id', channel.id);
+
+    // Dual-compatible fallback if column last_sync_followers_at is not created yet
+    if (updateError && (updateError.message?.includes('last_sync_followers_at') || (updateError as any).code === '42703')) {
+        delete updatePayload.last_sync_followers_at;
+        const retryRes = await serverSupabase
+            .from('channels')
+            .update(updatePayload)
+            .eq('id', channel.id);
+        updateError = retryRes.error;
+    }
+
+    if (updateError) {
+        return {
+            channelId: channel.id,
+            channelName: channel.name,
+            platforms: platformResults,
+            totalFollowers,
+            updated: false,
+            error: updateError.message,
+            newFollowers: newFollowersMap,
+            last_sync_followers_at: syncTimestamp,
+        };
     }
 
     return {
@@ -710,13 +812,14 @@ export async function syncSingleChannelFollowers(channelId: string): Promise<Cha
         totalFollowers,
         updated: hasChanges,
         newFollowers: newFollowersMap,
+        last_sync_followers_at: syncTimestamp,
     };
 }
 
 /**
  * Helper to build cron expression from time "HH:mm" (e.g. "08:30" -> "30 8 * * *")
  */
-function buildCronExpression(timeStr: string): string {
+export function buildCronExpression(timeStr: string): string {
     const [hourStr, minStr] = (timeStr || '08:00').split(':');
     const hour = parseInt(hourStr, 10);
     const min = parseInt(minStr, 10);
@@ -726,99 +829,32 @@ function buildCronExpression(timeStr: string): string {
 }
 
 /**
- * Reschedule or update cron job dynamically
+ * Converts Bangkok time (UTC+7) to UTC cron expression for Supabase pg_cron
+ * e.g. "08:00" Bangkok (GMT+7) = 01:00 UTC -> "0 1 * * *"
+ */
+export function buildUtcCronExpression(bangkokTimeStr: string): { cronUtc: string; utcHour: number; utcMin: number } {
+    const [hourStr, minStr] = (bangkokTimeStr || '08:00').split(':');
+    const bkkHour = parseInt(hourStr, 10);
+    const bkkMin = parseInt(minStr, 10);
+    const safeHour = isNaN(bkkHour) || bkkHour < 0 || bkkHour > 23 ? 8 : bkkHour;
+    const safeMin = isNaN(bkkMin) || bkkMin < 0 || bkkMin > 59 ? 0 : bkkMin;
+
+    // Convert BKK (UTC+7) to UTC (-7 hours)
+    let utcHour = safeHour - 7;
+    if (utcHour < 0) {
+        utcHour += 24;
+    }
+    return {
+        cronUtc: `${safeMin} ${utcHour} * * *`,
+        utcHour,
+        utcMin: safeMin
+    };
+}
+
+/**
+ * Kept for backwards compatibility if called by frontend /api/cron/reschedule
  */
 export async function rescheduleFollowerCronJob(customConfig?: FollowerSyncConfig) {
     const config = customConfig || await getFollowerSyncConfig();
-    
-    if (currentCronTask) {
-        currentCronTask.stop();
-        currentCronTask = null;
-    }
-
-    if (!config.isEnabled) {
-        console.log('[FollowerSync] Follower Sync Cron is disabled in settings.');
-        return;
-    }
-
-    const cronSchedule = buildCronExpression(config.syncTime);
-    console.log(`[FollowerSync] Scheduling Daily Cron at ${cronSchedule} (${config.syncTime} Asia/Bangkok)`);
-
-    currentCronTask = cron.schedule(
-        cronSchedule,
-        async () => {
-            console.log(`[FollowerSync] Triggered scheduled ${config.syncTime} Cronjob for channel followers`);
-            try {
-                await syncAllChannelFollowers('cron');
-            } catch (err) {
-                console.error('[FollowerSync] Cron execution error:', err);
-            }
-        },
-        {
-            timezone: 'Asia/Bangkok',
-        }
-    );
-}
-
-// Initialize node-cron schedule on server start
-export async function initFollowerCronJob() {
-    // Auto-save APP_URL and CRON_SECRET to master_options so Supabase pg_cron can trigger the endpoint
-    try {
-        const appUrl = process.env.APP_URL || process.env.CLIENT_URL;
-        if (appUrl) {
-            const { data: existingAppUrl } = await serverSupabase
-                .from('master_options')
-                .select('id')
-                .eq('type', 'MASTER_DATA_CONFIG')
-                .eq('key', 'APP_URL')
-                .maybeSingle();
-
-            if (existingAppUrl) {
-                await serverSupabase
-                    .from('master_options')
-                    .update({ label: appUrl })
-                    .eq('id', existingAppUrl.id);
-            } else {
-                await serverSupabase
-                    .from('master_options')
-                    .insert({
-                        type: 'MASTER_DATA_CONFIG',
-                        key: 'APP_URL',
-                        label: appUrl,
-                        is_active: true,
-                        sort_order: 100,
-                    });
-            }
-            console.log('[FollowerSync] Saved APP_URL to master_options:', appUrl);
-        }
-
-        const cronSecret = process.env.CRON_SECRET || 'juijui-cron-secret-key-2026';
-        const { data: existingSecret } = await serverSupabase
-            .from('master_options')
-            .select('id')
-            .eq('type', 'MASTER_DATA_CONFIG')
-            .eq('key', 'CRON_SECRET')
-            .maybeSingle();
-
-        if (existingSecret) {
-            await serverSupabase
-                .from('master_options')
-                .update({ label: cronSecret })
-                .eq('id', existingSecret.id);
-        } else {
-            await serverSupabase
-                .from('master_options')
-                .insert({
-                    type: 'MASTER_DATA_CONFIG',
-                    key: 'CRON_SECRET',
-                    label: cronSecret,
-                    is_active: true,
-                    sort_order: 101,
-                });
-        }
-    } catch (err) {
-        console.error('[FollowerSync] Failed to save app environment settings to database:', err);
-    }
-
-    await rescheduleFollowerCronJob();
+    console.log(`[FollowerSync] Configuration updated. Scheduled via Supabase pg_cron at ${config.syncTime} Asia/Bangkok (Active: ${config.isEnabled})`);
 }

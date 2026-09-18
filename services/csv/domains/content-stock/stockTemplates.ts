@@ -1,8 +1,13 @@
+import { MasterOption, Channel } from '../../../../types';
+
 /**
  * Content Stock Template generators (CSV & JSON).
  */
 
-export const generateContentStockCSVTemplate = (): string => {
+export const generateContentStockCSVTemplate = (
+    masterOptions?: MasterOption[],
+    channels?: Channel[]
+): string => {
     const headers = [
         'Title',
         'Channel',
@@ -18,12 +23,17 @@ export const generateContentStockCSVTemplate = (): string => {
         'Tags'
     ];
 
+    const sampleChannel = channels && channels.length > 0 ? channels[0].name : 'กินกับก้อย';
+    const sampleFormat = masterOptions?.find(o => o.type === 'FORMAT')?.label || 'Short';
+    const samplePillar = masterOptions?.find(o => o.type === 'PILLAR')?.label || 'Review';
+    const sampleCategory = masterOptions?.find(o => o.type === 'CATEGORY')?.label || 'Food & Beverage';
+
     const exampleRow = [
         '"คลิปแนะนำเมนูใหม่ คาเฟ่ลับอารีย์"',
-        '"กินกับก้อย"',
-        '"Short"',
-        '"Review"',
-        '"Food & Beverage"',
+        `"${sampleChannel}"`,
+        `"${sampleFormat}"`,
+        `"${samplePillar}"`,
+        `"${sampleCategory}"`,
         '"https://drive.google.com/drive/folders/demo"',
         '"Stock"',
         '"somchai@example.com"',
@@ -36,14 +46,22 @@ export const generateContentStockCSVTemplate = (): string => {
     return '\uFEFF' + headers.join(',') + '\n' + exampleRow.join(',') + '\n';
 };
 
-export const generateContentStockJSONTemplate = (): string => {
+export const generateContentStockJSONTemplate = (
+    masterOptions?: MasterOption[],
+    channels?: Channel[]
+): string => {
+    const sampleChannel = channels && channels.length > 0 ? channels[0].name : 'กินกับก้อย';
+    const sampleFormat = masterOptions?.find(o => o.type === 'FORMAT')?.label || 'Short';
+    const samplePillar = masterOptions?.find(o => o.type === 'PILLAR')?.label || 'Review';
+    const sampleCategory = masterOptions?.find(o => o.type === 'CATEGORY')?.label || 'Food & Beverage';
+
     const template = [
         {
             title: "คลิปแนะนำเมนูใหม่ คาเฟ่ลับอารีย์",
-            channel: "กินกับก้อย",
-            format: "Short",
-            pillar: "Review",
-            category: "Food & Beverage",
+            channel: sampleChannel,
+            format: sampleFormat,
+            pillar: samplePillar,
+            category: sampleCategory,
             storage_path: "https://drive.google.com/drive/folders/demo",
             status: "Stock",
             assignee: "somchai@example.com",

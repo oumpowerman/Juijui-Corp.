@@ -63,12 +63,17 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
           logoUrl: c.logo_url,
           social_links: c.social_links || {},
           followers: c.followers || {},
-          email: c.email || ''
+          email: c.email || '',
+          last_sync_followers_at: c.last_sync_followers_at || c.followers?._last_synced_at || null,
         })));
       }
     } catch (err) {
       console.warn('[ChannelManager] Refetch channels failed:', err);
     }
+  }, []);
+
+  const updateChannelLocally = useCallback((channelId: string, updates: Partial<Channel>) => {
+    setLocalChannels(prev => prev.map(c => (c.id === channelId ? { ...c, ...updates } : c)));
   }, []);
 
   // Social Atmosphere Theme State
@@ -134,11 +139,27 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
     closeSingleSyncModal,
     handleSyncFollowersNow,
     handleSyncSingleChannel,
+    lastGlobalSyncInfo,
   } = useFollowerSync({
     channels: localChannels,
     refetchChannelsFromDb,
+    updateChannelLocally,
     showToast,
   });
+
+  // Latest follower sync timestamp among all channels (used as fallback for stats card)
+  const latestChannelSyncAt = useMemo(() => {
+    let latest: string | null = null;
+    for (const c of localChannels) {
+      const ts = c.last_sync_followers_at || (c.followers as any)?._last_synced_at;
+      if (ts) {
+        if (!latest || new Date(ts).getTime() > new Date(latest).getTime()) {
+          latest = ts;
+        }
+      }
+    }
+    return latest;
+  }, [localChannels]);
 
   // Modal Dialog States
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -253,6 +274,8 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
             onRefreshCounts={refetchCounts}
             isSyncingFollowers={isSyncingFollowers}
             onSyncFollowers={handleSyncFollowersNow}
+            lastGlobalSyncInfo={lastGlobalSyncInfo}
+            latestChannelSyncAt={latestChannelSyncAt}
             onManageGroups={() => setIsGroupModalOpen(true)}
           />
         )}

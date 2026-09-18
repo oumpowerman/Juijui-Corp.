@@ -13,7 +13,7 @@ export interface FollowerSyncConfig {
     rateLimitDelayMs: number; // e.g. 1200
 }
 
-export type FollowerSyncSubTab = 'schedule' | 'channels' | 'platforms' | 'bandwidth';
+export type FollowerSyncSubTab = 'schedule' | 'sql_cron' | 'channels' | 'platforms' | 'bandwidth';
 
 export interface SyncPlatformResult {
     platform: string;
@@ -32,6 +32,16 @@ export interface ChannelSyncResult {
     totalFollowers: number;
     updated: boolean;
     error?: string;
+    last_sync_followers_at?: string;
+    newFollowers?: Record<string, number>;
+}
+
+export interface FollowerSyncLastRunInfo {
+    last_sync_at: string;
+    triggered_by?: 'cron' | 'api' | 'manual';
+    total_channels?: number;
+    updated_channels?: number;
+    duration_ms?: number;
 }
 
 export interface FullSyncSummary {

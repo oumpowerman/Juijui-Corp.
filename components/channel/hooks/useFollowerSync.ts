@@ -1,22 +1,25 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Channel } from '../../../types';
 import { SyncModalState } from '../sync/FollowerSyncProgressModal';
 import { 
   FullSyncSummary, 
   ChannelSyncResult,
   SyncChannelQueueItem, 
-  SyncLogEntry 
+  SyncLogEntry,
+  FollowerSyncLastRunInfo
 } from '../../admin/master/views/follower-sync/types';
 
 interface UseFollowerSyncOptions {
   channels: Channel[];
   refetchChannelsFromDb: () => Promise<void>;
+  updateChannelLocally?: (channelId: string, updates: Partial<Channel>) => void;
   showToast: (message: string, type?: 'success' | 'error' | 'info' | 'warning') => void;
 }
 
 export function useFollowerSync({
   channels,
   refetchChannelsFromDb,
+  updateChannelLocally,
   showToast,
 }: UseFollowerSyncOptions) {
   const [isSyncingFollowers, setIsSyncingFollowers] = useState(false);
@@ -24,6 +27,41 @@ export function useFollowerSync({
   const [syncModalState, setSyncModalState] = useState<SyncModalState>('syncing');
   const [syncSummaryResult, setSyncSummaryResult] = useState<FullSyncSummary | null>(null);
   const [syncErrorMessage, setSyncErrorMessage] = useState<string | null>(null);
+
+  // Global follower sync last run metadata (persisted in DB & localStorage)
+  const [lastGlobalSyncInfo, setLastGlobalSyncInfo] = useState<FollowerSyncLastRunInfo | null>(() => {
+    try {
+      const saved = localStorage.getItem('channel_last_global_sync_info');
+      return saved ? JSON.parse(saved) : null;
+    } catch {
+      return null;
+    }
+  });
+
+  // Fetch last global run info on initial load
+  useEffect(() => {
+    let isMounted = true;
+    const fetchLastRun = async () => {
+      try {
+        const res = await fetch('/api/cron/follower-sync-last-run');
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.lastRun && isMounted) {
+            setLastGlobalSyncInfo(data.lastRun);
+            try {
+              localStorage.setItem('channel_last_global_sync_info', JSON.stringify(data.lastRun));
+            } catch {}
+          }
+        }
+      } catch (err) {
+        console.warn('[useFollowerSync] Failed to fetch follower-sync-last-run:', err);
+      }
+    };
+    fetchLastRun();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Per-channel sync result modal state
   const [singleSyncResult, setSingleSyncResult] = useState<ChannelSyncResult | null>(null);
@@ -69,10 +107,19 @@ export function useFollowerSync({
         throw new Error(data?.error || 'เกิดข้อผิดพลาดในการดึงข้อมูล');
       }
 
-      await refetchChannelsFromDb();
-
       const result: ChannelSyncResult = data.result;
       const totalFollowers: number = result?.totalFollowers || 0;
+      const syncTime = result?.last_sync_followers_at || new Date().toISOString();
+
+      // Immediate in-place state update for instant UI response
+      if (updateChannelLocally) {
+        updateChannelLocally(channelId, {
+          followers: result?.newFollowers || (result?.platforms ? Object.fromEntries(result.platforms.map(p => [p.platform, p.newCount ?? 0])) : undefined),
+          last_sync_followers_at: syncTime,
+        });
+      }
+
+      await refetchChannelsFromDb();
 
       // Calculate net change
       const totalNetDiff = result?.platforms?.reduce((sum, plat) => {
@@ -90,7 +137,7 @@ export function useFollowerSync({
         const sign = totalNetDiff > 0 ? `+${totalNetDiff.toLocaleString()}` : totalNetDiff.toLocaleString();
         showToast(`✨ อัปเดตยอดผู้ติดตาม "${nameToDisplay}" เรียบร้อย (${sign} รวม ${totalFollowers.toLocaleString()} คน)`, 'success');
       } else {
-        showToast(`ตรวจสอบยอด "${nameToDisplay}" แล้ว ยอดตรงกับปัจจุบัน (${totalFollowers.toLocaleString()} คน)`, 'info');
+        showToast(`ตรวจเช็คแล้ว ยอดเป็นปัจจุบัน (${totalFollowers.toLocaleString()} คน)`, 'info');
       }
       return true;
     } catch (err: any) {
@@ -270,6 +317,18 @@ export function useFollowerSync({
               await refetchChannelsFromDb();
               const updated = session.summary?.totalChannelsUpdated || 0;
               const total = session.summary?.totalChannelsChecked || session.totalChannels || 0;
+              const newRunInfo: FollowerSyncLastRunInfo = {
+                last_sync_at: new Date().toISOString(),
+                triggered_by: 'manual',
+                total_channels: total,
+                updated_channels: updated,
+                duration_ms: session.summary?.durationMs || 0,
+              };
+              setLastGlobalSyncInfo(newRunInfo);
+              try {
+                localStorage.setItem('channel_last_global_sync_info', JSON.stringify(newRunInfo));
+              } catch {}
+
               showToast(`ซิงค์ยอดผู้ติดตามสำเร็จ (${total} ช่อง / อัปเดต ${updated} ช่อง) 🎉`, 'success');
               resolve();
             } else if (session.state === 'error') {
@@ -315,5 +374,6 @@ export function useFollowerSync({
     closeSingleSyncModal,
     handleSyncFollowersNow,
     handleSyncSingleChannel,
+    lastGlobalSyncInfo,
   };
 }

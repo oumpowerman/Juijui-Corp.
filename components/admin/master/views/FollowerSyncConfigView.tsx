@@ -18,6 +18,8 @@ import { GeneralScheduleTab } from './follower-sync/tabs/GeneralScheduleTab';
 import { ChannelSelectionTab } from './follower-sync/tabs/ChannelSelectionTab';
 import { PlatformFilterTab } from './follower-sync/tabs/PlatformFilterTab';
 import { BandwidthCalculatorTab } from './follower-sync/tabs/BandwidthCalculatorTab';
+import { SupabaseSqlCronTab } from './follower-sync/tabs/SupabaseSqlCronTab';
+import { Database } from 'lucide-react';
 
 interface FollowerSyncConfigViewProps {
     masterOptions: MasterOption[];
@@ -184,6 +186,13 @@ const FollowerSyncConfigView: React.FC<FollowerSyncConfigViewProps> = ({
             badge: config.isEnabled ? config.syncTime : 'ปิดอยู่'
         },
         {
+            id: 'sql_cron' as FollowerSyncSubTab,
+            label: '⚡ Supabase SQL Cron',
+            desc: 'สคริปต์ SQL ตั้งเวลารันผ่านฐานข้อมูล',
+            icon: Database,
+            badge: 'pg_cron'
+        },
+        {
             id: 'channels' as FollowerSyncSubTab,
             label: '📺 เลือกช่องที่ต้องการซิงค์',
             desc: 'เลือกเฉพาะช่องในระบบที่ต้องการอัปเดต',
@@ -218,7 +227,7 @@ const FollowerSyncConfigView: React.FC<FollowerSyncConfigViewProps> = ({
 
             {/* Sub-Tab Navigation Bar */}
             <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-2xs">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1.5">
                     {subTabs.map(tab => {
                         const Icon = tab.icon;
                         const isActive = activeSubTab === tab.id;
@@ -273,6 +282,12 @@ const FollowerSyncConfigView: React.FC<FollowerSyncConfigViewProps> = ({
                             <GeneralScheduleTab
                                 config={config}
                                 onChange={setConfig}
+                            />
+                        )}
+
+                        {activeSubTab === 'sql_cron' && (
+                            <SupabaseSqlCronTab
+                                config={config}
                             />
                         )}
 

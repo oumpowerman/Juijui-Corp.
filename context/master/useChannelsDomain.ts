@@ -22,7 +22,8 @@ export const mapChannel = (c: any): Channel => ({
     email: c.email || '',
     brand_links: Array.isArray(c.brand_links) 
         ? c.brand_links 
-        : (Array.isArray(c.guideline_links) ? c.guideline_links : (c.social_links?._brand_links || []))
+        : (Array.isArray(c.guideline_links) ? c.guideline_links : (c.social_links?._brand_links || [])),
+    last_sync_followers_at: c.last_sync_followers_at || c.followers?._last_synced_at || null
 });
 
 export const useChannelsDomain = () => {

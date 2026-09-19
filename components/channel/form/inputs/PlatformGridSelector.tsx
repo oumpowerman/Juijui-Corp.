@@ -1,5 +1,5 @@
 import React from 'react';
-import { Youtube, Facebook, Instagram, Video, Globe, Check, LayoutTemplate, ExternalLink, Link2, Users } from 'lucide-react';
+import { Youtube, Facebook, Instagram, Video, Globe, Check, LayoutTemplate, ExternalLink, Link2, Users, ShieldAlert } from 'lucide-react';
 import { Platform, SocialLinks, PlatformFollowers } from '../../../../types';
 
 export const PLATFORM_OPTIONS: { id: Platform; label: string; icon: any; color: string; placeholder: string; prefixHelp: string }[] = [
@@ -179,6 +179,13 @@ export const PlatformGridSelector: React.FC<PlatformGridSelectorProps> = ({
                       <span className="text-[11px] text-slate-400 font-medium shrink-0">คน</span>
                     </div>
                   </div>
+
+                  {p.id.toUpperCase() === 'INSTAGRAM' && (
+                    <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-amber-700 bg-amber-50/70 border border-amber-200/50 px-2.5 py-1 rounded-lg">
+                      <ShieldAlert className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span>Instagram มีระบบปิดกั้นการดึงยอดอัตโนมัติ (Meta Security) แนะนำให้ระบุยอดผู้ติดตามล่าสุดที่ช่องนี้โดยตรง</span>
+                    </div>
+                  )}
                 </div>
               );
             })}

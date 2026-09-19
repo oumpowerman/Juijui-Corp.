@@ -208,6 +208,47 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
     setIsFormOpen(true);
   };
 
+  // Open Edit Channel from SingleChannelSyncResultModal
+  const handleOpenEditChannelFromModal = useCallback((channelId: string) => {
+    const ch = enrichedChannels.find(c => c.id === channelId) || localChannels.find(c => c.id === channelId);
+    if (ch) {
+      handleEditChannel(ch);
+    }
+  }, [enrichedChannels, localChannels]);
+
+  // Quick manual update of platform followers from SingleChannelSyncResultModal
+  const handleQuickUpdateFollowerCount = useCallback(async (channelId: string, platform: string, count: number) => {
+    try {
+      const targetChannel = localChannels.find(c => c.id === channelId);
+      if (!targetChannel) return;
+
+      const normKey = platform.toLowerCase();
+      const updatedFollowers = {
+        ...(targetChannel.followers || {}),
+        [normKey]: count,
+        _last_synced_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase
+        .from('channels')
+        .update({
+          followers: updatedFollowers,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', channelId);
+
+      if (error) throw error;
+
+      updateChannelLocally(channelId, { followers: updatedFollowers });
+      await refetchChannelsFromDb();
+      showToast(`บันทึกยอดผู้ติดตาม ${platform} สำเร็จ (${count.toLocaleString()} คน)`, 'success');
+    } catch (err: any) {
+      console.error('[ChannelManager] Quick update follower failed:', err);
+      showToast(`บันทึกยอดไม่สำเร็จ: ${err.message || 'Error'}`, 'error');
+      throw err;
+    }
+  }, [localChannels, updateChannelLocally, refetchChannelsFromDb, showToast]);
+
   const handleSaveChannel = async (payload: Channel, logoFile?: File | null) => {
     if (editingChannel) {
       return await onEdit(payload, logoFile || undefined);
@@ -358,6 +399,8 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
           isOpen={isSingleSyncModalOpen}
           result={singleSyncResult}
           onClose={closeSingleSyncModal}
+          onOpenEditChannel={handleOpenEditChannelFromModal}
+          onUpdateFollowerCount={handleQuickUpdateFollowerCount}
         />
       </div>
     </SocialChannelBackground>

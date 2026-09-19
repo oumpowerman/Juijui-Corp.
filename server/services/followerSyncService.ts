@@ -184,18 +184,24 @@ function decodeHtmlEntities(str: string): string {
         .replace(/&nbsp;/g, ' ');
 }
 
-// Number parsing from social text (e.g. "12,175 likes", "1.2M Followers", "ถูกใจ 3.5 หมื่น คน")
+// Number parsing from social text (e.g. "12,175 likes", "1.2M Followers", "ผู้ติดตาม 43.9 ล้าน คน", "ถูกใจ 3.5 หมื่น คน")
 export function parseFollowerNumber(rawText?: string): number | undefined {
     if (!rawText) return undefined;
-    const text = decodeHtmlEntities(rawText);
+    const text = decodeHtmlEntities(rawText)
+        .replace(/[\u200E\u200F\u202A-\u202E\u2066-\u2069]/g, '') // remove bidirectional control marks
+        .replace(/\s+/g, ' ')
+        .trim();
 
-    // 1. Thai patterns: "ถูกใจ 12,175 คน", "ผู้ติดตาม 1.2 ล้าน คน", "3.5 หมื่น ผู้ติดตาม"
-    const thaiMatch = text.match(/(?:ถูกใจ|ผู้ติดตาม)?\s*([\d,]+(?:\.\d+)?)\s*([kKmMพันหมื่นแสนล้าน]?)\s*(?:คน|likes|followers|subscribers|ผู้ติดตาม)?/i);
-    
-    // Check specific Instagram/Facebook/Twitter pattern: "12.5K Followers", "12,175 likes", "1.2M subscribers"
-    const standardMatch = text.match(/([\d,]+(?:\.\d+)?)\s*([kKmMพันหมื่นแสนล้าน]?)\s*(?:followers|subscribers|likes|ผู้ติดตาม|คน|subs)/i);
+    // 1. Thai explicit prefix: "ผู้ติดตาม 43.9 ล้าน คน", "ผู้ติดตาม 1.2M", "ถูกใจ 3.5 หมื่น"
+    const thaiPrefixMatch = text.match(/(?:ผู้ติดตาม|ถูกใจ)\s*([\d,]+(?:\.\d+)?)\s*(k|m|b|พัน|หมื่น|แสน|ล้าน)?\s*(?:คน|likes|followers|subscribers)?/i);
 
-    const matchToUse = standardMatch || thaiMatch;
+    // 2. Standard suffix pattern: "43.9M subscribers", "1.2M Followers", "3.5 หมื่น คน", "150,000 ผู้ติดตาม"
+    const standardMatch = text.match(/([\d,]+(?:\.\d+)?)\s*(k|m|b|พัน|หมื่น|แสน|ล้าน)?\s*(?:followers|subscribers|likes|ผู้ติดตาม|คน|subs)/i);
+
+    // 3. Fallback: plain number with unit
+    const fallbackMatch = text.match(/([\d,]+(?:\.\d+)?)\s*(k|m|b|พัน|หมื่น|แสน|ล้าน)\b/i);
+
+    const matchToUse = thaiPrefixMatch || standardMatch || fallbackMatch;
     if (matchToUse && matchToUse[1]) {
         const baseNum = parseFloat(matchToUse[1].replace(/,/g, ''));
         if (!isNaN(baseNum) && baseNum > 0) {
@@ -204,6 +210,7 @@ export function parseFollowerNumber(rawText?: string): number | undefined {
             if (unit === 'หมื่น') return Math.round(baseNum * 10000);
             if (unit === 'แสน') return Math.round(baseNum * 100000);
             if (unit === 'm' || unit === 'ล้าน') return Math.round(baseNum * 1000000);
+            if (unit === 'b') return Math.round(baseNum * 1000000000);
             return Math.round(baseNum);
         }
     }
@@ -212,32 +219,74 @@ export function parseFollowerNumber(rawText?: string): number | undefined {
 }
 
 // Scrape single platform follower count
-async function extractFollowersFromUrl(platformKey: string, targetUrl: string): Promise<number | undefined> {
-    if (!targetUrl || !/^https?:\/\//i.test(targetUrl)) return undefined;
+async function extractFollowersFromUrl(platformKey: string, rawUrl: string): Promise<number | undefined> {
+    if (!rawUrl || typeof rawUrl !== 'string' || !rawUrl.trim()) return undefined;
+
+    let targetUrl = rawUrl.trim();
+    if (!/^https?:\/\//i.test(targetUrl)) {
+        targetUrl = `https://${targetUrl}`;
+    }
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3500);
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    const browserUA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36';
 
     try {
         const normKey = platformKey.toUpperCase();
         
-        // 1. YouTube (Direct page fetch - oEmbed removed to eliminate redundant latency)
+        // 1. YouTube
         if (normKey === 'YOUTUBE' || targetUrl.includes('youtube.com') || targetUrl.includes('youtu.be')) {
             const htmlRes = await fetch(targetUrl, {
                 signal: controller.signal,
                 headers: {
-                    'User-Agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php) Twitterbot/1.0',
-                    'Accept-Language': 'th,en-US,en;q=0.9',
+                    'User-Agent': browserUA,
+                    'Accept-Language': 'en-US,en;q=0.9,th;q=0.8',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                 }
             });
             if (htmlRes.ok) {
                 const html = await htmlRes.text();
-                // Check subscriber count in page content or meta
-                const subMatch = html.match(/"subscriberCountText":\{"accessibility":\{"accessibilityData":\{"label":"([^"]+)"\}\}/i) ||
-                                 html.match(/"subscriberCountText":\{"simpleText":"([^"]+)"\}/i) ||
-                                 html.match(/([\d,.]+[kKmM]?)\s*(?:subscribers|ผู้ติดตาม)/i);
+                
+                // Pattern A: Subtitle with • and subscribers count (e.g. "@channel • 43.9M subscribers" or "• ผู้ติดตาม 43.9 ล้าน คน")
+                const subtitleMatch = html.match(/"subtitle":\{"content":"[^"]*•\s*([^"]*(?:subscribers?|ผู้ติดตาม)[^"]*)"/i);
+                if (subtitleMatch && subtitleMatch[1]) {
+                    const parsed = parseFollowerNumber(subtitleMatch[1]);
+                    if (parsed) return parsed;
+                }
+
+                // Pattern B: Content containing subscriber count
+                const contentMatch = html.match(/"content":"([^"]*(?:subscribers?|ผู้ติดตาม)[^"]*)"/i);
+                if (contentMatch && contentMatch[1]) {
+                    const parsed = parseFollowerNumber(contentMatch[1]);
+                    if (parsed) return parsed;
+                }
+
+                // Pattern C: Standard subscriberCountText
+                const subMatch = html.match(/"subscriberCountText":\{[^\}]*"(?:label|simpleText)":"([^"]+)"/i);
                 if (subMatch && subMatch[1]) {
                     const parsed = parseFollowerNumber(subMatch[1]);
+                    if (parsed) return parsed;
+                }
+
+                // Pattern D: AccessibilityLabel
+                const accessMatch = html.match(/"accessibilityLabel":"(ผู้ติดตาม\s*[\d,.]+[^\"]*|[^"]*subscribers?)"/i);
+                if (accessMatch && accessMatch[1]) {
+                    const parsed = parseFollowerNumber(accessMatch[1]);
+                    if (parsed) return parsed;
+                }
+
+                // Pattern E: metadataParts in header renderer
+                const metaPartsMatch = html.match(/"metadataParts":\[[^\]]*"(?:label|simpleText|content)":"([^"]*(?:subscribers?|ผู้ติดตาม)[^"]*)"/i);
+                if (metaPartsMatch && metaPartsMatch[1]) {
+                    const parsed = parseFollowerNumber(metaPartsMatch[1]);
+                    if (parsed) return parsed;
+                }
+
+                // Pattern F: Broad regex pattern
+                const broadMatch = html.match(/([0-9,.]+\s*(?:k|m|b|พัน|หมื่น|แสน|ล้าน)?\s*(?:subscribers|ผู้ติดตาม)|ผู้ติดตาม\s*[0-9,.]+\s*(?:k|m|b|พัน|หมื่น|แสน|ล้าน)?(?:\s*คน)?)/i);
+                if (broadMatch && broadMatch[1]) {
+                    const parsed = parseFollowerNumber(broadMatch[1]);
                     if (parsed) return parsed;
                 }
             }
@@ -249,7 +298,7 @@ async function extractFollowersFromUrl(platformKey: string, targetUrl: string): 
                 signal: controller.signal,
                 headers: {
                     'User-Agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php) Twitterbot/1.0',
-                    'Accept-Language': 'th,en-US,en;q=0.9',
+                    'Accept-Language': 'en-US,en;q=0.9,th;q=0.8',
                 }
             });
             if (htmlRes.ok) {
@@ -263,19 +312,20 @@ async function extractFollowersFromUrl(platformKey: string, targetUrl: string): 
             }
         }
 
-        // 3. Instagram
+        // 3. Instagram (attempt scrape, Meta may block server IP)
         if (normKey === 'INSTAGRAM' || targetUrl.includes('instagram.com')) {
             const htmlRes = await fetch(targetUrl, {
                 signal: controller.signal,
                 headers: {
-                    'User-Agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php) Twitterbot/1.0',
+                    'User-Agent': browserUA,
                     'Accept-Language': 'en-US,en;q=0.9',
+                    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
                 }
             });
             if (htmlRes.ok) {
                 const html = await htmlRes.text();
-                const ogDescMatch = html.match(/<meta[^>]*(?:property|name)=["'](?:og:description|twitter:description)["'][^>]*content=["']([^"']*)["']/i) ||
-                                    html.match(/<meta[^>]*content=["']([^"']*)["'][^>]*(?:property|name)=["'](?:og:description|twitter:description)["']/i);
+                const ogDescMatch = html.match(/<meta[^>]*(?:property|name)=["'](?:og:description|twitter:description|description)["'][^>]*content=["']([^"']*)["']/i) ||
+                                    html.match(/<meta[^>]*content=["']([^"']*)["'][^>]*(?:property|name)=["'](?:og:description|twitter:description|description)["']/i);
                 if (ogDescMatch && ogDescMatch[1]) {
                     const parsed = parseFollowerNumber(ogDescMatch[1]);
                     if (parsed) return parsed;
@@ -289,13 +339,13 @@ async function extractFollowersFromUrl(platformKey: string, targetUrl: string): 
                 signal: controller.signal,
                 headers: {
                     'User-Agent': 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php) Twitterbot/1.0',
-                    'Accept-Language': 'th,en-US,en;q=0.9',
+                    'Accept-Language': 'en-US,en;q=0.9,th;q=0.8',
                 }
             });
             if (htmlRes.ok) {
                 const html = await htmlRes.text();
-                const descMatch = html.match(/<meta[^>]*(?:property|name)=["'](?:og:description|twitter:description)["'][^>]*content=["']([^"']*)["']/i) ||
-                                  html.match(/<meta[^>]*content=["']([^"']*)["'][^>]*(?:property|name)=["'](?:og:description|twitter:description)["']/i);
+                const descMatch = html.match(/<meta[^>]*(?:property|name)=["'](?:og:description|twitter:description|description)["'][^>]*content=["']([^"']*)["']/i) ||
+                                  html.match(/<meta[^>]*content=["']([^"']*)["'][^>]*(?:property|name)=["'](?:og:description|twitter:description|description)["']/i);
                 if (descMatch && descMatch[1]) {
                     const parsed = parseFollowerNumber(descMatch[1]);
                     if (parsed) return parsed;
@@ -307,13 +357,14 @@ async function extractFollowersFromUrl(platformKey: string, targetUrl: string): 
         const fallbackRes = await fetch(targetUrl, {
             signal: controller.signal,
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-                'Accept-Language': 'th,en-US,en;q=0.9',
+                'User-Agent': browserUA,
+                'Accept-Language': 'en-US,en;q=0.9,th;q=0.8',
             }
         });
         if (fallbackRes.ok) {
             const html = await fallbackRes.text();
-            const ogDescMatch = html.match(/<meta[^>]*(?:property|name)=["'](?:og:description|twitter:description|description)["'][^>]*content=["']([^"']*)["']/i);
+            const ogDescMatch = html.match(/<meta[^>]*(?:property|name)=["'](?:og:description|twitter:description|description)["'][^>]*content=["']([^"']*)["']/i) ||
+                                html.match(/<meta[^>]*content=["']([^"']*)["'][^>]*(?:property|name)=["'](?:og:description|twitter:description|description)["']/i);
             if (ogDescMatch && ogDescMatch[1]) {
                 return parseFollowerNumber(ogDescMatch[1]);
             }
@@ -520,13 +571,16 @@ export async function syncAllChannelFollowers(
                                     });
                                 } else {
                                     // Keep previous count if fetch returned nothing
+                                    const isInstagram = platformKey.toUpperCase() === 'INSTAGRAM' || url.includes('instagram.com');
                                     platformResults.push({
                                         platform: platformKey,
                                         url,
                                         previousCount: prevCount,
                                         newCount: prevCount,
                                         success: false,
-                                        error: 'Could not extract follower number',
+                                        error: isInstagram 
+                                            ? 'Instagram ปิดกั้นการดึงข้อมูลอัตโนมัติ (สามารถแก้ไขตัวเลขเองได้)' 
+                                            : 'ไม่พบตัวเลขยอดผู้ติดตามในหน้าโปรไฟล์',
                                     });
                                 }
                             } catch (err: any) {
@@ -742,13 +796,16 @@ export async function syncSingleChannelFollowers(channelId: string): Promise<Cha
                         success: true,
                     });
                 } else {
+                    const isInstagram = platformKey.toUpperCase() === 'INSTAGRAM' || url.includes('instagram.com');
                     platformResults.push({
                         platform: platformKey,
                         url,
                         previousCount: prevCount,
                         newCount: prevCount,
                         success: false,
-                        error: 'Could not extract follower number',
+                        error: isInstagram 
+                            ? 'Instagram ปิดกั้นการดึงข้อมูลอัตโนมัติ (สามารถแก้ไขตัวเลขเองได้)' 
+                            : 'ไม่พบตัวเลขยอดผู้ติดตามในหน้าโปรไฟล์',
                     });
                 }
             } catch (err: any) {

@@ -6,6 +6,7 @@ import { useContentStock } from './useContentStock';
 import { parseContentStockCSV, generateContentStockCSVTemplate, generateContentStockJSONTemplate } from '../services/csvService';
 import { validateAndParseStockFile, validateAndParseStockCSV, StockCSVValidationResult, ParsedStockItemPreview } from '../services/stockImportValidator';
 import { supabase } from '../lib/supabase';
+import { isStockTerminalStatus } from '../config/status';
 
 export type SortKey = 'title' | 'status' | 'date' | 'remark' | 'publishDate' | 'shootDate' | 'shortNote' | 'ideaOwner' | 'editor' | 'helper' | 'createdAt';
 export type SortDirection = 'asc' | 'desc';
@@ -281,8 +282,19 @@ export const useContentStockController = ({ globalTasks, channels, users, master
     // Dual-Layer Count: In-memory fallback count from globalTasks + DB count
     const localUnassignedCount = useMemo(() => {
         if (!globalTasks || globalTasks.length === 0) return 0;
-        return globalTasks.filter(t => !t.channelId || (typeof t.channelId === 'string' && t.channelId.trim() === '')).length;
-    }, [globalTasks]);
+        return globalTasks.filter(t => {
+            if (t.type && t.type !== 'CONTENT') return false;
+            const isNoChannel = !t.channelId || (typeof t.channelId === 'string' && t.channelId.trim() === '');
+            if (!isNoChannel) return false;
+
+            const isTerminal = isStockTerminalStatus(t.status as string);
+            if (contentSubTab === 'ARCHIVE') {
+                return isTerminal;
+            } else {
+                return !isTerminal;
+            }
+        }).length;
+    }, [globalTasks, contentSubTab]);
 
     const effectiveUnassignedCount = Math.max(unassignedChannelCount, localUnassignedCount);
 

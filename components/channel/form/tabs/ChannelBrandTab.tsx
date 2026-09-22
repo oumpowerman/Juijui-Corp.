@@ -11,9 +11,15 @@ import {
   CheckCheck, 
   Mail, 
   BookOpen,
-  ChevronRight
+  ChevronRight,
+  Activity,
+  Radio,
+  Clock,
+  PauseCircle,
+  Archive
 } from 'lucide-react';
 import { ChannelLogoSelector } from '../inputs/ChannelLogoSelector';
+import { ChannelStatus } from '../../../../types';
 
 export interface BrandColorOption {
   id: string;
@@ -25,6 +31,8 @@ interface ChannelBrandTabProps {
   setName: (name: string) => void;
   description: string;
   setDescription: (desc: string) => void;
+  status: ChannelStatus;
+  setStatus: (status: ChannelStatus) => void;
   email?: string;
   setEmail: (email: string) => void;
   color: string;
@@ -43,6 +51,8 @@ export const ChannelBrandTab: React.FC<ChannelBrandTabProps> = ({
   setName,
   description,
   setDescription,
+  status = 'ACTIVE',
+  setStatus,
   email = '',
   setEmail,
   color,
@@ -202,6 +212,104 @@ export const ChannelBrandTab: React.FC<ChannelBrandTabProps> = ({
               />
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* Operational Status Selector Card */}
+      <div className="p-5 sm:p-6 bg-slate-50/80 rounded-2xl border border-slate-100 space-y-3.5">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+            <Activity className="w-3.5 h-3.5 text-indigo-500" />
+            <span>สถานะการดำเนินงานของช่อง (Operational Status)</span>
+          </label>
+          <span className="text-[10px] font-medium text-slate-400 bg-slate-100/80 px-2 py-0.5 rounded-full border border-slate-200/60">
+            ระบบ & สถิติ
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 pt-1">
+          {(
+            [
+              {
+                id: 'ACTIVE',
+                label: 'เปิดใช้งาน (Active)',
+                badge: 'ออนแอร์ปกติ',
+                badgeClass: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+                desc: 'ผลิตและเผยแพร่คอนเทนต์ตามปกติ',
+                icon: Radio,
+                activeBorder: 'border-emerald-500 ring-2 ring-emerald-500/20',
+                activeBg: 'bg-emerald-50/70'
+              },
+              {
+                id: 'PLANNING',
+                label: 'กำลังวางแผน (Planning)',
+                badge: 'เตรียมเปิดตัว',
+                badgeClass: 'bg-amber-100 text-amber-800 border-amber-200',
+                desc: 'กำลังพัฒนา ยังไม่ออนแอร์',
+                icon: Clock,
+                activeBorder: 'border-amber-500 ring-2 ring-amber-500/20',
+                activeBg: 'bg-amber-50/70'
+              },
+              {
+                id: 'PAUSED',
+                label: 'พักชั่วคราว (Paused)',
+                badge: 'จบซีซัน / พักงาน',
+                badgeClass: 'bg-orange-100 text-orange-800 border-orange-200',
+                desc: 'พักการผลิตชั่วคราว / รอซีซันใหม่',
+                icon: PauseCircle,
+                activeBorder: 'border-orange-500 ring-2 ring-orange-500/20',
+                activeBg: 'bg-orange-50/70'
+              },
+              {
+                id: 'ARCHIVED',
+                label: 'ปิดตัวแล้ว (Archived)',
+                badge: 'ยุติการออกอากาศ',
+                badgeClass: 'bg-slate-200 text-slate-700 border-slate-300',
+                desc: 'ยุติการเผยแพร่แล้ว (เก็บประวัติ)',
+                icon: Archive,
+                activeBorder: 'border-slate-500 ring-2 ring-slate-500/20',
+                activeBg: 'bg-slate-100/90'
+              }
+            ] as const
+          ).map((item) => {
+            const isSelected = status === item.id;
+            const Icon = item.icon;
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => setStatus(item.id)}
+                disabled={isSubmitting}
+                className={`p-3 rounded-xl border text-left transition-all relative flex flex-col justify-between cursor-pointer select-none group ${
+                  isSelected 
+                    ? `${item.activeBorder} ${item.activeBg} shadow-xs` 
+                    : 'border-slate-200/90 bg-white hover:border-slate-300 hover:bg-slate-50/50'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-1 mb-1.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <Icon className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-slate-900 font-bold' : 'text-slate-400 group-hover:text-slate-600'}`} />
+                      <span className={`text-xs font-bold truncate ${isSelected ? 'text-slate-900' : 'text-slate-700'}`}>
+                        {item.label}
+                      </span>
+                    </div>
+                    {isSelected && (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                    )}
+                  </div>
+                  <p className="text-[11px] text-slate-400 font-normal leading-tight line-clamp-2">
+                    {item.desc}
+                  </p>
+                </div>
+                <div className="mt-2.5 pt-2 border-t border-slate-100/80 flex items-center">
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${item.badgeClass}`}>
+                    {item.badge}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
         </div>
       </div>
 

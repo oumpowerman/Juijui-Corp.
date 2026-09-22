@@ -9,6 +9,8 @@ interface ChannelStatsCardsProps {
   groupsCount: number;
   categorizedCount: number;
   channelsCount: number;
+  activeChannelsCount?: number;
+  monetizedChannelsCount?: number;
   totalContents: number;
   totalReach: number;
   isRefreshingCounts: boolean;
@@ -24,6 +26,8 @@ export const ChannelStatsCards: React.FC<ChannelStatsCardsProps> = ({
   groupsCount,
   categorizedCount,
   channelsCount,
+  activeChannelsCount,
+  monetizedChannelsCount,
   totalContents,
   totalReach,
   isRefreshingCounts,
@@ -64,18 +68,35 @@ export const ChannelStatsCards: React.FC<ChannelStatsCardsProps> = ({
         </div>
       </div>
 
-      {/* Card 2: Total Channels */}
-      <div className="p-5 bg-gradient-to-br from-white/95 via-sky-50/35 to-white/85 backdrop-blur-md rounded-2xl border border-white/80 border-b-[3px] border-b-sky-100/80 ring-1 ring-slate-100/60 shadow-[0_8px_25px_rgba(0,0,0,0.03)] hover:shadow-[0_14px_30px_rgba(14,165,233,0.08)] hover:translate-y-[-2px] hover:border-b-sky-200 transition-all duration-200 flex items-center gap-4">
-        <div className="w-12 h-12 rounded-xl bg-gradient-to-b from-sky-50 to-sky-100/80 border border-white border-b-2 border-b-sky-200/80 shadow-md shadow-sky-100/80 flex items-center justify-center text-sky-600 shrink-0">
-          <Radio className="w-5 h-5" />
-        </div>
-        <div className="min-w-0">
-          <p className="text-xs font-bold text-slate-500">รายการในสังกัด</p>
-          <div className="flex items-baseline gap-1.5 mt-0.5">
-            <p className="text-2xl font-black text-slate-800 tracking-tight">{channelsCount}</p>
-            <span className="text-xs font-semibold text-slate-400">ช่อง</span>
+      {/* Card 2: Total Channels & Operational/Monetization Breakdown */}
+      <div className="p-5 bg-gradient-to-br from-white/95 via-sky-50/35 to-white/85 backdrop-blur-md rounded-2xl border border-white/80 border-b-[3px] border-b-sky-100/80 ring-1 ring-slate-100/60 shadow-[0_8px_25px_rgba(0,0,0,0.03)] hover:shadow-[0_14px_30px_rgba(14,165,233,0.08)] hover:translate-y-[-2px] hover:border-b-sky-200 transition-all duration-200 flex flex-col justify-between">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-gradient-to-b from-sky-50 to-sky-100/80 border border-white border-b-2 border-b-sky-200/80 shadow-md shadow-sky-100/80 flex items-center justify-center text-sky-600 shrink-0">
+            <Radio className="w-5 h-5" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-bold text-slate-500">รายการในสังกัด</p>
+            <div className="flex items-baseline gap-1.5 mt-0.5">
+              <p className="text-2xl font-black text-slate-800 tracking-tight">{channelsCount}</p>
+              <span className="text-xs font-semibold text-slate-400">ช่อง</span>
+            </div>
           </div>
         </div>
+
+        {(monetizedChannelsCount !== undefined || activeChannelsCount !== undefined) && (
+          <div className="mt-3 pt-2.5 border-t border-sky-100/70 flex items-center gap-1.5 flex-wrap">
+            {monetizedChannelsCount !== undefined && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-emerald-100/90 text-emerald-800 border border-emerald-200 shadow-2xs flex items-center gap-1">
+                <span>💰 สร้างรายได้: {monetizedChannelsCount}</span>
+              </span>
+            )}
+            {activeChannelsCount !== undefined && (
+              <span className="text-[10px] font-semibold px-2 py-0.5 rounded-md bg-sky-100/70 text-sky-800 border border-sky-200/60 shadow-2xs">
+                ออนแอร์: {activeChannelsCount}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Card 3: Total Contents */}

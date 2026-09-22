@@ -45,24 +45,21 @@ export const useContentStock = ({
     // Track IDs that have been optimistically added to totalCount to prevent double-counting
     const trackedAddedIds = useRef(new Set<string>());
 
-    // Decoupled count of unassigned channel items: only fetched on initial load or manual refresh
+    // Decoupled count of unassigned channel items: fetched on initial load, subTab change, or manual refresh
+    const activeSubTab = filters.contentSubTab || 'ACTIVE';
     const fetchUnassignedChannelCount = useCallback(async () => {
         try {
-            const { count, error } = await buildUnassignedChannelCountQuery();
+            const { count, error } = await buildUnassignedChannelCountQuery(activeSubTab);
             if (!error && count !== null) {
                 setUnassignedChannelCount(count);
             }
         } catch (err) {
             console.error('Failed to fetch unassigned channel count:', err);
         }
-    }, []);
+    }, [activeSubTab]);
 
-    const hasFetchedUnassignedCountRef = useRef(false);
     useEffect(() => {
-        if (!hasFetchedUnassignedCountRef.current) {
-            hasFetchedUnassignedCountRef.current = true;
-            fetchUnassignedChannelCount();
-        }
+        fetchUnassignedChannelCount();
     }, [fetchUnassignedChannelCount]);
 
     const pageRef = useRef(page);

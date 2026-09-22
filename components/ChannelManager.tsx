@@ -65,6 +65,7 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
           followers: c.followers || {},
           email: c.email || '',
           last_sync_followers_at: c.last_sync_followers_at || c.followers?._last_synced_at || null,
+          meta_api: c.meta_api || c.social_links?._meta_api || undefined,
         })));
       }
     } catch (err) {
@@ -193,6 +194,15 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
     };
   }, [enrichedChannels, groups]);
 
+  // Operational and Monetization Stats Calculations
+  const monetizedChannelsCount = useMemo(() => {
+    return enrichedChannels.filter(ch => ch.monetization?.is_monetized).length;
+  }, [enrichedChannels]);
+
+  const activeChannelsCount = useMemo(() => {
+    return enrichedChannels.filter(ch => (ch.status || 'ACTIVE') === 'ACTIVE').length;
+  }, [enrichedChannels]);
+
   const grandTotalFollowers = useMemo(() => {
     return enrichedChannels.reduce((sum, ch) => sum + getChannelTotalFollowers(ch), 0);
   }, [enrichedChannels]);
@@ -309,6 +319,8 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
             groupsCount={groups.length}
             categorizedCount={sectionData.categorizedCount}
             channelsCount={channels.length}
+            activeChannelsCount={activeChannelsCount}
+            monetizedChannelsCount={monetizedChannelsCount}
             totalContents={totalContentsCount}
             totalReach={grandTotalFollowers}
             isRefreshingCounts={isRefreshingCounts}

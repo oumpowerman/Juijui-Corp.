@@ -10,7 +10,11 @@ import {
   ExternalLink, 
   Plus, 
   ArrowLeft,
-  Clock
+  Clock,
+  Coins,
+  Radio,
+  Sparkles,
+  Hammer
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Channel, ChannelGroup } from '../../../../types';
@@ -58,7 +62,10 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
   bgClass,
 }) => {
   const [isFlipped, setIsFlipped] = useState(false);
-  const aura = getRankAuraConfig(rank);
+  const isPlanning = channel.status === 'PLANNING';
+  const isPausedOrArchived = channel.status === 'PAUSED' || channel.status === 'ARCHIVED';
+  const isInactive = isPlanning || isPausedOrArchived;
+  const aura = isInactive ? null : getRankAuraConfig(rank);
   const brandLinks = channel.brand_links || [];
   const brandLinksCount = brandLinks.length;
   const channelSyncAt = channel.last_sync_followers_at || (channel.followers as any)?._last_synced_at;
@@ -92,24 +99,32 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
             WebkitBackfaceVisibility: 'hidden' 
           }}
           onClick={() => onEdit(channel)}
-          className={`w-full h-full bg-white rounded-[2rem] border border-b-[3.5px] transition-all duration-300 group flex flex-col cursor-pointer relative hover:z-30 ${
-            aura 
-              ? `${aura.cardBorder} ${aura.cardBevel} ${aura.cardShadow} ${aura.cardHoverShadow} ${aura.cardRing}`
-              : 'border-slate-200/80 border-b-slate-200/90 shadow-[0_4px_16px_rgba(0,0,0,0.03)] hover:shadow-[0_22px_45px_rgba(0,0,0,0.07)] hover:border-b-indigo-200/90'
+          className={`w-full h-full rounded-[2rem] transition-all duration-300 group flex flex-col cursor-pointer relative hover:z-30 ${
+            isPlanning
+              ? 'bg-gradient-to-b from-amber-50/30 via-white to-orange-50/20 border-2 border-dashed border-amber-300/85 border-b-[3.5px] border-b-amber-400/90 shadow-[0_4px_20px_rgba(245,158,11,0.06)] hover:shadow-[0_20px_45px_rgba(245,158,11,0.13)] hover:border-amber-400/95'
+              : isPausedOrArchived
+                ? 'bg-white grayscale-[0.65] opacity-75 hover:grayscale-0 hover:opacity-100 border border-slate-200/70 border-b-[3.5px] border-b-slate-300/80 shadow-[0_2px_10px_rgba(0,0,0,0.02)] hover:shadow-[0_16px_35px_rgba(0,0,0,0.06)]'
+                : aura 
+                  ? `bg-white border border-b-[3.5px] ${aura.cardBorder} ${aura.cardBevel} ${aura.cardShadow} ${aura.cardHoverShadow} ${aura.cardRing}`
+                  : 'bg-white border border-b-[3.5px] border-slate-200/80 border-b-slate-200/90 shadow-[0_4px_16px_rgba(0,0,0,0.03)] hover:shadow-[0_22px_45px_rgba(0,0,0,0.07)] hover:border-b-indigo-200/90'
           }`}
         >
           {/* 3D Specular Top Rim Light */}
           <div className="pointer-events-none absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-white to-transparent opacity-90 z-20" />
 
-          {/* Top 10 Rank Aura Glow or Standard Ambient Glow */}
-          {aura ? (
-            <RankAmbientGlow aura={aura} />
-          ) : (
-            <div className={`absolute -inset-[1px] rounded-[2rem] bg-gradient-to-tr ${glow.gradient} opacity-0 group-hover:opacity-100 blur-xl transition-all duration-500 -z-10 pointer-events-none`} />
+          {/* Ambient Glow / Rank Aura */}
+          {isPlanning ? (
+            <div className="absolute -inset-[1px] rounded-[2rem] bg-gradient-to-tr from-amber-200/35 via-orange-200/25 to-amber-100/35 opacity-0 group-hover:opacity-100 blur-xl transition-all duration-500 -z-10 pointer-events-none" />
+          ) : !isInactive && (
+            aura ? (
+              <RankAmbientGlow aura={aura} />
+            ) : (
+              <div className={`absolute -inset-[1px] rounded-[2rem] bg-gradient-to-tr ${glow.gradient} opacity-0 group-hover:opacity-100 blur-xl transition-all duration-500 -z-10 pointer-events-none`} />
+            )
           )}
 
           {/* Color Bar / Banner */}
-          <div className={`h-28 w-full ${bgClass} relative rounded-t-[calc(2rem-2px)] overflow-hidden transition-all duration-500 ${aura?.bannerBorder || ''}`}>
+          <div className={`h-28 w-full ${isPlanning ? 'bg-gradient-to-r from-amber-200/80 via-orange-100/80 to-amber-200/80' : bgClass} relative rounded-t-[calc(2rem-2px)] overflow-hidden transition-all duration-500 ${isPausedOrArchived ? 'opacity-80 saturate-75' : ''} ${aura?.bannerBorder || ''}`}>
             {/* Mesh design on matching background */}
             <div 
               className="absolute inset-0 opacity-15"
@@ -119,6 +134,24 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
                 color: 'inherit'
               }} 
             />
+
+            {/* Pastel Construction Diagonal Stripes Animation for PLANNING */}
+            {isPlanning && (
+              <>
+                <motion.div
+                  animate={{ backgroundPosition: ['0px 0px', '56px 0px'] }}
+                  transition={{ repeat: Infinity, duration: 4, ease: 'linear' }}
+                  className="absolute inset-0 pointer-events-none opacity-60 mix-blend-multiply"
+                  style={{
+                    backgroundImage: 'repeating-linear-gradient(-45deg, rgba(245, 158, 11, 0.16) 0, rgba(245, 158, 11, 0.16) 14px, rgba(255, 255, 255, 0.7) 14px, rgba(255, 255, 255, 0.7) 28px)',
+                    backgroundSize: '56px 56px',
+                  }}
+                />
+                {/* Construction Caution Accent Ribbon at bottom of banner */}
+                <div className="absolute bottom-0 inset-x-0 h-1 bg-gradient-to-r from-amber-400/80 via-orange-400/80 to-amber-400/80 opacity-70" />
+              </>
+            )}
+
             {/* Rank ambient mesh overlay */}
             {aura && (
               <div className={`absolute inset-0 ${aura.bannerMesh}`} />
@@ -137,22 +170,51 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
                 </span>
               )}
 
+              {/* Operational Status Pill */}
+              {isPlanning && (
+                <span 
+                  className="px-2.5 py-0.5 text-[9px] font-black rounded-full bg-gradient-to-r from-amber-100/95 via-orange-50/95 to-amber-100/95 text-amber-900 border border-amber-300/90 shadow-2xs flex items-center gap-1.5 shrink-0"
+                  title="สถานะช่อง: อยู่ระหว่างวางแผนเตรียมงาน ก่อสร้างช่องรายการใหม่"
+                >
+                  <motion.span
+                    animate={{ rotate: [-10, 10, -10] }}
+                    transition={{ repeat: Infinity, duration: 1.4, ease: "easeInOut" }}
+                    className="inline-block text-amber-600 origin-bottom"
+                  >
+                    <Hammer className="w-2.5 h-2.5" />
+                  </motion.span>
+                  <span>กำลังเตรียมงาน</span>
+                  <motion.span
+                    animate={{ opacity: [0.4, 1, 0.4], scale: [0.85, 1.15, 0.85] }}
+                    transition={{ repeat: Infinity, duration: 1.8, ease: "easeInOut" }}
+                    className="inline-block text-amber-500"
+                  >
+                    <Sparkles className="w-2.5 h-2.5" />
+                  </motion.span>
+                </span>
+              )}
+              {channel.status === 'PAUSED' && (
+                <span 
+                  className="px-2 py-0.5 text-[9px] font-black rounded-full bg-orange-100/95 text-orange-800 border border-orange-300 shadow-2xs flex items-center gap-1 shrink-0"
+                  title="สถานะช่อง: พักชั่วคราว / จบซีซัน"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-orange-500"></span>
+                  <span>พักชั่วคราว</span>
+                </span>
+              )}
+              {channel.status === 'ARCHIVED' && (
+                <span 
+                  className="px-2 py-0.5 text-[9px] font-black rounded-full bg-slate-200/95 text-slate-700 border border-slate-300 shadow-2xs flex items-center gap-1 shrink-0"
+                  title="สถานะช่อง: ยุติการออกอากาศ (เก็บประวัติ)"
+                >
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400"></span>
+                  <span>ปิดตัวแล้ว</span>
+                </span>
+              )}
+
               <span className="font-mono text-[9px] font-black uppercase tracking-widest text-slate-800/70 bg-white/40 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/60 shadow-2xs shrink-0">
                 SHOW-{channel.id.substring(0, 4).toUpperCase()}
               </span>
-
-              {/* Minimal 3D Flip Trigger */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsFlipped(true);
-                }}
-                className="w-6 h-6 ml-0.5 rounded-full bg-white/85 backdrop-blur-md text-slate-500 border border-white/90 border-b-[2px] border-b-slate-200/80 shadow-2xs hover:bg-white hover:text-indigo-600 hover:border-indigo-200 transition-all flex items-center justify-center active:scale-95 cursor-pointer z-20 group/flip"
-                title="พลิกดูคู่มือและเอกสาร (Flip to Docs)"
-              >
-                <BookOpen className="w-3 h-3 group-hover/flip:scale-110 transition-transform duration-300" />
-              </button>
             </div>
           </div>
           
@@ -164,15 +226,38 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
               </div>
             )}
 
-            <div className={`w-20 h-20 rounded-2xl border-[3.5px] border-white shadow-[0_8px_20px_rgba(0,0,0,0.08)] bg-white overflow-hidden flex items-center justify-center group-hover:scale-105 group-hover:-rotate-2 transition-all duration-300 ${
-              aura 
-                ? `${aura.avatarHaloRing} group-hover:shadow-[0_12px_28px_rgba(245,158,11,0.3)]` 
-                : 'ring-1 ring-slate-200/60 group-hover:shadow-[0_12px_28px_rgba(99,102,241,0.18)]'
+            {isPlanning && (
+              <div className="absolute -top-2.5 -right-2.5 z-30 pointer-events-none">
+                <span className="px-1.5 py-0.5 text-[8px] font-black uppercase rounded-md bg-amber-400 text-amber-950 shadow-xs border border-amber-200/90 flex items-center gap-0.5 tracking-wider">
+                  <span>SOON</span>
+                </span>
+              </div>
+            )}
+
+            <div className={`w-20 h-20 rounded-2xl border-[3.5px] border-white shadow-[0_8px_20px_rgba(0,0,0,0.08)] bg-white overflow-hidden flex items-center justify-center group-hover:scale-105 group-hover:-rotate-2 transition-all duration-300 relative ${
+              isPlanning
+                ? 'ring-2 ring-amber-300/80 ring-offset-2 ring-offset-amber-50/60 shadow-[0_6px_16px_rgba(245,158,11,0.18)]'
+                : isPausedOrArchived
+                  ? 'ring-1 ring-slate-200/60 shadow-xs'
+                  : aura 
+                    ? `${aura.avatarHaloRing} group-hover:shadow-[0_12px_28px_rgba(245,158,11,0.3)]` 
+                    : 'ring-1 ring-slate-200/60 group-hover:shadow-[0_12px_28px_rgba(99,102,241,0.18)]'
             }`}>
+              {/* Blueprint Grid Background Pattern for Planning */}
+              {isPlanning && (
+                <div 
+                  className="absolute inset-0 opacity-20 pointer-events-none"
+                  style={{
+                    backgroundImage: 'linear-gradient(to right, #d97706 1px, transparent 1px), linear-gradient(to bottom, #d97706 1px, transparent 1px)',
+                    backgroundSize: '8px 8px'
+                  }}
+                />
+              )}
+
               {channel.logoUrl ? (
-                <img src={channel.logoUrl} className="w-full h-full object-cover rounded-xl" alt="logo" />
+                <img src={channel.logoUrl} className="w-full h-full object-cover rounded-xl relative z-10" alt="logo" />
               ) : (
-                <div className={`w-full h-full flex items-center justify-center font-black text-2xl uppercase rounded-xl ${channel.color.split(' ')[1]}`}>
+                <div className={`w-full h-full flex items-center justify-center font-black text-2xl uppercase rounded-xl relative z-10 ${channel.color.split(' ')[1]}`}>
                   {channel.name.substring(0, 2)}
                 </div>
               )}
@@ -263,6 +348,41 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
                   <Layers className="w-3.5 h-3.5" />
                   <span>{contentCount} คอนเทนต์</span>
                 </span>
+
+                {/* Pre-launch / Pre-production Blueprint Badge for Planning channels */}
+                {isPlanning && (
+                  <span 
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-amber-50 via-orange-50/80 to-amber-50 text-amber-900 border border-amber-200/90 border-b-[2px] border-b-amber-300/90 shadow-2xs"
+                    title="ช่องรายการนี้อยู่ในขั้นตอนเตรียมงาน Pre-production / วางผังรายการ"
+                  >
+                    <motion.span
+                      animate={{ rotate: [-10, 10, -10] }}
+                      transition={{ repeat: Infinity, duration: 1.6, ease: "easeInOut" }}
+                    >
+                      🚧
+                    </motion.span>
+                    <span>กำลังสร้างช่อง • Pre-production</span>
+                  </span>
+                )}
+
+                {/* Monetization Badge */}
+                {channel.monetization?.is_monetized && (
+                  <span 
+                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-emerald-50 via-teal-50 to-white text-emerald-800 border border-emerald-200 border-b-[2px] border-b-emerald-300/80 shadow-2xs"
+                    title={channel.monetization?.monetization_note ? `สร้างรายได้: ${channel.monetization.monetization_note}` : 'เปิดสร้างรายได้เรียบร้อยแล้ว'}
+                  >
+                    <Coins className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                    <span>สร้างรายได้</span>
+                    <span className="flex items-center gap-1 ml-0.5">
+                      {channel.monetization?.youtube && (
+                        <span className="text-[8px] font-black bg-rose-600 text-white px-1 py-0.5 rounded shadow-2xs" title="YouTube YPP">YT</span>
+                      )}
+                      {channel.monetization?.facebook && (
+                        <span className="text-[8px] font-black bg-blue-600 text-white px-1 py-0.5 rounded shadow-2xs" title="Facebook In-stream Ads">FB</span>
+                      )}
+                    </span>
+                  </span>
+                )}
 
                 {channel.email && channel.email.trim() && (
                   <a
@@ -369,7 +489,11 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
             transform: 'rotateY(180deg)' 
           }}
           onClick={(e) => e.stopPropagation()}
-          className="absolute inset-0 w-full h-full bg-white rounded-[2rem] border border-b-[3.5px] border-slate-200/80 border-b-indigo-200/90 shadow-[0_12px_32px_rgba(0,0,0,0.06)] flex flex-col overflow-hidden z-20"
+          className={`absolute inset-0 w-full h-full bg-white rounded-[2rem] flex flex-col overflow-hidden z-20 ${
+            isPlanning 
+              ? 'border-2 border-dashed border-amber-300/85 border-b-[3.5px] border-b-amber-400/90 shadow-[0_12px_32px_rgba(245,158,11,0.08)]' 
+              : 'border border-b-[3.5px] border-slate-200/80 border-b-indigo-200/90 shadow-[0_12px_32px_rgba(0,0,0,0.06)]'
+          }`}
         >
           {/* 3D Specular Top Rim Light */}
           <div className="pointer-events-none absolute inset-x-0 top-0 h-[1.5px] bg-gradient-to-r from-transparent via-white to-transparent opacity-90 z-20" />

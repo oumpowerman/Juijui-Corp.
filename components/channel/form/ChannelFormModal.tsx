@@ -16,7 +16,16 @@ import {
   CheckCircle2, 
   AlertCircle
 } from 'lucide-react';
-import { Channel, Platform, SocialLinks, PlatformFollowers, BrandLink } from '../../../types';
+import { 
+  Channel, 
+  Platform, 
+  SocialLinks, 
+  PlatformFollowers, 
+  BrandLink, 
+  ChannelMetaApiConfig,
+  ChannelStatus,
+  ChannelMonetization
+} from '../../../types';
 import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 import { useMasterData } from '../../../hooks/useMasterData';
 import { ChannelBrandTab, BrandColorOption } from './tabs/ChannelBrandTab';
@@ -82,11 +91,23 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [email, setEmail] = useState('');
+  const [status, setStatus] = useState<ChannelStatus>('ACTIVE');
+  const [monetization, setMonetization] = useState<ChannelMonetization>({
+    is_monetized: false,
+    youtube: false,
+    facebook: false,
+    monetization_note: '',
+  });
   const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>(['YOUTUBE']);
   const [socialLinks, setSocialLinks] = useState<SocialLinks>({});
   const [followers, setFollowers] = useState<PlatformFollowers>({});
   const [color, setColor] = useState(BRAND_COLORS[0].class);
   const [brandLinks, setBrandLinks] = useState<BrandLink[]>([]);
+  const [metaApi, setMetaApi] = useState<ChannelMetaApiConfig>(() => ({
+    enabled: false,
+    accessToken: '',
+    businessAccountId: '',
+  }));
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [targetId, setTargetId] = useState('');
@@ -109,11 +130,23 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
         setName(channel.name);
         setDescription(channel.description || '');
         setEmail(channel.email || '');
+        setStatus(channel.status || 'ACTIVE');
+        setMonetization(channel.monetization || {
+          is_monetized: false,
+          youtube: false,
+          facebook: false,
+          monetization_note: '',
+        });
         setSelectedPlatforms(channel.platforms || []);
         setSocialLinks(channel.social_links || {});
         setFollowers(channel.followers || {});
         setColor(channel.color || BRAND_COLORS[0].class);
         setBrandLinks(channel.brand_links || []);
+        setMetaApi(channel.meta_api || (channel.social_links as any)?._meta_api || {
+          enabled: false,
+          accessToken: '',
+          businessAccountId: '',
+        });
         setLogoPreview(channel.logoUrl || null);
         setLogoFile(null);
       } else {
@@ -122,11 +155,23 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
         setName('');
         setDescription('');
         setEmail('');
+        setStatus('ACTIVE');
+        setMonetization({
+          is_monetized: false,
+          youtube: false,
+          facebook: false,
+          monetization_note: '',
+        });
         setSelectedPlatforms(['YOUTUBE']);
         setSocialLinks({});
         setFollowers({});
         setColor(BRAND_COLORS[0].class);
         setBrandLinks([]);
+        setMetaApi({
+          enabled: false,
+          accessToken: '',
+          businessAccountId: '',
+        });
         setLogoFile(null);
         setLogoPreview(null);
       }
@@ -214,6 +259,11 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
 
     setIsSubmitting(true);
     try {
+      const isMonetized = Boolean(
+        (selectedPlatforms.includes('YOUTUBE') && monetization.youtube) ||
+        (selectedPlatforms.includes('FACEBOOK') && monetization.facebook)
+      );
+
       const payload: Channel = {
         id: targetId,
         name: name.trim(),
@@ -225,6 +275,22 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
         social_links: socialLinks,
         followers: followers,
         brand_links: brandLinks,
+        group_id: channel?.group_id ?? null,
+        group_name: channel?.group_name ?? null,
+        content_strategy: channel?.content_strategy ?? null,
+        last_sync_followers_at: channel?.last_sync_followers_at ?? null,
+        status: status,
+        monetization: {
+          is_monetized: isMonetized,
+          youtube: selectedPlatforms.includes('YOUTUBE') ? Boolean(monetization.youtube) : false,
+          facebook: selectedPlatforms.includes('FACEBOOK') ? Boolean(monetization.facebook) : false,
+          monetization_note: monetization.monetization_note?.trim() || undefined,
+        },
+        meta_api: (metaApi.enabled || metaApi.accessToken?.trim()) ? {
+          enabled: Boolean(metaApi.enabled),
+          accessToken: metaApi.accessToken?.trim() || '',
+          businessAccountId: metaApi.businessAccountId?.trim() || undefined,
+        } : undefined,
       };
 
       const success = await onSave(payload, logoFile);
@@ -388,6 +454,8 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
                       setName={setName}
                       description={description}
                       setDescription={setDescription}
+                      status={status}
+                      setStatus={setStatus}
                       email={email}
                       setEmail={setEmail}
                       color={color}
@@ -420,6 +488,10 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
                       onSocialLinkChange={handleSocialLinkChange}
                       followers={followers}
                       onFollowersChange={handleFollowersChange}
+                      metaApi={metaApi}
+                      onMetaApiChange={setMetaApi}
+                      monetization={monetization}
+                      onMonetizationChange={setMonetization}
                       isSubmitting={isSubmitting}
                     />
                   </motion.div>

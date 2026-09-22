@@ -1,5 +1,5 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useCallback } from 'react';
 import { Task, Channel, User, MasterOption } from '../../types.ts';
 import { Plus, Sparkles } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -86,8 +86,12 @@ const ContentStock: React.FC<ContentStockProps> = ({ tasks: globalTasks, channel
   const { queueItems } = useShootQueueContext();
   const queueCount = queueItems?.length || 0;
 
+  const handleJumpToPage1 = useCallback(() => {
+    setCurrentPage(1);
+  }, [setCurrentPage]);
+
   // --- HYBRID SYNC: Watch Global Tasks ---
-  useStockSync(globalTasks, paginatedTasks, updateLocalItem, () => setCurrentPage(1));
+  useStockSync(globalTasks, paginatedTasks, updateLocalItem, handleJumpToPage1);
 
   const bgTheme = useMemo(() => {
     const themes: BackgroundTheme[] = [

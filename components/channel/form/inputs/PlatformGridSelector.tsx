@@ -1,6 +1,28 @@
-import React from 'react';
-import { Youtube, Facebook, Instagram, Video, Globe, Check, LayoutTemplate, ExternalLink, Link2, Users, ShieldAlert } from 'lucide-react';
-import { Platform, SocialLinks, PlatformFollowers } from '../../../../types';
+import React, { useState } from 'react';
+import { 
+  Youtube, 
+  Facebook, 
+  Instagram, 
+  Video, 
+  Globe, 
+  Check, 
+  LayoutTemplate, 
+  ExternalLink, 
+  Users, 
+  ShieldAlert,
+  Key,
+  Sparkles,
+  Eye,
+  EyeOff,
+  RefreshCw,
+  CheckCircle2,
+  XCircle,
+  Building2,
+  ShieldCheck,
+  ArrowRight,
+  Link2
+} from 'lucide-react';
+import { Platform, SocialLinks, PlatformFollowers, ChannelMetaApiConfig } from '../../../../types';
 
 export const PLATFORM_OPTIONS: { id: Platform; label: string; icon: any; color: string; placeholder: string; prefixHelp: string }[] = [
   { id: 'YOUTUBE', label: 'YouTube', icon: Youtube, color: 'text-red-600', placeholder: 'https://youtube.com/@channel_name', prefixHelp: 'URL ช่อง YouTube เช่น https://youtube.com/@...' },
@@ -17,6 +39,8 @@ interface PlatformGridSelectorProps {
   onSocialLinkChange?: (platform: Platform, url: string) => void;
   followers?: PlatformFollowers;
   onFollowersChange?: (platform: Platform, count: number | undefined) => void;
+  metaApi?: ChannelMetaApiConfig;
+  onMetaApiChange?: (config: ChannelMetaApiConfig) => void;
   isSubmitting: boolean;
 }
 
@@ -27,8 +51,20 @@ export const PlatformGridSelector: React.FC<PlatformGridSelectorProps> = ({
   onSocialLinkChange,
   followers = {},
   onFollowersChange,
+  metaApi,
+  onMetaApiChange,
   isSubmitting
 }) => {
+  const [showMetaToken, setShowMetaToken] = useState(false);
+  const [isTestingMeta, setIsTestingMeta] = useState(false);
+  const [testMetaResult, setTestMetaResult] = useState<{
+    tested: boolean;
+    success: boolean;
+    message?: string;
+    targetMatch?: { matched: boolean; username: string; followersCount?: number; name?: string };
+    accountsCount?: number;
+  } | null>(null);
+
   const handleTestLink = (url?: string) => {
     if (!url || !url.trim()) return;
     let fullUrl = url.trim();
@@ -36,6 +72,73 @@ export const PlatformGridSelector: React.FC<PlatformGridSelectorProps> = ({
       fullUrl = 'https://' + fullUrl;
     }
     window.open(fullUrl, '_blank', 'noopener,noreferrer');
+  };
+
+  const channelMeta: ChannelMetaApiConfig = metaApi || {
+    enabled: false,
+    accessToken: '',
+    businessAccountId: '',
+  };
+
+  const updateChannelMeta = (fields: Partial<ChannelMetaApiConfig>) => {
+    if (!onMetaApiChange) return;
+    onMetaApiChange({
+      ...channelMeta,
+      ...fields,
+    });
+    setTestMetaResult(null);
+  };
+
+  const handleTestChannelMeta = async () => {
+    const token = (channelMeta.accessToken || '').trim();
+    if (!token) {
+      setTestMetaResult({
+        tested: true,
+        success: false,
+        message: 'กรุณากรอก Meta Access Token ก่อนทดสอบครับ',
+      });
+      return;
+    }
+
+    setIsTestingMeta(true);
+    setTestMetaResult(null);
+
+    try {
+      const igUrl = socialLinks.INSTAGRAM || '';
+      const res = await fetch('/api/follower-sync/test-meta-token', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accessToken: token,
+          businessAccountId: channelMeta.businessAccountId?.trim() || undefined,
+          targetUsername: igUrl || undefined,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setTestMetaResult({
+          tested: true,
+          success: true,
+          targetMatch: data.targetMatch,
+          accountsCount: Array.isArray(data.accounts) ? data.accounts.length : 0,
+        });
+      } else {
+        setTestMetaResult({
+          tested: true,
+          success: false,
+          message: data.error || 'Token ไม่ถูกต้องหรือไม่มีสิทธิ์เข้าถึง Instagram API',
+        });
+      }
+    } catch (err: any) {
+      setTestMetaResult({
+        tested: true,
+        success: false,
+        message: err?.message || 'ไม่สามารถติดต่อเซิร์ฟเวอร์เพื่อทดสอบ Token ได้',
+      });
+    } finally {
+      setIsTestingMeta(false);
+    }
   };
 
   // Calculate live total followers for this channel
@@ -181,9 +284,195 @@ export const PlatformGridSelector: React.FC<PlatformGridSelectorProps> = ({
                   </div>
 
                   {p.id.toUpperCase() === 'INSTAGRAM' && (
-                    <div className="mt-1.5 flex items-center gap-1.5 text-[11px] text-amber-700 bg-amber-50/70 border border-amber-200/50 px-2.5 py-1 rounded-lg">
-                      <ShieldAlert className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                      <span>Instagram มีระบบปิดกั้นการดึงยอดอัตโนมัติ (Meta Security) แนะนำให้ระบุยอดผู้ติดตามล่าสุดที่ช่องนี้โดยตรง</span>
+                    <div className="mt-3 p-3.5 bg-gradient-to-br from-pink-50/70 via-purple-50/50 to-indigo-50/50 border border-pink-200/70 rounded-2xl space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-amber-500 via-pink-500 to-purple-600 text-white flex items-center justify-center shadow-xs">
+                            <Sparkles className="w-3.5 h-3.5" />
+                          </div>
+                          <div>
+                            <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                              <span>Meta Graph API สำหรับ Instagram ช่องนี้</span>
+                              <span className="text-[10px] font-semibold px-1.5 py-0.2 rounded bg-pink-100 text-pink-700">
+                                Per-Channel
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-500">
+                              หากไม่กรอก ระบบจะดึงยอดผ่าน Token Pool ส่วนกลางของ Master Data อัตโนมัติ
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Toggle Per-Channel Override */}
+                        <label className="relative inline-flex items-center cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={Boolean(channelMeta.enabled)}
+                            onChange={(e) => updateChannelMeta({ enabled: e.target.checked })}
+                            disabled={isSubmitting}
+                            className="sr-only peer"
+                          />
+                          <div className="w-9 h-5 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-pink-600"></div>
+                          <span className="ml-2 text-xs font-medium text-slate-700">
+                            {channelMeta.enabled ? 'กำหนดเอง' : 'ใช้ส่วนกลาง'}
+                          </span>
+                        </label>
+                      </div>
+
+                      {/* Fallback Notice when Disabled */}
+                      {!channelMeta.enabled ? (
+                        <div className="flex items-center justify-between text-[11px] text-emerald-800 bg-emerald-50/80 border border-emerald-200/60 px-3 py-2 rounded-xl">
+                          <div className="flex items-center gap-1.5">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            <span>สลับใช้ <strong>Master Data Meta Token Pool</strong> อัตโนมัติ (ไม่จำเป็นต้องกรอก Token แยก)</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => updateChannelMeta({ enabled: true })}
+                            className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 underline underline-offset-2 shrink-0 ml-2"
+                          >
+                            ต้องการกรอก Token เฉพาะช่องนี้
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="space-y-2.5 pt-1">
+                          {/* Access Token Input */}
+                          <div>
+                            <div className="flex items-center justify-between mb-1">
+                              <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                                <Key className="w-3 h-3 text-pink-600" />
+                                <span>Meta Access Token เฉพาะของช่องนี้:</span>
+                              </label>
+                              <span className="text-[10px] text-slate-400">
+                                Override ค่าของ Master Data
+                              </span>
+                            </div>
+                            <div className="relative">
+                              <input
+                                type={showMetaToken ? 'text' : 'password'}
+                                value={channelMeta.accessToken || ''}
+                                onChange={(e) => updateChannelMeta({ accessToken: e.target.value })}
+                                placeholder="EAA..."
+                                disabled={isSubmitting}
+                                className="w-full text-xs font-mono px-3 py-2 pr-16 bg-white border border-pink-200/80 rounded-xl focus:outline-none focus:ring-2 focus:ring-pink-500/20 focus:border-pink-500 text-slate-800 transition-all placeholder:text-slate-300"
+                              />
+                              <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => setShowMetaToken(!showMetaToken)}
+                                  className="p-1 text-slate-400 hover:text-slate-600 rounded"
+                                  title={showMetaToken ? 'ซ่อน' : 'แสดง'}
+                                >
+                                  {showMetaToken ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
+                                </button>
+                                {channelMeta.accessToken && (
+                                  <button
+                                    type="button"
+                                    onClick={() => updateChannelMeta({ accessToken: '' })}
+                                    className="text-[10px] text-slate-400 hover:text-rose-600 px-1 py-0.5"
+                                  >
+                                    ล้าง
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Business Account ID (Optional) */}
+                          <div>
+                            <label className="text-[11px] font-bold text-slate-700 flex items-center gap-1 mb-1">
+                              <Building2 className="w-3 h-3 text-purple-600" />
+                              <span>Instagram Business Account ID (ไม่บังคับ - Optional):</span>
+                            </label>
+                            <input
+                              type="text"
+                              value={channelMeta.businessAccountId || ''}
+                              onChange={(e) => updateChannelMeta({ businessAccountId: e.target.value })}
+                              placeholder="เช่น 17841400... (เว้นว่างเพื่อให้ค้นหาอัตโนมัติ)"
+                              disabled={isSubmitting}
+                              className="w-full text-xs font-mono px-3 py-2 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 text-slate-800 transition-all placeholder:text-slate-300"
+                            />
+                          </div>
+
+                          {/* Test Token Action */}
+                          <div className="flex flex-wrap items-center gap-2 pt-1">
+                            <button
+                              type="button"
+                              onClick={handleTestChannelMeta}
+                              disabled={isTestingMeta || !channelMeta.accessToken?.trim() || isSubmitting}
+                              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-pink-600 hover:bg-pink-700 text-white disabled:opacity-50 disabled:cursor-not-allowed shadow-2xs transition-all cursor-pointer"
+                            >
+                              {isTestingMeta ? (
+                                <>
+                                  <RefreshCw className="w-3 h-3 animate-spin" />
+                                  <span>กำลังทดสอบ...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <ShieldCheck className="w-3 h-3" />
+                                  <span>ทดสอบ Meta Token ของช่องนี้</span>
+                                </>
+                              )}
+                            </button>
+                            <span className="text-[11px] text-slate-400">
+                              ทดสอบตรวจหาและดึงยอดผู้ติดตาม Instagram แบบเรียลไทม์
+                            </span>
+                          </div>
+
+                          {/* Test Result Feedback */}
+                          {testMetaResult?.tested && (
+                            <div className={`p-3 rounded-xl border text-xs transition-all ${
+                              testMetaResult.success
+                                ? 'bg-emerald-50/90 border-emerald-200 text-emerald-900'
+                                : 'bg-rose-50/90 border-rose-200 text-rose-900'
+                            }`}>
+                              {testMetaResult.success ? (
+                                <div className="space-y-1.5">
+                                  <div className="flex items-center gap-1.5 font-bold">
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                                    <span>เชื่อมต่อ Meta Graph API สำเร็จ!</span>
+                                  </div>
+                                  {testMetaResult.targetMatch ? (
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-white/80 p-2 rounded-lg border border-emerald-100">
+                                      <div>
+                                        <span className="font-bold text-slate-800">
+                                          @{testMetaResult.targetMatch.username}
+                                        </span>
+                                        <span className="text-slate-500 ml-2">
+                                          มียอดผู้ติดตาม: <strong>{(testMetaResult.targetMatch.followersCount || 0).toLocaleString()}</strong> คน
+                                        </span>
+                                      </div>
+                                      {typeof testMetaResult.targetMatch.followersCount === 'number' && onFollowersChange && (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            if (testMetaResult.targetMatch?.followersCount !== undefined) {
+                                              onFollowersChange('INSTAGRAM', testMetaResult.targetMatch.followersCount);
+                                            }
+                                          }}
+                                          className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-bold text-[11px] flex items-center gap-1 shadow-2xs cursor-pointer self-start sm:self-auto"
+                                        >
+                                          <span>ใส่ายอดนี้ลงในฟอร์ม</span>
+                                          <ArrowRight className="w-3 h-3" />
+                                        </button>
+                                      )}
+                                    </div>
+                                  ) : (
+                                    <p className="text-[11px] text-emerald-700">
+                                      Token ถูกต้อง สามารถเข้าถึงได้ {testMetaResult.accountsCount || 0} บัญชีธุรกิจ
+                                    </p>
+                                  )}
+                                </div>
+                              ) : (
+                                <div className="flex items-start gap-1.5">
+                                  <XCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                                  <span>{testMetaResult.message}</span>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

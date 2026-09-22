@@ -84,6 +84,30 @@ export interface BrandLink {
     description?: string;   // คำอธิบายสั้นๆ เกี่ยวกับเอกสารนั้นๆ
 }
 
+export interface ChannelMetaApiConfig {
+    /** เปิดใช้งาน Meta Token เฉพาะช่องนี้ (Override global) */
+    enabled?: boolean;
+    /** Meta Access Token เฉพาะของแบรนด์/ช่องนี้ */
+    accessToken?: string;
+    /** Instagram Business Account ID เจาะจงเฉพาะช่องนี้ (ไม่บังคับ) */
+    businessAccountId?: string;
+}
+
+/** สถานะการดำเนินงานของช่อง (Operational Status) */
+export type ChannelStatus = 'ACTIVE' | 'PLANNING' | 'PAUSED' | 'ARCHIVED';
+
+/** สถานะการสร้างรายได้ของช่อง (Monetization Status) */
+export interface ChannelMonetization {
+    /** เปิดสร้างรายได้สำเร็จอย่างน้อย 1 แพลตฟอร์มแล้วหรือไม่ */
+    is_monetized: boolean;
+    /** เปิดสร้างรายได้บน YouTube แล้วหรือไม่ (YPP Partner) */
+    youtube?: boolean;
+    /** เปิดสร้างรายได้บน Facebook แล้วหรือไม่ (In-stream / Performance Bonus) */
+    facebook?: boolean;
+    /** หมายเหตุเพิ่มเติมเกี่ยวกับการสร้างรายได้ เช่น วันที่เริ่มเปิด หรือรออนุมัติ */
+    monetization_note?: string;
+}
+
 export interface Channel {
     /** รหัสระบุตัวตนของช่อง/รายการ */
     id: string;
@@ -91,6 +115,10 @@ export interface Channel {
     name: string;
     /** คำอธิบายคอนเซปต์ของช่อง/รายการ */
     description?: string;
+    /** สถานะการดำเนินงานของช่อง */
+    status?: ChannelStatus;
+    /** สถานะการสร้างรายได้ของช่อง */
+    monetization?: ChannelMonetization;
     /** สีประจำช่อง (Tailwind class) */
     color: string;
     /** แพลตฟอร์ม Social Media ทั้งหมดที่ช่อง/รายการนี้มีบัญชีใช้งานอยู่ */
@@ -113,6 +141,8 @@ export interface Channel {
     brand_links?: BrandLink[];
     /** วันเวลาล่าสุดที่มีการตรวจสอบหรืออัปเดตยอดผู้ติดตาม (Follower Verification Timestamp) */
     last_sync_followers_at?: string | null;
+    /** การตั้งค่า Meta Graph API เฉพาะช่องนี้ (Per-Channel Meta Override) */
+    meta_api?: ChannelMetaApiConfig;
 }
 
 export interface TaskPerformance {

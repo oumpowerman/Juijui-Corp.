@@ -5,12 +5,30 @@ export interface FollowerSyncPlatformSettings {
     INSTAGRAM: boolean;
 }
 
+export interface MetaTokenItem {
+    id: string;
+    label: string; // e.g. "Token บริษัทแม่", "Token แบรนด์ Partner A", "Token Agency B"
+    accessToken: string;
+    businessAccountId?: string;
+    enabled: boolean;
+    note?: string;
+    createdAt?: string;
+}
+
+export interface MetaApiConfig {
+    enabled: boolean;
+    accessToken: string; // Default or fallback token
+    businessAccountId?: string;
+    tokenPool?: MetaTokenItem[]; // Multi-token pool for different brands/agencies
+}
+
 export interface FollowerSyncConfig {
     isEnabled: boolean;
     syncTime: string; // e.g. "08:00"
     platforms: FollowerSyncPlatformSettings;
     enabledChannelIds: string[]; // List of specific channel IDs to sync (empty array or undefined means all)
     rateLimitDelayMs: number; // e.g. 1200
+    metaApi?: MetaApiConfig;
 }
 
 export type FollowerSyncSubTab = 'schedule' | 'sql_cron' | 'channels' | 'platforms' | 'bandwidth';
@@ -102,4 +120,9 @@ export const DEFAULT_FOLLOWER_SYNC_CONFIG: FollowerSyncConfig = {
     },
     enabledChannelIds: [], // Empty means all channels by default until customized
     rateLimitDelayMs: 1200,
+    metaApi: {
+        enabled: false,
+        accessToken: '',
+        businessAccountId: '',
+    },
 };

@@ -45,13 +45,13 @@ export const buildContentStockQuery = (
     // 2. Channel Filter
     if (filters.channelId && filters.channelId.length > 0) {
         const hasNoChannel = filters.channelId.includes('NO_CHANNEL');
-        const realChannels = filters.channelId.filter(id => id !== 'NO_CHANNEL');
+        const realChannels = filters.channelId.filter(id => id && id !== 'NO_CHANNEL' && id.trim() !== '');
         
         if (hasNoChannel && realChannels.length > 0) {
             query = query.or(`channel_id.in.(${realChannels.join(',')}),channel_id.is.null`);
         } else if (hasNoChannel) {
             query = query.is('channel_id', null);
-        } else {
+        } else if (realChannels.length > 0) {
             query = query.in('channel_id', realChannels);
         }
     }
@@ -195,12 +195,12 @@ export const buildOverdueCountQuery = (filters: StockFilters, client = supabase)
 
     if (filters.channelId && filters.channelId.length > 0) {
         const hasNoChannel = filters.channelId.includes('NO_CHANNEL');
-        const realChannels = filters.channelId.filter(id => id !== 'NO_CHANNEL');
+        const realChannels = filters.channelId.filter(id => id && id !== 'NO_CHANNEL' && id.trim() !== '');
         if (hasNoChannel && realChannels.length > 0) {
             overdueQuery = overdueQuery.or(`channel_id.in.(${realChannels.join(',')}),channel_id.is.null`);
         } else if (hasNoChannel) {
             overdueQuery = overdueQuery.is('channel_id', null);
-        } else {
+        } else if (realChannels.length > 0) {
             overdueQuery = overdueQuery.in('channel_id', realChannels);
         }
     }
@@ -227,12 +227,12 @@ export const buildMissingStorageCountQuery = (filters: StockFilters, client = su
 
     if (filters.channelId && filters.channelId.length > 0) {
         const hasNoChannel = filters.channelId.includes('NO_CHANNEL');
-        const realChannels = filters.channelId.filter(id => id !== 'NO_CHANNEL');
+        const realChannels = filters.channelId.filter(id => id && id !== 'NO_CHANNEL' && id.trim() !== '');
         if (hasNoChannel && realChannels.length > 0) {
             missingStorageQuery = missingStorageQuery.or(`channel_id.in.(${realChannels.join(',')}),channel_id.is.null`);
         } else if (hasNoChannel) {
             missingStorageQuery = missingStorageQuery.is('channel_id', null);
-        } else {
+        } else if (realChannels.length > 0) {
             missingStorageQuery = missingStorageQuery.in('channel_id', realChannels);
         }
     }
@@ -241,11 +241,25 @@ export const buildMissingStorageCountQuery = (filters: StockFilters, client = su
 };
 
 /**
- * Builds query to count contents with unassigned channel (channel_id is null).
+ * Builds query to count contents with unassigned channel (channel_id is null),
+ * respecting the active content sub-tab (ACTIVE vs ARCHIVE).
  */
-export const buildUnassignedChannelCountQuery = (client = supabase) => {
-    return client
+export const buildUnassignedChannelCountQuery = (subTab: 'ACTIVE' | 'ARCHIVE' = 'ACTIVE', client = supabase) => {
+    let query = client
         .from('contents')
         .select('*', { count: 'exact', head: true })
         .is('channel_id', null);
+
+    if (subTab === 'ARCHIVE') {
+        query = query.or('status.ilike.%done%,status.ilike.%publish%,status.ilike.%posted%,status.ilike.%complete%,status.ilike.%success%');
+    } else {
+        query = query
+            .not('status', 'ilike', '%done%')
+            .not('status', 'ilike', '%publish%')
+            .not('status', 'ilike', '%posted%')
+            .not('status', 'ilike', '%complete%')
+            .not('status', 'ilike', '%success%');
+    }
+
+    return query;
 };

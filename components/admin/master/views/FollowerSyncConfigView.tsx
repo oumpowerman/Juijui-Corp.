@@ -60,6 +60,10 @@ const FollowerSyncConfigView: React.FC<FollowerSyncConfigViewProps> = ({
                         ...DEFAULT_FOLLOWER_SYNC_CONFIG.platforms,
                         ...(parsed.platforms || {})
                     },
+                    metaApi: {
+                        ...DEFAULT_FOLLOWER_SYNC_CONFIG.metaApi,
+                        ...(parsed.metaApi || {})
+                    },
                     enabledChannelIds: Array.isArray(parsed.enabledChannelIds) ? parsed.enabledChannelIds : [],
                 };
             } catch (e) {
@@ -80,6 +84,10 @@ const FollowerSyncConfigView: React.FC<FollowerSyncConfigViewProps> = ({
                     platforms: {
                         ...DEFAULT_FOLLOWER_SYNC_CONFIG.platforms,
                         ...(parsed.platforms || {})
+                    },
+                    metaApi: {
+                        ...DEFAULT_FOLLOWER_SYNC_CONFIG.metaApi,
+                        ...(parsed.metaApi || {})
                     },
                     enabledChannelIds: Array.isArray(parsed.enabledChannelIds) ? parsed.enabledChannelIds : [],
                 });
@@ -201,10 +209,10 @@ const FollowerSyncConfigView: React.FC<FollowerSyncConfigViewProps> = ({
         },
         {
             id: 'platforms' as FollowerSyncSubTab,
-            label: '🌐 แพลตฟอร์มเป้าหมาย',
-            desc: 'เปิด/ปิด YouTube, FB, IG, TikTok',
+            label: '🌐 แพลตฟอร์ม & Meta API',
+            desc: 'เปิด/ปิด และตั้งค่า Meta Graph API',
             icon: Layers,
-            badge: `${enabledPlatformsCount}/4`
+            badge: config.metaApi?.enabled && config.metaApi?.accessToken ? 'Meta API ✓' : `${enabledPlatformsCount}/4`
         },
         {
             id: 'bandwidth' as FollowerSyncSubTab,

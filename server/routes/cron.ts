@@ -10,6 +10,11 @@ import {
   getSyncSession, 
   handleSessionProgressEvent 
 } from '../services/syncSessionStore.js';
+import { 
+  validateMetaAccessToken,
+  extractInstagramUsername,
+  fetchInstagramFollowersForToken
+} from '../services/metaGraphApiService.js';
 
 const router = Router();
 
@@ -301,6 +306,65 @@ router.get('/api/cron/info', async (req: Request, res: Response) => {
         });
     } catch (err: any) {
         return res.status(500).json({ success: false, error: err?.message || 'Failed to get cron info' });
+    }
+});
+
+/**
+ * Endpoint: POST /api/follower-sync/test-meta-token
+ * Validates Meta Access Token and lists accessible Instagram Business accounts
+ */
+router.post('/api/follower-sync/test-meta-token', async (req: Request, res: Response) => {
+    try {
+        const { accessToken, businessAccountId, targetUsername } = req.body || {};
+        const result = await validateMetaAccessToken(accessToken, businessAccountId);
+
+        let targetMatch: { matched: boolean; username: string; followersCount?: number; name?: string } | undefined = undefined;
+
+        if (result.isValid && targetUsername) {
+            const cleanTarget = extractInstagramUsername(targetUsername);
+            if (cleanTarget) {
+                // Check if directly in discovered accounts
+                const foundInAccounts = result.accounts.find(
+                    a => a.username.toLowerCase() === cleanTarget.toLowerCase()
+                );
+                if (foundInAccounts) {
+                    targetMatch = {
+                        matched: true,
+                        username: foundInAccounts.username,
+                        followersCount: foundInAccounts.followersCount,
+                        name: foundInAccounts.name,
+                    };
+                } else {
+                    // Try direct token query
+                    const directCount = await fetchInstagramFollowersForToken(
+                        cleanTarget,
+                        accessToken,
+                        businessAccountId,
+                        'Test Verification'
+                    );
+                    if (typeof directCount === 'number') {
+                        targetMatch = {
+                            matched: true,
+                            username: cleanTarget,
+                            followersCount: directCount,
+                        };
+                    }
+                }
+            }
+        }
+
+        return res.json({
+            success: result.isValid,
+            user: result.user,
+            accounts: result.accounts,
+            targetMatch,
+            error: result.error,
+        });
+    } catch (err: any) {
+        return res.status(500).json({
+            success: false,
+            error: err?.message || 'Failed to validate Meta access token',
+        });
     }
 });
 

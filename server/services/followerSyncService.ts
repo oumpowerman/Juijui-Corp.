@@ -1,4 +1,10 @@
 import { serverSupabase } from '../utils/supabase.js';
+import { 
+    fetchInstagramFollowersWithFallbacks,
+    fetchInstagramFollowersViaMetaApi, 
+    MetaApiConfig,
+    ChannelMetaApiConfig
+} from './metaGraphApiService.js';
 
 export interface FollowerSyncPlatformSettings {
     YOUTUBE: boolean;
@@ -13,6 +19,7 @@ export interface FollowerSyncConfig {
     platforms: FollowerSyncPlatformSettings;
     enabledChannelIds: string[];
     rateLimitDelayMs: number; // e.g. 1200
+    metaApi?: MetaApiConfig;
 }
 
 export const DEFAULT_FOLLOWER_SYNC_CONFIG: FollowerSyncConfig = {
@@ -26,6 +33,11 @@ export const DEFAULT_FOLLOWER_SYNC_CONFIG: FollowerSyncConfig = {
     },
     enabledChannelIds: [], // Empty means all channels
     rateLimitDelayMs: 500,
+    metaApi: {
+        enabled: false,
+        accessToken: '',
+        businessAccountId: '',
+    },
 };
 
 let cachedConfig: FollowerSyncConfig = { ...DEFAULT_FOLLOWER_SYNC_CONFIG };
@@ -53,6 +65,11 @@ export async function getFollowerSyncConfig(): Promise<FollowerSyncConfig> {
             platforms: {
                 ...DEFAULT_FOLLOWER_SYNC_CONFIG.platforms,
                 ...(parsed.platforms || {})
+            },
+            metaApi: {
+                ...DEFAULT_FOLLOWER_SYNC_CONFIG.metaApi,
+                ...(parsed.metaApi || {}),
+                enabled: parsed.metaApi?.enabled ?? DEFAULT_FOLLOWER_SYNC_CONFIG.metaApi?.enabled ?? false,
             },
             enabledChannelIds: Array.isArray(parsed.enabledChannelIds) ? parsed.enabledChannelIds : [],
         };
@@ -218,13 +235,39 @@ export function parseFollowerNumber(rawText?: string): number | undefined {
     return undefined;
 }
 
-// Scrape single platform follower count
-async function extractFollowersFromUrl(platformKey: string, rawUrl: string): Promise<number | undefined> {
+// Scrape single platform follower count (supports Meta Graph API for Instagram)
+async function extractFollowersFromUrl(
+    platformKey: string, 
+    rawUrl: string, 
+    metaConfig?: MetaApiConfig,
+    channelMeta?: ChannelMetaApiConfig
+): Promise<number | undefined> {
     if (!rawUrl || typeof rawUrl !== 'string' || !rawUrl.trim()) return undefined;
 
     let targetUrl = rawUrl.trim();
     if (!/^https?:\/\//i.test(targetUrl)) {
         targetUrl = `https://${targetUrl}`;
+    }
+
+    const normKey = platformKey.toUpperCase();
+
+    // 0. Instagram via Meta Graph API (Supports Per-Channel Override, Token Pool & Master Fallback)
+    if (normKey === 'INSTAGRAM' || targetUrl.includes('instagram.com')) {
+        const hasChannelToken = Boolean(channelMeta?.enabled !== false && channelMeta?.accessToken?.trim());
+        const hasPoolToken = Boolean(metaConfig?.tokenPool?.some(t => t.enabled !== false && t.accessToken?.trim()));
+        const hasGlobalToken = Boolean((metaConfig?.accessToken || '').trim() || process.env.META_ACCESS_TOKEN);
+        const isMetaActive = hasChannelToken || (metaConfig?.enabled !== false && (hasPoolToken || hasGlobalToken));
+
+        if (isMetaActive) {
+            try {
+                const metaCount = await fetchInstagramFollowersWithFallbacks(targetUrl, channelMeta, metaConfig);
+                if (typeof metaCount === 'number' && metaCount > 0) {
+                    return metaCount;
+                }
+            } catch (metaErr) {
+                console.warn('[FollowerSync] Meta API fetch failed, falling back to open-graph scrape:', metaErr);
+            }
+        }
     }
 
     const controller = new AbortController();
@@ -555,7 +598,8 @@ export async function syncAllChannelFollowers(
                             }
 
                             try {
-                                const fetchedCount = await extractFollowersFromUrl(platformKey, url);
+                                const channelMeta = ((channel as any).meta_api || (channel.social_links as any)?._meta_api) as ChannelMetaApiConfig | undefined;
+                                const fetchedCount = await extractFollowersFromUrl(platformKey, url, config.metaApi, channelMeta);
                                 
                                 if (typeof fetchedCount === 'number' && fetchedCount > 0) {
                                     newFollowersMap[platformKey] = fetchedCount;
@@ -782,7 +826,8 @@ export async function syncSingleChannelFollowers(channelId: string): Promise<Cha
             }
 
             try {
-                const fetchedCount = await extractFollowersFromUrl(platformKey, url);
+                const channelMeta = ((channel as any).meta_api || (channel.social_links as any)?._meta_api) as ChannelMetaApiConfig | undefined;
+                const fetchedCount = await extractFollowersFromUrl(platformKey, url, config.metaApi, channelMeta);
                 if (typeof fetchedCount === 'number' && fetchedCount > 0) {
                     newFollowersMap[platformKey] = fetchedCount;
                     if (fetchedCount !== prevCount) {
@@ -797,6 +842,7 @@ export async function syncSingleChannelFollowers(channelId: string): Promise<Cha
                     });
                 } else {
                     const isInstagram = platformKey.toUpperCase() === 'INSTAGRAM' || url.includes('instagram.com');
+                    const hasMetaConfig = Boolean(config.metaApi?.enabled && config.metaApi?.accessToken);
                     platformResults.push({
                         platform: platformKey,
                         url,
@@ -804,7 +850,9 @@ export async function syncSingleChannelFollowers(channelId: string): Promise<Cha
                         newCount: prevCount,
                         success: false,
                         error: isInstagram 
-                            ? 'Instagram ปิดกั้นการดึงข้อมูลอัตโนมัติ (สามารถแก้ไขตัวเลขเองได้)' 
+                            ? (hasMetaConfig 
+                                ? 'ไม่พบบัญชีนี้ในสิทธิ์ Meta Token หรือยังไม่ได้ผูกกับ Facebook Page (สามารถแก้ไขตัวเลขเองได้)' 
+                                : 'Instagram ปิดกั้นการดึงข้อมูลอัตโนมัติ (ใส่ Meta Access Token ในตั้งค่าระบบ หรือแก้ไขตัวเลขเองได้)')
                             : 'ไม่พบตัวเลขยอดผู้ติดตามในหน้าโปรไฟล์',
                     });
                 }

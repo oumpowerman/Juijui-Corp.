@@ -1,5 +1,5 @@
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Task } from '../types';
 
 /**
@@ -13,6 +13,25 @@ export const useStockSync = (
     updateLocalItem: (task: Task, isDelete?: boolean) => void,
     jumpToPage1?: () => void
 ) => {
+    // Track tasks that were already known to avoid treating existing items as newly added
+    const knownTaskIdsRef = useRef<Set<string>>(new Set());
+    const isInitialHydratedRef = useRef<boolean>(false);
+    // Track previous global tasks map to only check tasks that actually changed
+    const prevGlobalTasksMapRef = useRef<Map<string, Task> | null>(null);
+    // Track which newly created tasks have already triggered jumpToPage1 to prevent duplicate triggers
+    const jumpedTaskIdsRef = useRef<Set<string>>(new Set());
+
+    // Stable refs for callbacks and paginatedContents to prevent effect re-runs and feedback loops
+    const jumpToPage1Ref = useRef(jumpToPage1);
+    const updateLocalItemRef = useRef(updateLocalItem);
+    const paginatedContentsRef = useRef(paginatedContents);
+    
+    useEffect(() => {
+        jumpToPage1Ref.current = jumpToPage1;
+        updateLocalItemRef.current = updateLocalItem;
+        paginatedContentsRef.current = paginatedContents;
+    });
+
     // Create a Map of global tasks for O(1) lookup
     // This runs only when globalTasks changes
     const globalTasksMap = useMemo(() => {
@@ -25,51 +44,71 @@ export const useStockSync = (
 
     useEffect(() => {
         // Guard: If globalTasks is empty but we haven't checked if it's still loading, 
-        // we might accidentally delete everything. 
+        // we skip sync to be safe. 
         if (globalTasks.length === 0) {
-            // If we have local items but global is empty, it MIGHT be a real deletion of all items,
-            // but more likely it's just loading. We skip sync to be safe.
             return;
         }
 
-        // 1. Sync Updates & Deletions (Iterate Local List)
-        paginatedContents.forEach(localTask => {
+        // On initial hydration with global tasks, record all existing task IDs and store initial map
+        if (!isInitialHydratedRef.current || !prevGlobalTasksMapRef.current) {
+            globalTasks.forEach(t => knownTaskIdsRef.current.add(t.id));
+            isInitialHydratedRef.current = true;
+            prevGlobalTasksMapRef.current = globalTasksMap;
+            return;
+        }
+
+        const prevMap = prevGlobalTasksMapRef.current;
+        const currentPaginated = paginatedContentsRef.current;
+
+        // --- Deep Comparison Helpers ---
+        const arraysDiff = (a: any, b: any) => {
+            const arrA = Array.isArray(a) ? a : [];
+            const arrB = Array.isArray(b) ? b : [];
+            if (arrA.length !== arrB.length) return true;
+            const sortedA = [...arrA].sort();
+            const sortedB = [...arrB].sort();
+            return JSON.stringify(sortedA) !== JSON.stringify(sortedB);
+        };
+
+        const dateDiff = (a: any, b: any) => {
+            const timeA = a ? new Date(a).getTime() : 0;
+            const timeB = b ? new Date(b).getTime() : 0;
+            const validA = !isNaN(timeA) && timeA > 0 ? timeA : 0;
+            const validB = !isNaN(timeB) && timeB > 0 ? timeB : 0;
+            return validA !== validB;
+        };
+
+        const objectsDiff = (a: any, b: any) => {
+            const objA = a && typeof a === 'object' ? a : {};
+            const objB = b && typeof b === 'object' ? b : {};
+            return JSON.stringify(objA) !== JSON.stringify(objB);
+        };
+
+        // 1. Sync Updates: Only check tasks that actually changed reference in globalTasks
+        currentPaginated.forEach(localTask => {
             const globalMatch = globalTasksMap.get(localTask.id);
+            const prevGlobalMatch = prevMap.get(localTask.id);
             
-            if (globalMatch) {
-                // --- Deep Comparison Helpers ---
-                const arraysDiff = (a: any[] = [], b: any[] = []) => {
-                    if (a.length !== b.length) return true;
-                    const sortedA = [...a].sort();
-                    const sortedB = [...b].sort();
-                    return JSON.stringify(sortedA) !== JSON.stringify(sortedB);
-                };
-
-                const dateDiff = (a: Date | undefined, b: Date | undefined) => {
-                    if (!a && !b) return false;
-                    if (!a || !b) return true;
-                    return new Date(a).getTime() !== new Date(b).getTime();
-                };
-
-                // --- Comprehensive Change Detection ---
+            // Only compare if global task changed in TaskContext
+            if (globalMatch && globalMatch !== prevGlobalMatch) {
                 const hasChanged = 
-                    globalMatch.title !== localTask.title || 
-                    globalMatch.status !== localTask.status ||
-                    globalMatch.channelId !== localTask.channelId ||
-                    globalMatch.remark !== localTask.remark ||
-                    globalMatch.pillar !== localTask.pillar ||
-                    globalMatch.category !== localTask.category ||
-                    globalMatch.isUnscheduled !== localTask.isUnscheduled ||
-                    globalMatch.localPath !== localTask.localPath ||
-                    globalMatch.driveLabel !== localTask.driveLabel ||
-                    globalMatch.shootLocation !== localTask.shootLocation ||
-                    globalMatch.isInShootQueue !== localTask.isInShootQueue ||
-                    globalMatch.isSoftFinished !== localTask.isSoftFinished ||
-                    globalMatch.difficulty !== localTask.difficulty ||
-                    globalMatch.estimatedHours !== localTask.estimatedHours ||
-                    globalMatch.caution !== localTask.caution ||
-                    globalMatch.importance !== localTask.importance ||
-                    JSON.stringify(globalMatch.publishedLinks) !== JSON.stringify(localTask.publishedLinks) ||
+                    (globalMatch.title || '') !== (localTask.title || '') || 
+                    (globalMatch.status || '') !== (localTask.status || '') ||
+                    (globalMatch.channelId || '') !== (localTask.channelId || '') ||
+                    (globalMatch.remark || '') !== (localTask.remark || '') ||
+                    (globalMatch.pillar || '') !== (localTask.pillar || '') ||
+                    (globalMatch.category || '') !== (localTask.category || '') ||
+                    Boolean(globalMatch.isUnscheduled) !== Boolean(localTask.isUnscheduled) ||
+                    (globalMatch.localPath || '') !== (localTask.localPath || '') ||
+                    (globalMatch.driveLabel || '') !== (localTask.driveLabel || '') ||
+                    (globalMatch.shootLocation || '') !== (localTask.shootLocation || '') ||
+                    Boolean(globalMatch.isInShootQueue) !== Boolean(localTask.isInShootQueue) ||
+                    Boolean(globalMatch.isSoftFinished) !== Boolean(localTask.isSoftFinished) ||
+                    (globalMatch.difficulty || '') !== (localTask.difficulty || '') ||
+                    (globalMatch.estimatedHours || 0) !== (localTask.estimatedHours || 0) ||
+                    (globalMatch.caution || '') !== (localTask.caution || '') ||
+                    (globalMatch.importance || '') !== (localTask.importance || '') ||
+                    objectsDiff(globalMatch.publishedLinks, localTask.publishedLinks) ||
                     dateDiff(globalMatch.endDate, localTask.endDate) ||
                     dateDiff(globalMatch.shootDate, localTask.shootDate) ||
                     arraysDiff(globalMatch.contentFormats, localTask.contentFormats) ||
@@ -80,40 +119,50 @@ export const useStockSync = (
                     arraysDiff(globalMatch.tags, localTask.tags);
 
                 if (hasChanged) {
-                     console.log(`[StockSync] Updating local item: ${localTask.id}`);
-                     updateLocalItem(globalMatch);
+                    console.log(`[StockSync] Updating local item: ${localTask.id}`);
+                    updateLocalItemRef.current(globalMatch);
                 }
             }
-            // Logic for deleting items not in globalTasks was removed because globalTasks 
-            // is a sliding window cache (TaskContext) and may not contain all paginated items.
         });
 
         // 2. Sync Additions (Iterate Global List)
+        // Only check tasks that are brand new to globalTasks (added during active session)
         const now = new Date().getTime();
         globalTasks.forEach(globalTask => {
             if (globalTask.type === 'CONTENT') {
-                const existsLocally = paginatedContents.some(t => t.id === globalTask.id);
-                if (!existsLocally) {
-                    const createdAt = globalTask.createdAt ? new Date(globalTask.createdAt).getTime() : 0;
-                    
-                    // Heuristic: If created in the last 2 minutes, or if it has NO createdAt (optimistic),
-                    // we try to add it. updateLocalItem will check if it matches current filters.
-                    const isNew = !globalTask.createdAt || (now - createdAt < 120000);
-                    
-                    if (isNew) {
-                        console.log(`[StockSync] Adding new global item to local: ${globalTask.id}`);
-                        updateLocalItem(globalTask);
-                        
-                        // --- SMART JUMP ---
-                        // If the task has NO createdAt, it means it was just created OPTIMISTICALLY 
-                        // by the current user. We should jump to page 1.
-                        if (!globalTask.createdAt && jumpToPage1) {
-                            console.log(`[StockSync] Actor detected! Jumping to Page 1.`);
-                            jumpToPage1();
+                const isBrandNewToGlobal = !knownTaskIdsRef.current.has(globalTask.id);
+                
+                if (isBrandNewToGlobal) {
+                    knownTaskIdsRef.current.add(globalTask.id);
+
+                    const existsLocally = currentPaginated.some(t => t.id === globalTask.id);
+                    if (!existsLocally) {
+                        const createdAtTime = globalTask.createdAt 
+                            ? new Date(globalTask.createdAt).getTime() 
+                            : 0;
+                        const hasValidCreatedAt = !isNaN(createdAtTime) && createdAtTime > 0;
+                        const isRecentlyCreated = hasValidCreatedAt && (now - createdAtTime < 60000);
+                        const isOptimistic = !hasValidCreatedAt;
+
+                        if (isOptimistic || isRecentlyCreated) {
+                            console.log(`[StockSync] Adding newly created global item to local: ${globalTask.id}`);
+                            updateLocalItemRef.current(globalTask);
+                            
+                            // --- SMART JUMP ---
+                            // Only jump to page 1 if this is a newly created optimistic item by the current user,
+                            // and has not already triggered jumpToPage1.
+                            if (isOptimistic && jumpToPage1Ref.current && !jumpedTaskIdsRef.current.has(globalTask.id)) {
+                                jumpedTaskIdsRef.current.add(globalTask.id);
+                                console.log(`[StockSync] Actor detected for task ${globalTask.id}! Jumping to Page 1.`);
+                                jumpToPage1Ref.current();
+                            }
                         }
                     }
                 }
             }
         });
-    }, [globalTasksMap, paginatedContents, updateLocalItem, globalTasks, jumpToPage1]);
+
+        // Update previous map reference
+        prevGlobalTasksMapRef.current = globalTasksMap;
+    }, [globalTasksMap, globalTasks]);
 };

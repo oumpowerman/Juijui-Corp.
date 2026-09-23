@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Plus, Tag, ArrowRight, FolderPlus, LayoutTemplate, Trophy, Medal, Award, Users } from 'lucide-react';
 import { Channel, ChannelGroup } from '../../../types';
 import { ChannelCard } from './cards/ChannelCard';
+import { ChannelDeckStack } from './cards/ChannelDeckStack';
 import { 
   getChannelTotalFollowers, 
   getGlowStyles, 
@@ -163,9 +164,22 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
     });
   }, [groups, sectionData.groupedMap, contentCountMap]);
 
-  // Render channels inside a section (Active channels first, then Planning, then Paused, then Archived)
+  // Render channels inside a section with Card Deck Stack support:
+  // - activeChannels: rendered as normal ChannelCards
+  // - planningChannels: if > 1, grouped into <ChannelDeckStack type="planning" />, else 1 ChannelCard
+  // - inactiveChannels (PAUSED + ARCHIVED): if > 1, grouped into <ChannelDeckStack type="paused" />, else 1 ChannelCard
   const renderChannelGrid = (channelList: Channel[], groupObj?: ChannelGroup | null) => {
-    const sortedList = sortChannelsByFollowers(channelList);
+    const activeChannels = channelList
+      .filter(ch => (ch.status || 'ACTIVE') === 'ACTIVE')
+      .sort((a, b) => getChannelTotalFollowers(b) - getChannelTotalFollowers(a));
+
+    const planningChannels = channelList
+      .filter(ch => ch.status === 'PLANNING')
+      .sort((a, b) => getChannelTotalFollowers(b) - getChannelTotalFollowers(a));
+
+    const inactiveChannels = channelList
+      .filter(ch => ch.status === 'PAUSED' || ch.status === 'ARCHIVED')
+      .sort((a, b) => getChannelTotalFollowers(b) - getChannelTotalFollowers(a));
 
     return (
       <motion.div 
@@ -174,7 +188,8 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
         animate="show"
         className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 sm:gap-6"
       >
-        {sortedList.map(channel => {
+        {/* 1. Active Channels: Render normally */}
+        {activeChannels.map(channel => {
           const contentCount = contentCountMap[channel.id] || 0;
           const channelTotalFollowers = getChannelTotalFollowers(channel);
           const bgClass = (channel.color || 'bg-gray-100').split(' ')[0].replace('bg-', 'bg-');
@@ -198,6 +213,88 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
             />
           );
         })}
+
+        {/* 2. Planning Channels: Stack if > 1, else render single card */}
+        {planningChannels.length > 1 ? (
+          <ChannelDeckStack
+            key={`deck-planning-${groupObj?.id || 'ungrouped'}`}
+            type="planning"
+            channels={planningChannels}
+            group={groupObj}
+            contentCountMap={contentCountMap}
+            onEditChannel={onEditChannel}
+            onDeleteChannel={onDeleteChannel}
+            onSyncFollowers={onSyncFollowers}
+            syncingChannelIdMap={syncingChannelIdMap}
+          />
+        ) : planningChannels.length === 1 ? (
+          (() => {
+            const channel = planningChannels[0];
+            const contentCount = contentCountMap[channel.id] || 0;
+            const channelTotalFollowers = getChannelTotalFollowers(channel);
+            const bgClass = (channel.color || 'bg-gray-100').split(' ')[0].replace('bg-', 'bg-');
+            const glow = getGlowStyles(channel.color);
+
+            return (
+              <ChannelCard
+                key={channel.id}
+                channel={channel}
+                group={groupObj}
+                contentCount={contentCount}
+                channelTotalFollowers={channelTotalFollowers}
+                rank={undefined}
+                rankTitle={undefined}
+                onEdit={onEditChannel}
+                onDelete={onDeleteChannel}
+                onSyncFollowers={onSyncFollowers}
+                isSyncingFollowers={Boolean(syncingChannelIdMap[channel.id])}
+                glow={glow}
+                bgClass={bgClass}
+              />
+            );
+          })()
+        ) : null}
+
+        {/* 3. Inactive Channels (Paused / Archived): Stack if > 1, else render single card */}
+        {inactiveChannels.length > 1 ? (
+          <ChannelDeckStack
+            key={`deck-paused-${groupObj?.id || 'ungrouped'}`}
+            type="paused"
+            channels={inactiveChannels}
+            group={groupObj}
+            contentCountMap={contentCountMap}
+            onEditChannel={onEditChannel}
+            onDeleteChannel={onDeleteChannel}
+            onSyncFollowers={onSyncFollowers}
+            syncingChannelIdMap={syncingChannelIdMap}
+          />
+        ) : inactiveChannels.length === 1 ? (
+          (() => {
+            const channel = inactiveChannels[0];
+            const contentCount = contentCountMap[channel.id] || 0;
+            const channelTotalFollowers = getChannelTotalFollowers(channel);
+            const bgClass = (channel.color || 'bg-gray-100').split(' ')[0].replace('bg-', 'bg-');
+            const glow = getGlowStyles(channel.color);
+
+            return (
+              <ChannelCard
+                key={channel.id}
+                channel={channel}
+                group={groupObj}
+                contentCount={contentCount}
+                channelTotalFollowers={channelTotalFollowers}
+                rank={undefined}
+                rankTitle={undefined}
+                onEdit={onEditChannel}
+                onDelete={onDeleteChannel}
+                onSyncFollowers={onSyncFollowers}
+                isSyncingFollowers={Boolean(syncingChannelIdMap[channel.id])}
+                glow={glow}
+                bgClass={bgClass}
+              />
+            );
+          })()
+        ) : null}
       </motion.div>
     );
   };

@@ -163,6 +163,45 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
     });
   }, [groups, sectionData.groupedMap, contentCountMap]);
 
+  // Render channels inside a section (Active channels first, then Planning, then Paused, then Archived)
+  const renderChannelGrid = (channelList: Channel[], groupObj?: ChannelGroup | null) => {
+    const sortedList = sortChannelsByFollowers(channelList);
+
+    return (
+      <motion.div 
+        variants={channelContainerVariants}
+        initial="hidden"
+        animate="show"
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 sm:gap-6"
+      >
+        {sortedList.map(channel => {
+          const contentCount = contentCountMap[channel.id] || 0;
+          const channelTotalFollowers = getChannelTotalFollowers(channel);
+          const bgClass = (channel.color || 'bg-gray-100').split(' ')[0].replace('bg-', 'bg-');
+          const glow = getGlowStyles(channel.color);
+
+          return (
+            <ChannelCard
+              key={channel.id}
+              channel={channel}
+              group={groupObj}
+              contentCount={contentCount}
+              channelTotalFollowers={channelTotalFollowers}
+              rank={rankMap[channel.id]}
+              rankTitle={rankTitleMap[channel.id]}
+              onEdit={onEditChannel}
+              onDelete={onDeleteChannel}
+              onSyncFollowers={onSyncFollowers}
+              isSyncingFollowers={Boolean(syncingChannelIdMap[channel.id])}
+              glow={glow}
+              bgClass={bgClass}
+            />
+          );
+        })}
+      </motion.div>
+    );
+  };
+
   if (channels.length === 0) {
     return (
       <div className="py-16 text-center text-gray-400 bg-white rounded-3xl border border-dashed border-gray-300 p-6">
@@ -203,36 +242,7 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
           </button>
         </div>
 
-        <motion.div 
-          variants={channelContainerVariants}
-          initial="hidden"
-          animate="show"
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 sm:gap-6"
-        >
-          {sortChannelsByFollowers(channels).map(channel => {
-            const contentCount = contentCountMap[channel.id] || 0;
-            const channelTotalFollowers = getChannelTotalFollowers(channel);
-            const bgClass = (channel.color || 'bg-gray-100').split(' ')[0].replace('bg-', 'bg-');
-            const glow = getGlowStyles(channel.color);
-
-            return (
-              <ChannelCard
-                key={channel.id}
-                channel={channel}
-                contentCount={contentCount}
-                channelTotalFollowers={channelTotalFollowers}
-                rank={rankMap[channel.id]}
-                rankTitle={rankTitleMap[channel.id]}
-                onEdit={onEditChannel}
-                onDelete={onDeleteChannel}
-                onSyncFollowers={onSyncFollowers}
-                isSyncingFollowers={Boolean(syncingChannelIdMap[channel.id])}
-                glow={glow}
-                bgClass={bgClass}
-              />
-            );
-          })}
-        </motion.div>
+        {renderChannelGrid(channels, null)}
       </div>
     );
   }
@@ -354,37 +364,7 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
                 </p>
               </div>
             ) : (
-              <motion.div
-                variants={channelContainerVariants}
-                initial="hidden"
-                animate="show"
-                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 sm:gap-6"
-              >
-                {sortedGroupChannels.map(channel => {
-                  const contentCount = contentCountMap[channel.id] || 0;
-                  const channelTotalFollowers = getChannelTotalFollowers(channel);
-                  const bgClass = (channel.color || 'bg-gray-100').split(' ')[0].replace('bg-', 'bg-');
-                  const glow = getGlowStyles(channel.color);
-
-                  return (
-                    <ChannelCard
-                      key={channel.id}
-                      channel={channel}
-                      group={group}
-                      contentCount={contentCount}
-                      channelTotalFollowers={channelTotalFollowers}
-                      rank={rankMap[channel.id]}
-                      rankTitle={rankTitleMap[channel.id]}
-                      onEdit={onEditChannel}
-                      onDelete={onDeleteChannel}
-                      onSyncFollowers={onSyncFollowers}
-                      isSyncingFollowers={Boolean(syncingChannelIdMap[channel.id])}
-                      glow={glow}
-                      bgClass={bgClass}
-                    />
-                  );
-                })}
-              </motion.div>
+              renderChannelGrid(groupChannels, group)
             )}
           </section>
         );
@@ -413,37 +393,7 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
             </button>
           </div>
 
-          <motion.div
-            variants={channelContainerVariants}
-            initial="hidden"
-            animate="show"
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-5 sm:gap-6"
-          >
-            {sortChannelsByFollowers(sectionData.ungrouped).map(channel => {
-              const contentCount = contentCountMap[channel.id] || 0;
-              const channelTotalFollowers = getChannelTotalFollowers(channel);
-              const bgClass = (channel.color || 'bg-gray-100').split(' ')[0].replace('bg-', 'bg-');
-              const glow = getGlowStyles(channel.color);
-
-              return (
-                <ChannelCard
-                  key={channel.id}
-                  channel={channel}
-                  group={null}
-                  contentCount={contentCount}
-                  channelTotalFollowers={channelTotalFollowers}
-                  rank={rankMap[channel.id]}
-                  rankTitle={rankTitleMap[channel.id]}
-                  onEdit={onEditChannel}
-                  onDelete={onDeleteChannel}
-                  onSyncFollowers={onSyncFollowers}
-                  isSyncingFollowers={Boolean(syncingChannelIdMap[channel.id])}
-                  glow={glow}
-                  bgClass={bgClass}
-                />
-              );
-            })}
-          </motion.div>
+          {renderChannelGrid(sectionData.ungrouped, null)}
         </section>
       )}
     </div>

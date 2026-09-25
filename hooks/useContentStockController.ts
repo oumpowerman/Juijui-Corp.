@@ -3,13 +3,21 @@ import { useSearchParams } from 'react-router-dom';
 import { Task, Channel, User, MasterOption, getChecklistGroupKey } from '../types';
 import { useToast } from '../context/ToastContext';
 import { useContentStock } from './useContentStock';
-import { parseContentStockCSV, generateContentStockCSVTemplate, generateContentStockJSONTemplate } from '../services/csvService';
-import { validateAndParseStockFile, validateAndParseStockCSV, StockCSVValidationResult, ParsedStockItemPreview } from '../services/stockImportValidator';
+import { generateContentStockCSVTemplate } from '../services/csvService';
+import { validateAndParseStockFile, StockCSVValidationResult, ParsedStockItemPreview } from '../services/stockImportValidator';
 import { supabase } from '../lib/supabase';
 import { isStockTerminalStatus } from '../config/status';
+import {
+    SortKey,
+    SortDirection,
+    StockFilterState,
+    StockViewState,
+    StockDataResult,
+    StockModalState,
+    StockImportActions
+} from './content-stock/types';
 
-export type SortKey = 'title' | 'status' | 'date' | 'remark' | 'publishDate' | 'shootDate' | 'shortNote' | 'ideaOwner' | 'editor' | 'helper' | 'createdAt';
-export type SortDirection = 'asc' | 'desc';
+export * from './content-stock/types';
 
 const ITEMS_PER_PAGE = 20;
 
@@ -71,9 +79,12 @@ export const useContentStockController = ({ globalTasks, channels, users, master
         setSearchParams(prev => {
             const next = new URLSearchParams(prev);
             next.set('view', 'ContentStock');
-            const currentTab = (next.get('stockTab') as 'ACTIVE' | 'ARCHIVE') || 'ACTIVE';
-            const nextTab = typeof tab === 'function' ? tab(currentTab) : tab;
-            if (nextTab === 'ARCHIVE') {
+            next.delete('stockMode');
+            
+            const currentSubTab = (next.get('stockTab') as 'ACTIVE' | 'ARCHIVE') || 'ACTIVE';
+            const nextSubTab = typeof tab === 'function' ? tab(currentSubTab) : tab;
+            
+            if (nextSubTab === 'ARCHIVE') {
                 next.set('stockTab', 'ARCHIVE');
             } else {
                 next.delete('stockTab');
@@ -82,22 +93,21 @@ export const useContentStockController = ({ globalTasks, channels, users, master
         }, { replace: true });
     }, [setSearchParams]);
 
-    const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: SortDirection } | null>({ key: 'createdAt', direction: 'desc' });
-    const currentPage = parseInt(searchParams.get('stockPage') || '1', 10) || 1;
+    const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' } | null>(null);
 
+    const currentPage = parseInt(searchParams.get('stockPage') || '1', 10) || 1;
     const setCurrentPage = useCallback((page: number | ((prev: number) => number)) => {
         setSearchParams(prev => {
             const next = new URLSearchParams(prev);
             next.set('view', 'ContentStock');
             
-            // คำนวณหน้าถัดไป (รองรับแบบ Functional Update)
             const currentPageVal = parseInt(next.get('stockPage') || '1', 10) || 1;
             const nextPageVal = typeof page === 'function' ? page(currentPageVal) : page;
             
             if (nextPageVal > 1) {
                 next.set('stockPage', nextPageVal.toString());
             } else {
-                next.delete('stockPage'); // ถ้าเป็นหน้า 1 ให้ลบออกจาก URL เพื่อความสะอาดของลิงก์
+                next.delete('stockPage');
             }
             return next;
         }, { replace: true });
@@ -109,7 +119,7 @@ export const useContentStockController = ({ globalTasks, channels, users, master
     // Reset pagination when filters change
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchQuery, filterChannel, filterFormat, filterPillar, filterCategory, filterStatuses, filterHasShootDate, filterShootDateStart, filterShootDateEnd, showStockOnly, sortConfig, filterOnlyMissingStorage, filterChecklistProgress]);
+    }, [searchQuery, filterChannel, filterFormat, filterPillar, filterCategory, filterStatuses, filterHasShootDate, filterShootDateStart, filterShootDateEnd, showStockOnly, sortConfig, filterOnlyMissingStorage, filterChecklistProgress, setCurrentPage]);
 
     const filters = useMemo(() => ({
         channelId: filterChannel,
@@ -137,8 +147,6 @@ export const useContentStockController = ({ globalTasks, channels, users, master
     useEffect(() => {
         const isSingleStatus = filterStatuses.length === 1;
         if (!isSingleStatus) {
-            // If not single status, specific step filters are not valid.
-            // Reset to keep only standard metrics ('COMPLETED', 'INCOMPLETE')
             const validFilters = filterChecklistProgress.filter(
                 f => f === 'COMPLETED' || f === 'INCOMPLETE'
             );
@@ -146,7 +154,6 @@ export const useContentStockController = ({ globalTasks, channels, users, master
                 setFilterChecklistProgress(validFilters);
             }
         } else {
-            // If it is single status, check if the currently selected specific steps still belong to the selected status
             const selectedStatus = filterStatuses[0];
             const groupKey = getChecklistGroupKey(selectedStatus, masterOptions);
             const activeSteps = masterOptions.filter(
@@ -211,6 +218,26 @@ export const useContentStockController = ({ globalTasks, channels, users, master
         setFilterChecklistProgress([]);
     }, []);
 
+    const hasActiveFilters = useMemo(() => {
+        return !!(searchQuery || 
+               filterChannel.length > 0 || 
+               filterFormat.length > 0 || 
+               filterPillar.length > 0 || 
+               filterCategory.length > 0 || 
+               filterStatuses.length > 0 || 
+               filterHasShootDate || 
+               filterShootDateStart || 
+               filterShootDateEnd ||
+               filterChecklistProgress.length > 0 ||
+               filterOnlyOverdue ||
+               filterOnlyMissingStorage);
+    }, [
+        searchQuery, filterChannel, filterFormat, filterPillar, 
+        filterCategory, filterStatuses, filterHasShootDate, 
+        filterShootDateStart, filterShootDateEnd, filterChecklistProgress,
+        filterOnlyOverdue, filterOnlyMissingStorage
+    ]);
+
     const handleProcessFile = useCallback(async (file: File) => {
         if (!file) return;
 
@@ -245,49 +272,52 @@ export const useContentStockController = ({ globalTasks, channels, users, master
             const payloads = itemsToInsert.map(item => item.payload);
             const BATCH_SIZE = 100;
 
-            // Batch insert in chunks of 100 items to prevent request payload overload
             for (let i = 0; i < payloads.length; i += BATCH_SIZE) {
                 const chunk = payloads.slice(i, i + BATCH_SIZE);
                 const { error } = await supabase.from('contents').insert(chunk);
                 if (error) throw error;
             }
 
-            showToast(`นำเข้าคลังสำเร็จ ${payloads.length} รายการเรียบร้อยแล้ว 🎉`, 'success');
+            showToast(`นำเข้าสำเร็จ ${itemsToInsert.length} รายการ`, 'success');
             setIsImportPreviewOpen(false);
             setImportValidationResult(null);
-            setCurrentPage(1);
-            fetchContents();
-            fetchUnassignedChannelCount();
+            await refreshStock();
+            await fetchUnassignedChannelCount();
         } catch (err: any) {
-            console.error('Import insert error:', err);
-            showToast('เกิดข้อผิดพลาดในการบันทึกข้อมูลลงฐานข้อมูล: ' + err.message, 'error');
+            console.error('Execute import error:', err);
+            showToast('เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + (err.message || err), 'error');
         } finally {
             setIsSubmittingImport(false);
         }
-    }, [fetchContents, fetchUnassignedChannelCount, showToast]);
+    }, [showToast, refreshStock, fetchUnassignedChannelCount]);
 
     const handleDownloadTemplate = useCallback(() => {
-        const csvContent = generateContentStockCSVTemplate(masterOptions, channels);
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.setAttribute("href", url);
-        link.setAttribute("download", `juijui_template.csv`);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(url);
-    }, [masterOptions, channels]);
+        try {
+            const csvContent = generateContentStockCSVTemplate();
+            const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `content_stock_template_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            showToast('ดาวน์โหลดไฟล์ Template สำเร็จ', 'success');
+        } catch (err) {
+            console.error('Template download error:', err);
+            showToast('เกิดข้อผิดพลาดในการดาวน์โหลด Template', 'error');
+        }
+    }, [showToast]);
 
-    // Dual-Layer Count: In-memory fallback count from globalTasks + DB count
     const localUnassignedCount = useMemo(() => {
-        if (!globalTasks || globalTasks.length === 0) return 0;
+        if (!globalTasks) return 0;
         return globalTasks.filter(t => {
-            if (t.type && t.type !== 'CONTENT') return false;
-            const isNoChannel = !t.channelId || (typeof t.channelId === 'string' && t.channelId.trim() === '');
-            if (!isNoChannel) return false;
+            const isUnassigned = !t.channelId || t.channelId.trim() === '' || t.channelId === 'NO_CHANNEL';
+            if (!isUnassigned) return false;
 
-            const isTerminal = isStockTerminalStatus(t.status as string);
+            const isTerminal = isStockTerminalStatus(t.status) || t.status === 'CANCELLED';
             if (contentSubTab === 'ARCHIVE') {
                 return isTerminal;
             } else {
@@ -298,8 +328,112 @@ export const useContentStockController = ({ globalTasks, channels, users, master
 
     const effectiveUnassignedCount = Math.max(unassignedChannelCount, localUnassignedCount);
 
+    // ==========================================
+    // GROUPED OBJECTS (For clean orchestrator)
+    // ==========================================
+    const filterState: StockFilterState = useMemo(() => ({
+        searchQuery,
+        setSearchQuery,
+        filterChannel,
+        setFilterChannel,
+        filterFormat,
+        setFilterFormat,
+        filterPillar,
+        setFilterPillar,
+        filterCategory,
+        setFilterCategory,
+        filterStatuses,
+        setFilterStatuses,
+        filterOnlyOverdue,
+        setFilterOnlyOverdue,
+        filterOnlyMissingStorage,
+        setFilterOnlyMissingStorage,
+        filterChecklistProgress,
+        setFilterChecklistProgress,
+        filterHasShootDate,
+        setFilterHasShootDate,
+        filterShootDateStart,
+        setFilterShootDateStart,
+        filterShootDateEnd,
+        setFilterShootDateEnd,
+        showStockOnly,
+        setShowStockOnly,
+        isFiltering,
+        clearFilters,
+        hasActiveFilters,
+    }), [
+        searchQuery, filterChannel, filterFormat, filterPillar, filterCategory,
+        filterStatuses, filterOnlyOverdue, filterOnlyMissingStorage, filterChecklistProgress,
+        filterHasShootDate, filterShootDateStart, filterShootDateEnd, showStockOnly,
+        isFiltering, clearFilters, hasActiveFilters
+    ]);
+
+    const viewState: StockViewState = useMemo(() => ({
+        viewTab,
+        setViewTab,
+        contentSubTab,
+        setContentSubTab,
+        currentPage,
+        setCurrentPage,
+        itemsPerPage: ITEMS_PER_PAGE,
+        sortConfig,
+        handleSort,
+        searchParams,
+        setSearchParams
+    }), [viewTab, setViewTab, contentSubTab, setContentSubTab, currentPage, setCurrentPage, sortConfig, handleSort, searchParams, setSearchParams]);
+
+    const dataResult: StockDataResult = useMemo(() => ({
+        paginatedTasks,
+        totalCount,
+        overdueCount,
+        missingStorageCount,
+        unassignedChannelCount: effectiveUnassignedCount,
+        isLoading,
+        isRefreshing,
+        fetchContents,
+        refreshStock,
+        fetchUnassignedChannelCount,
+        updateLocalItem,
+        toggleShootQueue,
+        updateSubChecklistProgress
+    }), [
+        paginatedTasks, totalCount, overdueCount, missingStorageCount, effectiveUnassignedCount,
+        isLoading, isRefreshing, fetchContents, refreshStock, fetchUnassignedChannelCount,
+        updateLocalItem, toggleShootQueue, updateSubChecklistProgress
+    ]);
+
+    const modalState: StockModalState = useMemo(() => ({
+        isInventoryModalOpen,
+        setIsInventoryModalOpen,
+        openInventoryModal: () => setIsInventoryModalOpen(true),
+        closeInventoryModal: () => setIsInventoryModalOpen(false),
+        isImportPreviewOpen,
+        setIsImportPreviewOpen,
+        importValidationResult,
+        setImportValidationResult,
+        isSubmittingImport,
+        selectedContentForAnalytics,
+        setSelectedContentForAnalytics
+    }), [isInventoryModalOpen, isImportPreviewOpen, importValidationResult, isSubmittingImport, selectedContentForAnalytics]);
+
+    const importActions: StockImportActions = useMemo(() => ({
+        fileInputRef,
+        isImporting,
+        handleFileUpload,
+        handleProcessFile,
+        handleExecuteImport,
+        handleDownloadTemplate
+    }), [fileInputRef, isImporting, handleFileUpload, handleProcessFile, handleExecuteImport, handleDownloadTemplate]);
+
     return {
-        // Filter values & setters
+        // --- 4 Clean Groups ---
+        filters: filterState,
+        view: viewState,
+        data: dataResult,
+        modals: modalState,
+        importActions,
+
+        // --- Backward Compatibility (ยังคง field เดิมไว้ทั้งหมด) ---
         searchQuery, setSearchQuery,
         filterChannel, setFilterChannel,
         filterFormat, setFilterFormat,
@@ -316,17 +450,11 @@ export const useContentStockController = ({ globalTasks, channels, users, master
         isFiltering,
         isInventoryModalOpen, setIsInventoryModalOpen,
         selectedContentForAnalytics, setSelectedContentForAnalytics,
-        
-        // Navigation / Routing Tabs
         viewTab, setViewTab,
         contentSubTab, setContentSubTab,
-        
-        // Sorting / Pagination
         sortConfig, setSortConfig,
         currentPage, setCurrentPage,
         ITEMS_PER_PAGE,
-        
-        // CSV Utilities & Import Preview
         fileInputRef,
         isImporting,
         isImportPreviewOpen,
@@ -340,8 +468,6 @@ export const useContentStockController = ({ globalTasks, channels, users, master
         handleDownloadTemplate,
         clearFilters,
         handleSort,
-        
-        // Data hook states & updates
         paginatedTasks,
         totalCount,
         overdueCount,

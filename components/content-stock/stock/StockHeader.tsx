@@ -93,10 +93,14 @@ const StockHeader: React.FC<StockHeaderProps> = ({
 
   return (
     <div className="flex flex-col xl:flex-row justify-between items-stretch xl:items-center gap-6 bg-white/70 backdrop-blur-2xl pt-6 pb-5 px-6 md:px-8 rounded-[2.5rem] border border-white/80 shadow-2xl shadow-indigo-500/10">
-      <div className="flex-1 w-full xl:w-auto min-w-0">
+      <motion.div 
+        layout
+        transition={springTransition}
+        className="flex-1 w-full xl:w-auto min-w-0"
+      >
         <motion.div 
           layout
-          transition={{ type: "spring", stiffness: 300, damping: 28 }}
+          transition={springTransition}
           className="flex flex-col sm:flex-row sm:items-center gap-4 mb-5"
         >
           <motion.h1 
@@ -207,7 +211,7 @@ const StockHeader: React.FC<StockHeaderProps> = ({
             />
           </div>
         )}
-      </div>
+      </motion.div>
 
       {/* Action Side */}
       <motion.div 
@@ -250,19 +254,13 @@ const StockHeader: React.FC<StockHeaderProps> = ({
             whileTap={{ scale: 0.95 }}
             onClick={onAdd}
             title="เพิ่มคอนเทนต์ใหม่"
-            className={`
-              relative group flex items-center justify-center h-11
-              ${isStackExpanded 
-                ? 'w-11 px-0 rounded-2xl' 
-                : 'px-5 sm:px-6 rounded-[1.25rem]'
-              }
-              bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400
-              text-white font-bold text-sm tracking-tight
-              shadow-[0_10px_25px_-5px_rgba(165,180,252,0.5)]
-              hover:shadow-[0_20px_40px_-10px_rgba(192,132,252,0.6)]
-              border border-white/30
-              overflow-hidden shrink-0 cursor-pointer
-            `}
+            animate={{
+              width: isStackExpanded ? 44 : 'auto',
+              paddingLeft: isStackExpanded ? 12 : 20,
+              paddingRight: isStackExpanded ? 12 : 20,
+              borderRadius: isStackExpanded ? 16 : 20,
+            }}
+            className="relative group flex items-center justify-center h-11 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 text-white font-bold text-sm tracking-tight shadow-[0_10px_25px_-5px_rgba(165,180,252,0.5)] hover:shadow-[0_20px_40px_-10px_rgba(192,132,252,0.6)] border border-white/30 overflow-hidden shrink-0 cursor-pointer"
           >
             {/* Floating Sparkle Animation (only when full) */}
             {!isStackExpanded && (
@@ -293,8 +291,8 @@ const StockHeader: React.FC<StockHeaderProps> = ({
                     initial={{ opacity: 0, width: 0 }}
                     animate={{ opacity: 1, width: 'auto' }}
                     exit={{ opacity: 0, width: 0 }}
-                    transition={{ duration: 0.18, ease: "easeInOut" }}
-                    className="drop-shadow-sm whitespace-nowrap overflow-hidden text-sm font-bold"
+                    transition={springTransition}
+                    className="drop-shadow-sm whitespace-nowrap overflow-hidden text-sm font-bold pl-0.5"
                   >
                     เพิ่มคอนเทนต์
                   </motion.span>

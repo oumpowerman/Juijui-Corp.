@@ -3,18 +3,20 @@ import React, { useState } from 'react';
 import { MasterOption } from '../../../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Zap, Play, PenTool, ChevronDown, ChevronUp, BarChart3, HardDrive, Archive, Landmark, Layers } from 'lucide-react';
+import { StockFilterState } from '../../../hooks/content-stock/types';
 
 interface StockQuickFiltersProps {
   masterOptions: MasterOption[];
-  currentStatuses: string[];
-  setStatuses: (statuses: string[]) => void;
+  filterState?: StockFilterState;
+  currentStatuses?: string[];
+  setStatuses?: (statuses: string[]) => void;
   currentTab: 'ACTIVE' | 'ARCHIVE';
-  setTab: (tab: 'ACTIVE' | 'ARCHIVE') => void;
-  showOnlyOverdue: boolean;
-  setShowOnlyOverdue: (show: boolean) => void;
+  setTab: (tab: 'ACTIVE' | 'ARCHIVE' | ((prev: 'ACTIVE' | 'ARCHIVE') => 'ACTIVE' | 'ARCHIVE')) => void;
+  showOnlyOverdue?: boolean;
+  setShowOnlyOverdue?: (show: boolean) => void;
   overdueCount?: number;
-  showOnlyMissingStorage: boolean;
-  setShowOnlyMissingStorage: (show: boolean) => void;
+  showOnlyMissingStorage?: boolean;
+  setShowOnlyMissingStorage?: (show: boolean) => void;
   missingStorageCount?: number;
   filterPillar?: string[];
   setFilterPillar?: React.Dispatch<React.SetStateAction<string[]>>;
@@ -24,21 +26,34 @@ interface StockQuickFiltersProps {
 
 const StockQuickFilters: React.FC<StockQuickFiltersProps> = ({ 
   masterOptions, 
-  currentStatuses, 
-  setStatuses,
+  filterState,
+  currentStatuses: propStatuses, 
+  setStatuses: propSetStatuses,
   currentTab,
   setTab,
-  showOnlyOverdue,
-  setShowOnlyOverdue,
+  showOnlyOverdue: propShowOnlyOverdue,
+  setShowOnlyOverdue: propSetShowOnlyOverdue,
   overdueCount = 0,
-  showOnlyMissingStorage,
-  setShowOnlyMissingStorage,
+  showOnlyMissingStorage: propShowOnlyMissingStorage,
+  setShowOnlyMissingStorage: propSetShowOnlyMissingStorage,
   missingStorageCount = 0,
-  filterPillar = [],
-  setFilterPillar,
-  filterCategory = [],
-  setFilterCategory
+  filterPillar: propFilterPillar,
+  setFilterPillar: propSetFilterPillar,
+  filterCategory: propFilterCategory,
+  setFilterCategory: propSetFilterCategory
 }) => {
+  // Use filterState if provided, otherwise fallback to individual props
+  const currentStatuses = filterState ? filterState.filterStatuses : (propStatuses || []);
+  const setStatuses = filterState ? filterState.setFilterStatuses : (propSetStatuses || (() => {}));
+  const showOnlyOverdue = filterState ? filterState.filterOnlyOverdue : (propShowOnlyOverdue || false);
+  const setShowOnlyOverdue = filterState ? filterState.setFilterOnlyOverdue : (propSetShowOnlyOverdue || (() => {}));
+  const showOnlyMissingStorage = filterState ? filterState.filterOnlyMissingStorage : (propShowOnlyMissingStorage || false);
+  const setShowOnlyMissingStorage = filterState ? filterState.setFilterOnlyMissingStorage : (propSetShowOnlyMissingStorage || (() => {}));
+  const filterPillar = filterState ? filterState.filterPillar : (propFilterPillar || []);
+  const setFilterPillar = filterState ? filterState.setFilterPillar : propSetFilterPillar;
+  const filterCategory = filterState ? filterState.filterCategory : (propFilterCategory || []);
+  const setFilterCategory = filterState ? filterState.setFilterCategory : propSetFilterCategory;
+
   const [isExpanded, setIsExpanded] = useState(false);
   const [animating, setAnimating] = useState(false);
 

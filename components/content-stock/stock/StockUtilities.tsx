@@ -124,9 +124,13 @@ const StockUtilities: React.FC<StockUtilitiesProps> = ({
                     id="btn-stock-expand-tools"
                     onClick={() => setIsExpanded(true)}
                     title="เครื่องมือและนำเข้า (Tools)"
-                    className={`flex items-center justify-center h-11 bg-white border border-slate-200/90 rounded-2xl text-slate-500 hover:text-indigo-600 hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-500/10 shadow-sm group active:scale-95 shrink-0 cursor-pointer overflow-hidden ${
-                      compact ? 'w-11 px-0' : 'px-4 gap-2'
-                    }`}
+                    animate={{
+                      width: compact ? 44 : 'auto',
+                      paddingLeft: compact ? 12 : 16,
+                      paddingRight: compact ? 12 : 16,
+                      gap: compact ? 0 : 8
+                    }}
+                    className="flex items-center justify-center h-11 bg-white border border-slate-200/90 rounded-2xl text-slate-500 hover:text-indigo-600 hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-500/10 shadow-sm group active:scale-95 shrink-0 cursor-pointer overflow-hidden"
                 >
                     <Wrench className="w-4 h-4 group-hover:rotate-45 transition-transform duration-500 shrink-0" />
                     <AnimatePresence initial={false}>
@@ -136,7 +140,7 @@ const StockUtilities: React.FC<StockUtilitiesProps> = ({
                           initial={{ opacity: 0, width: 0 }}
                           animate={{ opacity: 1, width: 'auto' }}
                           exit={{ opacity: 0, width: 0 }}
-                          transition={{ duration: 0.18, ease: "easeInOut" }}
+                          transition={springTransition}
                           className="flex items-center gap-1 overflow-hidden whitespace-nowrap"
                         >
                           <span className="text-[11px] font-black uppercase tracking-tight">Tools</span>

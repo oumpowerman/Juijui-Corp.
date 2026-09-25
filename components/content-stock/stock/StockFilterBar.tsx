@@ -9,37 +9,39 @@ import { isStorageRequiredStatus } from '../../../hooks/useContentStock';
 import { SearchWithSuggestions } from './search';
 import { ActiveFilterChipsRow } from './ActiveFilterChipsRow';
 import { StockSecondaryFilterBar } from './StockSecondaryFilterBar';
+import { StockFilterState } from '../../../hooks/content-stock/types';
 
 interface StockFilterBarProps {
-    searchQuery: string;
-    setSearchQuery: (val: string) => void;
-    filterChannel: string[];
-    setFilterChannel: React.Dispatch<React.SetStateAction<string[]>>;
-    filterFormat: string[];
-    setFilterFormat: React.Dispatch<React.SetStateAction<string[]>>;
-    filterPillar: string[];
-    setFilterPillar: React.Dispatch<React.SetStateAction<string[]>>;
-    filterCategory: string[];
-    setFilterCategory: React.Dispatch<React.SetStateAction<string[]>>;
-    filterStatuses: string[];
-    setFilterStatuses: React.Dispatch<React.SetStateAction<string[]>>;
+    filterState?: StockFilterState;
+    searchQuery?: string;
+    setSearchQuery?: (val: string) => void;
+    filterChannel?: string[];
+    setFilterChannel?: React.Dispatch<React.SetStateAction<string[]>>;
+    filterFormat?: string[];
+    setFilterFormat?: React.Dispatch<React.SetStateAction<string[]>>;
+    filterPillar?: string[];
+    setFilterPillar?: React.Dispatch<React.SetStateAction<string[]>>;
+    filterCategory?: string[];
+    setFilterCategory?: React.Dispatch<React.SetStateAction<string[]>>;
+    filterStatuses?: string[];
+    setFilterStatuses?: React.Dispatch<React.SetStateAction<string[]>>;
     filterChecklistProgress?: string[];
     setFilterChecklistProgress?: (val: string[]) => void;
     contentSubTab?: 'ACTIVE' | 'ARCHIVE';
     
     // Updated for Range
-    filterHasShootDate: boolean;
-    setFilterHasShootDate: (val: boolean) => void;
-    filterShootDateStart: string;
-    setFilterShootDateStart: (val: string) => void;
-    filterShootDateEnd: string;
-    setFilterShootDateEnd: (val: string) => void;
+    filterHasShootDate?: boolean;
+    setFilterHasShootDate?: (val: boolean) => void;
+    filterShootDateStart?: string;
+    setFilterShootDateStart?: (val: string) => void;
+    filterShootDateEnd?: string;
+    setFilterShootDateEnd?: (val: string) => void;
 
-    showStockOnly: boolean;
-    setShowStockOnly: (val: boolean) => void;
+    showStockOnly?: boolean;
+    setShowStockOnly?: (val: boolean) => void;
     onlyOverdue?: boolean;
     onlyMissingStorage?: boolean;
-    clearFilters: () => void;
+    clearFilters?: () => void;
     
     // Data
     channels: Channel[];
@@ -48,27 +50,56 @@ interface StockFilterBarProps {
 }
 
 const StockFilterBar: React.FC<StockFilterBarProps> = React.memo(({
-    searchQuery, setSearchQuery,
-    filterChannel, setFilterChannel,
-    filterFormat, setFilterFormat,
-    filterPillar, setFilterPillar,
-    filterCategory, setFilterCategory,
-    filterStatuses, setFilterStatuses,
-    filterChecklistProgress = [],
-    setFilterChecklistProgress = () => {},
+    filterState,
+    searchQuery: propSearchQuery, setSearchQuery: propSetSearchQuery,
+    filterChannel: propFilterChannel, setFilterChannel: propSetFilterChannel,
+    filterFormat: propFilterFormat, setFilterFormat: propSetFilterFormat,
+    filterPillar: propFilterPillar, setFilterPillar: propSetFilterPillar,
+    filterCategory: propFilterCategory, setFilterCategory: propSetFilterCategory,
+    filterStatuses: propFilterStatuses, setFilterStatuses: propSetFilterStatuses,
+    filterChecklistProgress: propFilterChecklistProgress = [],
+    setFilterChecklistProgress: propSetFilterChecklistProgress = () => {},
     contentSubTab = 'ACTIVE',
     
-    filterHasShootDate, setFilterHasShootDate,
-    filterShootDateStart, setFilterShootDateStart,
-    filterShootDateEnd, setFilterShootDateEnd,
+    filterHasShootDate: propFilterHasShootDate, setFilterHasShootDate: propSetFilterHasShootDate,
+    filterShootDateStart: propFilterShootDateStart, setFilterShootDateStart: propSetFilterShootDateStart,
+    filterShootDateEnd: propFilterShootDateEnd, setFilterShootDateEnd: propSetFilterShootDateEnd,
 
-    showStockOnly, setShowStockOnly,
-    onlyOverdue,
-    onlyMissingStorage,
-    clearFilters,
+    showStockOnly: propShowStockOnly, setShowStockOnly: propSetShowStockOnly,
+    onlyOverdue: propOnlyOverdue,
+    onlyMissingStorage: propOnlyMissingStorage,
+    clearFilters: propClearFilters,
     channels, masterOptions,
     tasks
 }) => {
+    // Read from filterState if provided, otherwise fallback to individual props
+    const searchQuery = filterState ? filterState.searchQuery : (propSearchQuery || '');
+    const setSearchQuery = filterState ? filterState.setSearchQuery : (propSetSearchQuery || (() => {}));
+    const filterChannel = filterState ? filterState.filterChannel : (propFilterChannel || []);
+    const setFilterChannel = filterState ? filterState.setFilterChannel : (propSetFilterChannel || (() => {}));
+    const filterFormat = filterState ? filterState.filterFormat : (propFilterFormat || []);
+    const setFilterFormat = filterState ? filterState.setFilterFormat : (propSetFilterFormat || (() => {}));
+    const filterPillar = filterState ? filterState.filterPillar : (propFilterPillar || []);
+    const setFilterPillar = filterState ? filterState.setFilterPillar : (propSetFilterPillar || (() => {}));
+    const filterCategory = filterState ? filterState.filterCategory : (propFilterCategory || []);
+    const setFilterCategory = filterState ? filterState.setFilterCategory : (propSetFilterCategory || (() => {}));
+    const filterStatuses = filterState ? filterState.filterStatuses : (propFilterStatuses || []);
+    const setFilterStatuses = filterState ? filterState.setFilterStatuses : (propSetFilterStatuses || (() => {}));
+    const filterChecklistProgress = filterState ? filterState.filterChecklistProgress : propFilterChecklistProgress;
+    const setFilterChecklistProgress = filterState ? filterState.setFilterChecklistProgress : propSetFilterChecklistProgress;
+    
+    const filterHasShootDate = filterState ? filterState.filterHasShootDate : (propFilterHasShootDate || false);
+    const setFilterHasShootDate = filterState ? filterState.setFilterHasShootDate : (propSetFilterHasShootDate || (() => {}));
+    const filterShootDateStart = filterState ? filterState.filterShootDateStart : (propFilterShootDateStart || '');
+    const setFilterShootDateStart = filterState ? filterState.setFilterShootDateStart : (propSetFilterShootDateStart || (() => {}));
+    const filterShootDateEnd = filterState ? filterState.filterShootDateEnd : (propFilterShootDateEnd || '');
+    const setFilterShootDateEnd = filterState ? filterState.setFilterShootDateEnd : (propSetFilterShootDateEnd || (() => {}));
+
+    const showStockOnly = filterState ? filterState.showStockOnly : (propShowStockOnly || false);
+    const setShowStockOnly = filterState ? filterState.setShowStockOnly : (propSetShowStockOnly || (() => {}));
+    const onlyOverdue = filterState ? filterState.filterOnlyOverdue : propOnlyOverdue;
+    const onlyMissingStorage = filterState ? filterState.filterOnlyMissingStorage : propOnlyMissingStorage;
+    const clearFilters = filterState ? filterState.clearFilters : (propClearFilters || (() => {}));
     // Local state for toggling advanced secondary filter bar
     const [isAdvancedOpen, setIsAdvancedOpen] = useState(false);
 

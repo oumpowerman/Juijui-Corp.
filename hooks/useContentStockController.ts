@@ -64,7 +64,10 @@ export const useContentStockController = ({ globalTasks, channels, users, master
     const setViewTab = useCallback((tab: 'LIST' | 'QUEUE') => {
         setSearchParams(prev => {
             const next = new URLSearchParams(prev);
-            next.set('view', 'ContentStock');
+            // Navigation Guard: if user navigated away from ContentStock, do not overwrite URL
+            if (next.get('view') !== 'ContentStock') {
+                return prev;
+            }
             if (tab === 'QUEUE') {
                 next.set('stockMode', 'QUEUE');
                 next.delete('stockTab');
@@ -78,7 +81,10 @@ export const useContentStockController = ({ globalTasks, channels, users, master
     const setContentSubTab = useCallback((tab: 'ACTIVE' | 'ARCHIVE' | ((prev: 'ACTIVE' | 'ARCHIVE') => 'ACTIVE' | 'ARCHIVE')) => {
         setSearchParams(prev => {
             const next = new URLSearchParams(prev);
-            next.set('view', 'ContentStock');
+            // Navigation Guard: if user navigated away from ContentStock, do not overwrite URL
+            if (next.get('view') !== 'ContentStock') {
+                return prev;
+            }
             next.delete('stockMode');
             
             const currentSubTab = (next.get('stockTab') as 'ACTIVE' | 'ARCHIVE') || 'ACTIVE';
@@ -99,7 +105,10 @@ export const useContentStockController = ({ globalTasks, channels, users, master
     const setCurrentPage = useCallback((page: number | ((prev: number) => number)) => {
         setSearchParams(prev => {
             const next = new URLSearchParams(prev);
-            next.set('view', 'ContentStock');
+            // Navigation Guard: if user navigated away from ContentStock, do not overwrite URL
+            if (next.get('view') !== 'ContentStock') {
+                return prev;
+            }
             
             const currentPageVal = parseInt(next.get('stockPage') || '1', 10) || 1;
             const nextPageVal = typeof page === 'function' ? page(currentPageVal) : page;
@@ -113,13 +122,21 @@ export const useContentStockController = ({ globalTasks, channels, users, master
         }, { replace: true });
     }, [setSearchParams]);
 
+    const isFirstMountRef = useRef(true);
+    const setCurrentPageRef = useRef(setCurrentPage);
+    setCurrentPageRef.current = setCurrentPage;
+
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isImporting, setIsImporting] = useState(false);
 
-    // Reset pagination when filters change
+    // Reset pagination when filters change (skip initial mount, avoid setCurrentPage in deps)
     useEffect(() => {
-        setCurrentPage(1);
-    }, [searchQuery, filterChannel, filterFormat, filterPillar, filterCategory, filterStatuses, filterHasShootDate, filterShootDateStart, filterShootDateEnd, showStockOnly, sortConfig, filterOnlyMissingStorage, filterChecklistProgress, setCurrentPage]);
+        if (isFirstMountRef.current) {
+            isFirstMountRef.current = false;
+            return;
+        }
+        setCurrentPageRef.current(1);
+    }, [searchQuery, filterChannel, filterFormat, filterPillar, filterCategory, filterStatuses, filterHasShootDate, filterShootDateStart, filterShootDateEnd, showStockOnly, sortConfig, filterOnlyMissingStorage, filterChecklistProgress]);
 
     const filters = useMemo(() => ({
         channelId: filterChannel,

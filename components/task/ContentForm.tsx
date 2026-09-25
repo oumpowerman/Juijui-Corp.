@@ -405,11 +405,19 @@ const ContentForm: React.FC<ContentFormProps> = ({
     // Show QC Button Condition - Set to false since only task type "tasks" will support QC
     const shouldShowSendQC = false;
 
+    const handleFormSubmit = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!channelId || channelId.trim() === '') {
+            showToast('กรุณาเลือกช่อง / แบรนด์ (Channel) ก่อนบันทึกรายการ', 'warning');
+        }
+        originalHandleSubmit(e);
+    };
+
     return (
         <div className="relative h-full w-full overflow-hidden">
             {/* Form Mode */}
             <div className={`h-full w-full ${isEditorOpen || isLoadingScript ? 'hidden' : ''}`}>
-                <form onSubmit={originalHandleSubmit} className="flex flex-col flex-1 min-h-0 h-full bg-white relative overflow-hidden text-slate-900">
+                <form onSubmit={handleFormSubmit} className="flex flex-col flex-1 min-h-0 h-full bg-white relative overflow-hidden text-slate-900">
                     <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6 scrollbar-thin scrollbar-thumb-gray-200">
                         {error && <div className="bg-red-50 text-red-600 px-4 py-3 rounded-2xl text-sm flex items-center shadow-sm border border-red-100 animate-bounce"><AlertTriangle className="w-4 h-4 mr-2" />{error}</div>}
 
@@ -423,6 +431,7 @@ const ContentForm: React.FC<ContentFormProps> = ({
                                 status={status} setStatus={setStatus}
                                 channelId={channelId} setChannelId={setChannelId}
                                 statusOptions={statusOptions} channels={channels}
+                                hasError={!channelId && Boolean(error)}
                             />
 
                             {/* Steps Checklist / ขั้นตอนย่อย */}

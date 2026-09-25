@@ -13,10 +13,11 @@ interface CFStatusChannelProps {
     statusOptions: MasterOption[];
     channels: Channel[];
     groups?: ChannelGroup[];
+    hasError?: boolean;
 }
 
 const CFStatusChannel: React.FC<CFStatusChannelProps> = ({ 
-    status, setStatus, channelId, setChannelId, statusOptions, channels, groups: propGroups 
+    status, setStatus, channelId, setChannelId, statusOptions, channels, groups: propGroups, hasError = false 
 }) => {
     // UI State for Custom Dropdowns
     const [isStatusOpen, setIsStatusOpen] = useState(false);
@@ -288,17 +289,28 @@ const CFStatusChannel: React.FC<CFStatusChannelProps> = ({
                     type="button"
                     onClick={() => setIsChannelOpen(!isChannelOpen)}
                     className={`
-                        w-full h-[60px] bg-white border-2 rounded-2xl flex items-center justify-between px-4 transition-all hover:border-indigo-300 hover:shadow-md cursor-pointer
-                        ${isChannelOpen ? 'border-indigo-500 ring-4 ring-indigo-50 shadow-md' : 'border-gray-100'}
+                        w-full h-[60px] bg-white border-2 rounded-2xl flex items-center justify-between px-4 transition-all hover:shadow-md cursor-pointer
+                        ${isChannelOpen 
+                            ? 'border-indigo-500 ring-4 ring-indigo-50 shadow-md' 
+                            : hasError 
+                                ? 'border-rose-400 bg-rose-50/20 ring-4 ring-rose-100 shadow-sm' 
+                                : !currentChannel 
+                                    ? 'border-slate-300 hover:border-indigo-300' 
+                                    : 'border-gray-100 hover:border-indigo-300'
+                        }
                     `}
                 >
                     <div className="flex items-center gap-3 overflow-hidden min-w-0">
                         {/* Logo / Icon */}
-                        <div className="w-10 h-10 rounded-full bg-gray-50 border border-gray-100 flex items-center justify-center shrink-0 overflow-hidden shadow-2xs">
+                        <div className={`w-10 h-10 rounded-full border flex items-center justify-center shrink-0 overflow-hidden shadow-2xs ${
+                            !currentChannel 
+                                ? (hasError ? 'bg-rose-50 border-rose-200' : 'bg-slate-50 border-slate-200') 
+                                : 'bg-gray-50 border-gray-100'
+                        }`}>
                             {currentChannel?.logoUrl ? (
                                 <img src={currentChannel.logoUrl} alt={currentChannel.name} className="w-full h-full object-cover" />
                             ) : (
-                                <Tv className="w-5 h-5 text-gray-400" />
+                                <Tv className={`w-5 h-5 ${hasError ? 'text-rose-500' : 'text-gray-400'}`} />
                             )}
                         </div>
                         
@@ -307,16 +319,24 @@ const CFStatusChannel: React.FC<CFStatusChannelProps> = ({
                                 <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider truncate">
                                     {currentChannel?.group_name ? `[${currentChannel.group_name}]` : 'ช่อง / แบรนด์'}
                                 </span>
-                                {currentChannel && getChannelTotalFollowers(currentChannel) > 0 && (
-                                    <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1 py-0.2 rounded">
-                                        <Users className="w-2.5 h-2.5 text-indigo-400" />
-                                        {formatFollowersCompact(getChannelTotalFollowers(currentChannel))}
+                                {!currentChannel ? (
+                                    <span className={`text-[9px] font-black px-1.5 py-0.2 rounded border ${
+                                        hasError ? 'bg-rose-100 text-rose-700 border-rose-300' : 'bg-rose-50 text-rose-500 border-rose-100'
+                                    }`}>
+                                        * บังคับเลือก
                                     </span>
+                                ) : (
+                                    getChannelTotalFollowers(currentChannel) > 0 && (
+                                        <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-indigo-600 bg-indigo-50 px-1 py-0.2 rounded">
+                                            <Users className="w-2.5 h-2.5 text-indigo-400" />
+                                            {formatFollowersCompact(getChannelTotalFollowers(currentChannel))}
+                                        </span>
+                                    )
                                 )}
                             </div>
                             <div className="flex items-center gap-1.5 w-full">
-                                <span className="text-sm font-bold text-gray-800 truncate">
-                                    {currentChannel?.name || 'เลือกช่อง'}
+                                <span className={`text-sm font-bold truncate ${!currentChannel ? (hasError ? 'text-rose-600 font-semibold' : 'text-slate-400 font-semibold') : 'text-gray-800'}`}>
+                                    {currentChannel?.name || 'กรุณาเลือกช่องรายการ...'}
                                 </span>
                                 {currentChannel?.status && currentChannel.status !== 'ACTIVE' && (
                                     <span className="text-[9px] font-bold px-1.5 py-0.2 rounded bg-amber-50 text-amber-700 border border-amber-200 shrink-0">

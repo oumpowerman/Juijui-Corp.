@@ -228,12 +228,15 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
         
             setTags(sourceScript?.tags || []);
             
-            if (sourceScript?.channelId) setChannelId(sourceScript.channelId);
-            else if (channels.length > 0) setChannelId(channels[0].id);
-            else setChannelId('');
+            // When creating new content, do not default to any channel unless explicitly specified by sourceScript
+            if (sourceScript?.channelId) {
+                setChannelId(sourceScript.channelId);
+            } else {
+                setChannelId('');
+            }
 
             setTargetPlatforms(['YOUTUBE', 'FACEBOOK', 'TIKTOK', 'INSTAGRAM']);
-            setPillar(pillarOptions.find(o => o.isDefault)?.key || '');
+            setPillar('');
             
             const defaultFormat = formatOptions.find(o => o.isDefault)?.key || '';
             setContentFormats(defaultFormat ? [defaultFormat] : []);
@@ -266,8 +269,8 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
             setError('อย่าลืมตั้งชื่อคอนเทนต์นะ!');
             return;
         }
-        if (!channelId) {
-            setError('กรุณาเลือกช่องทาง (Channel) ด้วยครับ');
+        if (!channelId || channelId.trim() === '') {
+            setError('กรุณาเลือกช่อง / แบรนด์ (Channel) ก่อนบันทึกรายการ (จำเป็น)');
             return;
         }
         if (!isStock && new Date(startDate) > new Date(endDate)) {

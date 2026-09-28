@@ -89,6 +89,8 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
   
   // Form values
   const [name, setName] = useState('');
+  const [code, setCode] = useState('');
+  const [isCodeTouched, setIsCodeTouched] = useState(false);
   const [description, setDescription] = useState('');
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<ChannelStatus>('ACTIVE');
@@ -128,6 +130,8 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
       if (channel) {
         setTargetId(channel.id);
         setName(channel.name);
+        setCode(channel.code || '');
+        setIsCodeTouched(Boolean(channel.code));
         setDescription(channel.description || '');
         setEmail(channel.email || '');
         setStatus(channel.status || 'ACTIVE');
@@ -153,6 +157,8 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
         // Clear fields for a brand new channel
         setTargetId(crypto.randomUUID());
         setName('');
+        setCode('');
+        setIsCodeTouched(false);
         setDescription('');
         setEmail('');
         setStatus('ACTIVE');
@@ -183,6 +189,34 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
     const newIndex = TABS.findIndex(t => t.id === newTab);
     setDirection(newIndex > currentIndex ? 1 : -1);
     setActiveTab(newTab);
+  };
+
+  const handleNameChange = (newName: string) => {
+    setName(newName);
+    // Auto-suggest Channel Code if the user hasn't explicitly customized it
+    if (!isCodeTouched) {
+      // Pick first letters of English words, or first 2-3 characters
+      const clean = newName.trim();
+      if (clean) {
+        const words = clean.split(/\s+/).filter(w => /^[a-zA-Z0-9]/.test(w));
+        let suggested = '';
+        if (words.length >= 2) {
+          suggested = words.map(w => w[0]).join('').toUpperCase().slice(0, 4);
+        } else {
+          suggested = clean.replace(/[^a-zA-Z0-9]/g, '').slice(0, 3).toUpperCase();
+        }
+        if (suggested) {
+          setCode(suggested);
+        }
+      } else {
+        setCode('');
+      }
+    }
+  };
+
+  const handleCodeChange = (newCode: string) => {
+    setCode(newCode);
+    setIsCodeTouched(true);
   };
 
   const handleNextTab = () => {
@@ -267,6 +301,7 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
       const payload: Channel = {
         id: targetId,
         name: name.trim(),
+        code: code.trim().toUpperCase() || undefined,
         description: description.trim(),
         email: email.trim() || undefined,
         color,
@@ -451,7 +486,9 @@ const ChannelFormModal: React.FC<ChannelFormModalProps> = ({ isOpen, onClose, ch
                   >
                     <ChannelBrandTab
                       name={name}
-                      setName={setName}
+                      setName={handleNameChange}
+                      code={code}
+                      setCode={handleCodeChange}
                       description={description}
                       setDescription={setDescription}
                       status={status}

@@ -212,9 +212,32 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
                 </span>
               )}
 
-              <span className="font-mono text-[9px] font-black uppercase tracking-widest text-slate-800/70 bg-white/40 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/60 shadow-2xs shrink-0">
-                SHOW-{channel.id.substring(0, 4).toUpperCase()}
-              </span>
+              {channel.code ? (
+                <span 
+                  className="font-mono text-[9px] font-black uppercase tracking-wider text-indigo-700 bg-indigo-50/90 backdrop-blur-md px-2 py-0.5 rounded-full border border-indigo-200/80 shadow-2xs shrink-0 flex items-center gap-0.5"
+                  title={`รหัสย่อช่อง: ${channel.code}`}
+                >
+                  <span className="text-indigo-400 font-bold">#</span>
+                  <span>{channel.code}</span>
+                </span>
+              ) : (
+                <span className="font-mono text-[9px] font-black uppercase tracking-widest text-slate-800/70 bg-white/40 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/60 shadow-2xs shrink-0">
+                  SHOW-{channel.id.substring(0, 4).toUpperCase()}
+                </span>
+              )}
+
+              {/* Minimal 3D Flip Trigger */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIsFlipped(true);
+                }}
+                className="w-6 h-6 ml-0.5 rounded-full bg-white/85 backdrop-blur-md text-slate-500 border border-white/90 border-b-[2px] border-b-slate-200/80 shadow-2xs hover:bg-white hover:text-indigo-600 hover:border-indigo-200 transition-all flex items-center justify-center active:scale-95 cursor-pointer z-20 group/flip"
+                title="พลิกดูคู่มือและเอกสาร (Flip to Docs)"
+              >
+                <BookOpen className="w-3 h-3 group-hover/flip:scale-110 transition-transform duration-300" />
+              </button>
             </div>
           </div>
           

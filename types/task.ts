@@ -113,6 +113,8 @@ export interface Channel {
     id: string;
     /** ชื่อของช่อง/รายการ/แบรนด์ เช่น "Silly Buddies", "Show A" */
     name: string;
+    /** รหัสย่อช่อง เช่น "DE", "JJ", "DK" (แนะนำตัวพิมพ์ใหญ่ 2-6 ตัว สำหรับค้นหาด่วนและ Deep Link) */
+    code?: string;
     /** คำอธิบายคอนเซปต์ของช่อง/รายการ */
     description?: string;
     /** สถานะการดำเนินงานของช่อง */

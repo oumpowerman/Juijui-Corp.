@@ -10,6 +10,7 @@ export const CACHE_KEY_CHANNELS_VERSION = 'channels_version_cache';
 export const mapChannel = (c: any): Channel => ({
     id: c.id,
     name: c.name,
+    code: c.code || c.social_links?._code || undefined,
     description: c.description || '',
     color: c.color,
     platforms: Array.isArray(c.platforms) ? c.platforms : ['OTHER'],
@@ -151,6 +152,7 @@ export const useChannelsDomain = () => {
             const socialLinksPayload = {
                 ...(channel.social_links || {}),
                 _brand_links: brandLinksList,
+                _code: channel.code ? channel.code.trim().toUpperCase() : undefined,
                 _meta_api: channel.meta_api || undefined,
                 _status: channel.status || 'ACTIVE',
                 _monetization: channel.monetization || { is_monetized: false, youtube: false, facebook: false }
@@ -159,6 +161,7 @@ export const useChannelsDomain = () => {
             const payload: any = {
                 id: finalId,
                 name: channel.name,
+                code: channel.code ? channel.code.trim().toUpperCase() : null,
                 description: channel.description || '', 
                 color: channel.color,
                 platforms: channel.platforms, 
@@ -176,10 +179,10 @@ export const useChannelsDomain = () => {
 
             let { data, error } = await supabase.from('channels').insert(payload).select().single();
             
-            // Graceful fallback if columns status/monetization don't exist yet in DB
-            if (error && error.message?.includes('column') && (error.message?.includes('status') || error.message?.includes('monetization'))) {
-                console.warn('DB columns status/monetization not yet created. Falling back to JSON storage in social_links.', error.message);
-                const { status, monetization, ...fallbackPayload } = payload;
+            // Graceful fallback if columns code/status/monetization don't exist yet in DB
+            if (error && error.message?.includes('column') && (error.message?.includes('code') || error.message?.includes('status') || error.message?.includes('monetization'))) {
+                console.warn('DB columns code/status/monetization not yet created. Falling back to JSON storage in social_links.', error.message);
+                const { code, status, monetization, ...fallbackPayload } = payload;
                 const retryRes = await supabase.from('channels').insert(fallbackPayload).select().single();
                 data = retryRes.data;
                 error = retryRes.error;
@@ -218,6 +221,7 @@ export const useChannelsDomain = () => {
             const socialLinksPayload = {
                 ...(updatedChannel.social_links || {}),
                 _brand_links: brandLinksList,
+                _code: updatedChannel.code ? updatedChannel.code.trim().toUpperCase() : undefined,
                 _meta_api: updatedChannel.meta_api || undefined,
                 _status: updatedChannel.status || 'ACTIVE',
                 _monetization: updatedChannel.monetization || { is_monetized: false, youtube: false, facebook: false }
@@ -225,6 +229,7 @@ export const useChannelsDomain = () => {
 
             const payload: any = {
                 name: updatedChannel.name,
+                code: updatedChannel.code ? updatedChannel.code.trim().toUpperCase() : null,
                 description: updatedChannel.description || '',
                 color: updatedChannel.color,
                 platforms: updatedChannel.platforms,
@@ -242,10 +247,10 @@ export const useChannelsDomain = () => {
 
             let { data, error } = await supabase.from('channels').update(payload).eq('id', updatedChannel.id).select().single();
             
-            // Graceful fallback if columns status/monetization don't exist yet in DB
-            if (error && error.message?.includes('column') && (error.message?.includes('status') || error.message?.includes('monetization'))) {
-                console.warn('DB columns status/monetization not yet created. Falling back to JSON storage in social_links.', error.message);
-                const { status, monetization, ...fallbackPayload } = payload;
+            // Graceful fallback if columns code/status/monetization don't exist yet in DB
+            if (error && error.message?.includes('column') && (error.message?.includes('code') || error.message?.includes('status') || error.message?.includes('monetization'))) {
+                console.warn('DB columns code/status/monetization not yet created. Falling back to JSON storage in social_links.', error.message);
+                const { code, status, monetization, ...fallbackPayload } = payload;
                 const retryRes = await supabase.from('channels').update(fallbackPayload).eq('id', updatedChannel.id).select().single();
                 data = retryRes.data;
                 error = retryRes.error;

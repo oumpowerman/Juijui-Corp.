@@ -169,6 +169,21 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [channelToDelete, setChannelToDelete] = useState<Channel | null>(null);
 
+  // Search & Filter State
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Filtered Channels by Search Query (supports Name & Code e.g. "DE", "#DE")
+  const filteredChannels = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase().replace(/^#/, '');
+    if (!q) return enrichedChannels;
+    return enrichedChannels.filter(c => {
+      const matchName = c.name && c.name.toLowerCase().includes(q);
+      const matchCode = c.code && c.code.toLowerCase().includes(q);
+      const matchDesc = c.description && c.description.toLowerCase().includes(q);
+      return matchName || matchCode || matchDesc;
+    });
+  }, [enrichedChannels, searchQuery]);
+
   // Section Grouping Data Structure
   const sectionData = useMemo(() => {
     const groupedMap: Record<string, Channel[]> = {};
@@ -178,7 +193,7 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
       groupedMap[g.id] = [];
     });
 
-    enrichedChannels.forEach(ch => {
+    filteredChannels.forEach(ch => {
       if (ch.group_id && groupedMap[ch.group_id]) {
         groupedMap[ch.group_id].push(ch);
       } else {
@@ -189,10 +204,10 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
     return {
       groupedMap,
       ungrouped,
-      categorizedCount: enrichedChannels.filter(c => c.group_id).length,
+      categorizedCount: filteredChannels.filter(c => c.group_id).length,
       hasGroups: groups.length > 0,
     };
-  }, [enrichedChannels, groups]);
+  }, [filteredChannels, groups]);
 
   // Operational and Monetization Stats Calculations
   const monetizedChannelsCount = useMemo(() => {
@@ -333,19 +348,22 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
           />
         )}
 
-        {/* 3. Section Filter Tabs */}
+        {/* 3. Section Filter Tabs & Search */}
         <ChannelGroupFilterBar
           groups={groups}
           channelsCount={channels.length}
+          filteredCount={filteredChannels.length}
           selectedFilter={selectedGroupFilter}
           onSelectFilter={setSelectedGroupFilter}
           sectionData={sectionData}
           onOpenManageModal={() => setIsGroupModalOpen(true)}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
         />
 
         {/* 4. Section Channels Grid */}
         <ChannelSectionList
-          channels={enrichedChannels}
+          channels={filteredChannels}
           groups={groups}
           selectedGroupFilter={selectedGroupFilter}
           sectionData={sectionData}

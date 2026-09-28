@@ -16,7 +16,8 @@ import {
   Radio,
   Clock,
   PauseCircle,
-  Archive
+  Archive,
+  Hash
 } from 'lucide-react';
 import { ChannelLogoSelector } from '../inputs/ChannelLogoSelector';
 import { ChannelStatus } from '../../../../types';
@@ -29,6 +30,8 @@ export interface BrandColorOption {
 interface ChannelBrandTabProps {
   name: string;
   setName: (name: string) => void;
+  code?: string;
+  setCode?: (code: string) => void;
   description: string;
   setDescription: (desc: string) => void;
   status: ChannelStatus;
@@ -49,6 +52,8 @@ interface ChannelBrandTabProps {
 export const ChannelBrandTab: React.FC<ChannelBrandTabProps> = ({
   name,
   setName,
+  code = '',
+  setCode,
   description,
   setDescription,
   status = 'ACTIVE',
@@ -91,14 +96,14 @@ export const ChannelBrandTab: React.FC<ChannelBrandTabProps> = ({
 
         {/* Inputs (Name + Email + Description) */}
         <div className="flex-1 w-full space-y-4 min-w-0">
-          {/* Name & Email in responsive grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Name, Code & Email in responsive grid */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
             
             {/* 1. Name Input */}
-            <div className="space-y-1.5 flex flex-col justify-start">
+            <div className="space-y-1.5 flex flex-col justify-start md:col-span-1 sm:col-span-2">
               <div className="h-6 flex items-center justify-between">
                 <label htmlFor="channel-name-input" className="text-xs font-bold text-slate-700 flex items-center gap-1.5 cursor-pointer">
-                  <span>ชื่อรายการ / แบรนด์ (Channel Name)</span>
+                  <span>ชื่อรายการ / แบรนด์</span>
                   <span className="text-rose-500 font-bold">*</span>
                 </label>
                 <span className="text-[10px] font-medium text-slate-400 bg-slate-100/80 px-2 py-0.5 rounded-full border border-slate-200/60">
@@ -118,7 +123,7 @@ export const ChannelBrandTab: React.FC<ChannelBrandTabProps> = ({
                   id="channel-name-input"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="เช่น Juijui Vlog, สรุปข่าวเช้า..."
+                  placeholder="เช่น Juijui Vlog, Drama Everyday..."
                   className="w-full pl-12 pr-10 py-2.5 bg-white hover:bg-slate-50/50 focus:bg-white border border-slate-200/90 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 rounded-2xl outline-none font-bold text-slate-800 text-sm shadow-xs transition-all placeholder:text-slate-300 placeholder:font-normal disabled:opacity-70 disabled:bg-slate-50"
                   autoFocus
                   disabled={isSubmitting}
@@ -134,11 +139,52 @@ export const ChannelBrandTab: React.FC<ChannelBrandTabProps> = ({
               </div>
             </div>
 
-            {/* 2. Email Input */}
+            {/* 2. Channel Code Input */}
+            {setCode && (
+              <div className="space-y-1.5 flex flex-col justify-start">
+                <div className="h-6 flex items-center justify-between">
+                  <label htmlFor="channel-code-input" className="text-xs font-bold text-slate-700 flex items-center gap-1.5 cursor-pointer">
+                    <span>รหัสย่อช่อง (Code)</span>
+                  </label>
+                  <span className="text-[10px] font-medium text-indigo-600 bg-indigo-50/80 px-2 py-0.5 rounded-full border border-indigo-200/60 font-mono">
+                    Deep Link
+                  </span>
+                </div>
+
+                <div className="relative group/field flex items-center">
+                  <div className="absolute left-2.5 z-10 flex items-center pointer-events-none">
+                    <div className="w-7 h-7 rounded-xl bg-indigo-50/80 border border-indigo-100/80 flex items-center justify-center text-indigo-600 shadow-2xs group-focus-within/field:bg-indigo-600 group-focus-within/field:text-white group-focus-within/field:border-indigo-600 transition-all duration-200 font-mono font-bold text-xs">
+                      <Hash className="w-3.5 h-3.5" />
+                    </div>
+                  </div>
+
+                  <input
+                    type="text"
+                    id="channel-code-input"
+                    value={code}
+                    maxLength={10}
+                    onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9_-]/g, ''))}
+                    placeholder="เช่น DE, JJ, DK"
+                    className="w-full pl-12 pr-10 py-2.5 bg-white hover:bg-slate-50/50 focus:bg-white border border-slate-200/90 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 rounded-2xl outline-none font-mono font-black text-indigo-700 text-sm tracking-wider shadow-xs transition-all placeholder:text-slate-300 placeholder:font-normal disabled:opacity-70 disabled:bg-slate-50 uppercase"
+                    disabled={isSubmitting}
+                  />
+
+                  {code.trim() && (
+                    <div className="absolute right-3 z-10 flex items-center pointer-events-none">
+                      <span className="text-emerald-500 bg-emerald-50 border border-emerald-100 p-1 rounded-full shadow-2xs">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 3. Email Input */}
             <div className="space-y-1.5 flex flex-col justify-start">
               <div className="h-6 flex items-center justify-between">
                 <label htmlFor="channel-email-input" className="text-xs font-bold text-slate-700 flex items-center gap-1.5 cursor-pointer">
-                  <span>อีเมลติดต่องาน (Business Email)</span>
+                  <span>อีเมลติดต่องาน</span>
                 </label>
                 <span className="text-[10px] font-medium text-slate-400 bg-slate-100/80 px-2 py-0.5 rounded-full border border-slate-200/60">
                   ทางเลือก

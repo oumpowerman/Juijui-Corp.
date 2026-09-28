@@ -94,6 +94,7 @@ export interface StockFilterState {
     isFiltering: boolean;
     clearFilters: () => void;
     hasActiveFilters: boolean;
+    handleShareFilterLink?: () => void;
 }
 
 export interface StockViewState {

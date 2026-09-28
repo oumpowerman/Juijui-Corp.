@@ -11,6 +11,7 @@ export interface StockChannelStackProps {
   isExpanded?: boolean;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
+  onShareLink?: () => void;
 }
 
 export interface ChannelItem {
@@ -48,4 +49,4 @@ export const STATUS_PRIORITY: Record<string, number> = {
   ARCHIVED: 4,
 };
 
-export const springTransition = { type: 'spring', stiffness: 380, damping: 30 } as const;
+export const springTransition = { type: 'spring', stiffness: 300, damping: 30, mass: 0.8 } as const;

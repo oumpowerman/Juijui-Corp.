@@ -104,6 +104,15 @@ export function useAppNavigation({
         next.delete('stockMode');
         next.delete('stockTab');
         next.delete('stockPage');
+        next.delete('channels');
+        next.delete('channel');
+        next.delete('format');
+        next.delete('status');
+        next.delete('category');
+        next.delete('pillar');
+        next.delete('overdue');
+        next.delete('missingStorage');
+        next.delete('stockOnly');
       }
       if (view !== 'SCRIPT_HUB') {
         next.delete('scriptId');

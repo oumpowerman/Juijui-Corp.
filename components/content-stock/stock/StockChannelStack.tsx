@@ -21,6 +21,7 @@ export const StockChannelStack: React.FC<StockChannelStackProps> = ({
   isExpanded,
   onMouseEnter,
   onMouseLeave,
+  onShareLink,
 }) => {
   const [hoveredSection, setHoveredSection] = useState<'none' | 'controls' | 'track'>('none');
   const [isManuallyPinned, setIsManuallyPinned] = useState(false);
@@ -119,6 +120,7 @@ export const StockChannelStack: React.FC<StockChannelStackProps> = ({
             setIsManuallyPinned(prev => !prev);
           }}
           onMouseEnter={handleControlsMouseEnter}
+          onShareLink={onShareLink}
         />
 
         {/* Separator Line */}

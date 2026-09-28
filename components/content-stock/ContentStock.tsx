@@ -94,6 +94,7 @@ const ContentStock: React.FC<ContentStockProps> = ({
           users={users}
           masterOptions={masterOptions}
           handleProcessFile={importActions.handleProcessFile}
+          onShareLink={filters.handleShareFilterLink}
         />
 
         {/* 3. Main Views (List vs Shoot Queue) */}

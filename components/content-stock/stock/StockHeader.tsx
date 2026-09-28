@@ -28,6 +28,7 @@ interface StockHeaderProps {
   users?: User[];
   masterOptions?: MasterOption[];
   handleProcessFile?: (file: File) => Promise<void>;
+  onShareLink?: () => void;
 }
 
 const springTransition = { type: 'spring', stiffness: 380, damping: 30 } as const;
@@ -52,7 +53,8 @@ const StockHeader: React.FC<StockHeaderProps> = ({
   setSearchParams,
   users = [],
   masterOptions = [],
-  handleProcessFile
+  handleProcessFile,
+  onShareLink
 }) => {
   const [isStackExpanded, setIsStackExpanded] = useState(false);
   const collapseTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -197,6 +199,7 @@ const StockHeader: React.FC<StockHeaderProps> = ({
               isExpanded={isStackExpanded}
               onMouseEnter={handleStackMouseEnter}
               onMouseLeave={handleStackMouseLeave}
+              onShareLink={onShareLink}
             />
           </div>
         )}

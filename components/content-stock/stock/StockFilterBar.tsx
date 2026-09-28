@@ -311,6 +311,7 @@ const StockFilterBar: React.FC<StockFilterBarProps> = React.memo(({
                 setFilterShootDateEnd={setFilterShootDateEnd}
                 channels={channels}
                 masterOptions={masterOptions}
+                onShareLink={filterState?.handleShareFilterLink}
             />
 
             {/* Level 2: Advanced Secondary Filter Bar */}

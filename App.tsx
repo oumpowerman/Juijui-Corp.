@@ -53,7 +53,8 @@ function App() {
     const viewParam = queryParams.get('view');
     const highlightReqIdParam = queryParams.get('highlightReqId');
     const taskIdParam = queryParams.get('taskId') || queryParams.get('contentId') || queryParams.get('highlightTaskId') || queryParams.get('openTaskId');
-    if (viewParam || highlightReqIdParam || taskIdParam) {
+    const channelParam = queryParams.get('channels') || queryParams.get('channel');
+    if (viewParam || highlightReqIdParam || taskIdParam || channelParam) {
       sessionStorage.setItem('juijui_pending_deep_link', window.location.search);
     }
   }, []);

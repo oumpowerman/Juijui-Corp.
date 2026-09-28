@@ -74,7 +74,9 @@ export function useTaskDeepLink({
     if (pendingDeepLink) {
       sessionStorage.removeItem('juijui_pending_deep_link');
       const params = new URLSearchParams(pendingDeepLink);
-      const targetView = (params.get('view') as ViewMode) || (params.get('taskId') || params.get('contentId') || params.get('highlightTaskId') || params.get('openTaskId') ? 'CALENDAR' : null);
+      const targetView = (params.get('view') as ViewMode) 
+        || (params.get('channels') || params.get('channel') || params.get('stockTab') || params.get('stockMode') ? 'ContentStock' : null)
+        || (params.get('taskId') || params.get('contentId') || params.get('highlightTaskId') || params.get('openTaskId') ? 'CALENDAR' : null);
       if (targetView) {
         // Check if the current search parameters are already identical to the deep link parameters
         let isIdentical = true;

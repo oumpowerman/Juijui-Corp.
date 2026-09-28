@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FolderHeart, Layers, AlignLeft, Folder, Image, ArrowLeftRight } from 'lucide-react';
+import { FolderHeart, Layers, AlignLeft, Folder, Image, ArrowLeftRight, Link2 } from 'lucide-react';
 import { StockDisplayMode, StockGroupingMode, springTransition } from '../types';
 
 interface StackHeaderControlsProps {
@@ -14,6 +14,7 @@ interface StackHeaderControlsProps {
   onExpand?: () => void;
   onMouseEnter?: () => void;
   onMouseLeave?: () => void;
+  onShareLink?: () => void;
 }
 
 export const StackHeaderControls: React.FC<StackHeaderControlsProps> = ({
@@ -27,6 +28,7 @@ export const StackHeaderControls: React.FC<StackHeaderControlsProps> = ({
   onExpand,
   onMouseEnter,
   onMouseLeave,
+  onShareLink,
 }) => {
   return (
     <motion.div 
@@ -128,6 +130,23 @@ export const StackHeaderControls: React.FC<StackHeaderControlsProps> = ({
                   {activeCount > 0 ? `เลือกอยู่ ${activeCount} ช่อง` : `ทั้งหมด (${totalChannelsCount})`}
                 </motion.span>
               </AnimatePresence>
+
+              {onShareLink && (
+                <motion.button
+                  type="button"
+                  whileHover={{ scale: 1.06 }}
+                  whileTap={{ scale: 0.94 }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onShareLink();
+                  }}
+                  title="คัดลอกลิงก์มุมมองนี้เพื่อแชร์ให้คนในทีม (Copy Filter Link)"
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-indigo-700 bg-indigo-50/90 hover:bg-indigo-100 active:bg-indigo-200 border border-indigo-200/80 shadow-xs transition-colors cursor-pointer select-none"
+                >
+                  <Link2 className="w-3 h-3 text-indigo-600" />
+                  <span>แชร์ลิงก์</span>
+                </motion.button>
+              )}
             </h4>
 
             {/* Mode Switchers: Vertical 1-Click Toggles */}

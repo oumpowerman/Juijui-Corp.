@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { X } from 'lucide-react';
+import { X, Link2 } from 'lucide-react';
 import { Channel, MasterOption } from '../../../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, parseISO } from 'date-fns';
@@ -24,6 +24,7 @@ interface ActiveFilterChipsRowProps {
     setFilterShootDateEnd: (val: string) => void;
     channels: Channel[];
     masterOptions: MasterOption[];
+    onShareLink?: () => void;
 }
 
 export const ActiveFilterChipsRow: React.FC<ActiveFilterChipsRowProps> = React.memo(({
@@ -44,7 +45,8 @@ export const ActiveFilterChipsRow: React.FC<ActiveFilterChipsRowProps> = React.m
     filterShootDateEnd,
     setFilterShootDateEnd,
     channels,
-    masterOptions
+    masterOptions,
+    onShareLink
 }) => {
     // Derived list of currently active filters as chips/badges with dynamic and responsive styling
     const activeChips = useMemo(() => {
@@ -218,6 +220,20 @@ export const ActiveFilterChipsRow: React.FC<ActiveFilterChipsRowProps> = React.m
                             </motion.div>
                         ))}
                     </AnimatePresence>
+
+                    {onShareLink && (
+                        <motion.button
+                            type="button"
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            onClick={onShareLink}
+                            title="คัดลอกลิงก์มุมมองนี้เพื่อแชร์ให้ทีม (Copy Filter Link)"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50/90 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/90 text-[11px] font-bold shadow-xs cursor-pointer ml-auto transition-colors select-none"
+                        >
+                            <Link2 className="w-3.5 h-3.5 text-indigo-600" />
+                            <span>แชร์มุมมองนี้</span>
+                        </motion.button>
+                    )}
                 </motion.div>
             )}
         </AnimatePresence>

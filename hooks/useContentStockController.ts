@@ -7,6 +7,7 @@ import { generateContentStockCSVTemplate } from '../services/csvService';
 import { validateAndParseStockFile, StockCSVValidationResult, ParsedStockItemPreview } from '../services/stockImportValidator';
 import { supabase } from '../lib/supabase';
 import { isStockTerminalStatus } from '../config/status';
+import { parseChannelTokens, copyTextToClipboard } from './content-stock/deepLinkUtils';
 import {
     SortKey,
     SortDirection,
@@ -30,16 +31,29 @@ interface UseContentStockControllerProps {
 
 export const useContentStockController = ({ globalTasks, channels, users, masterOptions }: UseContentStockControllerProps) => {
     const { showToast } = useToast();
+    const [searchParams, setSearchParams] = useSearchParams();
 
-    // --- Filter States ---
-    const [searchQuery, setSearchQuery] = useState('');
+    // --- Filter States (Hydrated from URL query params) ---
+    const [searchQuery, setSearchQuery] = useState(() => searchParams.get('q') || searchParams.get('search') || '');
     const [filterChannel, setFilterChannel] = useState<string[]>([]);
-    const [filterFormat, setFilterFormat] = useState<string[]>([]);
-    const [filterPillar, setFilterPillar] = useState<string[]>([]);
-    const [filterCategory, setFilterCategory] = useState<string[]>([]);
-    const [filterStatuses, setFilterStatuses] = useState<string[]>([]);
-    const [filterOnlyOverdue, setFilterOnlyOverdue] = useState(false);
-    const [filterOnlyMissingStorage, setFilterOnlyMissingStorage] = useState(false);
+    const [filterFormat, setFilterFormat] = useState<string[]>(() => {
+        const raw = searchParams.get('format') || searchParams.get('stockFormat');
+        return raw ? raw.split(',').map(s => s.trim()).filter(Boolean) : [];
+    });
+    const [filterPillar, setFilterPillar] = useState<string[]>(() => {
+        const raw = searchParams.get('pillar') || searchParams.get('stockPillar');
+        return raw ? raw.split(',').map(s => s.trim()).filter(Boolean) : [];
+    });
+    const [filterCategory, setFilterCategory] = useState<string[]>(() => {
+        const raw = searchParams.get('category') || searchParams.get('stockCategory');
+        return raw ? raw.split(',').map(s => s.trim()).filter(Boolean) : [];
+    });
+    const [filterStatuses, setFilterStatuses] = useState<string[]>(() => {
+        const raw = searchParams.get('status') || searchParams.get('stockStatus');
+        return raw ? raw.split(',').map(s => s.trim()).filter(Boolean) : [];
+    });
+    const [filterOnlyOverdue, setFilterOnlyOverdue] = useState(() => searchParams.get('overdue') === 'true');
+    const [filterOnlyMissingStorage, setFilterOnlyMissingStorage] = useState(() => searchParams.get('missingStorage') === 'true');
     const [filterChecklistProgress, setFilterChecklistProgress] = useState<string[]>([]);
     
     // Range Filter
@@ -47,11 +61,10 @@ export const useContentStockController = ({ globalTasks, channels, users, master
     const [filterShootDateStart, setFilterShootDateStart] = useState('');
     const [filterShootDateEnd, setFilterShootDateEnd] = useState('');
     
-    const [showStockOnly, setShowStockOnly] = useState(false);
+    const [showStockOnly, setShowStockOnly] = useState(() => searchParams.get('stockOnly') === 'true');
     const [isFiltering, setIsFiltering] = useState(false);
     const [isInventoryModalOpen, setIsInventoryModalOpen] = useState(false);
     const [selectedContentForAnalytics, setSelectedContentForAnalytics] = useState<Task | null>(null);
-    const [searchParams, setSearchParams] = useSearchParams();
 
     // --- CSV Import Validation States ---
     const [isImportPreviewOpen, setIsImportPreviewOpen] = useState(false);
@@ -128,6 +141,150 @@ export const useContentStockController = ({ globalTasks, channels, users, master
 
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [isImporting, setIsImporting] = useState(false);
+
+    const initialChannelResolvedRef = useRef(false);
+    const lastSyncedChannelsParamRef = useRef<string>('');
+
+    // --- 1. HYBRID CHANNEL DEEP LINK RESOLVER (Option C: ID, Code, Name, Unassigned) ---
+    useEffect(() => {
+        if (initialChannelResolvedRef.current) return;
+        if (!channels || channels.length === 0) return;
+
+        const rawChannelParam = searchParams.get('channels') || searchParams.get('channel');
+        if (!rawChannelParam) {
+            initialChannelResolvedRef.current = true;
+            return;
+        }
+
+        const { resolvedIds, hasUnresolved } = parseChannelTokens(rawChannelParam, channels);
+
+        if (resolvedIds.length > 0) {
+            setFilterChannel(resolvedIds);
+            lastSyncedChannelsParamRef.current = resolvedIds.join(',');
+        } else if (hasUnresolved) {
+            // Edge Case 2: Fallback when specified channel doesn't exist
+            showToast('ไม่พบช่องตามลิงก์ที่ระบุ แสดงคอนเทนต์ทั้งหมด', 'warning');
+            setFilterChannel([]);
+            lastSyncedChannelsParamRef.current = '';
+            setSearchParams(prev => {
+                const next = new URLSearchParams(prev);
+                next.delete('channels');
+                next.delete('channel');
+                return next;
+            }, { replace: true });
+        }
+
+        initialChannelResolvedRef.current = true;
+    }, [channels, searchParams, setSearchParams, showToast]);
+
+    // --- 2. TWO-WAY URL STATE SYNCHRONIZATION (Edge Case 3: replace history) ---
+    useEffect(() => {
+        // Navigation Guard: only sync when currently viewing ContentStock
+        if (searchParams.get('view') !== 'ContentStock') return;
+        // Do not overwrite URL before initial channel resolution if channel query is present
+        if (!initialChannelResolvedRef.current && (searchParams.get('channels') || searchParams.get('channel'))) return;
+
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            if (next.get('view') !== 'ContentStock') return prev;
+
+            let changed = false;
+
+            // Sync Channels
+            const currentChannelsParam = next.get('channels') || '';
+            const newChannelsParam = filterChannel.join(',');
+            if (newChannelsParam) {
+                if (currentChannelsParam !== newChannelsParam || next.has('channel')) {
+                    next.set('channels', newChannelsParam);
+                    next.delete('channel'); // Canonicalize to 'channels'
+                    lastSyncedChannelsParamRef.current = newChannelsParam;
+                    changed = true;
+                }
+            } else {
+                if (next.has('channels') || next.has('channel')) {
+                    next.delete('channels');
+                    next.delete('channel');
+                    lastSyncedChannelsParamRef.current = '';
+                    changed = true;
+                }
+            }
+
+            // Sync Format
+            const currentFormat = next.get('format') || '';
+            const newFormat = filterFormat.join(',');
+            if (newFormat !== currentFormat) {
+                if (newFormat) next.set('format', newFormat);
+                else next.delete('format');
+                changed = true;
+            }
+
+            // Sync Status
+            const currentStatus = next.get('status') || '';
+            const newStatus = filterStatuses.join(',');
+            if (newStatus !== currentStatus) {
+                if (newStatus) next.set('status', newStatus);
+                else next.delete('status');
+                changed = true;
+            }
+
+            // Sync Category
+            const currentCat = next.get('category') || '';
+            const newCat = filterCategory.join(',');
+            if (newCat !== currentCat) {
+                if (newCat) next.set('category', newCat);
+                else next.delete('category');
+                changed = true;
+            }
+
+            // Sync Pillar
+            const currentPillar = next.get('pillar') || '';
+            const newPillar = filterPillar.join(',');
+            if (newPillar !== currentPillar) {
+                if (newPillar) next.set('pillar', newPillar);
+                else next.delete('pillar');
+                changed = true;
+            }
+
+            // Sync Search Query
+            const currentQ = next.get('q') || '';
+            const newQ = searchQuery.trim();
+            if (newQ !== currentQ) {
+                if (newQ) next.set('q', newQ);
+                else next.delete('q');
+                changed = true;
+            }
+
+            // Sync Overdue
+            const currentOverdue = next.get('overdue') === 'true';
+            if (filterOnlyOverdue !== currentOverdue) {
+                if (filterOnlyOverdue) next.set('overdue', 'true');
+                else next.delete('overdue');
+                changed = true;
+            }
+
+            // Sync Missing Storage
+            const currentMissingStorage = next.get('missingStorage') === 'true';
+            if (filterOnlyMissingStorage !== currentMissingStorage) {
+                if (filterOnlyMissingStorage) next.set('missingStorage', 'true');
+                else next.delete('missingStorage');
+                changed = true;
+            }
+
+            // Sync Stock Only
+            const currentStockOnly = next.get('stockOnly') === 'true';
+            if (showStockOnly !== currentStockOnly) {
+                if (showStockOnly) next.set('stockOnly', 'true');
+                else next.delete('stockOnly');
+                changed = true;
+            }
+
+            return changed ? next : prev;
+        }, { replace: true });
+    }, [
+        filterChannel, filterFormat, filterStatuses, filterCategory, filterPillar,
+        searchQuery, filterOnlyOverdue, filterOnlyMissingStorage, showStockOnly,
+        searchParams, setSearchParams
+    ]);
 
     // Reset pagination when filters change (skip initial mount, avoid setCurrentPage in deps)
     useEffect(() => {
@@ -345,6 +502,94 @@ export const useContentStockController = ({ globalTasks, channels, users, master
 
     const effectiveUnassignedCount = Math.max(unassignedChannelCount, localUnassignedCount);
 
+    const handleShareFilterLink = useCallback(async () => {
+        try {
+            const url = new URL(window.location.origin + window.location.pathname);
+            url.searchParams.set('view', 'ContentStock');
+
+            if (viewTab === 'QUEUE') {
+                url.searchParams.set('stockMode', 'QUEUE');
+            }
+            if (contentSubTab === 'ARCHIVE') {
+                url.searchParams.set('stockTab', 'ARCHIVE');
+            }
+            if (currentPage > 1) {
+                url.searchParams.set('stockPage', currentPage.toString());
+            }
+
+            // Channel parameter
+            if (filterChannel.length > 0) {
+                url.searchParams.set('channels', filterChannel.join(','));
+            }
+
+            // Other active filters (Full State Sharing)
+            if (filterFormat.length > 0) {
+                url.searchParams.set('format', filterFormat.join(','));
+            }
+            if (filterStatuses.length > 0) {
+                url.searchParams.set('status', filterStatuses.join(','));
+            }
+            if (filterCategory.length > 0) {
+                url.searchParams.set('category', filterCategory.join(','));
+            }
+            if (filterPillar.length > 0) {
+                url.searchParams.set('pillar', filterPillar.join(','));
+            }
+            if (searchQuery.trim()) {
+                url.searchParams.set('q', searchQuery.trim());
+            }
+            if (filterOnlyOverdue) {
+                url.searchParams.set('overdue', 'true');
+            }
+            if (filterOnlyMissingStorage) {
+                url.searchParams.set('missingStorage', 'true');
+            }
+            if (showStockOnly) {
+                url.searchParams.set('stockOnly', 'true');
+            }
+
+            const shareUrl = url.toString();
+            const copied = await copyTextToClipboard(shareUrl);
+
+            if (!copied) {
+                showToast('ไม่สามารถคัดลอกลิงก์ได้ กรุณาลองใหม่อีกครั้ง', 'error');
+                return;
+            }
+
+            // Determine toast message
+            let toastMsg = 'คัดลอกลิงก์มุมมองคลังคอนเทนต์สำเร็จ! นำไปวางส่งให้ทีมได้เลย';
+
+            if (filterChannel.length === 1) {
+                if (filterChannel[0] === 'NO_CHANNEL') {
+                    toastMsg = 'คัดลอกลิงก์ช่อง [ไม่มีช่องทาง] สำเร็จ! นำไปวางส่งให้ทีมได้เลย';
+                } else {
+                    const matchedCh = channels.find(c => c.id === filterChannel[0]);
+                    const chName = matchedCh?.name || 'ระบุ';
+                    toastMsg = `คัดลอกลิงก์ช่อง [${chName}] สำเร็จ! นำไปวางส่งให้ทีมได้เลย`;
+                }
+            } else if (filterChannel.length > 1) {
+                const names = filterChannel
+                    .map(id => {
+                        if (id === 'NO_CHANNEL') return 'ไม่มีช่องทาง';
+                        return channels.find(c => c.id === id)?.name || id;
+                    })
+                    .slice(0, 2)
+                    .join(', ');
+                const moreText = filterChannel.length > 2 ? ` และอีก ${filterChannel.length - 2} ช่อง` : '';
+                toastMsg = `คัดลอกลิงก์ ${filterChannel.length} ช่อง [${names}${moreText}] สำเร็จ! นำไปวางส่งให้ทีมได้เลย`;
+            }
+
+            showToast(toastMsg, 'success');
+        } catch (err) {
+            console.error('[useContentStockController] handleShareFilterLink error:', err);
+            showToast('ไม่สามารถคัดลอกลิงก์ได้ กรุณาลองใหม่อีกครั้ง', 'error');
+        }
+    }, [
+        filterChannel, filterFormat, filterStatuses, filterCategory, filterPillar,
+        searchQuery, filterOnlyOverdue, filterOnlyMissingStorage, showStockOnly,
+        viewTab, contentSubTab, currentPage, channels, showToast
+    ]);
+
     // ==========================================
     // GROUPED OBJECTS (For clean orchestrator)
     // ==========================================
@@ -378,11 +623,12 @@ export const useContentStockController = ({ globalTasks, channels, users, master
         isFiltering,
         clearFilters,
         hasActiveFilters,
+        handleShareFilterLink,
     }), [
         searchQuery, filterChannel, filterFormat, filterPillar, filterCategory,
         filterStatuses, filterOnlyOverdue, filterOnlyMissingStorage, filterChecklistProgress,
         filterHasShootDate, filterShootDateStart, filterShootDateEnd, showStockOnly,
-        isFiltering, clearFilters, hasActiveFilters
+        isFiltering, clearFilters, hasActiveFilters, handleShareFilterLink
     ]);
 
     const viewState: StockViewState = useMemo(() => ({
@@ -484,6 +730,7 @@ export const useContentStockController = ({ globalTasks, channels, users, master
         handleExecuteImport,
         handleDownloadTemplate,
         clearFilters,
+        handleShareFilterLink,
         handleSort,
         paginatedTasks,
         totalCount,

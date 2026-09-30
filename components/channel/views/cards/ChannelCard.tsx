@@ -25,6 +25,7 @@ import { formatFollowersCompact, formatThaiFollowerSyncTime } from '../../helper
 import { getRankAuraConfig } from './channelAuraConfig';
 import { RankAmbientGlow, RankTopBadge } from './RankAuraDecorations';
 import { BRAND_LINK_SERVICES, normalizeUrl, extractDomain } from '../../helpers/brandLinkConfig';
+import { PlatformAuraButton, calculateRelativePlatformTiers } from './platform-auras';
 
 interface ChannelCardProps {
   channel: Channel;
@@ -70,6 +71,11 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
   const brandLinksCount = brandLinks.length;
   const channelSyncAt = channel.last_sync_followers_at || (channel.followers as any)?._last_synced_at;
   const syncTimeFormatted = channelSyncAt ? formatThaiFollowerSyncTime(channelSyncAt) : null;
+
+  // Calculate relative platform tiers (Rank 1 by followers gets Tier 4 Apex, Rank 2 Tier 3, etc.)
+  const platformTierItems = React.useMemo(() => {
+    return calculateRelativePlatformTiers(channel.platforms || [], channel.followers || {});
+  }, [channel.platforms, channel.followers]);
 
   return (
     <motion.div
@@ -424,53 +430,24 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
             <div className="mt-auto pt-4 border-t border-slate-100">
               <div className="flex items-center justify-between">
                 
-                {/* Social Links Icons */}
-                <div className="flex -space-x-1.5">
-                  {(channel.platforms || []).map(p => {
-                    const Icon = PLATFORM_ICONS[p];
-                    const pColor = PLATFORM_OPTIONS.find(opt => opt.id === p)?.color || 'text-gray-500';
-                    const link = channel.social_links?.[p];
-                    const rawFollower = channel.followers?.[p];
-                    const followerCount = typeof rawFollower === 'number' ? rawFollower : undefined;
-                    const hasLink = Boolean(link && link.trim());
-                    if (!Icon) return null;
-
+                {/* Social Links Icons with Relative Platform Aura Tiers (Sorted by followers: High -> Low) */}
+                <div className="flex items-center gap-2">
+                  {platformTierItems.map((item, idx) => {
+                    const link = channel.social_links?.[item.platform];
                     return (
-                      <SocialLinkPreviewCard
-                        key={p}
-                        platform={p}
+                      <PlatformAuraButton
+                        key={item.platform}
+                        platform={item.platform}
+                        followers={item.followers}
+                        tier={item.tier}
+                        aura={item.aura}
                         url={link}
                         channelName={channel.name}
                         channelLogoUrl={channel.logoUrl}
                         channelColor={channel.color}
-                        followersCount={followerCount}
-                      >
-                        <motion.button 
-                          type="button"
-                          whileHover={{ y: -4, scale: 1.15, rotate: 5 }}
-                          transition={{ type: "spring", stiffness: 400, damping: 12 }}
-                          onClick={(e) => {
-                            if (hasLink) {
-                              e.stopPropagation();
-                              let fullUrl = link!.trim();
-                              if (!/^https?:\/\//i.test(fullUrl)) {
-                                fullUrl = 'https://' + fullUrl;
-                              }
-                              window.open(fullUrl, '_blank', 'noopener,noreferrer');
-                            }
-                          }}
-                          className={`w-8 h-8 rounded-full border flex items-center justify-center transition-all z-10 relative ${
-                            hasLink 
-                              ? 'bg-gradient-to-b from-white to-indigo-50/60 border-indigo-200 border-b-[2.5px] border-b-indigo-300/90 shadow-sm cursor-pointer hover:ring-2 hover:ring-indigo-400 hover:ring-offset-1 active:translate-y-[1px] active:border-b-[1px]' 
-                              : 'bg-slate-50 border-slate-200/80 border-b-[2px] cursor-default opacity-60'
-                          }`}
-                        >
-                          <Icon className={`w-4 h-4 ${hasLink ? pColor : 'text-slate-400'}`} />
-                          {hasLink && (
-                            <span className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-emerald-500 rounded-full ring-1 ring-white" />
-                          )}
-                        </motion.button>
-                      </SocialLinkPreviewCard>
+                        isDominant={item.isDominant}
+                        orderIndex={idx}
+                      />
                     );
                   })}
                 </div>

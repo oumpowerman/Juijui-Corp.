@@ -111,7 +111,7 @@ export const ChannelGroupFilterBar: React.FC<ChannelGroupFilterBarProps> = ({
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder="ค้นหาชื่อรายการ, รหัสย่อ #DE..."
-              className="w-full pl-9.5 pr-8 py-2 bg-white/90 backdrop-blur-md border border-slate-200/90 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 rounded-xl text-xs font-medium text-slate-800 placeholder:text-slate-400 shadow-2xs outline-none transition-all"
+              className="w-full pl-10 pr-8 py-2 bg-white/90 backdrop-blur-md border border-slate-200/90 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 rounded-xl text-xs font-medium text-slate-800 placeholder:text-slate-400 shadow-2xs outline-none transition-all"
             />
             {searchQuery && (
               <button

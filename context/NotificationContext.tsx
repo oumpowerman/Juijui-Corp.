@@ -417,10 +417,12 @@ export const NotificationProvider: React.FC<{ currentUser: User | null, children
 
         // Optimistic Update
         setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
-        try {
-            await supabase.from('notifications').update({ is_read: true }).eq('id', id);
-        } catch (err) {
-            console.error("Mark notification as read error:", err);
+        if (!id.includes('_')) {
+            try {
+                await supabase.from('notifications').update({ is_read: true }).eq('id', id);
+            } catch (err) {
+                console.error("Mark notification as read error:", err);
+            }
         }
     };
 

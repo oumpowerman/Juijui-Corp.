@@ -6,6 +6,7 @@ export type MentorTipModuleId =
   | 'QUEST_BOARD'
   | 'DUTY'
   | 'SHOOT_CHECKLIST'
+  | 'COMPANY_CHECKLIST'
   | 'FEEDBACK'
   | 'LEADERBOARD'
   | 'KPI'
@@ -84,6 +85,17 @@ export const DEFAULT_MENTOR_TIPS: Record<MentorTipModuleId, MentorTipModuleConfi
       "กดปุ่มดินสอที่ Preset เพื่อแก้ไขรายการข้างในได้แล้วนะ!"
     ]
   },
+  COMPANY_CHECKLIST: {
+    id: 'COMPANY_CHECKLIST',
+    name: 'เช็คลิสต์บริษัท & มาตรฐานความปลอดภัย (Company SOP Checklist)',
+    description: 'ระบบตรวจเช็คมาตรฐานบริษัท แบ่งกลุ่มย่อยตามหน้าที่รับผิดชอบ พร้อมบันทึก Transaction ทุกครั้งที่กดยืนยัน',
+    variant: 'green',
+    defaultMessages: [
+      "แต่ละส่วนงาน (Section) ผูกกับตำแหน่ง (Position) และหน้าที่ความรับผิดชอบ (Responsibility) จากตั้งค่าระบบโดยตรง",
+      "เมื่อติ๊กรายการในส่วนที่รับผิดชอบเสร็จแล้ว อย่าลืมกดปุ่ม 'ตกลงยืนยันผลการเช็ค' ด้านล่างการ์ดเพื่อบันทึก Transaction Log",
+      "สามารถสลับไปที่แท็บ 'ประวัติการกดยืนยัน (Transaction Logs)' เพื่อตรวจสอบย้อนหลังได้ว่าใครกดเช็คข้อไหนเวลาใด"
+    ]
+  },
   FEEDBACK: {
     id: 'FEEDBACK',
     name: 'เสียงจากทีม (Voice of Team)',
@@ -159,6 +171,7 @@ export const DEFAULT_MENTOR_TIPS_GLOBAL_SETTINGS: MentorTipsGlobalSettings = {
     QUEST_BOARD: { isEnabled: true },
     DUTY: { isEnabled: true },
     SHOOT_CHECKLIST: { isEnabled: true },
+    COMPANY_CHECKLIST: { isEnabled: true },
     FEEDBACK: { isEnabled: true },
     LEADERBOARD: { isEnabled: true },
     KPI: { isEnabled: true },

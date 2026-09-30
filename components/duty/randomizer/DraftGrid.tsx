@@ -70,18 +70,27 @@ const DraftGrid: React.FC<DraftGridProps> = ({
                                             </div>
                                         </div>
                                         
-                                        <div className="flex-1">
-                                            {/* Name Selector */}
-                                            <select 
-                                                className="text-sm font-bold text-gray-800 bg-transparent outline-none cursor-pointer hover:text-indigo-600 w-full"
-                                                value={user?.id || ''}
-                                                onChange={(e) => onReplaceUser(absIndex, e.target.value)}
-                                            >
-                                                {users.map(u => (
-                                                    <option key={u.id} value={u.id}>{u.name}</option>
-                                                ))}
-                                            </select>
-                                            <p className="text-[10px] text-gray-500 font-medium">{duty.title}</p>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex flex-wrap items-center gap-2">
+                                                {/* Name Selector */}
+                                                <select 
+                                                    className="text-sm font-bold text-gray-800 bg-transparent outline-none cursor-pointer hover:text-indigo-600"
+                                                    value={user?.id || ''}
+                                                    onChange={(e) => onReplaceUser(absIndex, e.target.value)}
+                                                >
+                                                    {users.map(u => (
+                                                        <option key={u.id} value={u.id}>{u.name}</option>
+                                                    ))}
+                                                </select>
+                                                <span className="inline-flex items-center px-2.5 py-0.5 rounded-lg text-[11px] font-bold bg-indigo-50 text-indigo-700 border border-indigo-100">
+                                                    {duty.title}
+                                                </span>
+                                            </div>
+                                            {duty.description && duty.description.trim() !== '' && (
+                                                <div className="mt-1.5 p-2 rounded-lg bg-white/80 border border-gray-200/80 text-[11px] text-gray-600 font-medium whitespace-pre-line leading-relaxed">
+                                                    {duty.description}
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
                                     

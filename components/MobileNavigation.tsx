@@ -107,7 +107,7 @@ const MobileNavigation: React.FC<MobileNavigationProps> = ({
     const filteredMenuGroups = useMemo(() => {
       if (!activeViews || activeViews.length === 0) return MOBILE_MENU_GROUPS;
       return MOBILE_MENU_GROUPS.map(group => {
-        const visibleItems = group.items.filter(item => activeViews.includes(item.view));
+        const visibleItems = group.items.filter(item => activeViews.includes(item.view) || item.view === 'COMPANY_CHECKLIST');
         return {
           ...group,
           items: visibleItems

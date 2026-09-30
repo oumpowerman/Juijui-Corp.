@@ -1,0 +1,74 @@
+
+import { createClient } from '@supabase/supabase-js';
+
+// Robust Env Var Access for Vite/CRA/Node
+const getEnv = (key: string): string => {
+    let val: string | undefined = '';
+
+    // 1. Try Vite's import.meta.env (Static Replacement for Frontend)
+    try {
+        // @ts-ignore
+        if (typeof import.meta !== 'undefined' && import.meta.env) {
+            // @ts-ignore
+            if (key === 'VITE_SUPABASE_URL') val = import.meta.env.VITE_SUPABASE_URL;
+            // @ts-ignore
+            if (key === 'VITE_SUPABASE_ANON_KEY') val = import.meta.env.VITE_SUPABASE_ANON_KEY;
+        }
+    } catch (e) { /* ignore */ }
+
+    if (val) return val;
+
+    // 2. Try process.env (Node / Express / Vercel Serverless environment)
+    try {
+        if (typeof process !== 'undefined' && process.env) {
+            val = process.env[key] || process.env[key.replace('VITE_', '')];
+        }
+    } catch (e) { /* ignore */ }
+
+    return val || '';
+};
+
+const supabaseUrl = getEnv('VITE_SUPABASE_URL') || 'https://ajkycqazreebczqjsfpv.supabase.co';
+const supabaseAnonKey = getEnv('VITE_SUPABASE_ANON_KEY') || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFqa3ljcWF6cmVlYmN6cWpzZnB2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njg0OTM5MjMsImV4cCI6MjA4NDA2OTkyM30.VscG53hy5tT5_oT297RECiVzaCcCw51AYWQeme_PDRo';
+
+if (!supabaseUrl || !supabaseAnonKey) {
+    console.warn("⚠️ Supabase credentials missing. Please check your .env file.");
+}
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+// --- STRICTMODE & MULTI-INSTANCE SAFE CHANNEL WRAPPER ---
+// Prevents "cannot add `postgres_changes` callbacks for realtime:... after `subscribe()`"
+// when React.StrictMode double-mounts effects on localhost or when Sidebar + MobileNavigation mount simultaneously.
+const originalChannel = supabase.channel.bind(supabase);
+let channelInstanceSeq = 0;
+
+supabase.channel = ((name: string, opts?: any) => {
+    const existingChannels = supabase.getChannels?.() || [];
+    const expectedTopic = `realtime:${name}`;
+    const collision = existingChannels.find((ch: any) => ch.topic === expectedTopic);
+
+    // If a channel with this exact topic already exists and has already called subscribe()
+    // (or is still awaiting async removeChannel cleanup in React.StrictMode),
+    // assign a unique topic suffix so .on('postgres_changes', ...) never attaches to a subscribed channel.
+    const safeName =
+        collision && ((collision as any).subscribedOnce || collision.state !== 'closed')
+            ? `${name}__inst_${++channelInstanceSeq}`
+            : name;
+
+    const ch = originalChannel(safeName, opts);
+
+    // Extra safety guard on ch.on() in case the same channel reference is ever chained after subscribe()
+    const originalOn = ch.on.bind(ch);
+    (ch as any).on = (type: string, filter: any, callback: any) => {
+        if ((ch as any).subscribedOnce && type === 'postgres_changes') {
+            console.warn(
+                `[Supabase Realtime] Skipped adding duplicate postgres_changes listener to already-subscribed channel: ${safeName}`
+            );
+            return ch;
+        }
+        return originalOn(type as any, filter, callback);
+    };
+
+    return ch;
+}) as typeof supabase.channel;

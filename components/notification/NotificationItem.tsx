@@ -2,7 +2,7 @@
 import React from 'react';
 import { 
     AlertTriangle, Clock, ScanEye, FileSignature, Trophy, 
-    HeartCrack, Info, Trash2, Heart, Coins, Check, X, User, Wallet, Lock, ShieldAlert, CheckCircle2, XCircle
+    HeartCrack, Info, Trash2, Heart, Coins, Check, X, User, Wallet, Lock, ShieldAlert, CheckCircle2, XCircle, ShieldCheck
 } from 'lucide-react';
 import { AppNotification } from '../../types';
 import { format } from 'date-fns';
@@ -19,6 +19,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notif, onClick, onD
     const isUrgent = notif.type === 'OVERDUE' || notif.type === 'GAME_PENALTY' || notif.type === 'SYSTEM_LOCK_PENALTY';
     const isApproval = notif.type === 'APPROVAL_REQ';
     const isFinance = notif.actionLink === 'FINANCE' || (notif.title && notif.title.includes('เงินเดือน'));
+    const isChecklistCadence = notif.actionLink === 'COMPANY_CHECKLIST';
     
     // --- SMART STYLING FOR GENERIC 'INFO' TYPE ---
     const isSuccess = notif.type === 'INFO' && (notif.title.includes('อนุมัติ') || notif.title.includes('สำเร็จ') || notif.title.includes('Approved'));
@@ -29,6 +30,10 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notif, onClick, onD
     
     if (notif.type === 'SYSTEM_LOCK_PENALTY') {
         containerStyle += " bg-red-50 border-red-200 shadow-sm ring-1 ring-red-100";
+    } else if (isChecklistCadence) {
+        containerStyle += isUnread
+            ? " bg-orange-50/80 border-l-4 border-l-orange-500 border-y-orange-200/80 border-r-orange-200/80 shadow-sm hover:bg-orange-100/60"
+            : " bg-orange-50/30 border-orange-200/50 hover:bg-orange-50/60 opacity-85 hover:opacity-100";
     } else if (isFinance) {
         containerStyle += " bg-emerald-50/50 border-emerald-200 hover:bg-emerald-100/50";
     } else if (isApproval) {
@@ -48,6 +53,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notif, onClick, onD
     }
 
     const getIconBoxStyle = () => {
+        if (isChecklistCadence) return 'bg-orange-100 text-orange-600 ring-1 ring-orange-200/60';
         if (isFinance) return 'bg-emerald-100 text-emerald-600';
         if (isSuccess) return 'bg-green-100 text-green-600';
         if (isFailure) return 'bg-red-100 text-red-600';
@@ -66,6 +72,7 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notif, onClick, onD
     };
 
     const getIcon = () => {
+        if (isChecklistCadence) return <ShieldCheck className="w-5 h-5" />;
         if (isFinance) return <Wallet className="w-5 h-5" />;
         if (isSuccess) return <CheckCircle2 className="w-5 h-5" />;
         if (isFailure) return <XCircle className="w-5 h-5" />;
@@ -94,10 +101,10 @@ const NotificationItem: React.FC<NotificationItemProps> = ({ notif, onClick, onD
                 {/* Content */}
                 <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start gap-2">
-                        <h4 className={`text-sm font-bold truncate mb-0.5 ${notif.type === 'SYSTEM_LOCK_PENALTY' ? 'text-red-800' : isFinance ? 'text-emerald-800' : isSuccess ? 'text-green-800' : isFailure ? 'text-red-800' : isUrgent ? 'text-red-700' : isApproval ? 'text-amber-800' : isUnread ? 'text-indigo-900' : 'text-gray-700'}`}>
+                        <h4 className={`text-sm font-bold truncate mb-0.5 ${notif.type === 'SYSTEM_LOCK_PENALTY' ? 'text-red-800' : isChecklistCadence ? 'text-orange-900' : isFinance ? 'text-emerald-800' : isSuccess ? 'text-green-800' : isFailure ? 'text-red-800' : isUrgent ? 'text-red-700' : isApproval ? 'text-amber-800' : isUnread ? 'text-indigo-900' : 'text-gray-700'}`}>
                             {notif.title}
                         </h4>
-                        {isUnread && <span className="w-2 h-2 rounded-full bg-red-500 shrink-0 mt-1.5 shadow-sm ring-2 ring-white"></span>}
+                        {isUnread && <span className={`w-2 h-2 rounded-full ${isChecklistCadence ? 'bg-orange-500' : 'bg-red-500'} shrink-0 mt-1.5 shadow-sm ring-2 ring-white`}></span>}
                     </div>
                     
                     <p className={`text-xs leading-relaxed line-clamp-2 font-medium ${isUnread ? 'text-gray-700' : 'text-gray-500'}`}>

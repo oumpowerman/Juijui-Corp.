@@ -152,7 +152,18 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
     const handleOpenConfig = () => {
         const fullConfigs = WEEK_DAYS_MAP.map(day => {
             const existing = configs.find(c => c.dayOfWeek === day.num);
-            return existing ? { ...existing } : { dayOfWeek: day.num, requiredPeople: 1, taskTitles: ['ทำความสะอาด'] };
+            return existing 
+                ? { 
+                    ...existing, 
+                    taskTitles: [...(existing.taskTitles || [])],
+                    taskDescriptions: [...(existing.taskDescriptions || [])]
+                } 
+                : { 
+                    dayOfWeek: day.num, 
+                    requiredPeople: 1, 
+                    taskTitles: ['ทำความสะอาด'], 
+                    taskDescriptions: [''] 
+                };
         });
         setEditingConfigs(fullConfigs);
         setIsConfigModalOpen(true);
@@ -168,6 +179,15 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
             const newTitles = [...c.taskTitles];
             newTitles[index] = value;
             return { ...c, taskTitles: newTitles };
+        }));
+    };
+
+    const handleUpdateDescription = (dayNum: number, index: number, value: string) => {
+        setEditingConfigs(prev => prev.map(c => {
+            if (c.dayOfWeek !== dayNum) return c;
+            const newDescriptions = [...(c.taskDescriptions || [])];
+            newDescriptions[index] = value;
+            return { ...c, taskDescriptions: newDescriptions };
         }));
     };
 
@@ -385,6 +405,7 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
                     configs={editingConfigs}
                     onUpdateConfig={handleUpdateConfig}
                     onUpdateTitle={handleUpdateTitle}
+                    onUpdateDescription={handleUpdateDescription}
                     onSave={() => { saveConfigs(editingConfigs); setIsConfigModalOpen(false); }}
                     onCleanup={cleanupOldDuties}
                 />

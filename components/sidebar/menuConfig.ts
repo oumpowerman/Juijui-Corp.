@@ -42,6 +42,7 @@ export const MENU_GROUPS: MenuGroup[] = [
       { view: 'ATTENDANCE', label: 'ลงเวลาทำงาน', icon: Clock, mobileLabel: 'ลงเวลา' },
       { view: 'LEADERBOARD', label: 'Hall of Fame', icon: Crown }, 
       { view: 'DUTY', label: 'ตารางเวร', icon: Coffee, mobileLabel: 'เวรวันนี้' },
+      { view: 'COMPANY_CHECKLIST', label: 'เช็คลิสต์บริษัท', icon: ShieldCheck, mobileLabel: 'เช็คลิสต์' },
       { view: 'KPI', label: 'ประเมินผล', icon: BarChart3 }, 
       { view: 'FEEDBACK', label: 'Voice of Team', icon: Megaphone, mobileLabel: 'Voice' },
       { view: 'WIKI', label: 'คู่มือ', icon: BookOpen },

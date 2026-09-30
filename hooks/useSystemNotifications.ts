@@ -1,10 +1,10 @@
 
-import { useState, useEffect, useMemo } from 'react';
-import { supabase } from '../lib/supabase';
+import { useState, useMemo } from 'react';
 import { Task, User, AppNotification } from '../types';
 import { isSameDay } from 'date-fns';
-import { mapGameLogToNotification, mapTaskToNotification } from '../lib/notificationMappers';
+import { mapTaskToNotification } from '../lib/notificationMappers';
 import { useNotificationContext } from '../context/NotificationContext';
+import { useChecklistCadenceAlerts } from './company-checklist/useChecklistCadenceAlerts';
 
 export const useSystemNotifications = (tasks: Task[], currentUser: User | null, onEvent?: () => void) => {
     const { 
@@ -18,9 +18,20 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null, 
         dismissNotification: contextDismissNotification 
     } = useNotificationContext();
 
+    // Zero-Bandwidth Company Checklist Cadence Alerts (reads in-memory MasterDataContext + localStorage)
+    const { pendingAlerts: checklistCadenceAlerts } = useChecklistCadenceAlerts(!!currentUser);
+
     const [dismissedDynamicIds, setDismissedDynamicIds] = useState<string[]>(() => {
         try {
             return JSON.parse(localStorage.getItem('dismissed_dynamic_notification_ids') || '[]');
+        } catch {
+            return [];
+        }
+    });
+
+    const [acknowledgedDynamicIds, setAcknowledgedDynamicIds] = useState<string[]>(() => {
+        try {
+            return JSON.parse(localStorage.getItem('acknowledged_notification_ids') || '[]');
         } catch {
             return [];
         }
@@ -36,14 +47,29 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null, 
         const dynamicNotifs: AppNotification[] = [];
         const penalizedTaskIdsToday = new Set<string>();
 
-        // Retrieve acknowledged dynamic ids for isRead state
-        const acknowledgedIds = (() => {
-            try {
-                return JSON.parse(localStorage.getItem('acknowledged_notification_ids') || '[]');
-            } catch {
-                return [];
-            }
-        })();
+        const acknowledgedIds = acknowledgedDynamicIds;
+
+        // 0. Map Pending Recurring Company Checklists (Zero Network / Zero Extra Bandwidth)
+        checklistCadenceAlerts.forEach(({ preset, evaluation }) => {
+            const notifId = `chk_due_${preset.id}_${evaluation.cycleKey}`;
+            const cycleDate = evaluation.cycleStartDate || today;
+            dynamicNotifs.push({
+                id: notifId,
+                type: 'UPCOMING',
+                title: `⏰ ครบรอบเช็คลิสต์: ${preset.title}`,
+                message: `${evaluation.statusBadgeText} (${evaluation.periodLabel}) — กดเพื่อเปิดกระดานเช็คลิสต์และบันทึกส่งประจำรอบ`,
+                relatedId: preset.id,
+                date: cycleDate,
+                isRead: acknowledgedIds.includes(notifId) || cycleDate < lastReadTime,
+                actionLink: 'COMPANY_CHECKLIST',
+                metadata: {
+                    checklistId: preset.id,
+                    cadenceLabel: evaluation.cadenceLabel,
+                    periodLabel: evaluation.periodLabel,
+                    autoCaseTitle: evaluation.autoCaseTitle
+                }
+            });
+        });
 
         // 1. Process Game Logs for Deduplication
         gameLogs.forEach((log: any) => {
@@ -135,7 +161,30 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null, 
         const unread = combined.filter(n => !n.isRead).length;
 
         return { notifications: combined, unreadCount: unread };
-    }, [dbNotifs, gameLogs, leaveRequests, otRequests, deadlineRequests, tasks, currentUser, dismissedDynamicIds]);
+    }, [dbNotifs, gameLogs, leaveRequests, otRequests, deadlineRequests, tasks, currentUser, dismissedDynamicIds, acknowledgedDynamicIds, checklistCadenceAlerts]);
+
+    const markNotificationAsRead = async (id: string) => {
+        if (!acknowledgedDynamicIds.includes(id)) {
+            const nextAck = [...acknowledgedDynamicIds, id];
+            setAcknowledgedDynamicIds(nextAck);
+            try {
+                localStorage.setItem('acknowledged_notification_ids', JSON.stringify(nextAck));
+            } catch (_) {}
+        }
+        await contextMarkNotificationAsRead(id);
+    };
+
+    const markAllAsRead = async () => {
+        const dynamicIds = notifications.filter(n => n.id.includes('_')).map(n => n.id);
+        if (dynamicIds.length > 0) {
+            const merged = Array.from(new Set([...acknowledgedDynamicIds, ...dynamicIds]));
+            setAcknowledgedDynamicIds(merged);
+            try {
+                localStorage.setItem('acknowledged_notification_ids', JSON.stringify(merged));
+            } catch (_) {}
+        }
+        await contextMarkAsRead();
+    };
 
     const dismissNotification = async (id: string) => {
         if (id.includes('_')) {
@@ -154,8 +203,8 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null, 
         notifications,
         unreadCount,
         dismissNotification,
-        markNotificationAsRead: contextMarkNotificationAsRead,
-        markAsViewed: contextMarkAsRead,
-        markAllAsRead: contextMarkAsRead 
+        markNotificationAsRead,
+        markAsViewed: markAllAsRead,
+        markAllAsRead 
     };
 };

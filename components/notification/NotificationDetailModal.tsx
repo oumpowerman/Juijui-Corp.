@@ -125,6 +125,9 @@ export const NotificationDetailModal: React.FC<NotificationDetailModalProps> = (
         if (notification.actionLink === 'ATTENDANCE' || isApproval || notification.id.startsWith('leave_')) {
             // Route to Attendance under Approvals tab and highlight card
             onNavigate('ATTENDANCE', { tab: 'APPROVALS', highlightReqId: rawId });
+        } else if (notification.actionLink === 'COMPANY_CHECKLIST') {
+            const presetId = notification.relatedId || notification.metadata?.checklistId || '';
+            onNavigate('COMPANY_CHECKLIST', presetId ? { presetId } : undefined);
         } else if (notification.actionLink === 'ADMIN_DASHBOARD') {
             onNavigate('DASHBOARD');
         } else if (notification.taskId) {

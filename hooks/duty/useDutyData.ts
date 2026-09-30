@@ -31,6 +31,7 @@ export const useDutyData = () => {
                 setDuties(data.map((d: any) => ({
                     id: d.id,
                     title: d.title,
+                    description: d.description || '',
                     assigneeId: d.assignee_id,
                     date: new Date(d.date),
                     isDone: d.is_done,
@@ -62,7 +63,8 @@ export const useDutyData = () => {
                 setConfigs(data.map((c: any) => ({
                     dayOfWeek: c.day_of_week,
                     requiredPeople: c.required_people,
-                    taskTitles: c.task_titles
+                    taskTitles: c.task_titles || [],
+                    taskDescriptions: c.task_descriptions || []
                 })));
             }
         } catch (err) {
@@ -120,6 +122,7 @@ export const useDutyData = () => {
                 const newDuty: Duty = {
                     id: payload.new.id,
                     title: payload.new.title,
+                    description: payload.new.description || '',
                     assigneeId: payload.new.assignee_id,
                     date: new Date(payload.new.date),
                     isDone: payload.new.is_done,
@@ -142,6 +145,7 @@ export const useDutyData = () => {
                         return {
                             ...d,
                             title: payload.new.title,
+                            description: payload.new.description || '',
                             assigneeId: payload.new.assignee_id,
                             date: new Date(payload.new.date),
                             isDone: payload.new.is_done,

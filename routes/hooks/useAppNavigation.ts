@@ -48,7 +48,7 @@ export function useAppNavigation({
 
       group.items.forEach(item => {
         // ตรวจสอบว่าเมนูนี้ถูกเปิดใช้งาน (หรือถ้าไม่มี Config ให้ถือว่าเปิดทั้งหมดเป็น Default)
-        const isActive = activeViews.length === 0 || activeViews.includes(item.view);
+        const isActive = activeViews.length === 0 || activeViews.includes(item.view) || item.view === 'COMPANY_CHECKLIST';
         if (isActive) {
           views.push(item.view);
         }
@@ -127,6 +127,9 @@ export function useAppNavigation({
         next.delete('id');
         next.delete('reqId');
         next.delete('leaveId');
+      }
+      if (view !== 'COMPANY_CHECKLIST') {
+        next.delete('presetId');
       }
 
       // Always clear transient task deep link parameters on view switch unless explicitly passed

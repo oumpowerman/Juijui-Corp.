@@ -97,7 +97,7 @@ export const useDutyRandomizer = (configs: DutyConfig[], calendarMetadata: any) 
                 if (dayNum === 0 || dayNum === 6) dayNum = 5; 
 
                 const config = configs.find(c => c.dayOfWeek === dayNum) || { 
-                    dayOfWeek: dayNum, requiredPeople: 1, taskTitles: ['เวรประจำวัน'] 
+                    dayOfWeek: dayNum, requiredPeople: 1, taskTitles: ['เวรประจำวัน'], taskDescriptions: [''] 
                 };
 
                 const peopleNeeded = config.requiredPeople;
@@ -109,9 +109,11 @@ export const useDutyRandomizer = (configs: DutyConfig[], calendarMetadata: any) 
                         title = config.taskTitles[0] || 'เวรประจำวัน';
                         if (peopleNeeded > 1) title += ` (${idx + 1})`;
                     }
+                    const description = config.taskDescriptions?.[idx]?.trim() || '';
                     draftDuties.push({
                         id: crypto.randomUUID(),
                         title,
+                        description,
                         assigneeId: user.id,
                         date: new Date(currentGenDate),
                         isDone: false
@@ -137,6 +139,7 @@ export const useDutyRandomizer = (configs: DutyConfig[], calendarMetadata: any) 
             
             const payload = newDuties.map(d => ({
                 title: d.title,
+                description: d.description || '',
                 assignee_id: d.assigneeId,
                 date: format(d.date, 'yyyy-MM-dd'),
                 is_done: d.isDone

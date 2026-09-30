@@ -13,7 +13,8 @@ export const useDutyActions = (duties: Duty[], setDuties: React.Dispatch<React.S
             const payload = newConfigs.map(config => ({
                 day_of_week: config.dayOfWeek,
                 required_people: config.requiredPeople,
-                task_titles: config.taskTitles
+                task_titles: config.taskTitles,
+                task_descriptions: config.taskDescriptions || []
             }));
 
             const { error } = await supabase

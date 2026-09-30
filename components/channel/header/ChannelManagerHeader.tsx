@@ -41,12 +41,35 @@ export const ChannelManagerHeader: React.FC<ChannelManagerHeaderProps> = ({
     <>
       <MentorTip moduleId="CHANNEL" />
 
-      {/* Floating Glassmorphic Header Section */}
-      <div className={`relative z-50 p-6 md:p-7 rounded-3xl border border-b-[3px] shadow-[0_8px_30px_rgba(0,0,0,0.04)] flex flex-col md:flex-row justify-between items-start md:items-center gap-5 transition-colors duration-500 ${
+      {/* Floating Glassmorphic Header Section with 3D Specular Top Rim Light & Pastel Mesh */}
+      <div className={`relative z-50 p-6 md:p-7 rounded-3xl border border-b-[3px] flex flex-col md:flex-row justify-between items-start md:items-center gap-5 transition-colors duration-500 ${
         socialTheme === 'midnight-studio'
-          ? 'bg-slate-900/80 backdrop-blur-md border-slate-800 border-b-slate-950 text-slate-100'
-          : 'bg-white/85 backdrop-blur-md border-white/80 border-b-slate-200/90 text-slate-800'
+          ? 'bg-slate-900/80 backdrop-blur-xl border-slate-800 border-b-slate-950 text-slate-100 shadow-[inset_0_1px_1px_rgba(255,255,255,0.12),0_12px_40px_rgba(0,0,0,0.4),0_4px_12px_rgba(0,0,0,0.2)]'
+          : 'bg-white/80 backdrop-blur-xl border-white/80 border-b-slate-200/90 text-slate-800 shadow-[inset_0_1px_2px_rgba(255,255,255,0.9),0_12px_40px_rgba(99,102,241,0.06),0_4px_12px_rgba(0,0,0,0.03)]'
       }`}>
+        {/* Soft Pastel Ambient Mesh (Inside Glass) */}
+        <div className="absolute inset-0 rounded-3xl overflow-hidden pointer-events-none -z-10">
+          {socialTheme === 'midnight-studio' ? (
+            <>
+              <div className="absolute -top-10 -left-10 w-64 h-32 bg-indigo-500/15 rounded-full blur-2xl" />
+              <div className="absolute top-1/2 left-1/3 -translate-y-1/2 w-72 h-32 bg-purple-500/10 rounded-full blur-2xl" />
+              <div className="absolute -bottom-10 -right-10 w-64 h-32 bg-pink-500/10 rounded-full blur-2xl" />
+              <div className="absolute inset-0 bg-gradient-to-r from-indigo-900/10 via-purple-900/10 to-transparent" />
+            </>
+          ) : (
+            <>
+              {/* Left: Pastel Lavender / Violet */}
+              <div className="absolute -top-10 -left-10 w-64 h-32 bg-violet-200/35 rounded-full blur-2xl" />
+              {/* Center: Pastel Blossom Pink */}
+              <div className="absolute top-1/2 left-1/3 -translate-y-1/2 w-72 h-32 bg-rose-200/25 rounded-full blur-2xl" />
+              {/* Right: Pastel Peach / Apricot */}
+              <div className="absolute -bottom-10 -right-10 w-64 h-32 bg-amber-200/30 rounded-full blur-2xl" />
+              {/* Iridescent Layer Blend */}
+              <div className="absolute inset-0 bg-gradient-to-r from-violet-100/20 via-rose-100/15 to-amber-100/20" />
+            </>
+          )}
+        </div>
+
         <div>
           <div className="flex items-center gap-2.5 flex-wrap">
             <h1 className={`text-2xl sm:text-3xl font-bold flex items-center ${

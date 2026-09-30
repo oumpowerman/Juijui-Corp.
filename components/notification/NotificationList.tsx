@@ -21,9 +21,9 @@ const NotificationList: React.FC<NotificationListProps> = ({
 
     // 1. Filter Logic
     const filtered = notifications.filter(n => {
-        if (activeTab === 'URGENT') return n.type === 'OVERDUE' || n.type === 'GAME_PENALTY' || n.type === 'SYSTEM_LOCK_PENALTY';
+        if (activeTab === 'URGENT') return n.type === 'OVERDUE' || n.type === 'GAME_PENALTY' || n.type === 'SYSTEM_LOCK_PENALTY' || n.actionLink === 'COMPANY_CHECKLIST';
         if (activeTab === 'PEOPLE') return n.type === 'APPROVAL_REQ' || n.type === 'NEW_ASSIGNMENT' || n.type === 'REVIEW';
-        if (activeTab === 'SYSTEM') return n.type === 'GAME_REWARD' || n.type === 'INFO';
+        if (activeTab === 'SYSTEM') return n.type === 'GAME_REWARD' || n.type === 'INFO' || n.actionLink === 'COMPANY_CHECKLIST';
         return true; // ALL
     });
 

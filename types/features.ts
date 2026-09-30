@@ -191,6 +191,142 @@ export interface ChecklistPreset {
     items: { text: string; categoryId: string }[];
 }
 
+// --- COMPANY CHECKLIST (PRESET-BASED SOP & CASE SNAPSHOT CHECKLISTS) ---
+export type ChecklistResetCycle = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'CUSTOM' | 'ONCE';
+export type ChecklistCustomIntervalUnit = 'DAYS' | 'WEEKS' | 'MONTHS';
+export type ChecklistNodeType = 'SECTION' | 'SUBGROUP' | 'ITEM';
+
+export interface CompanyChecklist {
+    id: string;
+    title: string;
+    description?: string;
+    icon?: string;
+    color?: string;
+    resetCycle: ChecklistResetCycle;
+    customIntervalCount?: number;
+    customIntervalUnit?: ChecklistCustomIntervalUnit;
+    defaultCasePrefix?: string;
+    lastSubmittedAt?: string;
+    lastSubmittedByName?: string;
+    lastCaseTitle?: string;
+    lastRecordId?: string;
+    isActive: boolean;
+    sortOrder: number;
+    createdBy?: string;
+    createdAt?: Date;
+    updatedAt?: Date;
+}
+
+export interface CompanyChecklistNode {
+    id: string;
+    checklistId: string;
+    parentId: string | null; // null = SECTION (หมวดหมู่หลัก L1), sectionId = SUBGROUP (กลุ่มย่อย L2) or direct ITEM, subgroupId = ITEM (L3)
+    nodeType: ChecklistNodeType;
+    title: string;
+    description?: string;
+    positionKey?: string;        // Synced with master_options (type = 'POSITION')
+    responsibilityKey?: string;  // Synced with master_options (type = 'RESPONSIBILITY')
+    assignedUserIds: string[];   // Specific user IDs
+    sortOrder: number;
+    createdAt?: Date;
+    updatedAt?: Date;
+}
+
+export interface ActiveChecklistItemState {
+    nodeId: string;
+    checklistId: string;
+    isChecked: boolean;
+    checkedBy: string;
+    checkedByName: string;
+    checkedByPosition?: string;
+    checkedByAvatar?: string;
+    checkedAt: Date;
+    remark?: string;
+}
+
+export interface SavedChecklistItemSnapshot {
+    nodeId: string;
+    parentId: string | null;
+    subgroupTitle?: string;
+    title: string;
+    description?: string;
+    isChecked: boolean;
+    checkedBy?: string;
+    checkedByName?: string;
+    checkedByPosition?: string;
+    checkedAt?: string;
+    remark?: string;
+}
+
+export interface SavedChecklistSectionSnapshot {
+    sectionId: string;
+    title: string;
+    description?: string;
+    positionKey?: string;
+    positionLabel?: string;
+    responsibilityKey?: string;
+    responsibilityLabel?: string;
+    assignedUserNames?: string[];
+    checkedCount: number;
+    totalCount: number;
+    items: SavedChecklistItemSnapshot[];
+}
+
+export interface SavedChecklistRecord {
+    id: string;
+    checklistId: string;
+    checklistTitle: string;
+    caseTitle: string; // e.g. "ตรวจจบฝึกงาน - น้องเจมส์ (Editor)" or "ตรวจประจำต้นเดือน ตุลาคม 2026"
+    submittedBy: string;
+    submittedByName: string;
+    submittedByAvatar?: string;
+    submittedByPosition?: string;
+    submittedAt: Date;
+    summaryNote?: string;
+    checkedCount: number;
+    totalCount: number;
+    snapshotSections: SavedChecklistSectionSnapshot[];
+}
+
+export interface CompanyChecklistSubmission {
+    id: string;
+    checklistId: string;
+    sectionNodeId: string | null;
+    periodKey: string;
+    submittedBy: string;
+    submittedByName: string;
+    submittedByAvatar?: string;
+    submittedByPosition?: string;
+    submittedAt: Date;
+    summaryNote?: string;
+    checkedCount: number;
+    totalCount: number;
+}
+
+export interface CompanyChecklistItemLog {
+    id: string;
+    submissionId: string;
+    checklistId: string;
+    sectionNodeId: string | null;
+    nodeId: string;
+    nodeTitle: string;
+    periodKey: string;
+    isChecked: boolean;
+    actionBy: string;
+    actionByName: string;
+    clickedAt: Date;
+    confirmedAt: Date;
+    remark?: string;
+}
+
+export interface StagedCheckItem {
+    nodeId: string;
+    sectionNodeId: string;
+    isChecked: boolean;
+    clickedAt: Date;
+    remark?: string;
+}
+
 export type AssetCondition = 'GOOD' | 'REPAIR' | 'DAMAGED' | 'LOST' | 'WRITE_OFF';
 export type AssetGroup = 'PRODUCTION' | 'OFFICE' | 'IT';
 export type InventoryType = 'FIXED' | 'CONSUMABLE'; // NEW TYPE
@@ -307,6 +443,7 @@ export type PenaltyStatus = 'NONE' | 'AWAITING_TRIBUNAL' | 'LATE_COMPLETED' | 'A
 export interface Duty {
     id: string;
     title: string;
+    description?: string;
     assigneeId: string;
     date: Date;
     isDone: boolean;
@@ -325,6 +462,7 @@ export interface DutyConfig {
     dayOfWeek: number;
     requiredPeople: number;
     taskTitles: string[];
+    taskDescriptions?: string[];
 }
 
 export interface DutySwap {

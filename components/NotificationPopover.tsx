@@ -71,6 +71,13 @@ const NotificationPopover: React.FC<NotificationPopoverProps> = ({
 
             onNavigate('ATTENDANCE', { tab: targetTab, highlightReqId: rawId });
             onClose(); // Close the popover since we are navigating to another view
+        } else if (notification.actionLink === 'COMPANY_CHECKLIST') {
+            if (onMarkRead && notification.id) {
+                onMarkRead(notification.id);
+            }
+            const presetId = notification.relatedId || notification.metadata?.checklistId || '';
+            onNavigate('COMPANY_CHECKLIST', presetId ? { presetId } : undefined);
+            onClose();
         } else if (onViewDetail) {
             // Open detail modal and do NOT close the popover so it remains open behind the modal!
             onViewDetail(notification);
@@ -131,7 +138,7 @@ const NotificationPopover: React.FC<NotificationPopoverProps> = ({
     const portalRoot = document.getElementById('portal-root') || document.body;
 
     // Calc Counts for Badges
-    const urgentCount = notifications.filter(n => (n.type === 'OVERDUE' || n.type === 'GAME_PENALTY') && !n.isRead).length;
+    const urgentCount = notifications.filter(n => (n.type === 'OVERDUE' || n.type === 'GAME_PENALTY' || n.actionLink === 'COMPANY_CHECKLIST') && !n.isRead).length;
     const peopleCount = notifications.filter(n => (n.type === 'APPROVAL_REQ') && !n.isRead).length;
 
     return createPortal(

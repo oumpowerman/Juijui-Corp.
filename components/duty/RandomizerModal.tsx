@@ -1,7 +1,7 @@
 
 import React, { useRef, useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Dices, Sparkles, Wand2, RefreshCw, User as UserIcon, Repeat, Hourglass, Calendar, Download, Loader2, Save, Info, Check, ArrowRight, PlayCircle } from 'lucide-react';
+import { X, Dices, Sparkles, Wand2, RefreshCw, User as UserIcon, Repeat, Hourglass, Calendar, Download, Copy, Loader2, Save, Info, Check, ArrowRight, PlayCircle } from 'lucide-react';
 import { format, isSameDay } from 'date-fns';
 import { User, Duty, DutyConfig } from '../../types';
 import html2canvas from 'html2canvas';
@@ -43,6 +43,8 @@ const RandomizerModal: React.FC<RandomizerModalProps> = ({
     // Export
     const exportRef = useRef<HTMLDivElement>(null);
     const [isExporting, setIsExporting] = useState(false);
+    const [isCopying, setIsCopying] = useState(false);
+    const [isCopied, setIsCopied] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
 
     // --- LOGIC ---
@@ -144,11 +146,31 @@ const RandomizerModal: React.FC<RandomizerModalProps> = ({
         }
     };
 
+    const handleCopyImage = async () => {
+        if (!exportRef.current) return;
+        setIsCopying(true);
+        try {
+            const canvas = await html2canvas(exportRef.current, { scale: 2, useCORS: true, backgroundColor: '#f1f5f9' });
+            const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+            if (!blob) throw new Error('Failed to generate image blob');
+            await navigator.clipboard.write([
+                new ClipboardItem({ 'image/png': blob })
+            ]);
+            setIsCopied(true);
+            setTimeout(() => setIsCopied(false), 2500);
+        } catch (error) {
+            console.error(error);
+            await showAlert('เบราว์เซอร์ไม่รองรับการคัดลอกรูปภาพลง Clipboard โดยตรง กรุณาใช้ปุ่ม Save Image แทนครับ', 'ไม่สามารถคัดลอกรูปได้ ⚠️');
+        } finally {
+            setIsCopying(false);
+        }
+    };
+
     const handleDownloadImage = async () => {
         if (!exportRef.current) return;
         setIsExporting(true);
         try {
-            const canvas = await html2canvas(exportRef.current, { scale: 2, useCORS: true, backgroundColor: '#ffffff' });
+            const canvas = await html2canvas(exportRef.current, { scale: 2, useCORS: true, backgroundColor: '#f1f5f9' });
             const image = canvas.toDataURL("image/png");
             const link = document.createElement("a");
             link.href = image;
@@ -175,7 +197,7 @@ const RandomizerModal: React.FC<RandomizerModalProps> = ({
                 {isShuffling && (
                     <div className="absolute inset-0 z-50 bg-indigo-600/95 flex flex-col items-center justify-center text-white p-8 text-center animate-in fade-in">
                         <Dices className="w-20 h-20 animate-spin mb-6 text-yellow-300" />
-                        <h3 className="text-3xl font-black animate-pulse">กำลังเขย่าไพ่...</h3>
+                        <h3 className="text-3xl font-bold animate-pulse">กำลังเขย่าไพ่...</h3>
                         <p className="text-indigo-200 mt-2">Shuffling Duties</p>
                     </div>
                 )}
@@ -242,7 +264,7 @@ const RandomizerModal: React.FC<RandomizerModalProps> = ({
                                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 transition-colors ${mode === 'ROTATION' ? 'bg-indigo-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
                                         <Repeat className="w-6 h-6" />
                                     </div>
-                                    <h4 className={`text-lg font-black ${mode === 'ROTATION' ? 'text-indigo-800' : 'text-gray-600'}`}>วนจนครบ (Rotation)</h4>
+                                    <h4 className={`text-lg font-bold ${mode === 'ROTATION' ? 'text-indigo-800' : 'text-gray-600'}`}>วนจนครบ (Rotation)</h4>
                                     <p className="text-xs text-gray-500 mt-2 font-medium leading-relaxed">
                                         จัดคิวให้ทุกคนได้ทำเวรอย่างน้อย 1 ครั้ง เรียงลำดับความยุติธรรม
                                     </p>
@@ -261,7 +283,7 @@ const RandomizerModal: React.FC<RandomizerModalProps> = ({
                                     <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 transition-colors ${mode === 'DURATION' ? 'bg-orange-500 text-white' : 'bg-gray-100 text-gray-400'}`}>
                                         <Hourglass className="w-6 h-6" />
                                     </div>
-                                    <h4 className={`text-lg font-black ${mode === 'DURATION' ? 'text-orange-800' : 'text-gray-600'}`}>ตามช่วงเวลา (Duration)</h4>
+                                    <h4 className={`text-lg font-bold ${mode === 'DURATION' ? 'text-orange-800' : 'text-gray-600'}`}>ตามช่วงเวลา (Duration)</h4>
                                     <p className="text-xs text-gray-500 mt-2 font-medium leading-relaxed">
                                         ระบุวันเริ่ม-จบ แล้วสุ่มคนลงในช่องว่าง (อาจมีคนได้ทำซ้ำ)
                                     </p>
@@ -396,13 +418,31 @@ const RandomizerModal: React.FC<RandomizerModalProps> = ({
                             <button 
                                 onClick={handleStart} 
                                 disabled={selectedIds.length === 0} 
-                                className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black rounded-2xl shadow-lg shadow-indigo-200 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center text-sm"
+                                className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold rounded-2xl shadow-lg shadow-indigo-200 transition-all active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center text-sm"
                             >
                                 <Sparkles className="w-5 h-5 mr-2" /> 
                                 Start Randomizer
                             </button>
                         ) : (
                             <>
+                                <button 
+                                    onClick={handleCopyImage} 
+                                    disabled={isCopying} 
+                                    className={`px-5 py-3 border-2 font-bold rounded-2xl transition-all flex items-center text-sm ${
+                                        isCopied 
+                                            ? 'bg-emerald-50 border-emerald-300 text-emerald-700' 
+                                            : 'bg-white border-gray-200 text-gray-600 hover:text-indigo-600 hover:border-indigo-200'
+                                    }`}
+                                >
+                                    {isCopying ? (
+                                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                                    ) : isCopied ? (
+                                        <Check className="w-5 h-5 mr-2 text-emerald-600" />
+                                    ) : (
+                                        <Copy className="w-5 h-5 mr-2" />
+                                    )}
+                                    {isCopied ? 'Copied!' : 'Copy Image'}
+                                </button>
                                 <button 
                                     onClick={handleDownloadImage} 
                                     disabled={isExporting} 
@@ -414,7 +454,7 @@ const RandomizerModal: React.FC<RandomizerModalProps> = ({
                                 <button 
                                     onClick={handleSave} 
                                     disabled={isSaving} 
-                                    className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-black rounded-2xl shadow-lg shadow-green-200 transition-all active:scale-95 flex items-center text-sm"
+                                    className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-2xl shadow-lg shadow-green-200 transition-all active:scale-95 flex items-center text-sm"
                                 >
                                     {isSaving ? <Loader2 className="w-5 h-5 mr-2 animate-spin"/> : <Save className="w-5 h-5 mr-2"/>} 
                                     Confirm & Save

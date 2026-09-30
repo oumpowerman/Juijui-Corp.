@@ -39,7 +39,7 @@ const Sidebar: React.FC<SidebarProps> = ({
   const filteredMenuGroups = useMemo(() => {
     if (!activeViews || activeViews.length === 0) return MENU_GROUPS;
     return MENU_GROUPS.map(group => {
-      const visibleItems = group.items.filter(item => activeViews.includes(item.view));
+      const visibleItems = group.items.filter(item => activeViews.includes(item.view) || item.view === 'COMPANY_CHECKLIST');
       return {
         ...group,
         items: visibleItems

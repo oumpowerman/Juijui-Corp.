@@ -1,6 +1,8 @@
 
 import React, { useState } from 'react';
-import { X, Settings, Save, ArchiveRestore, Users, Sparkles, AlertTriangle, Calendar, HardDrive, RefreshCw, LogOut } from 'lucide-react';
+import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import { X, Settings, Save, ArchiveRestore, Users, Sparkles, AlertTriangle, HardDrive, RefreshCw, LogOut, AlignLeft } from 'lucide-react';
 import { DutyConfig } from '../../types';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
 import { useGoogleDrive } from '../../hooks/useGoogleDrive';
@@ -11,6 +13,7 @@ interface ConfigModalProps {
     configs: DutyConfig[];
     onUpdateConfig: (dayNum: number, field: keyof DutyConfig, value: any) => void;
     onUpdateTitle: (dayNum: number, index: number, value: string) => void;
+    onUpdateDescription?: (dayNum: number, index: number, value: string) => void;
     onSave: () => void;
     onCleanup: () => void;
 }
@@ -24,13 +27,11 @@ const WEEK_DAYS_MAP = [
 ];
 
 const ConfigModal: React.FC<ConfigModalProps> = ({ 
-    isOpen, onClose, configs, onUpdateConfig, onUpdateTitle, onSave, onCleanup 
+    isOpen, onClose, configs, onUpdateConfig, onUpdateTitle, onUpdateDescription, onSave, onCleanup 
 }) => {
     const { showConfirm } = useGlobalDialog();
     const { isAuthenticated, isReady, login, logout, retry } = useGoogleDrive();
     const [activeDay, setActiveDay] = useState(1); // Default to Monday
-
-    if (!isOpen) return null;
 
     const handleCleanupClick = async () => {
         const confirmed = await showConfirm(
@@ -44,224 +45,265 @@ const ConfigModal: React.FC<ConfigModalProps> = ({
 
     // Get current active config
     const currentConfig = configs.find(c => c.dayOfWeek === activeDay) || { 
-        dayOfWeek: activeDay, requiredPeople: 1, taskTitles: [''] 
+        dayOfWeek: activeDay, requiredPeople: 1, taskTitles: [''], taskDescriptions: [''] 
     };
 
-    return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-300 font-sans">
-            <div className="bg-white w-full max-w-3xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col h-[85vh] scale-100 animate-in zoom-in-95 relative border-4 border-white ring-1 ring-gray-100">
-                
-                {/* Header */}
-                <div className="px-8 py-6 border-b border-gray-100 bg-white flex justify-between items-center shrink-0">
-                    <div className="flex items-center gap-4">
-                        <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl shadow-lg shadow-indigo-200">
-                            <Settings className="w-6 h-6 text-white" />
-                        </div>
-                        <div>
-                            <h3 className="text-xl font-black text-gray-800 tracking-tight">
-                                ตั้งค่ากติกาเวร (Duty Rules)
-                            </h3>
-                            <p className="text-sm text-gray-500 font-medium">
-                                กำหนดจำนวนคนและหน้าที่ในแต่ละวัน
-                            </p>
-                        </div>
-                    </div>
-                    <button onClick={onClose} className="p-2.5 bg-gray-50 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-full transition-colors">
-                        <X className="w-6 h-6" />
-                    </button>
-                </div>
+    if (typeof document === 'undefined') return null;
 
-                <div className="flex-1 overflow-hidden flex flex-col md:flex-row bg-[#f8fafc]">
-                    
-                    {/* LEFT: Sidebar / Day Tabs */}
-                    <div className="w-full md:w-64 bg-white border-r border-gray-100 p-4 flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-visible shrink-0 scrollbar-hide">
-                        <p className="text-xs font-bold text-gray-400 uppercase tracking-widest px-2 mb-2 hidden md:block">
-                            Select Day
-                        </p>
-                        {WEEK_DAYS_MAP.map((day) => {
-                            const isActive = activeDay === day.num;
-                            // Check info from config to show summary badge
-                            const dayConf = configs.find(c => c.dayOfWeek === day.num);
-                            
-                            return (
-                                <button
-                                    key={day.num}
-                                    onClick={() => setActiveDay(day.num)}
-                                    className={`
-                                        flex items-center justify-between px-4 py-3 rounded-2xl transition-all duration-300 w-full relative overflow-hidden group min-w-[100px] md:min-w-0
-                                        ${isActive 
-                                            ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 translate-x-1' 
-                                            : 'bg-gray-50 text-gray-500 hover:bg-indigo-50 hover:text-indigo-600'
-                                        }
-                                    `}
-                                >
-                                    <div className="flex items-center gap-3 relative z-10">
-                                        <span className={`text-sm font-bold w-6 h-6 rounded-lg flex items-center justify-center ${isActive ? 'bg-white/20' : 'bg-white border border-gray-200'}`}>
-                                            {day.label.charAt(0)}
-                                        </span>
-                                        <span className="text-sm font-bold">{day.label}</span>
-                                    </div>
-                                    <span className={`text-[10px] font-medium relative z-10 ${isActive ? 'text-indigo-100' : 'text-gray-400'}`}>
-                                        {dayConf?.requiredPeople || 1} คน
-                                    </span>
-                                </button>
-                            );
-                        })}
-                    </div>
-
-                    {/* RIGHT: Config Area */}
-                    <div className="flex-1 p-6 md:p-8 overflow-y-auto flex flex-col">
-                        
-                        {/* Google Drive Status & Reconnect */}
-                        <div className="mb-8 p-6 bg-white border border-gray-100 rounded-[2rem] shadow-sm">
-                            <div className="flex items-center justify-between mb-4">
-                                <div className="flex items-center gap-3">
-                                    <div className={`p-2 rounded-xl border ${isAuthenticated ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>
-                                        <HardDrive className="w-5 h-5" />
-                                    </div>
-                                    <div>
-                                        <h4 className="text-sm font-black text-gray-800">การเชื่อมต่อ Google Drive</h4>
-                                        <div className="flex items-center gap-2 mt-0.5">
-                                            <div className={`w-2 h-2 rounded-full ${isAuthenticated ? 'bg-emerald-500 animate-pulse' : 'bg-gray-300'}`}></div>
-                                            <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
-                                                {isAuthenticated ? 'Connected (Cloud Backup Active)' : 'Disconnected (Using Local Fallback)'}
-                                            </p>
-                                        </div>
-                                    </div>
+    return createPortal(
+        <AnimatePresence>
+            {isOpen && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.25, ease: 'easeInOut' }}
+                    onClick={onClose}
+                    className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 font-sans"
+                >
+                    <motion.div
+                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                        transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+                        onClick={(e) => e.stopPropagation()}
+                        className="bg-white w-full max-w-3xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col h-[85vh] relative border-4 border-white ring-1 ring-gray-100"
+                    >
+                        {/* Header */}
+                        <div className="px-8 py-6 border-b border-gray-100 bg-white flex justify-between items-center shrink-0">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl shadow-lg shadow-indigo-200">
+                                    <Settings className="w-6 h-6 text-white" />
                                 </div>
-                                <div className="flex gap-2">
-                                    {isAuthenticated ? (
-                                        <button 
-                                            onClick={logout}
-                                            className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all shadow-sm active:scale-95 border border-transparent hover:border-red-100"
-                                            title="Logout"
-                                        >
-                                            <LogOut className="w-5 h-5" />
-                                        </button>
-                                    ) : (
-                                        <button 
-                                            onClick={login}
-                                            className="px-4 py-2 bg-indigo-600 text-white text-xs font-black rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 active:scale-95"
-                                        >
-                                            Connect Now
-                                        </button>
-                                    )}
-                                    <button 
-                                        onClick={retry}
-                                        className="p-2.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all shadow-sm active:scale-95 border border-transparent hover:border-indigo-100"
-                                        title="Reload API"
-                                    >
-                                        <RefreshCw className={`w-5 h-5 ${!isReady && 'animate-spin'}`} />
-                                    </button>
+                                <div>
+                                    <h3 className="text-xl font-bold text-gray-800 tracking-tight">
+                                        ตั้งค่ากติกาเวร (Duty Rules)
+                                    </h3>
+                                    <p className="text-sm text-gray-500 font-medium">
+                                        กำหนดจำนวนคนและหน้าที่ในแต่ละวัน
+                                    </p>
                                 </div>
                             </div>
+                            <button onClick={onClose} className="p-2.5 bg-gray-50 hover:bg-red-50 text-gray-400 hover:text-red-500 rounded-full transition-colors">
+                                <X className="w-6 h-6" />
+                            </button>
                         </div>
 
-                        <div className="mb-6 flex items-center gap-3">
-                            <span className={`text-sm font-bold px-3 py-1 rounded-lg border ${WEEK_DAYS_MAP[activeDay-1].color}`}>
-                                {WEEK_DAYS_MAP[activeDay-1].label}
-                            </span>
-                            <h2 className="text-2xl font-black text-gray-800">
-                                {WEEK_DAYS_MAP[activeDay-1].full}
-                            </h2>
-                        </div>
-
-                        {/* Section 1: Number of People */}
-                        <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 mb-6">
-                            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center">
-                                <Users className="w-4 h-4 mr-2" /> จำนวนคนเวร (Required People)
-                            </label>
+                        <div className="flex-1 overflow-hidden flex flex-col md:flex-row bg-[#f8fafc]">
                             
-                            <div className="flex items-center gap-3">
-                                {[1, 2, 3, 4, 5].map(num => {
-                                    const isSelected = currentConfig.requiredPeople === num;
+                            {/* LEFT: Sidebar / Day Tabs */}
+                            <div className="w-full md:w-64 bg-white border-r border-gray-100 p-4 flex flex-row md:flex-col gap-2 overflow-x-auto md:overflow-visible shrink-0 scrollbar-hide">
+                                <p className="text-xs font-bold text-gray-400 uppercase tracking-widest px-2 mb-2 hidden md:block">
+                                    Select Day
+                                </p>
+                                {WEEK_DAYS_MAP.map((day) => {
+                                    const isActive = activeDay === day.num;
+                                    // Check info from config to show summary badge
+                                    const dayConf = configs.find(c => c.dayOfWeek === day.num);
+                                    
                                     return (
                                         <button
-                                            key={num}
-                                            onClick={() => onUpdateConfig(activeDay, 'requiredPeople', num)}
+                                            key={day.num}
+                                            onClick={() => setActiveDay(day.num)}
                                             className={`
-                                                w-12 h-12 rounded-2xl font-black text-lg transition-all duration-300 flex items-center justify-center border-2
-                                                ${isSelected 
-                                                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-200 scale-110' 
-                                                    : 'bg-white text-gray-400 border-gray-100 hover:border-indigo-300 hover:text-indigo-500'
+                                                flex items-center justify-between px-4 py-3 rounded-2xl transition-all duration-300 w-full relative overflow-hidden group min-w-[100px] md:min-w-0
+                                                ${isActive 
+                                                    ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 translate-x-1' 
+                                                    : 'bg-gray-50 text-gray-500 hover:bg-indigo-50 hover:text-indigo-600'
                                                 }
                                             `}
                                         >
-                                            {num}
+                                            <div className="flex items-center gap-3 relative z-10">
+                                                <span className={`text-sm font-bold w-6 h-6 rounded-lg flex items-center justify-center ${isActive ? 'bg-white/20' : 'bg-white border border-gray-200'}`}>
+                                                    {day.label.charAt(0)}
+                                                </span>
+                                                <span className="text-sm font-bold">{day.label}</span>
+                                            </div>
+                                            <span className={`text-[10px] font-medium relative z-10 ${isActive ? 'text-indigo-100' : 'text-gray-400'}`}>
+                                                {dayConf?.requiredPeople || 1} คน
+                                            </span>
                                         </button>
                                     );
                                 })}
                             </div>
-                        </div>
 
-                        {/* Section 2: Tasks Definition */}
-                        <div className="flex-1">
-                            <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-4 flex items-center">
-                                <Sparkles className="w-4 h-4 mr-2" /> หน้าที่รับผิดชอบ (Duties)
-                            </label>
-
-                            <div className="space-y-3">
-                                {Array.from({ length: currentConfig.requiredPeople }).map((_, idx) => (
-                                    <div key={idx} className="group flex items-center gap-3 animate-in slide-in-from-bottom-2 fade-in" style={{ animationDelay: `${idx * 100}ms` }}>
-                                        <div className="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-600 font-bold flex items-center justify-center text-xs shrink-0">
-                                            {idx + 1}
+                            {/* RIGHT: Config Area */}
+                            <div className="flex-1 p-6 md:p-8 overflow-y-auto flex flex-col">
+                                
+                                {/* Google Drive Status & Reconnect */}
+                                <div className="mb-8 p-6 bg-white border border-gray-100 rounded-[2rem] shadow-sm">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-3">
+                                            <div className={`p-2 rounded-xl border ${isAuthenticated ? 'bg-emerald-50 border-emerald-100 text-emerald-600' : 'bg-gray-50 border-gray-100 text-gray-400'}`}>
+                                                <HardDrive className="w-5 h-5" />
+                                            </div>
+                                            <div>
+                                                <h4 className="text-sm font-bold text-gray-800">การเชื่อมต่อ Google Drive</h4>
+                                                <div className="flex items-center gap-2 mt-0.5">
+                                                    <div className={`w-2 h-2 rounded-full ${isAuthenticated ? 'bg-emerald-500 animate-pulse' : 'bg-gray-300'}`}></div>
+                                                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest">
+                                                        {isAuthenticated ? 'Connected (Cloud Backup Active)' : 'Disconnected (Using Local Fallback)'}
+                                                    </p>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="flex-1 relative">
-                                            <input 
-                                                type="text"
-                                                className="w-full pl-4 pr-4 py-3 bg-white border-2 border-gray-100 rounded-xl text-sm font-bold text-gray-700 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all placeholder:text-gray-300"
-                                                placeholder={`ระบุหน้าที่ของคนที่ ${idx + 1} (เช่น กวาดพื้น, ทิ้งขยะ)`}
-                                                value={currentConfig.taskTitles[idx] || ''}
-                                                onChange={(e) => onUpdateTitle(activeDay, idx, e.target.value)}
-                                            />
+                                        <div className="flex gap-2">
+                                            {isAuthenticated ? (
+                                                <button 
+                                                    onClick={logout}
+                                                    className="p-2.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all shadow-sm active:scale-95 border border-transparent hover:border-red-100"
+                                                    title="Logout"
+                                                >
+                                                    <LogOut className="w-5 h-5" />
+                                                </button>
+                                            ) : (
+                                                <button 
+                                                    onClick={login}
+                                                    className="px-4 py-2 bg-indigo-600 text-white text-xs font-bold rounded-xl hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-100 active:scale-95"
+                                                >
+                                                    Connect Now
+                                                </button>
+                                            )}
+                                            <button 
+                                                onClick={retry}
+                                                className="p-2.5 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-xl transition-all shadow-sm active:scale-95 border border-transparent hover:border-indigo-100"
+                                                title="Reload API"
+                                            >
+                                                <RefreshCw className={`w-5 h-5 ${!isReady && 'animate-spin'}`} />
+                                            </button>
                                         </div>
                                     </div>
-                                ))}
+                                </div>
+
+                                <div className="mb-6 flex items-center gap-3">
+                                    <span className={`text-sm font-bold px-3 py-1 rounded-lg border ${WEEK_DAYS_MAP[activeDay-1].color}`}>
+                                        {WEEK_DAYS_MAP[activeDay-1].label}
+                                    </span>
+                                    <h2 className="text-2xl font-bold text-gray-800">
+                                        {WEEK_DAYS_MAP[activeDay-1].full}
+                                    </h2>
+                                </div>
+
+                                {/* Section 1: Number of People */}
+                                <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-gray-100 mb-6">
+                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center">
+                                        <Users className="w-4 h-4 mr-2" /> จำนวนคนเวร (Required People)
+                                    </label>
+                                    
+                                    <div className="flex items-center gap-3">
+                                        {[1, 2, 3, 4, 5].map(num => {
+                                            const isSelected = currentConfig.requiredPeople === num;
+                                            return (
+                                                <button
+                                                    key={num}
+                                                    onClick={() => onUpdateConfig(activeDay, 'requiredPeople', num)}
+                                                    className={`
+                                                        w-12 h-12 rounded-2xl font-bold text-lg transition-all duration-300 flex items-center justify-center border-2
+                                                        ${isSelected 
+                                                            ? 'bg-indigo-600 text-white border-indigo-600 shadow-lg shadow-indigo-200 scale-110' 
+                                                            : 'bg-white text-gray-400 border-gray-100 hover:border-indigo-300 hover:text-indigo-500'
+                                                        }
+                                                    `}
+                                                >
+                                                    {num}
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Section 2: Tasks Definition */}
+                                <div className="flex-1">
+                                    <label className="block text-xs font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center">
+                                        <Sparkles className="w-4 h-4 mr-2" /> หน้าที่รับผิดชอบและรายละเอียดงาน (Duties & Details)
+                                    </label>
+
+                                    <div className="space-y-4">
+                                        {Array.from({ length: currentConfig.requiredPeople }).map((_, idx) => (
+                                            <motion.div
+                                                key={`${activeDay}-${idx}`}
+                                                initial={{ opacity: 0, y: 10 }}
+                                                animate={{ opacity: 1, y: 0 }}
+                                                transition={{ duration: 0.2, delay: idx * 0.05 }}
+                                                className="group bg-white p-4 rounded-2xl border border-gray-100 shadow-sm space-y-3"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className="w-8 h-8 rounded-full bg-indigo-50 border border-indigo-100 text-indigo-600 font-bold flex items-center justify-center text-xs shrink-0">
+                                                        {idx + 1}
+                                                    </div>
+                                                    <div className="flex-1 relative">
+                                                        <input 
+                                                            type="text"
+                                                            className="w-full pl-4 pr-4 py-2.5 bg-gray-50/70 focus:bg-white border-2 border-gray-100 rounded-xl text-sm font-bold text-gray-800 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all placeholder:text-gray-300"
+                                                            placeholder={`หัวข้อหน้าที่คนที่ ${idx + 1} (เช่น เวรโซนสตูดิโอ, เวรครัว & ขยะ)`}
+                                                            value={currentConfig.taskTitles[idx] || ''}
+                                                            onChange={(e) => onUpdateTitle(activeDay, idx, e.target.value)}
+                                                        />
+                                                    </div>
+                                                </div>
+                                                <div className="pl-11">
+                                                    <div className="flex items-center gap-1.5 text-[11px] font-bold text-gray-400 mb-1.5">
+                                                        <AlignLeft className="w-3.5 h-3.5 text-indigo-400" />
+                                                        <span>รายละเอียดการทำงาน (จะแสดงในหน้าสุ่มเวรและรูปตารางเวร)</span>
+                                                    </div>
+                                                    <textarea
+                                                        rows={2}
+                                                        className="w-full px-3.5 py-2.5 bg-gray-50/70 focus:bg-white border-2 border-gray-100 rounded-xl text-xs font-medium text-gray-700 outline-none focus:border-indigo-400 focus:ring-4 focus:ring-indigo-50 transition-all placeholder:text-gray-300 resize-y leading-relaxed"
+                                                        placeholder={`เช่น • กวาดและถูพื้นห้องสตู\n• เช็ดโต๊ะกลาง\n• นำขยะไปทิ้งจุดรวม`}
+                                                        value={currentConfig.taskDescriptions?.[idx] || ''}
+                                                        onChange={(e) => onUpdateDescription?.(activeDay, idx, e.target.value)}
+                                                    />
+                                                </div>
+                                            </motion.div>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Danger Zone */}
+                                <div className="mt-8 pt-6 border-t border-gray-100">
+                                     <div className="flex items-center justify-between bg-red-50 p-4 rounded-2xl border border-red-100">
+                                        <div className="flex items-center gap-3">
+                                            <div className="p-2 bg-white rounded-xl text-red-500 shadow-sm">
+                                                <AlertTriangle className="w-5 h-5" />
+                                            </div>
+                                            <div>
+                                                <h5 className="text-sm font-bold text-red-800">ล้างข้อมูลเก่า (Maintenance)</h5>
+                                                <p className="text-xs text-red-600 opacity-80">ลบประวัติเวรที่เก่ากว่า 6 เดือน</p>
+                                            </div>
+                                        </div>
+                                        <button 
+                                            onClick={handleCleanupClick}
+                                            className="px-4 py-2 bg-white border border-red-200 text-red-600 text-xs font-bold rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm active:scale-95"
+                                        >
+                                            <ArchiveRestore className="w-4 h-4 mr-1.5 inline-block" />
+                                            Cleanup
+                                        </button>
+                                     </div>
+                                </div>
+
                             </div>
                         </div>
 
-                        {/* Danger Zone */}
-                        <div className="mt-8 pt-6 border-t border-gray-100">
-                             <div className="flex items-center justify-between bg-red-50 p-4 rounded-2xl border border-red-100">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2 bg-white rounded-xl text-red-500 shadow-sm">
-                                        <AlertTriangle className="w-5 h-5" />
-                                    </div>
-                                    <div>
-                                        <h5 className="text-sm font-bold text-red-800">ล้างข้อมูลเก่า (Maintenance)</h5>
-                                        <p className="text-xs text-red-600 opacity-80">ลบประวัติเวรที่เก่ากว่า 6 เดือน</p>
-                                    </div>
-                                </div>
-                                <button 
-                                    onClick={handleCleanupClick}
-                                    className="px-4 py-2 bg-white border border-red-200 text-red-600 text-xs font-bold rounded-xl hover:bg-red-600 hover:text-white transition-all shadow-sm active:scale-95"
-                                >
-                                    <ArchiveRestore className="w-4 h-4 mr-1.5 inline-block" />
-                                    Cleanup
-                                </button>
-                             </div>
+                        {/* Footer */}
+                        <div className="p-5 border-t border-gray-100 bg-white flex justify-end gap-3 shrink-0 relative z-20">
+                            <button 
+                                onClick={onClose} 
+                                className="px-6 py-3 text-gray-500 font-bold hover:bg-gray-50 rounded-2xl transition-colors text-sm"
+                            >
+                                ยกเลิก
+                            </button>
+                            <button 
+                                onClick={onSave} 
+                                className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-bold rounded-2xl shadow-xl shadow-indigo-200 transition-all active:scale-95 flex items-center gap-2 transform hover:-translate-y-0.5"
+                            >
+                                <Save className="w-5 h-5" /> บันทึกทั้งหมด
+                            </button>
                         </div>
-
-                    </div>
-                </div>
-
-                {/* Footer */}
-                <div className="p-5 border-t border-gray-100 bg-white flex justify-end gap-3 shrink-0 relative z-20">
-                    <button 
-                        onClick={onClose} 
-                        className="px-6 py-3 text-gray-500 font-bold hover:bg-gray-50 rounded-2xl transition-colors text-sm"
-                    >
-                        ยกเลิก
-                    </button>
-                    <button 
-                        onClick={onSave} 
-                        className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white font-black rounded-2xl shadow-xl shadow-indigo-200 transition-all active:scale-95 flex items-center gap-2 transform hover:-translate-y-0.5"
-                    >
-                        <Save className="w-5 h-5" /> บันทึกทั้งหมด
-                    </button>
-                </div>
-            </div>
-        </div>
+                    </motion.div>
+                </motion.div>
+            )}
+        </AnimatePresence>,
+        document.body
     );
 };
 

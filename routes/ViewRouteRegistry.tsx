@@ -15,6 +15,7 @@ const KPIView = lazy(() => import('../components/KPIView'));
 const FeedbackView = lazy(() => import('../components/feedback/FeedbackView'));
 const ContentStock = lazy(() => import('../components/content-stock/ContentStock'));
 const ShootChecklist = lazy(() => import('../components/shoot-checklist/ShootChecklist'));
+const CompanyChecklistView = lazy(() => import('../components/company-checklist/CompanyChecklistView'));
 const WeeklyQuestBoard = lazy(() => import('../components/WeeklyQuestBoard'));
 const GoalView = lazy(() => import('../components/GoalView'));
 const WikiView = lazy(() => import('../components/WikiView'));
@@ -322,6 +323,14 @@ export const ViewRouteRegistry: React.FC<ViewRouteRegistryProps> = ({
               <DutyView
                 users={activeUsers}
                 currentUser={currentUserProfile}
+              />
+            );
+          case 'COMPANY_CHECKLIST':
+            return (
+              <CompanyChecklistView
+                users={allUsers || users || activeUsers}
+                currentUser={currentUserProfile}
+                masterOptions={masterOptions}
               />
             );
           case 'QUALITY_GATE':

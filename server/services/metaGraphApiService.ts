@@ -49,6 +49,10 @@ export interface MetaTokenValidationResult {
         name: string;
     };
     accounts: DiscoveredInstagramAccount[];
+    expiresAt?: string;
+    isNeverExpiring?: boolean;
+    expiresInSeconds?: number;
+    tokenType?: string;
 }
 
 /**
@@ -153,7 +157,32 @@ export async function validateMetaAccessToken(
             name: meData.name || 'Meta User',
         };
 
-        // Step 2: Query linked Facebook Pages and their Instagram Business Accounts
+        // Step 1b: If token directly represents a Page (Page Access Token), check if it has a linked Instagram Business Account
+        if (meData.id) {
+            try {
+                const mePageRes = await fetch(
+                    `https://graph.facebook.com/v20.0/me?fields=id,name,instagram_business_account{id,username,name,followers_count,profile_picture_url}&access_token=${encodeURIComponent(token)}`,
+                    { headers: { 'Accept': 'application/json' } }
+                );
+                const mePageData = await mePageRes.json();
+                const meIg = mePageData?.instagram_business_account;
+                if (meIg?.id && meIg.username && !accounts.some(a => a.id === meIg.id)) {
+                    accounts.push({
+                        id: meIg.id,
+                        username: meIg.username,
+                        name: meIg.name || meIg.username,
+                        followersCount: typeof meIg.followers_count === 'number' ? meIg.followers_count : 0,
+                        source: 'page_linked',
+                        pageName: mePageData.name || 'Facebook Page',
+                        profilePictureUrl: meIg.profile_picture_url,
+                    });
+                }
+            } catch (err) {
+                console.warn('[Meta API] Failed to check page-level IG account:', err);
+            }
+        }
+
+        // Step 2: Query linked Facebook Pages and their Instagram Business Accounts (for User Access Tokens)
         const pagesRes = await fetch(
             `https://graph.facebook.com/v20.0/me/accounts?fields=id,name,category,instagram_business_account{id,username,name,followers_count,profile_picture_url}&access_token=${encodeURIComponent(token)}`,
             { headers: { 'Accept': 'application/json' } }
@@ -163,7 +192,7 @@ export async function validateMetaAccessToken(
         if (pagesData.data && Array.isArray(pagesData.data)) {
             for (const page of pagesData.data) {
                 const ig = page.instagram_business_account;
-                if (ig && ig.id && ig.username) {
+                if (ig && ig.id && ig.username && !accounts.some(a => a.id === ig.id)) {
                     accounts.push({
                         id: ig.id,
                         username: ig.username,
@@ -201,10 +230,41 @@ export async function validateMetaAccessToken(
             }
         }
 
+        // Step 4: Check token lifetime & expiration via debug_token
+        let isNeverExpiring = false;
+        let expiresAt: string | undefined = undefined;
+        let expiresInSeconds: number | undefined = undefined;
+        let tokenType: string | undefined = undefined;
+
+        try {
+            const debugRes = await fetch(
+                `https://graph.facebook.com/debug_token?input_token=${encodeURIComponent(token)}&access_token=${encodeURIComponent(token)}`,
+                { headers: { 'Accept': 'application/json' } }
+            );
+            const debugData = await debugRes.json();
+            if (debugData?.data) {
+                tokenType = debugData.data.type;
+                const exp = debugData.data.expires_at;
+                if (exp === 0) {
+                    isNeverExpiring = true;
+                } else if (typeof exp === 'number' && exp > 0) {
+                    const nowSec = Math.floor(Date.now() / 1000);
+                    expiresInSeconds = Math.max(0, exp - nowSec);
+                    expiresAt = new Date(exp * 1000).toISOString();
+                }
+            }
+        } catch {
+            // debug_token is non-blocking
+        }
+
         return {
             isValid: true,
             user: metaUser,
             accounts,
+            isNeverExpiring,
+            expiresAt,
+            expiresInSeconds,
+            tokenType,
         };
     } catch (err: any) {
         return {
@@ -230,7 +290,28 @@ export async function fetchInstagramFollowersForToken(
     const label = tokenLabel || 'Meta Token';
 
     try {
-        // Strategy 1: Check linked Facebook Pages' Instagram Business Accounts
+        // Strategy 0: Check if token is a Page Token whose page directly links to an Instagram Business Account
+        try {
+            const mePageRes = await fetch(
+                `https://graph.facebook.com/v20.0/me?fields=id,name,instagram_business_account{id,username,followers_count}&access_token=${encodeURIComponent(cleanToken)}`,
+                { headers: { 'Accept': 'application/json' } }
+            );
+            const mePageData = await mePageRes.json();
+            const meIg = mePageData?.instagram_business_account;
+            if (meIg?.username) {
+                const igUser = meIg.username.toLowerCase();
+                if (igUser === cleanUsername || igUser.replace(/[^a-z0-9]/g, '') === cleanUsername.replace(/[^a-z0-9]/g, '')) {
+                    if (typeof meIg.followers_count === 'number') {
+                        console.log(`[Meta API - ${label}] Successfully fetched ${meIg.followers_count} followers for @${cleanUsername} via direct Page IG account (${meIg.id})`);
+                        return meIg.followers_count;
+                    }
+                }
+            }
+        } catch {
+            // Not a page token or me request failed
+        }
+
+        // Strategy 1: Check linked Facebook Pages' Instagram Business Accounts (for User Tokens)
         const pagesRes = await fetch(
             `https://graph.facebook.com/v20.0/me/accounts?fields=instagram_business_account{id,username,followers_count}&access_token=${encodeURIComponent(cleanToken)}`,
             { headers: { 'Accept': 'application/json' } }
@@ -240,10 +321,13 @@ export async function fetchInstagramFollowersForToken(
         if (pagesData.data && Array.isArray(pagesData.data)) {
             for (const page of pagesData.data) {
                 const ig = page.instagram_business_account;
-                if (ig && ig.username && ig.username.toLowerCase() === cleanUsername) {
-                    if (typeof ig.followers_count === 'number') {
-                        console.log(`[Meta API - ${label}] Successfully fetched ${ig.followers_count} followers for @${cleanUsername} via Page-linked IG account (${ig.id})`);
-                        return ig.followers_count;
+                if (ig && ig.username) {
+                    const igUser = ig.username.toLowerCase();
+                    if (igUser === cleanUsername || igUser.replace(/[^a-z0-9]/g, '') === cleanUsername.replace(/[^a-z0-9]/g, '')) {
+                        if (typeof ig.followers_count === 'number') {
+                            console.log(`[Meta API - ${label}] Successfully fetched ${ig.followers_count} followers for @${cleanUsername} via Page-linked IG account (${ig.id})`);
+                            return ig.followers_count;
+                        }
                     }
                 }
             }

@@ -293,7 +293,7 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
             </div>
           </div>
 
-          <div className="p-6 pt-11 flex-1 flex flex-col justify-between">
+          <div className="px-4.5 sm:px-6 py-5 sm:py-6 pt-11 flex-1 flex flex-col justify-between">
             <div>
               <div className="flex justify-between items-start mb-2">
                 <div className="min-w-0 pr-2">
@@ -431,7 +431,7 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
               <div className="flex items-center justify-between">
                 
                 {/* Social Links Icons with Relative Platform Aura Tiers (Sorted by followers: High -> Low) */}
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
                   {platformTierItems.map((item, idx) => {
                     const link = channel.social_links?.[item.platform];
                     return (
@@ -453,7 +453,7 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
                 </div>
 
                 {/* Refined Brand Docs Button (Matching Social Icons) */}
-                <div className="flex items-center pl-2 ml-1 border-l border-slate-200/60">
+                <div className="flex items-center pl-1.5 sm:pl-2 ml-1 border-l border-slate-200/60 shrink-0">
                   <motion.button
                     type="button"
                     whileHover={{ y: -4, scale: 1.15, rotate: -5 }}

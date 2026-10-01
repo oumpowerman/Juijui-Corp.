@@ -358,6 +358,10 @@ router.post('/api/follower-sync/test-meta-token', async (req: Request, res: Resp
             user: result.user,
             accounts: result.accounts,
             targetMatch,
+            isNeverExpiring: result.isNeverExpiring,
+            expiresAt: result.expiresAt,
+            expiresInSeconds: result.expiresInSeconds,
+            tokenType: result.tokenType,
             error: result.error,
         });
     } catch (err: any) {

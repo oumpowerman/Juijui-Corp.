@@ -563,7 +563,7 @@ export async function syncAllChannelFollowers(
                     const platformResults: SyncPlatformResult[] = [];
                     let hasChanges = false;
 
-                    const platformEntries = Object.entries(socialLinks).filter(([_, url]) => !!url && typeof url === 'string' && url.trim().length > 0);
+                    const platformEntries = Object.entries(socialLinks).filter(([key, url]) => !key.startsWith('_') && !!url && typeof url === 'string' && url.trim().length > 0);
 
                     // Emit Channel Start Event
                     onProgress?.({
@@ -804,7 +804,7 @@ export async function syncSingleChannelFollowers(channelId: string): Promise<Cha
     const platformResults: SyncPlatformResult[] = [];
     let hasChanges = false;
 
-    const platformEntries = Object.entries(socialLinks).filter(([_, url]) => !!url && typeof url === 'string' && url.trim().length > 0);
+    const platformEntries = Object.entries(socialLinks).filter(([key, url]) => !key.startsWith('_') && !!url && typeof url === 'string' && url.trim().length > 0);
 
     // Parallel platform execution
     await Promise.allSettled(

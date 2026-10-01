@@ -51,6 +51,10 @@ export const PlatformFilterTab: React.FC<PlatformFilterTabProps> = ({
         message?: string;
         user?: { id: string; name: string };
         accounts?: TestAccountResult[];
+        isNeverExpiring?: boolean;
+        expiresInSeconds?: number;
+        expiresAt?: string;
+        tokenType?: string;
     }>>({});
     const [isGuideOpen, setIsGuideOpen] = useState(false);
 
@@ -179,6 +183,10 @@ export const PlatformFilterTab: React.FC<PlatformFilterTabProps> = ({
                         success: true,
                         user: data.user,
                         accounts: data.accounts || [],
+                        isNeverExpiring: data.isNeverExpiring,
+                        expiresInSeconds: data.expiresInSeconds,
+                        expiresAt: data.expiresAt,
+                        tokenType: data.tokenType,
                     }
                 }));
             } else {
@@ -620,13 +628,28 @@ export const PlatformFilterTab: React.FC<PlatformFilterTabProps> = ({
                                                             <XCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
                                                         )}
                                                         <div className="space-y-1.5 flex-1">
-                                                            <div className="font-bold text-[11px]">
+                                                            <div className="font-bold text-[11px] flex items-center justify-between gap-2 flex-wrap">
                                                                 {itemTestResult.success ? (
                                                                     <span>
                                                                         เชื่อมต่อสำเร็จ! บัญชี Meta: {itemTestResult.user?.name || 'Meta User'}
                                                                     </span>
                                                                 ) : (
                                                                     <span>การทดสอบล้มเหลว: {itemTestResult.message}</span>
+                                                                )}
+
+                                                                {itemTestResult.success && (
+                                                                    itemTestResult.isNeverExpiring ? (
+                                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                                                                            ✨ Token ถาวร (ไม่มีวันหมดอายุ)
+                                                                        </span>
+                                                                    ) : itemTestResult.expiresInSeconds !== undefined ? (
+                                                                        <span 
+                                                                            className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-200 cursor-help" 
+                                                                            title={`หมดอายุวันที่: ${itemTestResult.expiresAt ? new Date(itemTestResult.expiresAt).toLocaleString('th-TH') : 'ไม่ระบุ'} (ดูวิธีแปลงเป็นถาวรในคู่มือด้านล่าง)`}
+                                                                        >
+                                                                            ⏳ Token ชั่วคราว (เหลือ ~{itemTestResult.expiresInSeconds > 86400 ? `${Math.round(itemTestResult.expiresInSeconds / 86400)} วัน` : `${Math.max(1, Math.round(itemTestResult.expiresInSeconds / 60))} นาที`})
+                                                                        </span>
+                                                                    ) : null
                                                                 )}
                                                             </div>
 
@@ -754,11 +777,18 @@ export const PlatformFilterTab: React.FC<PlatformFilterTabProps> = ({
 
                             <div className="flex items-start gap-2.5">
                                 <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold text-[11px] shrink-0">4</span>
-                                <div>
-                                    <h5 className="font-bold text-slate-900">เคล็ดลับ: แปลงเป็น Long-Lived Token (อายุ 60 วัน หรือไม่มีวันหมดอายุ)</h5>
-                                    <p className="text-[11px] text-slate-500 mt-0.5">
-                                        นำ User Token ไปที่ <a href="https://developers.facebook.com/tools/accesstoken/" target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline font-bold">Access Token Tool</a> แล้วกด &quot;Debug&quot; &gt; กดปุ่ม &quot;Extend Access Token&quot; เพื่อขยายอายุเป็น 60 วัน หรือหากใช้ <strong>Page Access Token</strong> จะไม่มีวันหมดอายุ!
+                                <div className="space-y-1.5">
+                                    <h5 className="font-bold text-slate-900">วิธีทำเป็น Token ถาวร (Never Expire / ไม่มีวันหมดอายุ)</h5>
+                                    <p className="text-[11px] text-slate-500 leading-relaxed">
+                                        Token ที่ได้จาก Graph API Explorer ตอนแรกจะมีอายุประมาณ 1-2 ชั่วโมง หากต้องการให้ใช้งานได้<strong>ถาวรโดยไม่ต้องมาเปลี่ยนบ่อยๆ</strong> ให้ทำตามนี้ครับ:
                                     </p>
+                                    <ol className="list-decimal list-inside text-[11px] text-slate-600 space-y-1 pl-1">
+                                        <li>เปิดหน้า <a href="https://developers.facebook.com/tools/accesstoken/" target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline font-bold inline-flex items-center gap-0.5">Access Token Tool <ExternalLink className="w-2.5 h-2.5" /></a></li>
+                                        <li>ที่หัวข้อ User Token ให้กดปุ่ม <strong>&quot;Debug&quot;</strong> ถัดจาก Token ของคุณ</li>
+                                        <li>เลื่อนลงมาด้านล่างสุด แล้วกดปุ่มสีฟ้า <strong>&quot;Extend Access Token&quot;</strong> เพื่อขยายเป็น 60 วัน</li>
+                                        <li>คัดลอก Token 60 วันนั้น กลับมาเปิดใน Graph API Explorer แล้วสลับช่อง User or Page เป็น <strong>Page Token (เพจของคุณ)</strong></li>
+                                        <li>Page Token ที่สร้างจาก Long-lived User Token จะกลายเป็น <strong>&quot;ถาวรตลอดไป (Never Expire)&quot;</strong> นำรหัสนั้นมาใส่ในระบบได้เลยครับ!</li>
+                                    </ol>
                                 </div>
                             </div>
                         </div>

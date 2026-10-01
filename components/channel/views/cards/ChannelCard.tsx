@@ -26,6 +26,7 @@ import { getRankAuraConfig } from './channelAuraConfig';
 import { RankAmbientGlow, RankTopBadge } from './RankAuraDecorations';
 import { BRAND_LINK_SERVICES, normalizeUrl, extractDomain } from '../../helpers/brandLinkConfig';
 import { PlatformAuraButton, calculateRelativePlatformTiers } from './platform-auras';
+import { useIgConnectionStatus } from '../../../../hooks/useIgConnectionStatus';
 
 interface ChannelCardProps {
   channel: Channel;
@@ -63,6 +64,8 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
   bgClass,
 }) => {
   const [isFlipped, setIsFlipped] = useState(false);
+  const { isChannelIgConnected } = useIgConnectionStatus();
+  const isIgConnected = isChannelIgConnected(channel);
   const isPlanning = channel.status === 'PLANNING';
   const isPausedOrArchived = channel.status === 'PAUSED' || channel.status === 'ARCHIVED';
   const isInactive = isPlanning || isPausedOrArchived;
@@ -447,6 +450,7 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
                         channelColor={channel.color}
                         isDominant={item.isDominant}
                         orderIndex={idx}
+                        isMetaConnected={item.platform === 'INSTAGRAM' ? isIgConnected : undefined}
                       />
                     );
                   })}

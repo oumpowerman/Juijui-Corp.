@@ -19,7 +19,8 @@ import { ChannelSelectionTab } from './follower-sync/tabs/ChannelSelectionTab';
 import { PlatformFilterTab } from './follower-sync/tabs/PlatformFilterTab';
 import { BandwidthCalculatorTab } from './follower-sync/tabs/BandwidthCalculatorTab';
 import { SupabaseSqlCronTab } from './follower-sync/tabs/SupabaseSqlCronTab';
-import { Database } from 'lucide-react';
+import { IgConnectionOverviewTab } from './follower-sync/tabs/IgConnectionOverviewTab';
+import { Database, Instagram } from 'lucide-react';
 
 interface FollowerSyncConfigViewProps {
     masterOptions: MasterOption[];
@@ -215,6 +216,13 @@ const FollowerSyncConfigView: React.FC<FollowerSyncConfigViewProps> = ({
             badge: config.metaApi?.enabled && config.metaApi?.accessToken ? 'Meta API ✓' : `${enabledPlatformsCount}/4`
         },
         {
+            id: 'ig_overview' as FollowerSyncSubTab,
+            label: '📸 ตรวจสอบ Instagram',
+            desc: 'สถานะความพร้อม Meta Graph ทุกช่อง',
+            icon: Instagram,
+            badge: 'Status'
+        },
+        {
             id: 'bandwidth' as FollowerSyncSubTab,
             label: '📊 แบนด์วิดท์ & การคำนวณ',
             desc: 'ตารางคำนวณ Data & Bandwidth',
@@ -235,7 +243,7 @@ const FollowerSyncConfigView: React.FC<FollowerSyncConfigViewProps> = ({
 
             {/* Sub-Tab Navigation Bar */}
             <div className="bg-white p-2 rounded-2xl border border-slate-200 shadow-2xs">
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-1.5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-1.5">
                     {subTabs.map(tab => {
                         const Icon = tab.icon;
                         const isActive = activeSubTab === tab.id;
@@ -311,6 +319,13 @@ const FollowerSyncConfigView: React.FC<FollowerSyncConfigViewProps> = ({
                             <PlatformFilterTab
                                 config={config}
                                 onChange={setConfig}
+                            />
+                        )}
+
+                        {activeSubTab === 'ig_overview' && (
+                            <IgConnectionOverviewTab
+                                channels={channels}
+                                onNavigateToPlatformsTab={() => setActiveSubTab('platforms')}
                             />
                         )}
 

@@ -94,7 +94,7 @@ const AppShell: React.FC<AppShellProps> = ({
     };
 
     const isEdgeToEdgeView = [
-        'DASHBOARD', 'QUALITY_GATE', 'GOALS', 'SCRIPT_HUB', 'CHECKLIST', 'ContentStock',
+        'DASHBOARD', 'QUALITY_GATE', 'GOALS', 'SCRIPT_HUB', 'CHECKLIST', 'COMPANY_CHECKLIST', 'ContentStock',
         'ANALYTICS', 'FINANCE', 'ATTENDANCE', 'DUTY', 'NEXUS', 'WIKI',
         'CALENDAR', 'WEEKLY', 'TEAM', 'FEEDBACK', 'ASSETS', 'CHANNELS', 'MASTER_DATA', 'SYSTEM_GUIDE', 'CHAT'
     ].includes(currentView);

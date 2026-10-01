@@ -116,7 +116,7 @@ export const ChannelDeckStack: React.FC<ChannelDeckStackProps> = ({
         {/* Top Floating Badge on Stack */}
         <div className="absolute -top-3 inset-x-3 z-40 flex items-center justify-between px-3 py-1.5 rounded-full shadow-md border-2 border-white transition-all group-hover/deck:scale-[1.02]">
           <div
-            className={`flex items-center gap-1.5 text-xs font-black text-white px-2.5 py-0.5 rounded-full ${
+            className={`flex items-center gap-1.5 text-xs font-bold text-white px-2.5 py-0.5 rounded-full ${
               isPlanning
                 ? 'bg-gradient-to-r from-amber-500 to-orange-500 shadow-sm'
                 : 'bg-gradient-to-r from-slate-600 to-slate-800 shadow-sm'
@@ -195,7 +195,7 @@ export const ChannelDeckStack: React.FC<ChannelDeckStackProps> = ({
             {channels.slice(1, 4).map((ch) => (
               <div
                 key={ch.id}
-                className="w-6 h-6 rounded-full border-2 border-white bg-slate-100 overflow-hidden shadow-xs flex items-center justify-center text-[9px] font-black text-slate-700"
+                className="w-6 h-6 rounded-full border-2 border-white bg-slate-100 overflow-hidden shadow-xs flex items-center justify-center text-[9px] font-bold text-slate-700"
                 title={ch.name}
               >
                 {ch.logoUrl ? (
@@ -206,13 +206,13 @@ export const ChannelDeckStack: React.FC<ChannelDeckStackProps> = ({
               </div>
             ))}
             {channels.length > 4 && (
-              <span className="w-6 h-6 rounded-full border-2 border-white bg-slate-200 text-[9px] font-black flex items-center justify-center text-slate-700">
+              <span className="w-6 h-6 rounded-full border-2 border-white bg-slate-200 text-[9px] font-bold flex items-center justify-center text-slate-700">
                 +{channels.length - 4}
               </span>
             )}
           </div>
 
-          <div className="flex items-center gap-1 text-[11px] font-black text-indigo-600 group-hover/deck:text-indigo-700">
+          <div className="flex items-center gap-1 text-[11px] font-bold text-indigo-600 group-hover/deck:text-indigo-700">
             <span>สำรับ {channels.length} ช่อง</span>
             <ChevronDown className="w-3 h-3 group-hover/deck:translate-y-0.5 transition-transform" />
           </div>
@@ -259,11 +259,11 @@ export const ChannelDeckStack: React.FC<ChannelDeckStackProps> = ({
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className="font-black text-xs sm:text-sm text-slate-800">
+                    <span className="font-bold text-xs sm:text-sm text-slate-800">
                       {isPlanning ? 'สำรับช่องเตรียมเปิดตัว' : 'สำรับช่องพักชั่วคราว'}
                     </span>
                     <span
-                      className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                         isPlanning
                           ? 'bg-amber-100 text-amber-900 border border-amber-300'
                           : 'bg-slate-200 text-slate-700 border border-slate-300'

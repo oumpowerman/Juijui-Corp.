@@ -19,6 +19,7 @@ import { useCompanyChecklist } from '../../hooks/useCompanyChecklist';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
 import { ChecklistHeaderBar } from './layout/ChecklistHeaderBar';
 import { ChecklistWorkspaceToolbar } from './layout/ChecklistWorkspaceToolbar';
+import { CompanyChecklistBackground } from './layout/CompanyChecklistBackground';
 import { ChecklistCategory, ChecklistBuilder } from './workspace';
 import { ChecklistSavedRecordsTab } from './history/ChecklistSavedRecordsTab';
 import { ChecklistBoardModal } from './modals/ChecklistBoardModal';
@@ -319,18 +320,9 @@ export const CompanyChecklistView: React.FC<CompanyChecklistViewProps> = ({
     };
 
     return (
-        <div className="relative max-w-[1440px] mx-auto px-4 sm:px-6 py-6 space-y-5">
-            {/* Soft Ambient Pastel Background Aura for Glassy 3D Depth */}
-            <div
-                aria-hidden="true"
-                className="pointer-events-none fixed inset-0 -z-10 overflow-hidden"
-            >
-                <div className="absolute top-16 left-[12%] w-[420px] h-[420px] rounded-full bg-indigo-200/20 blur-3xl" />
-                <div className="absolute top-[38%] right-[8%] w-[380px] h-[380px] rounded-full bg-sky-200/20 blur-3xl" />
-                <div className="absolute bottom-12 left-[28%] w-[440px] h-[440px] rounded-full bg-emerald-200/15 blur-3xl" />
-            </div>
-
-            <MentorTip moduleId="COMPANY_CHECKLIST" />
+        <CompanyChecklistBackground>
+            <div className="relative max-w-[1440px] mx-auto px-4 sm:px-6 py-6 pb-24 lg:pb-10 space-y-5">
+                <MentorTip moduleId="COMPANY_CHECKLIST" />
 
             {/* 1. Top Header & Preset Selector Bar */}
             <ChecklistHeaderBar
@@ -694,21 +686,22 @@ export const CompanyChecklistView: React.FC<CompanyChecklistViewProps> = ({
                 />
             )}
 
-            {activePreset && (
-                <SaveChecklistRecordModal
-                    isOpen={isSaveRecordModalOpen}
-                    onClose={() => setIsSaveRecordModalOpen(false)}
-                    preset={activePreset}
-                    sections={sections}
-                    getSectionItemNodes={getSectionItemNodes}
-                    activeItemStates={activeItemStates}
-                    initialCaseTitle={currentCaseTitle}
-                    users={users}
-                    currentUser={currentUser}
-                    onConfirmSave={handleConfirmSaveRecord}
-                />
-            )}
-        </div>
+                {activePreset && (
+                    <SaveChecklistRecordModal
+                        isOpen={isSaveRecordModalOpen}
+                        onClose={() => setIsSaveRecordModalOpen(false)}
+                        preset={activePreset}
+                        sections={sections}
+                        getSectionItemNodes={getSectionItemNodes}
+                        activeItemStates={activeItemStates}
+                        initialCaseTitle={currentCaseTitle}
+                        users={users}
+                        currentUser={currentUser}
+                        onConfirmSave={handleConfirmSaveRecord}
+                    />
+                )}
+            </div>
+        </CompanyChecklistBackground>
     );
 };
 

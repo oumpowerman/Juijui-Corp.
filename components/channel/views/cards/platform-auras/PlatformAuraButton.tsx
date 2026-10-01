@@ -73,6 +73,7 @@ interface PlatformAuraButtonProps {
   channelColor: string;
   isDominant?: boolean;
   orderIndex: number;
+  isMetaConnected?: boolean;
 }
 
 export const PlatformAuraButton: React.FC<PlatformAuraButtonProps> = ({
@@ -85,7 +86,8 @@ export const PlatformAuraButton: React.FC<PlatformAuraButtonProps> = ({
   channelLogoUrl,
   channelColor,
   isDominant = false,
-  orderIndex
+  orderIndex,
+  isMetaConnected = false,
 }) => {
   const IconComponent = getPlatformIconComponent(platform);
   const hasLink = Boolean(url && url.trim());
@@ -158,6 +160,28 @@ export const PlatformAuraButton: React.FC<PlatformAuraButtonProps> = ({
     );
   };
 
+  // Dedicated Render for IG Meta Graph Connection Status Dot
+  const renderIgStatusIndicator = () => {
+    if (platform !== 'INSTAGRAM' || !hasLink) return null;
+    if (isMetaConnected) {
+      return (
+        <span 
+          className="absolute -bottom-0.5 -left-0.5 flex h-2.5 w-2.5 z-40 pointer-events-none" 
+          title="🟢 เชื่อมต่อ Meta Graph เรียบร้อย (ดึงยอด/ข้อมูลสดได้แน่นอน)"
+        >
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500 ring-1.5 ring-white shadow-xs"></span>
+        </span>
+      );
+    }
+    return (
+      <span 
+        className="absolute -bottom-0.5 -left-0.5 flex h-2 w-2 rounded-full bg-slate-300 ring-1 ring-white z-40 pointer-events-none" 
+        title="⚪ Direct Link (ยังไม่ได้เชื่อมต่อ Meta Graph แต่คลิกไปดูหน้าเว็บได้ปกติ)"
+      ></span>
+    );
+  };
+
   return (
     <SocialLinkPreviewCard
       key={platform}
@@ -167,6 +191,7 @@ export const PlatformAuraButton: React.FC<PlatformAuraButtonProps> = ({
       channelLogoUrl={channelLogoUrl}
       channelColor={channelColor}
       followersCount={followers > 0 ? followers : undefined}
+      isMetaConnected={isMetaConnected}
     >
       <motion.div
         layout
@@ -259,6 +284,9 @@ export const PlatformAuraButton: React.FC<PlatformAuraButtonProps> = ({
 
             {/* Rank Badge - OUTSIDE overflow-hidden (Never clipped!) */}
             {renderRankBadge()}
+
+            {/* IG Meta Status Indicator Dot */}
+            {renderIgStatusIndicator()}
           </div>
         ) : (
           /* =========================================================================
@@ -279,6 +307,9 @@ export const PlatformAuraButton: React.FC<PlatformAuraButtonProps> = ({
 
             {/* Rank Badge - OUTSIDE (Never clipped!) */}
             {renderRankBadge()}
+
+            {/* IG Meta Status Indicator Dot */}
+            {renderIgStatusIndicator()}
           </div>
         )}
       </motion.div>

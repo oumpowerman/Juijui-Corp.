@@ -31,7 +31,7 @@ export interface FollowerSyncConfig {
     metaApi?: MetaApiConfig;
 }
 
-export type FollowerSyncSubTab = 'schedule' | 'sql_cron' | 'channels' | 'platforms' | 'bandwidth';
+export type FollowerSyncSubTab = 'schedule' | 'sql_cron' | 'channels' | 'platforms' | 'bandwidth' | 'ig_overview';
 
 export interface SyncPlatformResult {
     platform: string;

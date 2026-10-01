@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ExternalLink, Copy, Check, Users, Sparkles, Loader2, Globe, AlertCircle } from 'lucide-react';
+import { ExternalLink, Copy, Check, Users, Sparkles, Loader2, Globe, AlertCircle, Info } from 'lucide-react';
 import { Platform } from '../../../../types';
 import { PLATFORM_OPTIONS } from '../../form/inputs/PlatformGridSelector';
 
@@ -54,6 +54,7 @@ interface SocialLinkPreviewCardProps {
   channelLogoUrl?: string;
   channelColor?: string;
   followersCount?: number;
+  isMetaConnected?: boolean;
   children: React.ReactNode;
 }
 
@@ -68,6 +69,7 @@ export const SocialLinkPreviewCard: React.FC<SocialLinkPreviewCardProps> = ({
   channelLogoUrl,
   channelColor = 'bg-indigo-500',
   followersCount,
+  isMetaConnected = false,
   children,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -122,6 +124,22 @@ export const SocialLinkPreviewCard: React.FC<SocialLinkPreviewCardProps> = ({
   // Fetch Open Graph preview when popover opens
   useEffect(() => {
     if (!isOpen || !hasLink || !formattedUrl) return;
+
+    // For Instagram when not Meta connected: DO NOT call /api/preview-link to avoid delay/timeout!
+    // Instantly provide clean local preview data (0s latency)
+    if (platform === 'INSTAGRAM' && !isMetaConnected) {
+      const igHandle = (url || '').trim().replace(/^https?:\/\/(www\.)?instagram\.com\/?/i, '').split('/')[0].split('?')[0].replace(/^@/, '');
+      setPreviewData({
+        title: channelName,
+        description: igHandle ? `@${igHandle}` : `หน้า Instagram ของ ${channelName}`,
+        image: channelLogoUrl,
+        siteName: 'Instagram',
+        url: formattedUrl,
+        extractedFollowers: followersCount,
+      });
+      setLoading(false);
+      return;
+    }
 
     // Check client cache first
     const cached = clientPreviewCache.get(formattedUrl);
@@ -311,10 +329,21 @@ export const SocialLinkPreviewCard: React.FC<SocialLinkPreviewCardProps> = ({
             <div className={`px-4 py-2.5 flex items-center justify-between text-xs font-bold ${getPlatformHeaderStyle()}`}>
               <div className="flex items-center gap-1.5 min-w-0">
                 <PlatformIcon className="w-4 h-4 shrink-0" />
-                <span className="truncate">{platformMeta.label} Link Preview</span>
+                <span className="truncate">{platform === 'INSTAGRAM' ? 'Instagram' : `${platformMeta.label} Link Preview`}</span>
               </div>
               
-              {loading ? (
+              {platform === 'INSTAGRAM' ? (
+                isMetaConnected ? (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-emerald-500/95 text-white px-2.5 py-0.5 rounded-full ring-1 ring-white/30 shadow-2xs">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                    <span>เชื่อมต่อ Meta สำเร็จ 🟢</span>
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-medium bg-black/35 text-white/95 px-2.5 py-0.5 rounded-full ring-1 ring-white/20">
+                    <span>⚪ ยังไม่ได้เชื่อมต่อ Meta Graph</span>
+                  </span>
+                )
+              ) : loading ? (
                 <div className="flex items-center gap-1 text-[11px] font-medium bg-black/20 px-2 py-0.5 rounded-full">
                   <Loader2 className="w-3 h-3 animate-spin" />
                   <span>กำลังดึงข้อมูล...</span>
@@ -411,6 +440,21 @@ export const SocialLinkPreviewCard: React.FC<SocialLinkPreviewCardProps> = ({
                   <span className="truncate text-[11px]">{displayUrl}</span>
                 </div>
               </div>
+
+              {/* Instagram Status Advisory Notice */}
+              {platform === 'INSTAGRAM' && (
+                isMetaConnected ? (
+                  <div className="p-2.5 rounded-xl bg-emerald-50/80 border border-emerald-200/80 text-[11px] text-emerald-800 leading-relaxed flex items-start gap-2">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0 mt-0.5" />
+                    <span>เชื่อมต่อกับ Meta Graph API เรียบร้อยแล้ว สถิติและข้อมูลสามารถซิงค์สดอัตโนมัติได้</span>
+                  </div>
+                ) : (
+                  <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200/80 text-[11px] text-slate-600 leading-relaxed flex items-start gap-2">
+                    <Info className="w-3.5 h-3.5 text-slate-400 shrink-0 mt-0.5" />
+                    <span>ช่องนี้ยังไม่ได้เชื่อมต่อกับ Meta Graph API คลิกปุ่มด้านล่างเพื่อเปิดดูหน้า Instagram โดยตรง</span>
+                  </div>
+                )
+              )}
             </div>
 
             {/* 3. Action Footer */}
@@ -446,11 +490,11 @@ export const SocialLinkPreviewCard: React.FC<SocialLinkPreviewCardProps> = ({
                         : platform === 'TIKTOK'
                         ? 'bg-zinc-900 hover:bg-zinc-800 text-white'
                         : platform === 'INSTAGRAM'
-                        ? 'bg-pink-600 hover:bg-pink-700 text-white'
+                        ? 'bg-gradient-to-r from-purple-600 via-pink-600 to-amber-500 hover:opacity-95 text-white'
                         : 'bg-indigo-600 hover:bg-indigo-700 text-white'
                     }`}
                   >
-                    <span>เปิดดูหน้าช่อง</span>
+                    <span>{platform === 'INSTAGRAM' ? 'เปิดดูใน Instagram' : 'เปิดดูหน้าช่อง'}</span>
                     <ExternalLink className="w-3.5 h-3.5" />
                   </button>
                 </>

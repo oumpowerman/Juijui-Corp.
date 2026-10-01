@@ -205,7 +205,7 @@ export const loadDecoupledChecklistDataFromServer = async (): Promise<{
             .maybeSingle(),
         supabase
             .from('master_options')
-            .select('key, description, created_at')
+            .select('key, description')
             .eq('type', ARCHIVE_MASTER_TYPE)
             .eq('is_active', true)
             .order('id', { ascending: false })

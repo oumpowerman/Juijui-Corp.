@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { 
   syncAllChannelFollowers, 
   getFollowerSyncLastRun,
+  getFollowerSyncConfig,
   rescheduleFollowerCronJob
 } from '../services/followerSyncService.js';
 import { serverSupabase } from '../utils/supabase.js';
@@ -368,6 +369,212 @@ router.post('/api/follower-sync/test-meta-token', async (req: Request, res: Resp
         return res.status(500).json({
             success: false,
             error: err?.message || 'Failed to validate Meta access token',
+        });
+    }
+});
+
+// In-memory cache for IG Connection Overview (5 minutes TTL)
+interface CachedIgConnections {
+    data: any;
+    timestamp: number;
+}
+let igConnectionsCache: CachedIgConnections | null = null;
+const IG_CONNECTIONS_CACHE_TTL_MS = 5 * 60 * 1000;
+
+/**
+ * Endpoint: GET /api/follower-sync/ig-connections
+ * Returns the Meta Graph connection status for all channels in the system
+ */
+router.get('/api/follower-sync/ig-connections', async (req: Request, res: Response) => {
+    const force = req.query.force === '1' || req.query.force === 'true';
+    if (!force && igConnectionsCache && (Date.now() - igConnectionsCache.timestamp < IG_CONNECTIONS_CACHE_TTL_MS)) {
+        return res.json({
+            success: true,
+            ...igConnectionsCache.data,
+            cached: true,
+        });
+    }
+
+    try {
+        const config = await getFollowerSyncConfig();
+        const metaApi = config.metaApi;
+
+        // 1. Gather all active tokens
+        const tokensToTest: Array<{ token: string; businessAccountId?: string; label: string }> = [];
+        const seenTokens = new Set<string>();
+
+        if (metaApi?.tokenPool && Array.isArray(metaApi.tokenPool)) {
+            for (const item of metaApi.tokenPool) {
+                const t = (item.accessToken || '').trim();
+                if (t && item.enabled !== false && !seenTokens.has(t)) {
+                    tokensToTest.push({
+                        token: t,
+                        businessAccountId: item.businessAccountId,
+                        label: item.label || 'Token Pool'
+                    });
+                    seenTokens.add(t);
+                }
+            }
+        }
+
+        const globalToken = (metaApi?.accessToken || process.env.META_ACCESS_TOKEN || '').trim();
+        if (globalToken && !seenTokens.has(globalToken)) {
+            tokensToTest.push({
+                token: globalToken,
+                businessAccountId: metaApi?.businessAccountId,
+                label: 'Global Token'
+            });
+            seenTokens.add(globalToken);
+        }
+
+        // 2. Discover accounts from all active tokens
+        const discoveredAccounts: Array<{
+            id: string;
+            username: string;
+            name?: string;
+            followersCount: number;
+            pageName?: string;
+            tokenLabel: string;
+        }> = [];
+
+        for (const tItem of tokensToTest) {
+            try {
+                const valResult = await validateMetaAccessToken(tItem.token, tItem.businessAccountId);
+                if (valResult.isValid && Array.isArray(valResult.accounts)) {
+                    for (const acc of valResult.accounts) {
+                        discoveredAccounts.push({
+                            id: acc.id,
+                            username: acc.username.toLowerCase(),
+                            name: acc.name,
+                            followersCount: acc.followersCount,
+                            pageName: acc.pageName,
+                            tokenLabel: tItem.label
+                        });
+                    }
+                }
+            } catch (accErr) {
+                console.warn(`[IG Connections] Error discovering accounts for ${tItem.label}:`, accErr);
+            }
+        }
+
+        // 3. Fetch all channels
+        const { data: channelsData, error: chErr } = await serverSupabase
+            .from('channels')
+            .select('id, name, logoUrl, color, social_links, followers, meta_api, status, group_id, group_name')
+            .order('name');
+
+        if (chErr) throw chErr;
+
+        const channels = channelsData || [];
+        const channelStatuses = channels.map((ch: any) => {
+            const igUrl = ch.social_links?.INSTAGRAM || ch.social_links?.instagram || '';
+            if (!igUrl || typeof igUrl !== 'string' || !igUrl.trim()) {
+                return {
+                    channelId: ch.id,
+                    channelName: ch.name,
+                    logoUrl: ch.logoUrl,
+                    color: ch.color,
+                    groupName: ch.group_name,
+                    status: 'NO_IG_LINK',
+                    igUrl: '',
+                    igUsername: '',
+                    message: 'ยังไม่มีลิงก์ IG',
+                    isMetaConnected: false,
+                };
+            }
+
+            const cleanUsername = extractInstagramUsername(igUrl);
+            const channelMeta = ch.meta_api;
+            const hasChannelOverride = Boolean(channelMeta?.enabled !== false && channelMeta?.accessToken?.trim());
+
+            if (hasChannelOverride) {
+                return {
+                    channelId: ch.id,
+                    channelName: ch.name,
+                    logoUrl: ch.logoUrl,
+                    color: ch.color,
+                    groupName: ch.group_name,
+                    status: 'CONNECTED',
+                    igUrl,
+                    igUsername: cleanUsername || '',
+                    matchedType: 'channel_override',
+                    matchedTokenLabel: 'Token เฉพาะช่อง',
+                    message: 'เชื่อมต่อผ่าน Token เฉพาะช่อง',
+                    isMetaConnected: true,
+                };
+            }
+
+            if (cleanUsername) {
+                const normUser = cleanUsername.toLowerCase();
+                const matched = discoveredAccounts.find(
+                    a => a.username === normUser || a.username.replace(/[^a-z0-9]/g, '') === normUser.replace(/[^a-z0-9]/g, '')
+                );
+
+                if (matched) {
+                    return {
+                        channelId: ch.id,
+                        channelName: ch.name,
+                        logoUrl: ch.logoUrl,
+                        color: ch.color,
+                        groupName: ch.group_name,
+                        status: 'CONNECTED',
+                        igUrl,
+                        igUsername: cleanUsername,
+                        matchedType: 'token_pool',
+                        matchedAccount: matched,
+                        matchedTokenLabel: matched.tokenLabel,
+                        message: `เชื่อมต่อแล้ว (พบใน ${matched.pageName || matched.name || 'Token'} - ${matched.tokenLabel})`,
+                        isMetaConnected: true,
+                    };
+                }
+            }
+
+            return {
+                channelId: ch.id,
+                channelName: ch.name,
+                logoUrl: ch.logoUrl,
+                color: ch.color,
+                groupName: ch.group_name,
+                status: 'NOT_FOUND_IN_TOKEN',
+                igUrl,
+                igUsername: cleanUsername || '',
+                message: 'มีลิงก์ IG แต่ยังไม่พบใน Token ที่เชื่อมต่อไว้',
+                isMetaConnected: false,
+            };
+        });
+
+        const summary = {
+            totalChannels: channels.length,
+            connectedCount: channelStatuses.filter((s: any) => s.status === 'CONNECTED').length,
+            notFoundCount: channelStatuses.filter((s: any) => s.status === 'NOT_FOUND_IN_TOKEN').length,
+            noLinkCount: channelStatuses.filter((s: any) => s.status === 'NO_IG_LINK').length,
+            activeTokensCount: tokensToTest.length,
+            discoveredAccountsCount: discoveredAccounts.length,
+        };
+
+        const resultData = {
+            channels: channelStatuses,
+            summary,
+            discoveredAccounts,
+            timestamp: new Date().toISOString(),
+        };
+
+        igConnectionsCache = {
+            data: resultData,
+            timestamp: Date.now(),
+        };
+
+        return res.json({
+            success: true,
+            ...resultData,
+            cached: false,
+        });
+
+    } catch (err: any) {
+        console.error('[IG Connections] Error checking connection statuses:', err);
+        return res.status(500).json({
+            success: false,
+            error: err?.message || 'Failed to check IG connections',
         });
     }
 });

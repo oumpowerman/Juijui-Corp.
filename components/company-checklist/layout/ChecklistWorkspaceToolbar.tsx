@@ -1,9 +1,10 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import {
     Save,
     RotateCcw,
     Compass,
+    ChevronDown,
     ChevronsUpDown,
     ChevronsDownUp,
     Rows3,
@@ -73,8 +74,11 @@ export const ChecklistWorkspaceToolbar: React.FC<ChecklistWorkspaceToolbarProps>
     onResetActivePreset,
     onFocusFastCategoryInput
 }) => {
+    const [isTrayOpen, setIsTrayOpen] = useState(false);
+    const hasActiveFilters = Boolean(searchQuery.trim() || onlyMyResponsibility);
+
     return (
-        <div className="relative overflow-hidden rounded-[24px] sm:rounded-[28px] bg-white/65 backdrop-blur-2xl border border-white/90 p-4 sm:p-5 shadow-[0_20px_50px_-14px_rgba(15,23,42,0.07),0_4px_16px_-4px_rgba(15,23,42,0.03),inset_0_1.5px_1px_rgba(255,255,255,0.95)] space-y-4">
+        <div className="relative overflow-hidden rounded-[24px] sm:rounded-[28px] bg-white/65 backdrop-blur-2xl border border-white/90 p-4 sm:p-5 shadow-[0_20px_50px_-14px_rgba(15,23,42,0.07),0_4px_16px_-4px_rgba(15,23,42,0.03),inset_0_1.5px_1px_rgba(255,255,255,0.95)]">
             {/* iOS 3D Glass Ambient Specular Highlights & Pastel Orbs */}
             <div
                 aria-hidden="true"
@@ -254,182 +258,259 @@ export const ChecklistWorkspaceToolbar: React.FC<ChecklistWorkspaceToolbarProps>
                 </div>
             </div>
 
-            {/* Middle & Bottom iOS Frosted Control Center Tray */}
-            <div className="relative z-10 rounded-[22px] bg-slate-900/[0.03] backdrop-blur-xl border border-white/85 p-3.5 sm:p-4 shadow-[inset_0_1.5px_3px_rgba(15,23,42,0.04),0_1px_0_rgba(255,255,255,0.9)] space-y-3.5">
-                {/* CATEGORY JUMP BAR */}
-                {sections.length > 0 && (
-                    <div className="space-y-2.5">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                            <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
-                                <span className="w-6 h-6 rounded-lg bg-white/90 border border-white shadow-2xs flex items-center justify-center text-indigo-600">
-                                    <Compass className="w-3.5 h-3.5" />
-                                </span>
-                                <span>สารบัญหมวดหมู่ ({sections.length})</span>
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-1.5">
-                                {/* Expand / Collapse Pill Group */}
-                                <div className="inline-flex items-center p-0.5 rounded-xl bg-white/70 backdrop-blur-md border border-white/90 shadow-2xs">
-                                    <button
-                                        type="button"
-                                        onClick={onExpandAll}
-                                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[9px] hover:bg-white text-slate-700 text-xs font-semibold transition-all cursor-pointer"
-                                    >
-                                        <ChevronsUpDown className="w-3.5 h-3.5 text-indigo-500" />
-                                        <span>ขยายทั้งหมด</span>
-                                    </button>
-                                    <span aria-hidden="true" className="w-px h-3.5 bg-slate-200/80" />
-                                    <button
-                                        type="button"
-                                        onClick={onCollapseAll}
-                                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[9px] hover:bg-white text-slate-700 text-xs font-semibold transition-all cursor-pointer"
-                                    >
-                                        <ChevronsDownUp className="w-3.5 h-3.5 text-slate-500" />
-                                        <span>ย่อทั้งหมด</span>
-                                    </button>
-                                </div>
-
-                                {/* iOS Segmented Column Switcher */}
-                                <div className="relative inline-flex p-0.5 rounded-xl bg-slate-900/[0.06] backdrop-blur-md border border-white/70 shadow-[inset_0_1px_2px_rgba(15,23,42,0.06)]">
-                                    <button
-                                        type="button"
-                                        onClick={() => onChangeGridColumns(1)}
-                                        className={`relative z-10 inline-flex items-center gap-1 px-2.5 py-1 rounded-[9px] text-xs font-semibold transition-colors cursor-pointer ${
-                                            gridColumns === 1
-                                                ? 'text-slate-900'
-                                                : 'text-slate-600 hover:text-slate-900'
-                                        }`}
-                                        title="แสดงเรียง 1 คอลัมน์"
-                                    >
-                                        {gridColumns === 1 && (
-                                            <motion.div
-                                                layoutId="checklist-toolbar-col-pill"
-                                                transition={{
-                                                    type: 'spring',
-                                                    stiffness: 440,
-                                                    damping: 32
-                                                }}
-                                                className="absolute inset-0 -z-10 rounded-[9px] bg-white border border-white shadow-[0_2px_6px_rgba(15,23,42,0.1)]"
-                                            />
-                                        )}
-                                        <Rows3 className="w-3.5 h-3.5" />
-                                        <span>1 คอลัมน์</span>
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => onChangeGridColumns(2)}
-                                        className={`relative z-10 inline-flex items-center gap-1 px-2.5 py-1 rounded-[9px] text-xs font-semibold transition-colors cursor-pointer ${
-                                            gridColumns === 2
-                                                ? 'text-slate-900'
-                                                : 'text-slate-600 hover:text-slate-900'
-                                        }`}
-                                        title="แสดง 2 คอลัมน์คู่กัน (เหมาะกับ 10-20 หมวด)"
-                                    >
-                                        {gridColumns === 2 && (
-                                            <motion.div
-                                                layoutId="checklist-toolbar-col-pill"
-                                                transition={{
-                                                    type: 'spring',
-                                                    stiffness: 440,
-                                                    damping: 32
-                                                }}
-                                                className="absolute inset-0 -z-10 rounded-[9px] bg-white border border-white shadow-[0_2px_6px_rgba(15,23,42,0.1)]"
-                                            />
-                                        )}
-                                        <Columns2 className="w-3.5 h-3.5" />
-                                        <span>2 คอลัมน์</span>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Floating Glass Jump Pills */}
-                        <div className="flex items-center gap-1.5 flex-wrap max-h-28 overflow-y-auto pr-1 py-0.5">
-                            {sections.map((sec, idx) => {
-                                const secItems = getSectionItemNodes(sec.id);
-                                const secChecked = secItems.filter(
-                                    i => !!activeItemStates[i.id]?.isChecked
-                                ).length;
-                                const isDone =
-                                    secItems.length > 0 && secChecked === secItems.length;
-                                const pillTheme = getSectionPastelTheme(idx, isDone);
-
-                                return (
-                                    <motion.button
-                                        key={sec.id}
-                                        type="button"
-                                        whileHover={{ y: -1.5 }}
-                                        whileTap={{ scale: 0.97 }}
-                                        onClick={() => onJumpToSection(sec.id)}
-                                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border bg-white/80 hover:bg-white backdrop-blur-xl shadow-[0_3px_10px_-3px_rgba(15,23,42,0.05),inset_0_1px_0_rgba(255,255,255,1)] transition-colors tabular-nums text-left cursor-pointer ${pillTheme.jumpPillIdle}`}
-                                    >
-                                        <span
-                                            className={`w-2 h-2 rounded-full shrink-0 ${pillTheme.jumpDot}`}
-                                        />
-                                        <span className="font-extrabold opacity-75">
-                                            #{idx + 1}
-                                        </span>
-                                        <span className="truncate max-w-[175px]">
-                                            {sec.title}
-                                        </span>
-                                        <span className="text-[11px] opacity-75">
-                                            {secChecked}/{secItems.length}
-                                        </span>
-                                        {isDone && (
-                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
-                                        )}
-                                    </motion.button>
-                                );
-                            })}
-                        </div>
-                    </div>
-                )}
-
-                {/* Minimal iOS Spotlight Search & Quick Actions Row */}
-                <div
-                    className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${
-                        sections.length > 0 ? 'pt-3 border-t border-slate-900/[0.06]' : ''
+            {/* Slide Toggle Bar / Pill Button */}
+            <div className="relative z-10 mt-3.5 flex items-center justify-center">
+                <motion.button
+                    type="button"
+                    whileHover={{ y: -1 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setIsTrayOpen(prev => !prev)}
+                    aria-expanded={isTrayOpen}
+                    className={`w-full sm:w-auto inline-flex items-center justify-center gap-2.5 px-4 py-2 rounded-2xl text-xs font-bold border backdrop-blur-xl transition-all cursor-pointer ${
+                        isTrayOpen
+                            ? 'bg-white/90 text-indigo-700 border-indigo-200/90 shadow-[0_6px_16px_-4px_rgba(99,102,241,0.14),inset_0_1px_0_rgba(255,255,255,1)]'
+                            : 'bg-white/65 hover:bg-white/90 text-slate-700 border-white/95 shadow-[0_4px_12px_-3px_rgba(15,23,42,0.05),inset_0_1px_0_rgba(255,255,255,1)]'
                     }`}
                 >
-                    <div className="flex flex-wrap items-center gap-2">
-                        <div className="relative">
-                            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                            <input
-                                type="text"
-                                value={searchQuery}
-                                onChange={e => onChangeSearchQuery(e.target.value)}
-                                placeholder="ค้นหาหมวด หรือรายการเช็ค..."
-                                className="pl-8 pr-3 py-1.5 text-xs font-medium bg-white/80 focus:bg-white backdrop-blur-md border border-white/95 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400/40 text-slate-800 w-56 shadow-[0_2px_6px_rgba(15,23,42,0.03),inset_0_1px_0_rgba(255,255,255,1)] transition-all"
-                            />
-                        </div>
-
-                        <motion.button
-                            type="button"
-                            whileTap={{ scale: 0.97 }}
-                            onClick={onToggleOnlyMyResponsibility}
-                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all whitespace-nowrap cursor-pointer ${
-                                onlyMyResponsibility
-                                    ? 'border-indigo-500/80 bg-gradient-to-b from-indigo-500 to-indigo-600 text-white shadow-[0_4px_12px_rgba(99,102,241,0.3),inset_0_1px_0.5px_rgba(255,255,255,0.35)]'
-                                    : 'border-white/95 bg-white/80 hover:bg-white text-slate-700 shadow-[0_2px_6px_rgba(15,23,42,0.03),inset_0_1px_0_rgba(255,255,255,1)]'
-                            }`}
-                        >
-                            <Filter className="w-3.5 h-3.5" />
-                            <span>เฉพาะหมวดที่ฉันรับผิดชอบ</span>
-                        </motion.button>
-                    </div>
-
-                    <motion.button
-                        type="button"
-                        whileHover={{ y: -1 }}
-                        whileTap={{ scale: 0.97 }}
-                        onClick={onFocusFastCategoryInput}
-                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-b from-slate-800 via-slate-900 to-slate-950 hover:from-slate-700 hover:to-slate-900 text-white text-xs font-semibold border border-slate-700/80 shadow-[0_6px_14px_-3px_rgba(15,23,42,0.28),inset_0_1px_0.5px_rgba(255,255,255,0.3)] transition-all whitespace-nowrap self-start sm:self-auto cursor-pointer"
+                    <span
+                        className={`w-5 h-5 rounded-lg flex items-center justify-center transition-colors ${
+                            isTrayOpen
+                                ? 'bg-indigo-100 text-indigo-600'
+                                : 'bg-slate-900/[0.05] text-indigo-600'
+                        }`}
                     >
-                        <Plus className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>เพิ่มหมวดหมู่ใหม่ด่วน</span>
-                    </motion.button>
-                </div>
+                        <Compass className="w-3.5 h-3.5" />
+                    </span>
+
+                    <span>
+                        สารบัญหมวดหมู่ · ตัวกรอง & เครื่องมือจัดการ ({sections.length})
+                    </span>
+
+                    {hasActiveFilters && (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-indigo-500/12 text-indigo-700 border border-indigo-300/60 text-[11px] font-bold">
+                            <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
+                            <span>
+                                {onlyMyResponsibility && searchQuery.trim()
+                                    ? 'กรอง 2 รายการ'
+                                    : onlyMyResponsibility
+                                      ? 'เฉพาะของฉัน'
+                                      : `ค้นหา: "${searchQuery.trim().slice(0, 12)}${
+                                            searchQuery.trim().length > 12 ? '…' : ''
+                                        }"`}
+                            </span>
+                        </span>
+                    )}
+
+                    <ChevronDown
+                        className={`w-4 h-4 text-slate-500 transition-transform duration-300 ${
+                            isTrayOpen ? 'rotate-180 text-indigo-600' : ''
+                        }`}
+                    />
+                </motion.button>
             </div>
+
+            {/* Middle & Bottom iOS Frosted Control Center Tray (Slide Down) */}
+            <AnimatePresence initial={false}>
+                {isTrayOpen && (
+                    <motion.div
+                        key="workspace-control-tray"
+                        initial={{ height: 0, opacity: 0 }}
+                        animate={{ height: 'auto', opacity: 1 }}
+                        exit={{ height: 0, opacity: 0 }}
+                        transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                        className="overflow-hidden"
+                    >
+                        <div className="pt-3.5">
+                            <div className="relative z-10 rounded-[22px] bg-slate-900/[0.03] backdrop-blur-xl border border-white/85 p-3.5 sm:p-4 shadow-[inset_0_1.5px_3px_rgba(15,23,42,0.04),0_1px_0_rgba(255,255,255,0.9)] space-y-3.5">
+                                {/* CATEGORY JUMP BAR */}
+                                {sections.length > 0 && (
+                                    <div className="space-y-2.5">
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <div className="flex items-center gap-2 text-xs font-bold text-slate-700">
+                                                <span className="w-6 h-6 rounded-lg bg-white/90 border border-white shadow-2xs flex items-center justify-center text-indigo-600">
+                                                    <Compass className="w-3.5 h-3.5" />
+                                                </span>
+                                                <span>สารบัญหมวดหมู่ ({sections.length})</span>
+                                            </div>
+
+                                            <div className="flex flex-wrap items-center gap-1.5">
+                                                {/* Expand / Collapse Pill Group */}
+                                                <div className="inline-flex items-center p-0.5 rounded-xl bg-white/70 backdrop-blur-md border border-white/90 shadow-2xs">
+                                                    <button
+                                                        type="button"
+                                                        onClick={onExpandAll}
+                                                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[9px] hover:bg-white text-slate-700 text-xs font-semibold transition-all cursor-pointer"
+                                                    >
+                                                        <ChevronsUpDown className="w-3.5 h-3.5 text-indigo-500" />
+                                                        <span>ขยายทั้งหมด</span>
+                                                    </button>
+                                                    <span
+                                                        aria-hidden="true"
+                                                        className="w-px h-3.5 bg-slate-200/80"
+                                                    />
+                                                    <button
+                                                        type="button"
+                                                        onClick={onCollapseAll}
+                                                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[9px] hover:bg-white text-slate-700 text-xs font-semibold transition-all cursor-pointer"
+                                                    >
+                                                        <ChevronsDownUp className="w-3.5 h-3.5 text-slate-500" />
+                                                        <span>ย่อทั้งหมด</span>
+                                                    </button>
+                                                </div>
+
+                                                {/* iOS Segmented Column Switcher */}
+                                                <div className="relative inline-flex p-0.5 rounded-xl bg-slate-900/[0.06] backdrop-blur-md border border-white/70 shadow-[inset_0_1px_2px_rgba(15,23,42,0.06)]">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => onChangeGridColumns(1)}
+                                                        className={`relative z-10 inline-flex items-center gap-1 px-2.5 py-1 rounded-[9px] text-xs font-semibold transition-colors cursor-pointer ${
+                                                            gridColumns === 1
+                                                                ? 'text-slate-900'
+                                                                : 'text-slate-600 hover:text-slate-900'
+                                                        }`}
+                                                        title="แสดงเรียง 1 คอลัมน์"
+                                                    >
+                                                        {gridColumns === 1 && (
+                                                            <motion.div
+                                                                layoutId="checklist-toolbar-col-pill"
+                                                                transition={{
+                                                                    type: 'spring',
+                                                                    stiffness: 440,
+                                                                    damping: 32
+                                                                }}
+                                                                className="absolute inset-0 -z-10 rounded-[9px] bg-white border border-white shadow-[0_2px_6px_rgba(15,23,42,0.1)]"
+                                                            />
+                                                        )}
+                                                        <Rows3 className="w-3.5 h-3.5" />
+                                                        <span>1 คอลัมน์</span>
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => onChangeGridColumns(2)}
+                                                        className={`relative z-10 inline-flex items-center gap-1 px-2.5 py-1 rounded-[9px] text-xs font-semibold transition-colors cursor-pointer ${
+                                                            gridColumns === 2
+                                                                ? 'text-slate-900'
+                                                                : 'text-slate-600 hover:text-slate-900'
+                                                        }`}
+                                                        title="แสดง 2 คอลัมน์คู่กัน (เหมาะกับ 10-20 หมวด)"
+                                                    >
+                                                        {gridColumns === 2 && (
+                                                            <motion.div
+                                                                layoutId="checklist-toolbar-col-pill"
+                                                                transition={{
+                                                                    type: 'spring',
+                                                                    stiffness: 440,
+                                                                    damping: 32
+                                                                }}
+                                                                className="absolute inset-0 -z-10 rounded-[9px] bg-white border border-white shadow-[0_2px_6px_rgba(15,23,42,0.1)]"
+                                                            />
+                                                        )}
+                                                        <Columns2 className="w-3.5 h-3.5" />
+                                                        <span>2 คอลัมน์</span>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Floating Glass Jump Pills */}
+                                        <div className="flex items-center gap-1.5 flex-wrap max-h-28 overflow-y-auto pr-1 py-0.5">
+                                            {sections.map((sec, idx) => {
+                                                const secItems = getSectionItemNodes(sec.id);
+                                                const secChecked = secItems.filter(
+                                                    i => !!activeItemStates[i.id]?.isChecked
+                                                ).length;
+                                                const isDone =
+                                                    secItems.length > 0 &&
+                                                    secChecked === secItems.length;
+                                                const pillTheme = getSectionPastelTheme(
+                                                    idx,
+                                                    isDone
+                                                );
+
+                                                return (
+                                                    <motion.button
+                                                        key={sec.id}
+                                                        type="button"
+                                                        whileHover={{ y: -1.5 }}
+                                                        whileTap={{ scale: 0.97 }}
+                                                        onClick={() => onJumpToSection(sec.id)}
+                                                        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border bg-white/80 hover:bg-white backdrop-blur-xl shadow-[0_3px_10px_-3px_rgba(15,23,42,0.05),inset_0_1px_0_rgba(255,255,255,1)] transition-colors tabular-nums text-left cursor-pointer ${pillTheme.jumpPillIdle}`}
+                                                    >
+                                                        <span
+                                                            className={`w-2 h-2 rounded-full shrink-0 ${pillTheme.jumpDot}`}
+                                                        />
+                                                        <span className="font-extrabold opacity-75">
+                                                            #{idx + 1}
+                                                        </span>
+                                                        <span className="truncate max-w-[175px]">
+                                                            {sec.title}
+                                                        </span>
+                                                        <span className="text-[11px] opacity-75">
+                                                            {secChecked}/{secItems.length}
+                                                        </span>
+                                                        {isDone && (
+                                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                                        )}
+                                                    </motion.button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Minimal iOS Spotlight Search & Quick Actions Row */}
+                                <div
+                                    className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 ${
+                                        sections.length > 0
+                                            ? 'pt-3 border-t border-slate-900/[0.06]'
+                                            : ''
+                                    }`}
+                                >
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <div className="relative">
+                                            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                                            <input
+                                                type="text"
+                                                value={searchQuery}
+                                                onChange={e =>
+                                                    onChangeSearchQuery(e.target.value)
+                                                }
+                                                placeholder="ค้นหาหมวด หรือรายการเช็ค..."
+                                                className="pl-8 pr-3 py-1.5 text-xs font-medium bg-white/80 focus:bg-white backdrop-blur-md border border-white/95 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-400/40 text-slate-800 w-56 shadow-[0_2px_6px_rgba(15,23,42,0.03),inset_0_1px_0_rgba(255,255,255,1)] transition-all"
+                                            />
+                                        </div>
+
+                                        <motion.button
+                                            type="button"
+                                            whileTap={{ scale: 0.97 }}
+                                            onClick={onToggleOnlyMyResponsibility}
+                                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold border transition-all whitespace-nowrap cursor-pointer ${
+                                                onlyMyResponsibility
+                                                    ? 'border-indigo-500/80 bg-gradient-to-b from-indigo-500 to-indigo-600 text-white shadow-[0_4px_12px_rgba(99,102,241,0.3),inset_0_1px_0.5px_rgba(255,255,255,0.35)]'
+                                                    : 'border-white/95 bg-white/80 hover:bg-white text-slate-700 shadow-[0_2px_6px_rgba(15,23,42,0.03),inset_0_1px_0_rgba(255,255,255,1)]'
+                                            }`}
+                                        >
+                                            <Filter className="w-3.5 h-3.5" />
+                                            <span>เฉพาะหมวดที่ฉันรับผิดชอบ</span>
+                                        </motion.button>
+                                    </div>
+
+                                    <motion.button
+                                        type="button"
+                                        whileHover={{ y: -1 }}
+                                        whileTap={{ scale: 0.97 }}
+                                        onClick={onFocusFastCategoryInput}
+                                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-gradient-to-b from-slate-800 via-slate-900 to-slate-950 hover:from-slate-700 hover:to-slate-900 text-white text-xs font-semibold border border-slate-700/80 shadow-[0_6px_14px_-3px_rgba(15,23,42,0.28),inset_0_1px_0.5px_rgba(255,255,255,0.3)] transition-all whitespace-nowrap self-start sm:self-auto cursor-pointer"
+                                    >
+                                        <Plus className="w-3.5 h-3.5 text-emerald-400" />
+                                        <span>เพิ่มหมวดหมู่ใหม่ด่วน</span>
+                                    </motion.button>
+                                </div>
+                            </div>
+                        </div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
         </div>
     );
 };

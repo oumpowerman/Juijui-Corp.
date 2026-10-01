@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { User, ViewMode } from '../types';
 import NotificationPill from './NotificationPill';
 import { format, subDays } from 'date-fns';
+import { useChecklistCadenceAlerts } from '../hooks/company-checklist/useChecklistCadenceAlerts';
 
 interface SidebarBadgeProps {
     view?: ViewMode;
@@ -15,11 +16,22 @@ const SidebarBadge: React.FC<SidebarBadgeProps> = ({ view, currentUser, collapse
     const [internalCount, setInternalCount] = useState(0);
     const isAdmin = currentUser.role === 'ADMIN';
 
-    const displayCount = manualCount !== undefined ? manualCount : internalCount;
+    // Zero-Bandwidth / Zero-Extra-Network Cadence Alert check for COMPANY_CHECKLIST
+    const isCompanyChecklist = view === 'COMPANY_CHECKLIST';
+    const { pendingCount: checklistPendingCount } = useChecklistCadenceAlerts(
+        isCompanyChecklist && manualCount === undefined
+    );
+
+    const displayCount =
+        manualCount !== undefined
+            ? manualCount
+            : isCompanyChecklist
+              ? checklistPendingCount
+              : internalCount;
 
     useEffect(() => {
-        // If manual count is provided, we don't need to fetch
-        if (manualCount !== undefined) return;
+        // If manual count is provided or handled by zero-bandwidth hook, we don't need to fetch
+        if (manualCount !== undefined || isCompanyChecklist) return;
         if (!view) return;
 
         const fetchCount = async () => {
@@ -212,6 +224,7 @@ const SidebarBadge: React.FC<SidebarBadgeProps> = ({ view, currentUser, collapse
     let colorClass = undefined;
     if (view === 'DASHBOARD') colorClass = 'bg-red-500';
     if (view === 'WIKI') colorClass = 'bg-emerald-500';
+    if (view === 'COMPANY_CHECKLIST') colorClass = 'bg-orange-500 shadow-orange-500/30';
 
     return <NotificationPill count={displayCount} collapsed={collapsed} className={colorClass} />;
 };

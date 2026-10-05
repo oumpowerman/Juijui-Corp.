@@ -4,6 +4,9 @@ import {
     startOfWeek,
     endOfWeek,
     startOfMonth,
+    endOfMonth,
+    subDays,
+    differenceInCalendarDays,
     addDays,
     addWeeks,
     addMonths,
@@ -45,12 +48,25 @@ export interface ChecklistCadenceEvaluation {
     latestRecord: SavedChecklistRecord | null;
     currentCycleRecord: SavedChecklistRecord | null;
     nextDueDate: Date | null;
+    // Advance Notice Additions
+    isDueSoon?: boolean;
+    daysUntilDue?: number;
+    alertCategory?: 'OVERDUE' | 'DUE_SOON' | 'UP_TO_DATE';
 }
 
 export const getCustomUnitLabel = (unit?: ChecklistCustomIntervalUnit): string => {
     if (unit === 'DAYS') return 'วัน';
     if (unit === 'WEEKS') return 'สัปดาห์';
     return 'เดือน';
+};
+
+export const getAdvanceDaysCount = (
+    val: number = 3,
+    unit: 'DAYS' | 'WEEKS' | 'MONTHS' = 'DAYS'
+): number => {
+    if (unit === 'WEEKS') return val * 7;
+    if (unit === 'MONTHS') return val * 30;
+    return val;
 };
 
 export const evaluateChecklistCadence = (
@@ -118,11 +134,103 @@ export const evaluateChecklistCadence = (
         };
     }
 
-    // 2. MONTHLY (ประจำทุกเดือน)
+    // 2. SEMI_MONTHLY (ประจำกลางเดือนและสิ้นเดือน: 1-15 และ 16-สิ้นเดือน)
+    if (cycle === 'SEMI_MONTHLY') {
+        const curDay = referenceDate.getDate();
+        const isFirstHalf = curDay <= 15;
+        const monthStart = startOfMonth(referenceDate);
+        const monthEnd = endOfMonth(referenceDate);
+        const endDay = monthEnd.getDate(); // 28, 29, 30, or 31
+
+        const halfKey = isFirstHalf ? 'H1' : 'H2';
+        const cycleKey = `SEMI_MONTHLY_${format(monthStart, 'yyyy-MM')}_${halfKey}`;
+
+        const periodLabel = isFirstHalf
+            ? `รอบกลางเดือน (1-15 ${currentMonthName} ${buddhistYear})`
+            : `รอบสิ้นเดือน (16-${endDay} ${currentMonthName} ${buddhistYear})`;
+
+        const autoCaseTitle = isFirstHalf
+            ? `${basePrefix} - ${currentMonthName} ${buddhistYear} (รอบกลางเดือน 1-15)`
+            : `${basePrefix} - ${currentMonthName} ${buddhistYear} (รอบสิ้นเดือน 16-${endDay})`;
+
+        // Due date: H1 is 15th, H2 is end of month
+        const nextDueDate = isFirstHalf
+            ? endOfDay(new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 15))
+            : monthEnd;
+
+        const cycleStartDate = isFirstHalf
+            ? monthStart
+            : startOfDay(new Date(referenceDate.getFullYear(), referenceDate.getMonth(), 16));
+
+        // Find record submitted in the current half-month
+        const currentCycleRecord =
+            presetRecords.find(r => {
+                const d = new Date(r.submittedAt);
+                if (isNaN(d.getTime())) return false;
+                if (
+                    d.getMonth() !== referenceDate.getMonth() ||
+                    d.getFullYear() !== referenceDate.getFullYear()
+                ) {
+                    return false;
+                }
+                const recordDay = d.getDate();
+                return isFirstHalf ? recordDay <= 15 : recordDay > 15;
+            }) || null;
+
+        const isDone = !!currentCycleRecord;
+        let isDueSoon = false;
+        let daysUntilDue = 0;
+        let alertCategory: 'OVERDUE' | 'DUE_SOON' | 'UP_TO_DATE' = 'UP_TO_DATE';
+
+        const halfName = isFirstHalf ? 'รอบกลางเดือน' : 'รอบสิ้นเดือน';
+        let statusBadgeText = isDone ? `✅ ${halfName}ส่งแล้ว` : `⏰ ${halfName}ยังไม่ได้ส่ง`;
+        let statusShortBadgeText = isDone ? `✅ ${halfName}ส่งแล้ว` : `⏰ ${halfName}ยังไม่ได้ส่ง`;
+
+        if (!isDone) {
+            if (preset.advanceNoticeEnabled) {
+                const advDays = getAdvanceDaysCount(
+                    preset.advanceNoticeValue || 3,
+                    preset.advanceNoticeUnit || 'DAYS'
+                );
+                daysUntilDue = Math.max(0, differenceInCalendarDays(nextDueDate, referenceDate));
+                if (daysUntilDue <= advDays) {
+                    isDueSoon = true;
+                    alertCategory = 'DUE_SOON';
+                    statusBadgeText = `⏳ ใกล้ครบกำหนด${halfName} (อีก ${daysUntilDue} วัน)`;
+                    statusShortBadgeText = `⏳ อีก ${daysUntilDue} วัน (${halfName})`;
+                } else {
+                    alertCategory = 'UP_TO_DATE';
+                }
+            } else {
+                alertCategory = 'OVERDUE';
+            }
+        }
+
+        return {
+            isRecurring: true,
+            cycleKey,
+            cycleStartDate,
+            cadenceLabel: 'กลางเดือนและสิ้นเดือน',
+            periodLabel,
+            isCompletedInCurrentCycle: isDone,
+            statusBadgeText,
+            statusShortBadgeText,
+            autoCaseTitle,
+            latestRecord,
+            currentCycleRecord,
+            nextDueDate,
+            isDueSoon,
+            daysUntilDue: isDueSoon ? daysUntilDue : undefined,
+            alertCategory
+        };
+    }
+
+    // 3. MONTHLY (ประจำทุกเดือน)
     if (cycle === 'MONTHLY') {
         const periodLabel = `${currentMonthName} ${buddhistYear}`;
         const autoCaseTitle = `${basePrefix} - ${periodLabel}`;
         const monthStart = startOfMonth(referenceDate);
+        const nextDueDate = endOfMonth(referenceDate);
         const cycleKey = `MONTHLY_${format(monthStart, 'yyyy-MM')}`;
 
         const currentCycleRecord =
@@ -136,6 +244,28 @@ export const evaluateChecklistCadence = (
             }) || null;
 
         const isDone = !!currentCycleRecord;
+        let isDueSoon = false;
+        let daysUntilDue = 0;
+        let alertCategory: 'OVERDUE' | 'DUE_SOON' | 'UP_TO_DATE' = 'UP_TO_DATE';
+        let statusBadgeText = isDone ? '✅ เดือนนี้ส่งแล้ว' : '⏰ รอบเดือนนี้ยังไม่ได้ส่ง';
+        let statusShortBadgeText = isDone ? '✅ เดือนนี้ส่งแล้ว' : '⏰ รอบเดือนนี้ยังไม่ได้ส่ง';
+
+        if (!isDone) {
+            if (preset.advanceNoticeEnabled) {
+                const advDays = getAdvanceDaysCount(preset.advanceNoticeValue || 3, preset.advanceNoticeUnit || 'DAYS');
+                daysUntilDue = Math.max(0, differenceInCalendarDays(nextDueDate, referenceDate));
+                if (daysUntilDue <= advDays) {
+                    isDueSoon = true;
+                    alertCategory = 'DUE_SOON';
+                    statusBadgeText = `⏳ ใกล้ครบกำหนดเดือนนี้ (อีก ${daysUntilDue} วัน)`;
+                    statusShortBadgeText = `⏳ อีก ${daysUntilDue} วัน`;
+                } else {
+                    alertCategory = 'UP_TO_DATE';
+                }
+            } else {
+                alertCategory = 'OVERDUE';
+            }
+        }
 
         return {
             isRecurring: true,
@@ -144,16 +274,15 @@ export const evaluateChecklistCadence = (
             cadenceLabel: 'ประจำทุกเดือน',
             periodLabel: `ประจำเดือน${periodLabel}`,
             isCompletedInCurrentCycle: isDone,
-            statusBadgeText: isDone
-                ? '✅ เดือนนี้ส่งแล้ว'
-                : '⏰ รอบเดือนนี้ยังไม่ได้ส่ง',
-            statusShortBadgeText: isDone
-                ? '✅ เดือนนี้ส่งแล้ว'
-                : '⏰ รอบเดือนนี้ยังไม่ได้ส่ง',
+            statusBadgeText,
+            statusShortBadgeText,
             autoCaseTitle,
             latestRecord,
             currentCycleRecord,
-            nextDueDate: null
+            nextDueDate,
+            isDueSoon,
+            daysUntilDue: isDueSoon ? daysUntilDue : undefined,
+            alertCategory
         };
     }
 
@@ -184,6 +313,28 @@ export const evaluateChecklistCadence = (
             }) || null;
 
         const isDone = !!currentCycleRecord;
+        let isDueSoon = false;
+        let daysUntilDue = 0;
+        let alertCategory: 'OVERDUE' | 'DUE_SOON' | 'UP_TO_DATE' = 'UP_TO_DATE';
+        let statusBadgeText = isDone ? '✅ สัปดาห์นี้ส่งแล้ว' : '⏰ รอบสัปดาห์นี้ยังไม่ได้ส่ง';
+        let statusShortBadgeText = isDone ? '✅ สัปดาห์นี้ส่งแล้ว' : '⏰ รอบสัปดาห์นี้ยังไม่ได้ส่ง';
+
+        if (!isDone) {
+            if (preset.advanceNoticeEnabled) {
+                const advDays = getAdvanceDaysCount(preset.advanceNoticeValue || 2, preset.advanceNoticeUnit || 'DAYS');
+                daysUntilDue = Math.max(0, differenceInCalendarDays(weekEnd, referenceDate));
+                if (daysUntilDue <= advDays) {
+                    isDueSoon = true;
+                    alertCategory = 'DUE_SOON';
+                    statusBadgeText = `⏳ ใกล้ครบกำหนดสัปดาห์นี้ (อีก ${daysUntilDue} วัน)`;
+                    statusShortBadgeText = `⏳ อีก ${daysUntilDue} วัน`;
+                } else {
+                    alertCategory = 'UP_TO_DATE';
+                }
+            } else {
+                alertCategory = 'OVERDUE';
+            }
+        }
 
         return {
             isRecurring: true,
@@ -192,22 +343,22 @@ export const evaluateChecklistCadence = (
             cadenceLabel: 'ประจำทุกสัปดาห์',
             periodLabel,
             isCompletedInCurrentCycle: isDone,
-            statusBadgeText: isDone
-                ? '✅ สัปดาห์นี้ส่งแล้ว'
-                : '⏰ รอบสัปดาห์นี้ยังไม่ได้ส่ง',
-            statusShortBadgeText: isDone
-                ? '✅ สัปดาห์นี้ส่งแล้ว'
-                : '⏰ รอบสัปดาห์นี้ยังไม่ได้ส่ง',
+            statusBadgeText,
+            statusShortBadgeText,
             autoCaseTitle,
             latestRecord,
             currentCycleRecord,
-            nextDueDate: null
+            nextDueDate: weekEnd,
+            isDueSoon,
+            daysUntilDue: isDueSoon ? daysUntilDue : undefined,
+            alertCategory
         };
     }
 
     // 4. DAILY (ประจำทุกวัน)
     if (cycle === 'DAILY') {
         const dayStart = startOfDay(referenceDate);
+        const dayEnd = endOfDay(referenceDate);
         const cycleKey = `DAILY_${format(dayStart, 'yyyy-MM-dd')}`;
         const todayStr = referenceDate.toLocaleDateString('th-TH', {
             day: 'numeric',
@@ -239,7 +390,8 @@ export const evaluateChecklistCadence = (
             autoCaseTitle,
             latestRecord,
             currentCycleRecord,
-            nextDueDate: null
+            nextDueDate: dayEnd,
+            alertCategory: isDone ? 'UP_TO_DATE' : 'OVERDUE'
         };
     }
 
@@ -302,6 +454,35 @@ export const evaluateChecklistCadence = (
           })
         : '';
 
+    let isDueSoon = false;
+    let daysUntilDue = 0;
+    let alertCategory: 'OVERDUE' | 'DUE_SOON' | 'UP_TO_DATE' = 'UP_TO_DATE';
+    let statusBadgeText = isDone
+        ? `✅ รอบนี้ส่งแล้ว (${cadenceLabel}${nextDueStr ? ` · รอบถัดไป ${nextDueStr}` : ''})`
+        : `⏰ รอบ${cadenceLabel}ยังไม่ได้ส่ง`;
+    let statusShortBadgeText = isDone
+        ? `✅ ส่งแล้ว (${cadenceLabel})`
+        : `⏰ รอส่ง (${cadenceLabel})`;
+
+    if (!isDone) {
+        if (nextDueDate && referenceDate.getTime() >= nextDueDate.getTime()) {
+            alertCategory = 'OVERDUE';
+        } else if (nextDueDate && preset.advanceNoticeEnabled) {
+            const advDays = getAdvanceDaysCount(preset.advanceNoticeValue || 3, preset.advanceNoticeUnit || 'DAYS');
+            daysUntilDue = Math.max(0, differenceInCalendarDays(nextDueDate, referenceDate));
+            if (daysUntilDue <= advDays) {
+                isDueSoon = true;
+                alertCategory = 'DUE_SOON';
+                statusBadgeText = `⏳ ใกล้ครบกำหนด (${cadenceLabel} · อีก ${daysUntilDue} วัน)`;
+                statusShortBadgeText = `⏳ อีก ${daysUntilDue} วัน`;
+            } else {
+                alertCategory = 'UP_TO_DATE';
+            }
+        } else {
+            alertCategory = 'OVERDUE';
+        }
+    }
+
     return {
         isRecurring: true,
         cycleKey,
@@ -309,15 +490,14 @@ export const evaluateChecklistCadence = (
         cadenceLabel,
         periodLabel,
         isCompletedInCurrentCycle: isDone,
-        statusBadgeText: isDone
-            ? `✅ รอบนี้ส่งแล้ว (${cadenceLabel}${nextDueStr ? ` · รอบถัดไป ${nextDueStr}` : ''})`
-            : `⏰ รอบ${cadenceLabel}ยังไม่ได้ส่ง`,
-        statusShortBadgeText: isDone
-            ? `✅ ส่งแล้ว (${cadenceLabel})`
-            : `⏰ รอส่ง (${cadenceLabel})`,
+        statusBadgeText,
+        statusShortBadgeText,
         autoCaseTitle,
         latestRecord,
         currentCycleRecord,
-        nextDueDate
+        nextDueDate,
+        isDueSoon,
+        daysUntilDue: isDueSoon ? daysUntilDue : undefined,
+        alertCategory
     };
 };

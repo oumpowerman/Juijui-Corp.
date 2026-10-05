@@ -29,6 +29,7 @@ import { buildMonthlyBonusSummaryPayload } from './templates/bonusSummaryFlex.ts
 import { buildDailySummaryPayload } from './templates/SummaryFlex.ts';
 import { buildMonthlyOTSummaryPayload } from './templates/otSummaryFlex.ts';
 import { buildOverdueContentSummaryPayload } from './templates/OverdueContentSummaryFlex.ts';
+import { buildCompanyChecklistOverduePayload } from './templates/CompanyChecklistFlex.ts';
 import { buildFooterButtons } from './templates/requestFlex.ts';
 
 Deno.serve(async (req: any) => {
@@ -154,6 +155,8 @@ Deno.serve(async (req: any) => {
           lineMessagePayload = buildMonthlyOTSummaryPayload(targetDestination, record);
         } else if (record.type === 'DAILY_OVERDUE_CONTENT_SUMMARY') {
           lineMessagePayload = buildOverdueContentSummaryPayload(targetDestination, record);
+        } else if (record.type === 'COMPANY_CHECKLIST_OVERDUE_ALERT') {
+          lineMessagePayload = buildCompanyChecklistOverduePayload(targetDestination, record);
         } else if (record.type === 'CONTENT_PLANNER_ALERT' || (record.type === 'OVERDUE' && record.link_path === 'CALENDAR')) {
           lineMessagePayload = buildContentPlannerAlertPayload(targetDestination, record, lineHeaderTitle);
         } else {

@@ -192,8 +192,9 @@ export interface ChecklistPreset {
 }
 
 // --- COMPANY CHECKLIST (PRESET-BASED SOP & CASE SNAPSHOT CHECKLISTS) ---
-export type ChecklistResetCycle = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'CUSTOM' | 'ONCE';
+export type ChecklistResetCycle = 'DAILY' | 'WEEKLY' | 'SEMI_MONTHLY' | 'MONTHLY' | 'CUSTOM' | 'ONCE';
 export type ChecklistCustomIntervalUnit = 'DAYS' | 'WEEKS' | 'MONTHS';
+export type ChecklistAdvanceNoticeUnit = 'DAYS' | 'WEEKS' | 'MONTHS';
 export type ChecklistNodeType = 'SECTION' | 'SUBGROUP' | 'ITEM';
 
 export interface CompanyChecklist {
@@ -205,6 +206,9 @@ export interface CompanyChecklist {
     resetCycle: ChecklistResetCycle;
     customIntervalCount?: number;
     customIntervalUnit?: ChecklistCustomIntervalUnit;
+    advanceNoticeEnabled?: boolean;
+    advanceNoticeValue?: number;
+    advanceNoticeUnit?: ChecklistAdvanceNoticeUnit;
     defaultCasePrefix?: string;
     lastSubmittedAt?: string;
     lastSubmittedByName?: string;

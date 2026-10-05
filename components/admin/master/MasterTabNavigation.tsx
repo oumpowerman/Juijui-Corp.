@@ -68,6 +68,7 @@ export const MASTER_META: Record<string, MasterTabMeta> = {
     TRIBUNAL_SETTINGS: { label: 'Tribunal Settings', icon: Gavel, desc: 'ตั้งค่าระบบฟ้องร้อง (รางวัล, บทลงโทษ, หมวดหมู่)', group: 'SYSTEM' },
     SYSTEM_POLICY: { label: 'Policy Enforcer', icon: ShieldCheck, desc: 'ข้อตกลงการปฏิบัติงานและระเบียบวินัยสำหรับการใช้ระบบ', group: 'SYSTEM' },
     MENTOR_TIPS: { label: 'Mentor Tips', icon: Sparkles, desc: 'จัดการและเปิด-ปิดคำแนะนำระบบ (Mentor Tips) ในแต่ละหน้าจอ', group: 'SYSTEM' },
+    CHECKLIST_ALERT: { label: 'Checklist LINE Alerts', icon: ShieldCheck, desc: 'ตั้งค่าระบบตรวจเช็คและแจ้งเตือนเช็คลิสต์บริษัทค้างตรวจประจำวันผ่าน LINE อัตโนมัติ (Daily Overdue Alert)', group: 'SYSTEM' },
 };
 
 /**

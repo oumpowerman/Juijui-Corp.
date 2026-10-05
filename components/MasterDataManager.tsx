@@ -31,6 +31,7 @@ import MentorTipsMasterView from './admin/master/views/MentorTipsMasterView';
 import ContentAlertRulesView from './admin/master/views/ContentAlertRulesView';
 import FollowerSyncConfigView from './admin/master/views/FollowerSyncConfigView';
 import PillarCategoryMasterView from './admin/master/views/PillarCategoryMasterView';
+import ChecklistAlertRulesView from './admin/master/views/ChecklistAlertRulesView';
 import MasterDataTabConfigModal from './admin/master/MasterDataTabConfigModal';
 
 const MasterDataManager: React.FC = () => {
@@ -289,6 +290,13 @@ const MasterDataManager: React.FC = () => {
                                 ) : activeTab === 'MENTOR_TIPS' ? (
                                     <MentorTipsMasterView 
                                         masterOptions={masterOptions}
+                                        onUpdate={updateMasterOption}
+                                        onAdd={addMasterOption}
+                                    />
+                                ) : activeTab === 'CHECKLIST_ALERT' ? (
+                                    <ChecklistAlertRulesView 
+                                        masterOptions={masterOptions}
+                                        saveMasterOptionsBulk={saveMasterOptionsBulk}
                                         onUpdate={updateMasterOption}
                                         onAdd={addMasterOption}
                                     />

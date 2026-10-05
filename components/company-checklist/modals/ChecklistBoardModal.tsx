@@ -8,12 +8,14 @@ import {
     Layers,
     Tag,
     Clock,
-    Sparkles
+    Sparkles,
+    Bell
 } from 'lucide-react';
 import {
     CompanyChecklist,
     ChecklistResetCycle,
-    ChecklistCustomIntervalUnit
+    ChecklistCustomIntervalUnit,
+    ChecklistAdvanceNoticeUnit
 } from '../../../types';
 import { getCustomUnitLabel } from '../utils/checklistCadenceUtils';
 
@@ -27,6 +29,9 @@ interface ChecklistBoardModalProps {
         resetCycle: ChecklistResetCycle;
         customIntervalCount?: number;
         customIntervalUnit?: ChecklistCustomIntervalUnit;
+        advanceNoticeEnabled?: boolean;
+        advanceNoticeValue?: number;
+        advanceNoticeUnit?: ChecklistAdvanceNoticeUnit;
         color: string;
         icon: string;
         defaultCasePrefix?: string;
@@ -45,6 +50,11 @@ const CYCLE_OPTIONS: {
         desc: 'เช่น น้องฝึกงานจบ, พนักงานใหม่, ส่งมอบโปรเจกต์'
     },
     {
+        value: 'SEMI_MONTHLY',
+        label: 'ประจำกลางเดือนและสิ้นเดือน (Semi-Monthly)',
+        desc: 'แบ่งตรวจ 2 รอบต่อเดือน (1-15 และ 16-สิ้นเดือน) ตัดรอบตามปฏิทินจริง ไม่เหลื่อมวัน'
+    },
+    {
         value: 'MONTHLY',
         label: 'ประจำทุกเดือน (Monthly)',
         desc: 'แจ้งเตือนและเช็คสถานะการส่งงานทุกต้นเดือน/รายเดือนอัตโนมัติ'
@@ -61,7 +71,7 @@ const CYCLE_OPTIONS: {
     },
     {
         value: 'CUSTOM',
-        label: 'กำหนดความถี่เอง (เช่น ทุก 3 เดือน / ทุก 15 วัน)',
+        label: 'กำหนดความถี่เอง (เช่น ทุก 3 เดือน / ทุก 6 เดือน)',
         desc: 'ระบุจำนวนวัน สัปดาห์ หรือเดือนที่ต้องการให้ระบบนับรอบเตือนเอง'
     }
 ];
@@ -71,7 +81,6 @@ const QUICK_CUSTOM_PRESETS: {
     count: number;
     unit: ChecklistCustomIntervalUnit;
 }[] = [
-    { label: 'ทุก 15 วัน', count: 15, unit: 'DAYS' },
     { label: 'ทุก 2 สัปดาห์', count: 2, unit: 'WEEKS' },
     { label: 'ทุก 3 เดือน (รายไตรมาส)', count: 3, unit: 'MONTHS' },
     { label: 'ทุก 6 เดือน (ครึ่งปี)', count: 6, unit: 'MONTHS' }
@@ -99,6 +108,10 @@ export const ChecklistBoardModal: React.FC<ChecklistBoardModalProps> = ({
     const [customIntervalUnit, setCustomIntervalUnit] =
         useState<ChecklistCustomIntervalUnit>('MONTHS');
     const [color, setColor] = useState('indigo');
+    const [advanceNoticeEnabled, setAdvanceNoticeEnabled] = useState(false);
+    const [advanceNoticeValue, setAdvanceNoticeValue] = useState<number>(3);
+    const [advanceNoticeUnit, setAdvanceNoticeUnit] =
+        useState<ChecklistAdvanceNoticeUnit>('DAYS');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
@@ -109,6 +122,9 @@ export const ChecklistBoardModal: React.FC<ChecklistBoardModalProps> = ({
             setResetCycle(editingBoard.resetCycle || 'ONCE');
             setCustomIntervalCount(editingBoard.customIntervalCount || 3);
             setCustomIntervalUnit(editingBoard.customIntervalUnit || 'MONTHS');
+            setAdvanceNoticeEnabled(editingBoard.advanceNoticeEnabled || false);
+            setAdvanceNoticeValue(editingBoard.advanceNoticeValue || 3);
+            setAdvanceNoticeUnit(editingBoard.advanceNoticeUnit || 'DAYS');
             setColor(editingBoard.color || 'indigo');
         } else {
             setTitle('');
@@ -117,6 +133,9 @@ export const ChecklistBoardModal: React.FC<ChecklistBoardModalProps> = ({
             setResetCycle('ONCE');
             setCustomIntervalCount(3);
             setCustomIntervalUnit('MONTHS');
+            setAdvanceNoticeEnabled(false);
+            setAdvanceNoticeValue(3);
+            setAdvanceNoticeUnit('DAYS');
             setColor('indigo');
         }
     }, [editingBoard, isOpen]);
@@ -147,6 +166,15 @@ export const ChecklistBoardModal: React.FC<ChecklistBoardModalProps> = ({
                         : undefined,
                 customIntervalUnit:
                     resetCycle === 'CUSTOM' ? customIntervalUnit : undefined,
+                advanceNoticeEnabled: resetCycle !== 'ONCE' ? advanceNoticeEnabled : false,
+                advanceNoticeValue:
+                    resetCycle !== 'ONCE' && advanceNoticeEnabled
+                        ? Math.max(1, Number(advanceNoticeValue) || 1)
+                        : undefined,
+                advanceNoticeUnit:
+                    resetCycle !== 'ONCE' && advanceNoticeEnabled
+                        ? advanceNoticeUnit
+                        : undefined,
                 color,
                 icon: 'ShieldCheck',
                 isActive: true
@@ -393,6 +421,146 @@ export const ChecklistBoardModal: React.FC<ChecklistBoardModalProps> = ({
                                         )}
                                     </AnimatePresence>
                                 </div>
+
+                                {/* Advance Notice (แจ้งเตือนล่วงหน้าก่อนครบกำหนด) */}
+                                {resetCycle !== 'ONCE' && (
+                                    <div className="p-3.5 sm:p-4 rounded-xl bg-slate-50/80 border border-slate-200/80 space-y-3">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <div className="flex items-center gap-2.5 min-w-0">
+                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                                                    advanceNoticeEnabled ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200/70 text-slate-500'
+                                                }`}>
+                                                    <Bell className="w-4 h-4" />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="text-xs sm:text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                                                        <span>แจ้งเตือนล่วงหน้าก่อนครบกำหนด</span>
+                                                        {advanceNoticeEnabled && (
+                                                            <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                                                                เปิด
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-[11px] text-slate-400 truncate">
+                                                        ส่งการ์ดแจ้งเตือนเข้ากลุ่ม LINE ล่วงหน้าก่อนถึงวันตรวจจริง
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* iOS Style Switch */}
+                                            <button
+                                                type="button"
+                                                role="switch"
+                                                aria-checked={advanceNoticeEnabled}
+                                                onClick={() => setAdvanceNoticeEnabled(!advanceNoticeEnabled)}
+                                                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full p-0.5 transition-colors duration-200 ease-in-out focus:outline-none ${
+                                                    advanceNoticeEnabled ? 'bg-emerald-600' : 'bg-slate-300'
+                                                }`}
+                                            >
+                                                <span
+                                                    className={`pointer-events-none inline-block h-5 w-5 rounded-full bg-white shadow-md ring-0 transition-transform duration-200 ease-in-out ${
+                                                        advanceNoticeEnabled ? 'translate-x-5' : 'translate-x-0'
+                                                    }`}
+                                                />
+                                            </button>
+                                        </div>
+
+                                        {/* Expandable Configuration */}
+                                        <AnimatePresence initial={false}>
+                                            {advanceNoticeEnabled && (
+                                                <motion.div
+                                                    key="advance-notice-drawer"
+                                                    initial={{ height: 0, opacity: 0 }}
+                                                    animate={{ height: 'auto', opacity: 1 }}
+                                                    exit={{ height: 0, opacity: 0 }}
+                                                    transition={{ duration: 0.18, ease: 'easeOut' }}
+                                                    className="overflow-hidden pt-2 border-t border-slate-200/70 space-y-2.5"
+                                                >
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <span className="text-xs font-semibold text-slate-700">
+                                                            เตือนล่วงหน้า:
+                                                        </span>
+                                                        <input
+                                                            type="number"
+                                                            min={1}
+                                                            max={365}
+                                                            value={advanceNoticeValue}
+                                                            onChange={e =>
+                                                                setAdvanceNoticeValue(
+                                                                    Math.max(1, parseInt(e.target.value, 10) || 1)
+                                                                )
+                                                            }
+                                                            className="w-16 px-2.5 py-1.5 rounded-lg bg-white border border-slate-300 text-xs font-bold text-slate-900 text-center tabular-nums focus:outline-none focus:border-slate-900"
+                                                        />
+                                                        <select
+                                                            value={advanceNoticeUnit}
+                                                            onChange={e =>
+                                                                setAdvanceNoticeUnit(
+                                                                    e.target.value as ChecklistAdvanceNoticeUnit
+                                                                )
+                                                            }
+                                                            className="px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-xs font-bold text-slate-900 focus:outline-none focus:border-slate-900 cursor-pointer"
+                                                        >
+                                                            <option value="DAYS">วัน (Days)</option>
+                                                            <option value="WEEKS">สัปดาห์ (Weeks)</option>
+                                                            <option value="MONTHS">เดือน (Months)</option>
+                                                        </select>
+                                                        <span className="text-xs text-slate-500">
+                                                            ก่อนถึงวันครบกำหนดรอบตรวจ
+                                                        </span>
+                                                    </div>
+
+                                                    {/* Quick Presets */}
+                                                    <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+                                                        <span className="text-[10px] font-semibold text-slate-400 mr-1">
+                                                            ลัดด่วน:
+                                                        </span>
+                                                        {[
+                                                            { label: '1 วัน', val: 1, unit: 'DAYS' as const },
+                                                            { label: '3 วัน (แนะนำ)', val: 3, unit: 'DAYS' as const },
+                                                            { label: '7 วัน', val: 7, unit: 'DAYS' as const },
+                                                            { label: '2 สัปดาห์', val: 2, unit: 'WEEKS' as const },
+                                                            { label: '1 เดือน', val: 1, unit: 'MONTHS' as const },
+                                                        ].map(preset => {
+                                                            const isSelected =
+                                                                advanceNoticeValue === preset.val &&
+                                                                advanceNoticeUnit === preset.unit;
+                                                            return (
+                                                                <button
+                                                                    key={preset.label}
+                                                                    type="button"
+                                                                    onClick={() => {
+                                                                        setAdvanceNoticeValue(preset.val);
+                                                                        setAdvanceNoticeUnit(preset.unit);
+                                                                    }}
+                                                                    className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-colors cursor-pointer ${
+                                                                        isSelected
+                                                                            ? 'bg-emerald-600 text-white'
+                                                                            : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-100'
+                                                                    }`}
+                                                                >
+                                                                    {preset.label}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+
+                                                    <div className="text-[11px] text-emerald-800 bg-emerald-50/80 p-2.5 rounded-lg border border-emerald-100 flex items-center gap-1.5">
+                                                        <Sparkles className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                                        <span>
+                                                            ระบบจะส่งการ์ดแจ้งเตือนสีเหลือง (⏳ ใกล้ครบกำหนด) เข้ากลุ่ม LINE ล่วงหน้า{' '}
+                                                            <strong>
+                                                                {advanceNoticeValue}{' '}
+                                                                {advanceNoticeUnit === 'DAYS' ? 'วัน' : advanceNoticeUnit === 'WEEKS' ? 'สัปดาห์' : 'เดือน'}
+                                                            </strong>{' '}
+                                                            เพื่อให้ทีมงานมีเวลาเตรียมความพร้อม
+                                                        </span>
+                                                    </div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    </div>
+                                )}
 
                                 <div>
                                     <label className="block text-xs sm:text-sm font-semibold text-slate-800 mb-1.5 flex items-center gap-1.5">

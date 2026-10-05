@@ -65,6 +65,44 @@ export async function getTargetDestination(
     } else {
       console.log(`${record.type} requested but LINE_SUMMARY_DESTINATION is empty or not found.`);
     }
+  } else if (record.type === 'COMPANY_CHECKLIST_OVERDUE_ALERT') {
+    // 1. Check dedicated company checklist alert destination
+    const { data: chkDestOpt } = await supabaseAdmin
+      .from('master_options')
+      .select('label')
+      .eq('type', 'WORK_CONFIG')
+      .eq('key', 'CHECKLIST_ALERT_TARGET_DESTINATION')
+      .maybeSingle();
+
+    if (chkDestOpt && chkDestOpt.label && chkDestOpt.label.trim()) {
+      targetDestination = chkDestOpt.label.trim();
+      targetName = 'Checklist Alert LINE Destination';
+    } else {
+      // 2. Fallback to general LINE Summary group
+      const { data: summaryDestOpt } = await supabaseAdmin
+        .from('master_options')
+        .select('label')
+        .eq('type', 'WORK_CONFIG')
+        .eq('key', 'LINE_SUMMARY_DESTINATION')
+        .maybeSingle();
+
+      if (summaryDestOpt && summaryDestOpt.label && summaryDestOpt.label.trim()) {
+        targetDestination = summaryDestOpt.label.trim();
+        targetName = 'LINE Summary Group';
+      } else {
+        // 3. Fallback to assigned user's private LINE
+        const { data: userProfile } = await supabaseAdmin
+          .from('profiles')
+          .select('line_user_id, full_name')
+          .eq('id', record.user_id)
+          .single();
+
+        if (userProfile && userProfile.line_user_id) {
+          targetDestination = userProfile.line_user_id;
+          targetName = userProfile.full_name || 'User';
+        }
+      }
+    }
   } else if (record.type === 'CONTENT_PLANNER_ALERT' || record.type === 'DAILY_OVERDUE_CONTENT_SUMMARY') {
     // 1. Check dedicated content alert destination
     const { data: contentDestOpt } = await supabaseAdmin

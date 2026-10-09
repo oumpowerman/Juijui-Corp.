@@ -120,20 +120,26 @@ export const useContentStock = ({
 
             const overdueQuery = buildOverdueCountQuery(filters);
             const missingStorageQuery = buildMissingStorageCountQuery(filters);
+            const unassignedChannelQuery = buildUnassignedChannelCountQuery(activeSubTab);
 
-            const [response, overdueResponse, missingStorageResponse] = await Promise.all([
+            const [response, overdueResponse, missingStorageResponse, unassignedChannelResponse] = await Promise.all([
                 query,
                 overdueQuery,
-                missingStorageQuery
+                missingStorageQuery,
+                unassignedChannelQuery
             ]);
 
             const { data, error, count } = response;
             const { count: overdueDbCount, error: overdueError } = overdueResponse;
             const { count: missingStorageDbCount, error: missingStorageError } = missingStorageResponse;
+            const { count: unassignedDbCount, error: unassignedError } = unassignedChannelResponse;
 
             if (error) throw error;
             if (overdueError) throw overdueError;
             if (missingStorageError) throw missingStorageError;
+            if (!unassignedError && unassignedDbCount !== null) {
+                setUnassignedChannelCount(unassignedDbCount);
+            }
 
             if (data) {
                 let mapped = data.map(mapSupabaseToTask);
@@ -194,6 +200,7 @@ export const useContentStock = ({
         setContents,
         setTotalCount,
         setUnassignedChannelCount,
+        fetchUnassignedChannelCount,
         trackedAddedIds,
         pageRef,
         checkDoesItMatchFilters: checkDoesItMatchFiltersBound,
@@ -210,6 +217,7 @@ export const useContentStock = ({
         setContents,
         setTotalCount,
         setUnassignedChannelCount,
+        fetchUnassignedChannelCount,
         trackedAddedIds,
         pageRef,
         checkDoesItMatchFilters: checkDoesItMatchFiltersBound

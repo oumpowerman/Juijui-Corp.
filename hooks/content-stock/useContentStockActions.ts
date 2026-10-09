@@ -7,6 +7,7 @@ interface UseContentStockActionsProps {
     setContents: React.Dispatch<React.SetStateAction<Task[]>>;
     setTotalCount: React.Dispatch<React.SetStateAction<number>>;
     setUnassignedChannelCount: React.Dispatch<React.SetStateAction<number>>;
+    fetchUnassignedChannelCount?: () => Promise<void> | void;
     trackedAddedIds: React.MutableRefObject<Set<string>>;
     pageRef: React.MutableRefObject<number>;
     checkDoesItMatchFilters: (task: Task) => boolean;
@@ -16,6 +17,7 @@ export const useContentStockActions = ({
     setContents,
     setTotalCount,
     setUnassignedChannelCount,
+    fetchUnassignedChannelCount,
     trackedAddedIds,
     pageRef,
     checkDoesItMatchFilters,
@@ -37,6 +39,7 @@ export const useContentStockActions = ({
                     : (!task.channelId || task.channelId.trim() === '');
                 if (wasUnassigned) {
                     setUnassignedChannelCount(prev => Math.max(0, prev - 1));
+                    fetchUnassignedChannelCount?.();
                 }
 
                 if (exists || trackedAddedIds.current.has(task.id)) {
@@ -48,17 +51,22 @@ export const useContentStockActions = ({
             }
 
             // In-memory optimistic update for unassigned channel count
+            // ONLY adjust unassignedChannelCount if this item already existed in local contents
+            // and its channel assignment changed, OR sync from DB to prevent uncontrolled accumulation.
             const newIsUnassigned = !task.channelId || task.channelId.trim() === '';
             if (existingItem) {
                 const oldIsUnassigned = !existingItem.channelId || existingItem.channelId.trim() === '';
                 if (oldIsUnassigned && !newIsUnassigned) {
                     setUnassignedChannelCount(prev => Math.max(0, prev - 1));
+                    fetchUnassignedChannelCount?.();
                 } else if (!oldIsUnassigned && newIsUnassigned) {
                     setUnassignedChannelCount(prev => prev + 1);
+                    fetchUnassignedChannelCount?.();
                 }
             } else {
+                // If it's a completely new addition to the active page, sync accurately from DB instead of arbitrary +1
                 if (newIsUnassigned && !trackedAddedIds.current.has(task.id)) {
-                    setUnassignedChannelCount(prev => prev + 1);
+                    fetchUnassignedChannelCount?.();
                 }
             }
 
@@ -111,7 +119,7 @@ export const useContentStockActions = ({
                 return prevList;
             }
         });
-    }, [checkDoesItMatchFilters, pageRef, setContents, setTotalCount, setUnassignedChannelCount, trackedAddedIds]);
+    }, [checkDoesItMatchFilters, fetchUnassignedChannelCount, pageRef, setContents, setTotalCount, setUnassignedChannelCount, trackedAddedIds]);
 
     const toggleShootQueue = useCallback(async (id: string, currentStatus: boolean): Promise<boolean> => {
         clearStockCache();

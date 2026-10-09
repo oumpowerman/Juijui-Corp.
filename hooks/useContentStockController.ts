@@ -485,22 +485,11 @@ export const useContentStockController = ({ globalTasks, channels, users, master
         }
     }, [showToast]);
 
-    const localUnassignedCount = useMemo(() => {
-        if (!globalTasks) return 0;
-        return globalTasks.filter(t => {
-            const isUnassigned = !t.channelId || t.channelId.trim() === '' || t.channelId === 'NO_CHANNEL';
-            if (!isUnassigned) return false;
-
-            const isTerminal = isStockTerminalStatus(t.status) || t.status === 'CANCELLED';
-            if (contentSubTab === 'ARCHIVE') {
-                return isTerminal;
-            } else {
-                return !isTerminal;
-            }
-        }).length;
-    }, [globalTasks, contentSubTab]);
-
-    const effectiveUnassignedCount = Math.max(unassignedChannelCount, localUnassignedCount);
+    // The unassigned count is fetched directly from database (contents table where channel_id is null)
+    // We should use unassignedChannelCount directly rather than Math.max with local tasks (which includes tasks table).
+    const effectiveUnassignedCount = unassignedChannelCount !== undefined && unassignedChannelCount >= 0 
+        ? unassignedChannelCount 
+        : 0;
 
     const handleShareFilterLink = useCallback(async () => {
         try {

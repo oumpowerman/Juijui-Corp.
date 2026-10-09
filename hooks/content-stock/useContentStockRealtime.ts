@@ -7,6 +7,7 @@ interface UseContentStockRealtimeProps {
     setContents: React.Dispatch<React.SetStateAction<Task[]>>;
     setTotalCount: React.Dispatch<React.SetStateAction<number>>;
     setUnassignedChannelCount: React.Dispatch<React.SetStateAction<number>>;
+    fetchUnassignedChannelCount?: () => Promise<void> | void;
     trackedAddedIds: React.MutableRefObject<Set<string>>;
     pageRef: React.MutableRefObject<number>;
     checkDoesItMatchFilters: (task: Task) => boolean;
@@ -18,6 +19,7 @@ export const useContentStockRealtime = ({
     setContents,
     setTotalCount,
     setUnassignedChannelCount,
+    fetchUnassignedChannelCount,
     trackedAddedIds,
     pageRef,
     checkDoesItMatchFilters,
@@ -47,6 +49,7 @@ export const useContentStockRealtime = ({
 
                     if (wasUnassigned) {
                         setUnassignedChannelCount(prev => Math.max(0, prev - 1));
+                        fetchUnassignedChannelCount?.();
                     }
 
                     if (exists || trackedAddedIds.current.has(oldId)) {
@@ -63,6 +66,7 @@ export const useContentStockRealtime = ({
                 const newIsUnassigned = !newRec.channel_id || (typeof newRec.channel_id === 'string' && newRec.channel_id.trim() === '');
                 if (newIsUnassigned) {
                     setUnassignedChannelCount(prev => prev + 1);
+                    fetchUnassignedChannelCount?.();
                 }
             }
 
@@ -80,8 +84,10 @@ export const useContentStockRealtime = ({
 
                         if (prevWasUnassigned && !newIsUnassigned) {
                             setUnassignedChannelCount(prev => Math.max(0, prev - 1));
+                            fetchUnassignedChannelCount?.();
                         } else if (!prevWasUnassigned && newIsUnassigned) {
                             setUnassignedChannelCount(prev => prev + 1);
+                            fetchUnassignedChannelCount?.();
                         }
                     }
 
@@ -115,8 +121,10 @@ export const useContentStockRealtime = ({
                     const newIsUnassigned = !newRec.channel_id || (typeof newRec.channel_id === 'string' && newRec.channel_id.trim() === '');
                     if (prevWasUnassigned && !newIsUnassigned) {
                         setUnassignedChannelCount(prev => Math.max(0, prev - 1));
+                        fetchUnassignedChannelCount?.();
                     } else if (!prevWasUnassigned && newIsUnassigned) {
                         setUnassignedChannelCount(prev => prev + 1);
+                        fetchUnassignedChannelCount?.();
                     }
                 }
 
@@ -167,7 +175,7 @@ export const useContentStockRealtime = ({
         } catch (err) {
             console.error("Smart Hydration Error:", err);
         }
-    }, [mapSupabaseToTask, checkDoesItMatchFilters, pageRef, setContents, setTotalCount, setUnassignedChannelCount, trackedAddedIds]);
+    }, [mapSupabaseToTask, checkDoesItMatchFilters, fetchUnassignedChannelCount, pageRef, setContents, setTotalCount, setUnassignedChannelCount, trackedAddedIds]);
 
     // Realtime Subscription Lifecycle
     useEffect(() => {
@@ -176,6 +184,7 @@ export const useContentStockRealtime = ({
             clearTimeout(refreshTimeout);
             refreshTimeout = setTimeout(() => {
                 triggerCountRefresh();
+                fetchUnassignedChannelCount?.();
             }, 2000); 
         };
 

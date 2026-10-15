@@ -19,11 +19,13 @@ const StorageSection: React.FC<StorageSectionProps> = ({ task }) => {
         showToast('คัดลอก Path เรียบร้อย! นำไปวางใน File Explorer ได้เลย 📁', 'success');
     };
 
-    const activeHub = task.driveLabel ? storageConfigs.find(c => c.label === task.driveLabel) : null;
+    const activeHub = task.storageHubId 
+        ? storageConfigs.find(c => c.id === task.storageHubId)
+        : (task.driveLabel ? storageConfigs.find(c => c.label === task.driveLabel) : null);
     const resolvedPath = activeHub ? `${activeHub.currentLetter}${task.localPath || ''}` : task.localPath;
     const displayPath = resolvedPath || 'Not set';
 
-    if (!task.localPath && !task.driveLabel) return null;
+    if (!task.localPath && !task.driveLabel && !task.storageHubId) return null;
 
     return (
         <motion.section 

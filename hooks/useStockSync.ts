@@ -101,6 +101,7 @@ export const useStockSync = (
                     Boolean(globalMatch.isUnscheduled) !== Boolean(localTask.isUnscheduled) ||
                     (globalMatch.localPath || '') !== (localTask.localPath || '') ||
                     (globalMatch.driveLabel || '') !== (localTask.driveLabel || '') ||
+                    (globalMatch.storageHubId || '') !== (localTask.storageHubId || '') ||
                     (globalMatch.shootLocation || '') !== (localTask.shootLocation || '') ||
                     Boolean(globalMatch.isInShootQueue) !== Boolean(localTask.isInShootQueue) ||
                     Boolean(globalMatch.isSoftFinished) !== Boolean(localTask.isSoftFinished) ||

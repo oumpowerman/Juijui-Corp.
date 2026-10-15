@@ -111,7 +111,13 @@ export const useQualityActions = () => {
                     content_id: task?.type === 'CONTENT' ? taskId : null,
                     action: 'STATUS_CHANGE',
                     details: `Quality Gate: PASSED (Bonus: ${manualBonus}) -> Status set to DONE`,
-                    user_id: reviewerId 
+                    user_id: reviewerId,
+                    metadata: {
+                        category: 'STATUS_QC',
+                        decision: 'PASSED',
+                        status: 'DONE',
+                        bonus: manualBonus
+                    }
                 });
                 
                 // 5. NOTIFICATION: SUCCESS
@@ -157,7 +163,13 @@ export const useQualityActions = () => {
                     content_id: task?.type === 'CONTENT' ? taskId : null,
                     action: 'STATUS_CHANGE',
                     details: `Quality Gate: REVISE -> ${feedback}`,
-                    user_id: reviewerId
+                    user_id: reviewerId,
+                    metadata: {
+                        category: 'STATUS_QC',
+                        decision: 'REVISE',
+                        status: 'DOING',
+                        feedback
+                    }
                 });
 
                 // NOTIFICATION: REVISE

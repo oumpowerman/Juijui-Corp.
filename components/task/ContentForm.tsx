@@ -91,6 +91,7 @@ const ContentForm: React.FC<ContentFormProps> = ({
         shootLocation, setShootLocation,
         localPath, setLocalPath,
         driveLabel, setDriveLabel,
+        storageHubId, setStorageHubId,
         ideaOwnerIds, setIdeaOwnerIds,
         editorIds, setEditorIds,
         assigneeIds, setAssigneeIds,
@@ -312,7 +313,12 @@ const ContentForm: React.FC<ContentFormProps> = ({
                 content_id: initialData.id,
                 action: 'SENT_TO_QC',
                 details: `ส่งตรวจงาน (Draft ${nextRound})`,
-                user_id: currentUser?.id
+                user_id: currentUser?.id,
+                metadata: {
+                    category: 'STATUS_QC',
+                    round: nextRound,
+                    notes: submissionNotes || null
+                }
             });
 
             const targetStatus = 'FEEDBACK'; 
@@ -475,6 +481,7 @@ const ContentForm: React.FC<ContentFormProps> = ({
                             <CFStoragePath 
                                 localPath={localPath} setLocalPath={setLocalPath} 
                                 driveLabel={driveLabel} setDriveLabel={setDriveLabel}
+                                storageHubId={storageHubId} setStorageHubId={setStorageHubId}
                             />
 
                             {/* 3. Script Integration - Updated for Linking */}

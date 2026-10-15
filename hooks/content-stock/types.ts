@@ -72,7 +72,7 @@ export const checkIsMissingStorage = (task: Task | null | undefined): boolean =>
     if (!task) return false;
     if (!isStorageRequiredStatus(task.status)) return false;
     const hasLocal = !!task.localPath && task.localPath.trim() !== '';
-    const hasDrive = !!task.driveLabel && task.driveLabel.trim() !== '';
+    const hasDrive = (!!task.storageHubId && task.storageHubId.trim() !== '') || (!!task.driveLabel && task.driveLabel.trim() !== '');
     return !hasLocal || !hasDrive;
 };
 

@@ -118,8 +118,8 @@ export const useContentStock = ({
                 isUsingMemoryFilter
             });
 
-            const overdueQuery = buildOverdueCountQuery(filters);
-            const missingStorageQuery = buildMissingStorageCountQuery(filters);
+            const overdueQuery = buildOverdueCountQuery(filters, searchQuery);
+            const missingStorageQuery = buildMissingStorageCountQuery(filters, searchQuery);
             const unassignedChannelQuery = buildUnassignedChannelCountQuery(activeSubTab);
 
             const [response, overdueResponse, missingStorageResponse, unassignedChannelResponse] = await Promise.all([

@@ -14,7 +14,7 @@ export const CONTENT_SUMMARY_FIELDS = `
     start_date, end_date, created_at, updated_at, is_unscheduled, scheduled_time,
     target_platform, assignee_ids, idea_owner_ids, editor_ids, shoot_trip_id,
     shoot_date, shoot_location, is_in_shoot_queue, is_soft_finished, sla_revert_count,
-    local_path, drive_label, sub_checklist_progress
+    local_path, drive_label, storage_hub_id, sub_checklist_progress
 `.replace(/\s+/g, ' ').trim();
 
 export const TASK_SUMMARY_FIELDS = `
@@ -29,7 +29,7 @@ export const CONTENT_FULL_SELECT_FIELDS = `
     start_date, end_date, channel_id, created_at, updated_at, is_unscheduled, remark, scheduled_time,
     target_platform, assignee_ids, idea_owner_ids, editor_ids, shoot_trip_id,
     shoot_date, shoot_location, shoot_time_start, shoot_time_end, shoot_notes,
-    is_in_shoot_queue, is_soft_finished, sla_revert_count, local_path, drive_label,
+    is_in_shoot_queue, is_soft_finished, sla_revert_count, local_path, drive_label, storage_hub_id,
     published_links, sub_checklist_progress, assets, is_penalized, last_penalized_at,
     task_reviews(id, round, status, is_completed, scheduled_at, reviewer_id, feedback, content_id),
     content_analytics(id, platform),
@@ -113,6 +113,7 @@ export const mapContentRowToTask = (data: any, isPartial = false): Task => {
         shootNotes: data.shoot_notes || undefined,
         localPath: data.local_path || undefined,
         driveLabel: data.drive_label || undefined,
+        storageHubId: data.storage_hub_id || data.storageHubId || undefined,
         isInShootQueue: data.is_in_shoot_queue || data.isInShootQueue || false,
         isSoftFinished: data.is_soft_finished || data.isSoftFinished || false,
         subChecklistProgress: data.sub_checklist_progress || data.subChecklistProgress || {},

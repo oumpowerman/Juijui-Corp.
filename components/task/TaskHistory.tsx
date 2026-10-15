@@ -1,9 +1,9 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Task, TaskLog, User } from '../../types';
 import { supabase } from '../../lib/supabase';
 import { format } from 'date-fns';
-import { History, Loader2, FileCheck, Calendar, Clock, Activity } from 'lucide-react';
+import { History, Loader2, FileCheck, Calendar, Clock, Activity, Download, Filter, Users, HardDrive } from 'lucide-react';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
 import TimePickerModal from '../ui/TimePickerModal';
 import DatePickerModal, { formatDisplayDate } from '../ui/DatePickerModal';
@@ -14,10 +14,13 @@ interface TaskHistoryProps {
     onSaveTask: (task: Task) => void; 
 }
 
+type AuditFilterCategory = 'ALL' | 'STATUS_QC' | 'PEOPLE' | 'DATES' | 'FILES_STORAGE';
+
 const TaskHistory: React.FC<TaskHistoryProps> = ({ task, currentUser, onSaveTask }) => {
     const { showAlert } = useGlobalDialog();
     const [logs, setLogs] = useState<TaskLog[]>([]);
     const [isLoadingLogs, setIsLoadingLogs] = useState(false);
+    const [activeFilter, setActiveFilter] = useState<AuditFilterCategory>('ALL');
     
     // Booking State (Manual Booking)
     const [bookingRound, setBookingRound] = useState(1);
@@ -36,7 +39,7 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ task, currentUser, onSaveTask
                 const { data, error } = await supabase
                     .from('task_logs')
                     .select(`
-                        id, user_id, action, details, reason, created_at,
+                        id, user_id, action, details, reason, metadata, created_at,
                         profiles(full_name, avatar_url)
                     `)
                     .eq(filterCol, task.id)
@@ -44,7 +47,6 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ task, currentUser, onSaveTask
                 
                 if (!error && data) {
                     const mappedLogs: TaskLog[] = data.map((l: any) => {
-                        // Handle profiles being an array or object depending on Supabase version/types
                         const profile = Array.isArray(l.profiles) ? l.profiles[0] : l.profiles;
                         return {
                             id: l.id,
@@ -53,6 +55,7 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ task, currentUser, onSaveTask
                             action: l.action,
                             details: l.details,
                             reason: l.reason,
+                            metadata: l.metadata || undefined,
                             createdAt: new Date(l.created_at),
                             user: profile ? { name: profile.full_name, avatarUrl: profile.avatar_url } : undefined
                         };
@@ -78,7 +81,7 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ task, currentUser, onSaveTask
                 (payload) => {
                     supabase
                         .from('task_logs')
-                        .select(`id, user_id, action, details, reason, created_at, profiles(full_name, avatar_url)`)
+                        .select(`id, user_id, action, details, reason, metadata, created_at, profiles(full_name, avatar_url)`)
                         .eq('id', payload.new.id)
                         .single()
                         .then(({ data }) => {
@@ -93,6 +96,7 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ task, currentUser, onSaveTask
                                     action: logData.action,
                                     details: logData.details,
                                     reason: logData.reason,
+                                    metadata: logData.metadata || undefined,
                                     createdAt: new Date(logData.created_at),
                                     user: profile ? { name: profile.full_name, avatarUrl: profile.avatar_url } : undefined
                                 };
@@ -125,7 +129,12 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ task, currentUser, onSaveTask
                 [task.type === 'CONTENT' ? 'content_id' : 'task_id']: task.id,
                 action: 'REVIEW_BOOKED',
                 details: `จองคิวตรวจ Draft ${bookingRound} วันที่ ${format(scheduledAt, 'dd MMM HH:mm')}`,
-                user_id: currentUser?.id
+                user_id: currentUser?.id,
+                metadata: {
+                    category: 'STATUS_QC',
+                    round: bookingRound,
+                    scheduledAt: scheduledAt.toISOString()
+                }
             });
 
             onSaveTask({ ...task, status: 'FEEDBACK' });
@@ -133,6 +142,141 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ task, currentUser, onSaveTask
         } catch (e) {
             showAlert('จองคิวไม่สำเร็จ', 'ข้อผิดพลาด');
         }
+    };
+
+    // Filter counts calculation
+    const filterCounts = useMemo(() => {
+        const counts: Record<AuditFilterCategory, number> = {
+            ALL: logs.length,
+            STATUS_QC: 0,
+            PEOPLE: 0,
+            DATES: 0,
+            FILES_STORAGE: 0
+        };
+
+        logs.forEach(log => {
+            const action = log.action || '';
+            const details = log.details || '';
+            const changes = log.metadata?.changes || [];
+
+            if (
+                action === 'STATUS_CHANGE' || action === 'REVIEW_BOOKED' || action === 'SENT_TO_QC' || 
+                action === 'DELAYED' || action === 'CHECKLIST_TOGGLED' || details.includes('สถานะ') || 
+                details.includes('ขั้นตอนย่อย') || changes.some(c => c.category === 'STATUS_QC')
+            ) {
+                counts.STATUS_QC++;
+            }
+            if (
+                details.includes('ผู้รับผิดชอบ') || details.includes('คนตัดต่อ') || details.includes('เจ้าของไอเดีย') || 
+                details.includes('คนช่วย') || changes.some(c => c.category === 'PEOPLE')
+            ) {
+                counts.PEOPLE++;
+            }
+            if (
+                details.includes('กำหนดส่ง') || details.includes('วันเริ่ม') || details.includes('วันถ่าย') || 
+                details.includes('เวลา') || changes.some(c => c.category === 'DATES')
+            ) {
+                counts.DATES++;
+            }
+            if (
+                details.includes('ไฟล์แนบ') || details.includes('Local Path') || details.includes('Drive') || 
+                details.includes('Storage') || changes.some(c => c.category === 'FILES_STORAGE')
+            ) {
+                counts.FILES_STORAGE++;
+            }
+        });
+
+        return counts;
+    }, [logs]);
+
+    // Filtered logs
+    const filteredLogs = useMemo(() => {
+        if (activeFilter === 'ALL') return logs;
+
+        return logs.filter(log => {
+            const changes = log.metadata?.changes || [];
+            if (changes.length > 0) {
+                const matchCategory = changes.some(c => c.category === activeFilter);
+                if (matchCategory) return true;
+            }
+
+            const action = log.action || '';
+            const details = log.details || '';
+
+            if (activeFilter === 'STATUS_QC') {
+                return (
+                    action === 'STATUS_CHANGE' || action === 'REVIEW_BOOKED' || action === 'SENT_TO_QC' || 
+                    action === 'DELAYED' || action === 'CHECKLIST_TOGGLED' || details.includes('สถานะ') || 
+                    details.includes('ขั้นตอนย่อย')
+                );
+            }
+            if (activeFilter === 'PEOPLE') {
+                return (
+                    details.includes('ผู้รับผิดชอบ') || details.includes('คนตัดต่อ') || 
+                    details.includes('เจ้าของไอเดีย') || details.includes('คนช่วย')
+                );
+            }
+            if (activeFilter === 'DATES') {
+                return (
+                    details.includes('กำหนดส่ง') || details.includes('วันเริ่ม') || 
+                    details.includes('วันถ่าย') || details.includes('เวลา')
+                );
+            }
+            if (activeFilter === 'FILES_STORAGE') {
+                return (
+                    details.includes('ไฟล์แนบ') || details.includes('Local Path') || 
+                    details.includes('Drive') || details.includes('Storage')
+                );
+            }
+            return false;
+        });
+    }, [logs, activeFilter]);
+
+    // Action badge style lookup
+    const getActionBadge = (action: string) => {
+        switch (action) {
+            case 'STATUS_CHANGE':
+                return { label: 'เปลี่ยนสถานะ', bg: 'bg-blue-50 text-blue-700 border-blue-200', dot: 'bg-blue-500' };
+            case 'REVIEW_BOOKED':
+                return { label: 'จองคิวตรวจ', bg: 'bg-purple-50 text-purple-700 border-purple-200', dot: 'bg-purple-500' };
+            case 'SENT_TO_QC':
+                return { label: 'ส่งตรวจงาน', bg: 'bg-fuchsia-50 text-fuchsia-700 border-fuchsia-200', dot: 'bg-fuchsia-500' };
+            case 'CHECKLIST_TOGGLED':
+                return { label: 'ขั้นตอนย่อย', bg: 'bg-teal-50 text-teal-700 border-teal-200', dot: 'bg-teal-500' };
+            case 'DELAYED':
+                return { label: 'เลื่อนกำหนดส่ง', bg: 'bg-amber-50 text-amber-700 border-amber-200', dot: 'bg-amber-500' };
+            case 'UPDATED':
+                return { label: 'แก้ไขข้อมูล', bg: 'bg-indigo-50 text-indigo-700 border-indigo-200', dot: 'bg-indigo-500' };
+            default:
+                return { label: action.replace('_', ' '), bg: 'bg-slate-50 text-slate-700 border-slate-200', dot: 'bg-slate-400' };
+        }
+    };
+
+    // Export CSV with UTF-8 BOM
+    const handleExportCSV = () => {
+        if (!logs.length) return;
+
+        const headers = ['ลำดับ', 'วันเวลา', 'ประเภทกิจกรรม', 'ผู้ดำเนินการ', 'รายละเอียด', 'เหตุผล/หมายเหตุ'];
+        const rows = logs.map((log, index) => [
+            index + 1,
+            format(log.createdAt, 'yyyy-MM-dd HH:mm:ss'),
+            log.action,
+            log.user?.name || 'ระบบ',
+            `"${(log.details || '').replace(/"/g, '""')}"`,
+            `"${(log.reason || '').replace(/"/g, '""')}"`
+        ]);
+
+        const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        const safeTitle = (task.title || 'task').replace(/[/\\?%*:|"<>]/g, '_').trim();
+        link.setAttribute('href', url);
+        link.setAttribute('download', `Audit_Log_${safeTitle}_${format(new Date(), 'yyyyMMdd_HHmm')}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
     };
 
     return (
@@ -169,7 +313,7 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ task, currentUser, onSaveTask
                                 <div className={`p-4 rounded-2xl border transition-all ${isLatest ? 'bg-white border-purple-200 shadow-md transform scale-[1.01]' : 'bg-gray-50 border-gray-100 opacity-80'}`}>
                                     <div className="flex justify-between items-start mb-2">
                                         <div className="flex flex-col">
-                                            <span className={`text-xs font-black uppercase tracking-wider mb-1 ${isLatest ? 'text-purple-600' : 'text-gray-500'}`}>
+                                            <span className={`text-xs font-bold uppercase tracking-wider mb-1 ${isLatest ? 'text-purple-600' : 'text-gray-500'}`}>
                                                 รอบที่ {review.round}
                                             </span>
                                             <div className="flex items-center text-sm font-bold text-gray-800">
@@ -265,62 +409,147 @@ const TaskHistory: React.FC<TaskHistoryProps> = ({ task, currentUser, onSaveTask
             </div>
 
             {/* 2. Audit Logs */}
-            <div className="bg-white rounded-[1.5rem] shadow-sm border border-gray-200 p-6">
-                <h3 className="text-sm font-bold text-gray-500 uppercase tracking-widest mb-6 flex items-center">
-                    <History className="w-4 h-4 mr-2" /> ประวัติการแก้ไข (Audit Logs)
-                </h3>
+            <div className="bg-white rounded-[1.5rem] shadow-sm border border-gray-200 p-6 space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-gray-100">
+                    <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-bold text-gray-700 uppercase tracking-widest flex items-center">
+                            <History className="w-4 h-4 mr-2 text-indigo-500" /> ประวัติการแก้ไข (Audit Logs)
+                        </h3>
+                        <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-full border border-indigo-100">
+                            {filteredLogs.length}
+                        </span>
+                    </div>
+
+                    {logs.length > 0 && (
+                        <button
+                            onClick={handleExportCSV}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-50 border border-slate-200 hover:border-slate-300 rounded-xl shadow-xs transition-all active:scale-95 self-start sm:self-auto cursor-pointer"
+                            title="ดาวน์โหลดประวัติเป็นไฟล์ CSV"
+                        >
+                            <Download className="w-3.5 h-3.5 text-slate-500" />
+                            <span>Export CSV</span>
+                        </button>
+                    )}
+                </div>
+
+                {/* Filter Pills */}
+                {logs.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        {[
+                            { key: 'ALL', label: 'ทั้งหมด', icon: Filter, count: filterCounts.ALL },
+                            { key: 'STATUS_QC', label: 'สถานะ & ตรวจงาน', icon: FileCheck, count: filterCounts.STATUS_QC },
+                            { key: 'PEOPLE', label: 'สมาชิก', icon: Users, count: filterCounts.PEOPLE },
+                            { key: 'DATES', label: 'วันเวลา', icon: Calendar, count: filterCounts.DATES },
+                            { key: 'FILES_STORAGE', label: 'ไฟล์ & ไดรฟ์', icon: HardDrive, count: filterCounts.FILES_STORAGE }
+                        ].map((filterTab) => {
+                            const isActive = activeFilter === filterTab.key;
+                            return (
+                                <button
+                                    key={filterTab.key}
+                                    onClick={() => setActiveFilter(filterTab.key as AuditFilterCategory)}
+                                    className={`
+                                        inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all cursor-pointer select-none
+                                        ${isActive 
+                                            ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-200 ring-2 ring-indigo-500/20' 
+                                            : 'bg-slate-100/80 hover:bg-slate-200/70 text-slate-600 border border-slate-200/50'}
+                                    `}
+                                >
+                                    <filterTab.icon className="w-3 h-3" />
+                                    <span>{filterTab.label}</span>
+                                    <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${isActive ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                                        {filterTab.count}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
                 
                 {isLoadingLogs ? (
                     <div className="flex flex-col items-center justify-center h-20 text-gray-400">
                         <Loader2 className="w-6 h-6 animate-spin mb-2" />
-                        <p className="text-xs">กำลังโหลด...</p>
+                        <p className="text-xs font-medium">กำลังโหลดประวัติ...</p>
                     </div>
-                ) : logs.length === 0 ? (
+                ) : filteredLogs.length === 0 ? (
                     <div className="text-center py-8 text-gray-400 bg-gray-50 rounded-xl border-2 border-dashed border-gray-100">
-                        <p className="text-sm">ยังไม่มีประวัติการแก้ไข</p>
+                        <p className="text-sm font-medium">
+                            {logs.length === 0 ? 'ยังไม่มีประวัติการแก้ไข' : 'ไม่มีรายการในหมวดหมู่ที่เลือก'}
+                        </p>
                     </div>
                 ) : (
-                    <div className="relative pl-4 border-l-2 border-gray-100 space-y-6">
-                        {logs.map((log) => (
-                            <div key={log.id} className="relative group animate-in slide-in-from-left-2 duration-300">
-                                <div className={`absolute -left-[21px] top-1.5 w-3 h-3 rounded-full border-2 border-white ring-1 ring-gray-100 ${
-                                    log.action === 'DELAYED' ? 'bg-orange-400' : 
-                                    log.action === 'SENT_TO_QC' ? 'bg-purple-400' :
-                                    log.action === 'STATUS_CHANGE' ? 'bg-blue-400' :
-                                    log.action === 'UPDATED' ? 'bg-indigo-400' :
-                                    'bg-gray-300'
-                                }`}></div>
-                                
-                                <div className="flex justify-between items-start mb-1">
-                                    <span className="text-xs font-bold text-gray-700 flex items-center gap-1">
-                                        {log.action === 'UPDATED' && <Activity className="w-3 h-3 text-indigo-400"/>}
-                                        {log.action.replace('_', ' ')}
-                                    </span>
-                                    <span className="text-[10px] text-gray-400 font-mono">{format(log.createdAt, 'dd/MM HH:mm')}</span>
-                                </div>
-                                
-                                <p className="text-sm text-gray-600 leading-relaxed bg-gray-50 p-2.5 rounded-lg border border-gray-100 group-hover:bg-white group-hover:shadow-sm transition-all whitespace-pre-wrap">
-                                    {log.details}
-                                </p>
-                                
-                                {log.reason && (
-                                    <div className="mt-1 text-xs text-red-500 bg-red-50 px-2 py-1 rounded w-fit border border-red-100 font-medium">
-                                        หมายเหตุ: {log.reason}
+                    <div className="relative pl-4 border-l-2 border-gray-100 space-y-6 pt-2">
+                        {filteredLogs.map((log) => {
+                            const badge = getActionBadge(log.action);
+                            const hasStructuredChanges = log.metadata?.changes && Array.isArray(log.metadata.changes) && log.metadata.changes.length > 0;
+
+                            return (
+                                <div key={log.id} className="relative group animate-in slide-in-from-left-2 duration-300">
+                                    <div className={`absolute -left-[21px] top-1.5 w-3 h-3 rounded-full border-2 border-white ring-1 ring-gray-100 ${badge.dot}`}></div>
+                                    
+                                    <div className="flex justify-between items-start mb-2">
+                                        <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md border flex items-center gap-1 ${badge.bg}`}>
+                                            {log.action === 'UPDATED' && <Activity className="w-3 h-3"/>}
+                                            {badge.label}
+                                        </span>
+                                        <span className="text-[10px] text-gray-400 font-mono font-medium">{format(log.createdAt, 'dd/MM HH:mm')}</span>
                                     </div>
-                                )}
-                                
-                                <div className="flex items-center gap-1.5 mt-2">
-                                    {log.user?.avatarUrl ? (
-                                        <img src={log.user.avatarUrl} className="w-4 h-4 rounded-full object-cover shadow-sm" />
+                                    
+                                    {/* Visual Diff Rendering */}
+                                    {hasStructuredChanges ? (
+                                        <div className="flex flex-col gap-1.5 bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
+                                            {log.metadata!.changes!.map((change, idx) => (
+                                                <div key={idx} className="flex flex-wrap items-center gap-1.5 text-xs bg-white px-2.5 py-1.5 rounded-lg border border-slate-100 shadow-2xs">
+                                                    <span className="font-semibold text-slate-700 shrink-0">{change.label}:</span>
+                                                    
+                                                    {change.old !== undefined && change.new !== undefined ? (
+                                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                                            <span className="line-through text-slate-400 text-[11px] bg-slate-50 px-1.5 py-0.5 rounded border border-slate-200/50">
+                                                                {change.old}
+                                                            </span>
+                                                            <span className="text-slate-400 text-[10px]">➔</span>
+                                                            <span className="text-emerald-700 font-semibold text-[11px] bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                                                {change.new}
+                                                            </span>
+                                                        </div>
+                                                    ) : change.new !== undefined ? (
+                                                        <span className="text-emerald-700 font-semibold text-[11px] bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                                                            {change.new}
+                                                        </span>
+                                                    ) : change.old !== undefined ? (
+                                                        <span className="text-rose-700 font-semibold text-[11px] bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
+                                                            {change.old}
+                                                        </span>
+                                                    ) : (
+                                                        <span className="text-slate-600 font-medium">{log.details}</span>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
                                     ) : (
-                                        <div className="w-4 h-4 bg-gray-200 rounded-full flex items-center justify-center text-[8px] text-gray-500 font-bold">
-                                            {log.user?.name?.charAt(0)}
+                                        <p className="text-xs text-gray-600 leading-relaxed bg-gray-50 p-2.5 rounded-lg border border-gray-100 group-hover:bg-white group-hover:shadow-xs transition-all whitespace-pre-wrap font-sans">
+                                            {log.details}
+                                        </p>
+                                    )}
+                                    
+                                    {log.reason && (
+                                        <div className="mt-1.5 text-xs text-rose-600 bg-rose-50 px-2.5 py-1 rounded-lg w-fit border border-rose-100 font-medium">
+                                            หมายเหตุ: {log.reason}
                                         </div>
                                     )}
-                                    <span className="text-[10px] text-gray-400 font-medium">โดย {log.user?.name || 'ระบบ'}</span>
+                                    
+                                    <div className="flex items-center gap-1.5 mt-2">
+                                        {log.user?.avatarUrl ? (
+                                            <img src={log.user.avatarUrl} className="w-4 h-4 rounded-full object-cover shadow-xs" alt={log.user.name} />
+                                        ) : (
+                                            <div className="w-4 h-4 bg-gray-200 rounded-full flex items-center justify-center text-[8px] text-gray-500 font-bold">
+                                                {log.user?.name?.charAt(0) || 'S'}
+                                            </div>
+                                        )}
+                                        <span className="text-[10px] text-gray-400 font-medium">โดย {log.user?.name || 'ระบบ'}</span>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>

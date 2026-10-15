@@ -11,9 +11,11 @@ interface CFStoragePathProps {
     setLocalPath: (val: string) => void;
     driveLabel: string;
     setDriveLabel: (val: string) => void;
+    storageHubId?: string;
+    setStorageHubId?: (val: string) => void;
 }
 
-const CFStoragePath: React.FC<CFStoragePathProps> = ({ localPath, setLocalPath, driveLabel, setDriveLabel }) => {
+const CFStoragePath: React.FC<CFStoragePathProps> = ({ localPath, setLocalPath, driveLabel, setDriveLabel, storageHubId, setStorageHubId }) => {
     const { storageConfigs, saveConfig } = useStorage();
     const [showInstructions, setShowInstructions] = useState(false);
     const [isQuickEditing, setIsQuickEditing] = useState(false);
@@ -23,9 +25,11 @@ const CFStoragePath: React.FC<CFStoragePathProps> = ({ localPath, setLocalPath, 
     const [copied, setCopied] = useState(false);
     const [detectedMismatch, setDetectedMismatch] = useState<{ original: string, detected: string } | null>(null);
 
-    const activeConfig = React.useMemo(() => 
-        storageConfigs.find(c => c.label === driveLabel),
-    [storageConfigs, driveLabel]);
+    const activeConfig = React.useMemo(() => {
+        if (storageHubId) return storageConfigs.find(c => c.id === storageHubId);
+        if (driveLabel) return storageConfigs.find(c => c.label === driveLabel);
+        return null;
+    }, [storageConfigs, storageHubId, driveLabel]);
 
     // Auto-Correction Detection
     useEffect(() => {
@@ -68,6 +72,7 @@ const CFStoragePath: React.FC<CFStoragePathProps> = ({ localPath, setLocalPath, 
                 const prefixLen = config.currentLetter.length;
                 const remaining = cleanVal.substring(prefixLen);
                 
+                setStorageHubId?.(config.id);
                 setDriveLabel(config.label);
                 setLocalPath(remaining);
                 matched = true;
@@ -78,14 +83,15 @@ const CFStoragePath: React.FC<CFStoragePathProps> = ({ localPath, setLocalPath, 
 
         if (!matched) {
             setLocalPath(cleanVal);
-            if (!driveLabel && (cleanVal.includes(':') || cleanVal.startsWith('/') || cleanVal.startsWith('\\\\'))) {
+            if (!storageHubId && !driveLabel && (cleanVal.includes(':') || cleanVal.startsWith('/') || cleanVal.startsWith('\\\\'))) {
+                setStorageHubId?.('');
                 setDriveLabel('');
             }
         }
-    }, [storageConfigs, driveLabel, setDriveLabel, setLocalPath]);
+    }, [storageConfigs, driveLabel, storageHubId, setDriveLabel, setStorageHubId, setLocalPath]);
 
     const hubOptions = storageConfigs.map(c => ({
-        key: c.label,
+        key: c.id,
         label: `${c.label} (${c.currentLetter})`,
         icon: <HardDrive className="w-4 h-4" />
     }));
@@ -119,6 +125,8 @@ const CFStoragePath: React.FC<CFStoragePathProps> = ({ localPath, setLocalPath, 
             // Strip the drive letter from localPath since it's now covered by the hub
             const cleanPath = localPath.replace(/^[a-zA-Z]:/, '');
             setLocalPath(cleanPath);
+            setStorageHubId?.(activeConfig.id);
+            setDriveLabel(activeConfig.label);
             setDetectedMismatch(null);
         }
     };
@@ -168,10 +176,19 @@ const CFStoragePath: React.FC<CFStoragePathProps> = ({ localPath, setLocalPath, 
                                         <FilterDropdown 
                                             label=""
                                             options={hubOptions}
-                                            value={driveLabel || 'ALL'}
+                                            value={activeConfig?.id || 'ALL'}
                                             onChange={(val) => {
-                                                setDriveLabel(val === 'ALL' ? '' : val);
-                                                if (val !== 'ALL') setIsExpanded(false);
+                                                if (val === 'ALL' || !val) {
+                                                    setStorageHubId?.('');
+                                                    setDriveLabel('');
+                                                } else {
+                                                    const found = storageConfigs.find(c => c.id === val);
+                                                    if (found) {
+                                                        setStorageHubId?.(found.id);
+                                                        setDriveLabel(found.label);
+                                                    }
+                                                    setIsExpanded(false);
+                                                }
                                             }}
                                             icon={<HardDrive className="w-3.5 h-3.5" />}
                                             activeColorClass="bg-white border-emerald-500 text-emerald-700 shadow-sm"

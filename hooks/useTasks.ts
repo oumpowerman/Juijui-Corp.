@@ -1,7 +1,7 @@
 
 import { useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { Task, TaskLog, User, MasterOption, Channel } from '../types';
+import { Task, TaskLog, TaskLogChange, User, MasterOption, Channel, StorageConfig } from '../types';
 import { useToast } from '../context/ToastContext';
 import { isTaskCompleted } from '../constants';
 import { useGamification } from './useGamification';
@@ -12,55 +12,66 @@ import { sponsorshipService } from '../services/sponsorshipService';
 
 // --- 1. SMART DIFF CONFIGURATION ---
 
-interface SmartDiffContext {
+export interface SmartDiffContext {
     users: User[];
     masterOptions: MasterOption[];
     channels: Channel[];
+    storageConfigs?: StorageConfig[];
 }
 
-const TASK_FIELD_META: Record<string, { label: string; type: 'TEXT' | 'DATE' | 'USER_ARRAY' | 'ARRAY' | 'STATUS' | 'MASTER' | 'CHANNEL' | 'MONEY' }> = {
+export interface SmartDiffResult {
+    textDiffs: string[];
+    structuredChanges: TaskLogChange[];
+}
+
+const TASK_FIELD_META: Record<string, { 
+    label: string; 
+    type: 'TEXT' | 'DATE' | 'USER_ARRAY' | 'ARRAY' | 'STATUS' | 'MASTER' | 'CHANNEL' | 'MONEY' | 'STORAGE_HUB';
+    category: 'STATUS_QC' | 'PEOPLE' | 'DATES' | 'FILES_STORAGE' | 'GENERAL';
+}> = {
     // Core
-    title: { label: 'ชื่องาน', type: 'TEXT' },
-    description: { label: 'รายละเอียด', type: 'TEXT' },
-    status: { label: 'สถานะ', type: 'STATUS' },
-    priority: { label: 'ความสำคัญ', type: 'TEXT' },
-    remark: { label: 'หมายเหตุ', type: 'TEXT' },
+    title: { label: 'ชื่องาน', type: 'TEXT', category: 'GENERAL' },
+    description: { label: 'รายละเอียด', type: 'TEXT', category: 'GENERAL' },
+    status: { label: 'สถานะ', type: 'STATUS', category: 'STATUS_QC' },
+    priority: { label: 'ความสำคัญ', type: 'TEXT', category: 'GENERAL' },
+    remark: { label: 'หมายเหตุ', type: 'TEXT', category: 'GENERAL' },
     
     // Storage / Local Path
-    localPath: { label: 'ที่อยู่ไฟล์ (Local Path)', type: 'TEXT' },
-    driveLabel: { label: 'ป้ายชื่อ Drive', type: 'TEXT' },
+    localPath: { label: 'ที่อยู่ไฟล์ (Local Path)', type: 'TEXT', category: 'FILES_STORAGE' },
+    driveLabel: { label: 'ป้ายชื่อ Drive', type: 'TEXT', category: 'FILES_STORAGE' },
+    storageHubId: { label: 'Storage Hub', type: 'STORAGE_HUB', category: 'FILES_STORAGE' },
     
     // Dates
-    startDate: { label: 'วันเริ่ม', type: 'DATE' },
-    endDate: { label: 'กำหนดส่ง', type: 'DATE' },
+    startDate: { label: 'วันเริ่ม', type: 'DATE', category: 'DATES' },
+    endDate: { label: 'กำหนดส่ง', type: 'DATE', category: 'DATES' },
     
     // People
-    assigneeIds: { label: 'ผู้รับผิดชอบ', type: 'USER_ARRAY' },
-    ideaOwnerIds: { label: 'เจ้าของไอเดีย', type: 'USER_ARRAY' },
-    editorIds: { label: 'คนตัดต่อ', type: 'USER_ARRAY' },
+    assigneeIds: { label: 'ผู้รับผิดชอบ', type: 'USER_ARRAY', category: 'PEOPLE' },
+    ideaOwnerIds: { label: 'เจ้าของไอเดีย', type: 'USER_ARRAY', category: 'PEOPLE' },
+    editorIds: { label: 'คนตัดต่อ', type: 'USER_ARRAY', category: 'PEOPLE' },
 
     // Content Specific
-    channelId: { label: 'ช่องทาง', type: 'CHANNEL' },
-    contentFormats: { label: 'รูปแบบ', type: 'ARRAY' },
-    pillar: { label: 'แกนเนื้อหา', type: 'MASTER' },
-    category: { label: 'หมวดหมู่', type: 'MASTER' },
-    targetPlatforms: { label: 'แพลตฟอร์ม', type: 'ARRAY' },
+    channelId: { label: 'ช่องทาง', type: 'CHANNEL', category: 'GENERAL' },
+    contentFormats: { label: 'รูปแบบ', type: 'ARRAY', category: 'GENERAL' },
+    pillar: { label: 'แกนเนื้อหา', type: 'MASTER', category: 'GENERAL' },
+    category: { label: 'หมวดหมู่', type: 'MASTER', category: 'GENERAL' },
+    targetPlatforms: { label: 'แพลตฟอร์ม', type: 'ARRAY', category: 'GENERAL' },
     
     // Production
-    shootDate: { label: 'วันถ่ายทำ', type: 'DATE' },
-    shootLocation: { label: 'สถานที่ถ่าย', type: 'TEXT' },
-    shootTimeStart: { label: 'เวลาเริ่มถ่าย', type: 'TEXT' },
-    shootTimeEnd: { label: 'เวลาเลิกถ่าย', type: 'TEXT' },
-    shootNotes: { label: 'หมายเหตุการถ่าย', type: 'TEXT' },
+    shootDate: { label: 'วันถ่ายทำ', type: 'DATE', category: 'DATES' },
+    shootLocation: { label: 'สถานที่ถ่าย', type: 'TEXT', category: 'DATES' },
+    shootTimeStart: { label: 'เวลาเริ่มถ่าย', type: 'TEXT', category: 'DATES' },
+    shootTimeEnd: { label: 'เวลาเลิกถ่าย', type: 'TEXT', category: 'DATES' },
+    shootNotes: { label: 'หมายเหตุการถ่าย', type: 'TEXT', category: 'DATES' },
     
     // Gamification
-    difficulty: { label: 'ความยาก', type: 'TEXT' },
-    estimatedHours: { label: 'เวลาที่ประเมิน', type: 'TEXT' },
+    difficulty: { label: 'ความยาก', type: 'TEXT', category: 'GENERAL' },
+    estimatedHours: { label: 'เวลาที่ประเมิน', type: 'TEXT', category: 'GENERAL' },
     
     // Sponsorship
-    isSponsored: { label: 'สถานะสปอนเซอร์', type: 'TEXT' },
-    dealValue: { label: 'ยอดเงินดีล', type: 'MONEY' },
-    requirements: { label: 'เงื่อนไขสปอนเซอร์', type: 'TEXT' }
+    isSponsored: { label: 'สถานะสปอนเซอร์', type: 'TEXT', category: 'GENERAL' },
+    dealValue: { label: 'ยอดเงินดีล', type: 'MONEY', category: 'GENERAL' },
+    requirements: { label: 'เงื่อนไขสปอนเซอร์', type: 'TEXT', category: 'GENERAL' }
 };
 
 // --- 2. HELPER FUNCTIONS ---
@@ -85,12 +96,16 @@ const getUserNames = (ids: string[], users: User[]) => {
     return ids.map(id => users.find(u => u.id === id)?.name || 'Unknown');
 };
 
-const generateSmartDiff = (oldTask: Task, newTask: Task, context?: SmartDiffContext) => {
-    const changes: string[] = [];
+const generateSmartDiff = (oldTask: Task, newTask: Task, context?: SmartDiffContext): SmartDiffResult => {
+    const textDiffs: string[] = [];
+    const structuredChanges: TaskLogChange[] = [];
+
     const users = context?.users || [];
     const masterOptions = context?.masterOptions || [];
     const channels = context?.channels || [];
+    const storageConfigs = context?.storageConfigs || [];
 
+    // 1. Standard Fields from TASK_FIELD_META
     Object.entries(TASK_FIELD_META).forEach(([key, config]) => {
         const oldVal = (oldTask as any)[key];
         const newVal = (newTask as any)[key];
@@ -100,49 +115,81 @@ const generateSmartDiff = (oldTask: Task, newTask: Task, context?: SmartDiffCont
             return;
         }
 
-        // Compare based on Type
         let isDifferent = false;
         let changeText = '';
+        let oldDisplay = '';
+        let newDisplay = '';
 
         switch (config.type) {
             case 'TEXT':
-            case 'STATUS': // Status uses label lookup but simple compare first
-            case 'MASTER': // Master uses label lookup but simple compare first
+            case 'STATUS':
+            case 'MASTER':
             case 'CHANNEL':
+            case 'MONEY':
                 if (String(oldVal || '') !== String(newVal || '')) {
                     isDifferent = true;
-                    
-                    let displayOld = String(oldVal || '-');
-                    let displayNew = String(newVal || '-');
+                    oldDisplay = String(oldVal || '-');
+                    newDisplay = String(newVal || '-');
 
-                    if (config.type === 'STATUS') {
-                        displayOld = getMasterLabel(oldVal, masterOptions);
-                        displayNew = getMasterLabel(newVal, masterOptions);
-                    } else if (config.type === 'MASTER') {
-                        displayOld = getMasterLabel(oldVal, masterOptions);
-                        displayNew = getMasterLabel(newVal, masterOptions);
+                    if (config.type === 'STATUS' || config.type === 'MASTER') {
+                        oldDisplay = getMasterLabel(oldVal, masterOptions);
+                        newDisplay = getMasterLabel(newVal, masterOptions);
                     } else if (config.type === 'CHANNEL') {
-                        displayOld = getChannelName(oldVal, channels);
-                        displayNew = getChannelName(newVal, channels);
+                        oldDisplay = getChannelName(oldVal, channels);
+                        newDisplay = getChannelName(newVal, channels);
                     }
 
-                    // Special case for Description (Too long)
                     if (key === 'description') {
                         changeText = `${config.label}มีการแก้ไข`;
                     } else {
-                        changeText = `${config.label}: ${displayOld} -> ${displayNew}`;
+                        changeText = `${config.label}: ${oldDisplay} -> ${newDisplay}`;
                     }
+
+                    structuredChanges.push({
+                        field: key,
+                        label: config.label,
+                        old: oldDisplay,
+                        new: newDisplay,
+                        category: config.category
+                    });
+                }
+                break;
+
+            case 'STORAGE_HUB':
+                if (String(oldVal || '') !== String(newVal || '')) {
+                    isDifferent = true;
+                    const oldHub = storageConfigs.find(c => c.id === oldVal)?.label || String(oldVal || '-');
+                    const newHub = storageConfigs.find(c => c.id === newVal)?.label || String(newVal || '-');
+                    oldDisplay = oldHub;
+                    newDisplay = newHub;
+                    changeText = `${config.label}: ${oldHub} -> ${newHub}`;
+
+                    structuredChanges.push({
+                        field: key,
+                        label: config.label,
+                        old: oldDisplay,
+                        new: newDisplay,
+                        category: config.category
+                    });
                 }
                 break;
 
             case 'DATE':
                 const tOld = oldVal ? new Date(oldVal).getTime() : 0;
                 const tNew = newVal ? new Date(newVal).getTime() : 0;
-                // Ignore minimal time diffs (e.g. seconds) if logic dictates, but here exact check
-                // However, dates from DB might be strings, dates from Form might be Date objects.
                 if (tOld !== tNew) {
                     isDifferent = true;
-                    changeText = `${config.label}: ${formatDateVal(oldVal)} -> ${formatDateVal(newVal)}`;
+                    oldDisplay = formatDateVal(oldVal);
+                    newDisplay = formatDateVal(newVal);
+                    changeText = `${config.label}: ${oldDisplay} -> ${newDisplay}`;
+
+                    structuredChanges.push({
+                        field: key,
+                        label: config.label,
+                        old: oldDisplay,
+                        new: newDisplay,
+                        category: config.category
+                    });
                 }
                 break;
 
@@ -151,38 +198,116 @@ const generateSmartDiff = (oldTask: Task, newTask: Task, context?: SmartDiffCont
                 const arrOld = Array.isArray(oldVal) ? oldVal : [];
                 const arrNew = Array.isArray(newVal) ? newVal : [];
                 
-                // Sort for comparison
                 const sortedOld = [...arrOld].sort();
                 const sortedNew = [...arrNew].sort();
                 
                 if (JSON.stringify(sortedOld) !== JSON.stringify(sortedNew)) {
                     isDifferent = true;
                     
-                    // Calculate Added/Removed
                     const added = arrNew.filter((x: any) => !arrOld.includes(x));
                     const removed = arrOld.filter((x: any) => !arrNew.includes(x));
                     
-                    let diffParts = [];
+                    let diffParts: string[] = [];
+                    let addedNames = '';
+                    let removedNames = '';
                     
                     if (config.type === 'USER_ARRAY') {
-                        if (added.length > 0) diffParts.push(`+${getUserNames(added, users).join(', ')}`);
-                        if (removed.length > 0) diffParts.push(`-${getUserNames(removed, users).join(', ')}`);
+                        if (added.length > 0) {
+                            addedNames = getUserNames(added, users).join(', ');
+                            diffParts.push(`+${addedNames}`);
+                        }
+                        if (removed.length > 0) {
+                            removedNames = getUserNames(removed, users).join(', ');
+                            diffParts.push(`-${removedNames}`);
+                        }
                     } else {
-                        if (added.length > 0) diffParts.push(`+${added.join(', ')}`);
-                        if (removed.length > 0) diffParts.push(`-${removed.join(', ')}`);
+                        if (added.length > 0) {
+                            addedNames = added.join(', ');
+                            diffParts.push(`+${addedNames}`);
+                        }
+                        if (removed.length > 0) {
+                            removedNames = removed.join(', ');
+                            diffParts.push(`-${removedNames}`);
+                        }
                     }
 
                     changeText = `${config.label}: ${diffParts.join(' | ')}`;
+
+                    structuredChanges.push({
+                        field: key,
+                        label: config.label,
+                        old: removedNames ? `-${removedNames}` : undefined,
+                        new: addedNames ? `+${addedNames}` : undefined,
+                        category: config.category
+                    });
                 }
                 break;
         }
 
         if (isDifferent && changeText) {
-            changes.push(changeText);
+            textDiffs.push(changeText);
         }
     });
 
-    return changes;
+    // 2. Compare Assets (Added / Removed)
+    const oldAssets = (oldTask.assets || []).map(a => a.name || 'ไฟล์แนบ');
+    const newAssets = (newTask.assets || []).map(a => a.name || 'ไฟล์แนบ');
+    const addedAssets = newAssets.filter(name => !oldAssets.includes(name));
+    const removedAssets = oldAssets.filter(name => !newAssets.includes(name));
+
+    if (addedAssets.length > 0 || removedAssets.length > 0) {
+        const parts: string[] = [];
+        if (addedAssets.length > 0) parts.push(`+${addedAssets.join(', ')}`);
+        if (removedAssets.length > 0) parts.push(`-${removedAssets.join(', ')}`);
+        textDiffs.push(`ไฟล์แนบ: ${parts.join(' | ')}`);
+
+        structuredChanges.push({
+            field: 'assets',
+            label: 'ไฟล์แนบ',
+            old: removedAssets.length > 0 ? `-${removedAssets.join(', ')}` : undefined,
+            new: addedAssets.length > 0 ? `+${addedAssets.join(', ')}` : undefined,
+            category: 'FILES_STORAGE'
+        });
+    }
+
+    // 3. Compare Sub-Checklist Progress
+    const oldProg = oldTask.subChecklistProgress || {};
+    const newProg = newTask.subChecklistProgress || {};
+    const allProgKeys = Array.from(new Set([...Object.keys(oldProg), ...Object.keys(newProg)]));
+    const checklistDiffs: string[] = [];
+
+    allProgKeys.forEach(k => {
+        const wasDone = !!oldProg[k];
+        const isDone = !!newProg[k];
+        if (wasDone !== isDone) {
+            const stepLabel = masterOptions.find(o => o.key === k)?.label || k;
+            if (isDone) {
+                checklistDiffs.push(`✅ เสร็จ: ${stepLabel}`);
+                structuredChanges.push({
+                    field: `checklist_${k}`,
+                    label: `ขั้นตอนย่อย: ${stepLabel}`,
+                    old: 'ยังไม่เสร็จ',
+                    new: 'เสร็จสมบูรณ์',
+                    category: 'STATUS_QC'
+                });
+            } else {
+                checklistDiffs.push(`⏳ ยกเลิก: ${stepLabel}`);
+                structuredChanges.push({
+                    field: `checklist_${k}`,
+                    label: `ขั้นตอนย่อย: ${stepLabel}`,
+                    old: 'เสร็จสมบูรณ์',
+                    new: 'ยังไม่เสร็จ',
+                    category: 'STATUS_QC'
+                });
+            }
+        }
+    });
+
+    if (checklistDiffs.length > 0) {
+        textDiffs.push(`ขั้นตอนย่อย: ${checklistDiffs.join(', ')}`);
+    }
+
+    return { textDiffs, structuredChanges };
 };
 
 // --- END SMART DIFF ENGINE ---
@@ -277,6 +402,7 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
             is_in_shoot_queue: taskToSave.isInShootQueue || false,
             local_path: taskToSave.localPath !== undefined ? (taskToSave.localPath || null) : (existingTask?.localPath || null),
             drive_label: taskToSave.driveLabel !== undefined ? (taskToSave.driveLabel || null) : (existingTask?.driveLabel || null),
+            storage_hub_id: taskToSave.storageHubId !== undefined ? (taskToSave.storageHubId || null) : (existingTask?.storageHubId || null),
             scheduled_time: taskToSave.scheduledTime,
             sub_checklist_progress: taskToSave.subChecklistProgress || {},
         } : {};
@@ -319,7 +445,7 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
             }
 
             try {
-                const { error } = await supabase.from(table).update(dbPayload).eq('id', task.id);
+                const { error } = await (supabase.from(table) as any).update(dbPayload).eq('id', task.id);
                 if (error) throw error;
                 
                 // --- NOTIFICATION: NEW ASSIGNMENT (ON UPDATE) ---
@@ -342,16 +468,19 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
                 // --- SMART AUDIT LOGGING (V10) ---
                 const { data: { user } } = await supabase.auth.getUser();
                 if (user && existingTask) {
-                    // Compare old vs new with Smart Engine
-                    const diffs = generateSmartDiff(existingTask, task, contextData);
+                    const { textDiffs, structuredChanges } = generateSmartDiff(existingTask, task, contextData);
                     
-                    if (diffs.length > 0) {
+                    if (textDiffs.length > 0) {
                         await supabase.from('task_logs').insert({
                             task_id: isContent ? null : task.id,
                             content_id: isContent ? task.id : null,
                             user_id: user.id,
                             action: 'UPDATED',
-                            details: `แก้ไข: ${diffs.join(', ')}`
+                            details: `แก้ไข: ${textDiffs.join(', ')}`,
+                            metadata: {
+                                changes: structuredChanges,
+                                source: 'TASK_MODAL'
+                            }
                         });
                     }
                 }
@@ -390,7 +519,7 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
             // Create New
             try {
                 const insertPayload = { id: task.id, ...dbPayload };
-                const { error } = await supabase.from(table).insert(insertPayload);
+                const { error } = await (supabase.from(table) as any).insert(insertPayload);
                 
                 if (error) throw error;
                 

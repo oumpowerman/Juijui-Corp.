@@ -61,7 +61,7 @@ export function filterTasksByActiveFilters(tasks: Task[], activeFilters?: Active
             if (activeFilters.onlyMissingStorage) {
                 if (!isStorageRequiredStatus(task.status || '')) return false;
                 const hasLocalPath = !!task.localPath && task.localPath.trim() !== '';
-                const hasDriveLabel = !!task.driveLabel && task.driveLabel.trim() !== '';
+                const hasDriveLabel = (!!task.storageHubId && task.storageHubId.trim() !== '') || (!!task.driveLabel && task.driveLabel.trim() !== '');
                 if (hasLocalPath && hasDriveLabel) return false;
             }
             

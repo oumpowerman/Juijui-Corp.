@@ -107,7 +107,12 @@ export const useDeadlineRequests = (passedUser?: User) => {
                 task_id: taskId,
                 action: 'DEADLINE_EXTENSION_REQUESTED',
                 details: `ขอเลื่อนส่งงานเป็นวันที่ ${newDateStr} เหตุผล: ${reason}`,
-                user_id: currentUser.id
+                user_id: currentUser.id,
+                metadata: {
+                    category: 'DATES',
+                    newDate: newDateStr,
+                    reason
+                }
             });
 
             // 🔔 Create Notification for Admins
@@ -240,7 +245,12 @@ export const useDeadlineRequests = (passedUser?: User) => {
                     task_id: taskIdOrGoalId,
                     action: isApproved ? 'DEADLINE_EXTENSION_APPROVED' : 'DEADLINE_EXTENSION_REJECTED',
                     details: isApproved ? `อนุมัติการเลื่อน Deadline เป็นวันที่ ${newDate?.toISOString().split('T')[0]}` : `ปฏิเสธคำขอเลื่อน Deadline`,
-                    user_id: userId
+                    user_id: userId,
+                    metadata: {
+                        category: 'DATES',
+                        isApproved,
+                        newDate: newDate ? newDate.toISOString().split('T')[0] : null
+                    }
                 });
             }
 

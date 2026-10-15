@@ -175,6 +175,7 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
                     <StockStorageBadge
                         driveLabel={task.driveLabel}
                         localPath={task.localPath}
+                        storageHubId={task.storageHubId}
                     />
                 </div>
 

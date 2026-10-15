@@ -184,6 +184,14 @@ export interface ReviewSession {
     manualBonus?: number;         // Manual adjustment given during review
 }
 
+export interface TaskLogChange {
+    field: string;
+    label: string;
+    old?: string;
+    new?: string;
+    category?: 'STATUS_QC' | 'PEOPLE' | 'DATES' | 'FILES_STORAGE' | 'GENERAL';
+}
+
 export interface TaskLog {
     id: string;
     taskId: string;
@@ -193,6 +201,12 @@ export interface TaskLog {
     reason?: string;
     createdAt: Date;
     user?: { name: string; avatarUrl: string };
+    metadata?: {
+        changes?: TaskLogChange[];
+        category?: string;
+        source?: string;
+        [key: string]: any;
+    };
 }
 
 export interface DeadlineRequest {
@@ -301,6 +315,7 @@ export interface Task {
     isSoftFinished?: boolean;
     localPath?: string;
     driveLabel?: string;
+    storageHubId?: string;
 
     // Sub-tasks
     contentId?: string; 

@@ -99,11 +99,11 @@ const DutyCalendarGrid: React.FC<DutyCalendarGridProps> = ({
                         className={`
                             rounded-[1.5rem] flex flex-col h-full min-h-[350px] transition-all relative overflow-hidden
                             ${isCurrentDay 
-                                ? 'bg-indigo-50 border-2 border-indigo-200 shadow-lg ring-2 ring-indigo-100 ring-offset-2 scale-[1.02] z-10' 
-                                : 'bg-white border border-gray-200 shadow-sm hover:border-indigo-200'
+                                ? 'bg-indigo-50/90 backdrop-blur-md border-2 border-indigo-200 shadow-lg ring-2 ring-indigo-100 ring-offset-2 scale-[1.02] z-10' 
+                                : 'bg-white/80 backdrop-blur-md border border-gray-200/80 shadow-sm hover:border-indigo-200 hover:bg-white/95'
                             }
                             ${meta.isHoliday && !meta.isSpecialWork ? 'grayscale-[0.5] opacity-90' : ''}
-                            ${isWeekendDay && !meta.isSpecialWork ? 'bg-slate-50/50' : ''}
+                            ${isWeekendDay && !meta.isSpecialWork ? 'bg-slate-50/60 backdrop-blur-md' : ''}
                         `}
                     >
                         {/* Holiday Pattern Background */}
@@ -114,7 +114,7 @@ const DutyCalendarGrid: React.FC<DutyCalendarGridProps> = ({
                         {/* Day Header */}
                         <div className={`
                             p-4 border-b flex flex-col items-center justify-center text-center relative
-                            ${isCurrentDay ? 'border-indigo-100 bg-white/50 rounded-t-[1.5rem]' : 'border-gray-50 bg-gray-50/50 rounded-t-[1.5rem]'}
+                            ${isCurrentDay ? 'border-indigo-100 bg-white/60 rounded-t-[1.5rem]' : 'border-gray-100/60 bg-gray-50/60 rounded-t-[1.5rem]'}
                         `}>
                             <p className={`text-xs font-bold uppercase tracking-wider mb-1 ${isWeekendDay ? 'text-red-400' : 'text-gray-400'}`}>
                                 {format(day, 'EEEE')}
@@ -122,7 +122,7 @@ const DutyCalendarGrid: React.FC<DutyCalendarGridProps> = ({
                             
                             <div className="relative">
                                 <div className={`
-                                    w-11 h-11 rounded-full flex items-center justify-center text-lg font-black shadow-sm transition-transform group-hover:scale-110
+                                    w-11 h-11 rounded-full flex items-center justify-center text-lg font-bold shadow-sm transition-transform group-hover:scale-110
                                     ${isCurrentDay ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 border border-gray-200'}
                                 `}>
                                     {format(day, 'd')}
@@ -139,15 +139,15 @@ const DutyCalendarGrid: React.FC<DutyCalendarGridProps> = ({
                             {/* Calendar Badges */}
                             <div className="mt-2 flex flex-col items-center gap-1">
                                 {meta.isSpecialWork ? (
-                                    <span className="text-[9px] font-black text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200 uppercase animate-in zoom-in">
+                                    <span className="text-[9px] font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200 uppercase animate-in zoom-in">
                                         Special Workday ⚡
                                     </span>
                                 ) : meta.isHoliday ? (
-                                    <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border uppercase flex items-center gap-1 ${meta.isAnnual ? 'bg-rose-100 text-rose-600 border-rose-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border uppercase flex items-center gap-1 ${meta.isAnnual ? 'bg-rose-100 text-rose-600 border-rose-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
                                         <Ban className="w-2.5 h-2.5" /> {meta.label || 'Closed'}
                                     </span>
                                 ) : isCurrentDay && (
-                                    <span className="text-[10px] font-black text-indigo-500 uppercase tracking-widest">Today</span>
+                                    <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">Today</span>
                                 )}
                             </div>
                         </div>

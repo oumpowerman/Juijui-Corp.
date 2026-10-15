@@ -205,6 +205,32 @@ export const useContentStockActions = ({
             
             // Optimistic update
             setContents(prev => prev.map(item => item.id === id ? { ...item, subChecklistProgress: progress } : item));
+
+            // Audit log checklist update
+            try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (user) {
+                    await supabase.from('task_logs').insert({
+                        content_id: id,
+                        user_id: user.id,
+                        action: 'CHECKLIST_TOGGLED',
+                        details: `อัปเดตขั้นตอนย่อย (Checklist)`,
+                        metadata: {
+                            changes: [
+                                {
+                                    field: 'subChecklistProgress',
+                                    label: 'ขั้นตอนย่อย',
+                                    category: 'STATUS_QC'
+                                }
+                            ],
+                            source: 'STOCK_CHECKLIST'
+                        }
+                    });
+                }
+            } catch (logErr) {
+                console.warn('Checklist audit log skipped:', logErr);
+            }
+
             return true;
         } catch (err) {
             console.error('Update sub checklist progress failed:', err);

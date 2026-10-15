@@ -165,7 +165,7 @@ export const useContentStockRealtime = ({
 
             const { data, error } = await supabase
                 .from('contents')
-                .select(`id, title, status, start_date, end_date, created_at, channel_id, tags, target_platform, pillar, content_formats, category, is_unscheduled, description, remark, shoot_date, shoot_location, is_in_shoot_queue, assignee_ids, idea_owner_ids, editor_ids, local_path, drive_label, sub_checklist_progress, content_analytics(id, platform)`)
+                .select(`id, title, status, start_date, end_date, created_at, channel_id, tags, target_platform, pillar, content_formats, category, is_unscheduled, description, remark, shoot_date, shoot_location, is_in_shoot_queue, assignee_ids, idea_owner_ids, editor_ids, local_path, drive_label, storage_hub_id, sub_checklist_progress, content_analytics(id, platform)`)
                 .eq('id', targetId)
                 .maybeSingle();
 
@@ -274,6 +274,7 @@ export const useContentStockRealtime = ({
                         } else if (eventType === 'UPDATE') {
                             const isOldRecMinimal = !oldRec || oldRec.drive_label === undefined;
                             const hasRelevantChanges = isOldRecMinimal ||
+                                oldRec.storage_hub_id !== newRec?.storage_hub_id ||
                                 oldRec.drive_label !== newRec?.drive_label ||
                                 oldRec.local_path !== newRec?.local_path ||
                                 oldRec.status !== newRec?.status ||

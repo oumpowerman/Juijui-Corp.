@@ -12,16 +12,14 @@ interface BuildStockQueryParams {
 }
 
 /**
- * Builds the main query for fetching content stock items with pagination, filters, and sorting.
+ * Applies search query and secondary filter conditions (channel, format, pillar, category, stock-only, shoot dates)
+ * to any PostgREST query builder on the 'contents' table.
  */
-export const buildContentStockQuery = (
-    { page, pageSize, searchQuery, filters, sortConfig, isUsingMemoryFilter }: BuildStockQueryParams,
-    client = supabase
-) => {
-    let query = client
-        .from('contents')
-        .select(CONTENT_FULL_SELECT_FIELDS, { count: 'exact' });
-
+export const applyStockCommonFilters = (
+    query: any,
+    filters: StockFilters,
+    searchQuery?: string
+): any => {
     // 1. Search Query
     if (searchQuery) {
         let searchTags: string[] = [];
@@ -90,14 +88,42 @@ export const buildContentStockQuery = (
         query = query.eq('is_unscheduled', true);
     }
 
-    // 5. Missing Storage
+    // 5. Shoot Date Range Filter
+    if (filters.hasShootDate) {
+        query = query.not('shoot_date', 'is', null);
+    }
+    if (filters.shootDateStart) {
+        query = query.gte('shoot_date', filters.shootDateStart);
+    }
+    if (filters.shootDateEnd) {
+        query = query.lte('shoot_date', filters.shootDateEnd);
+    }
+
+    return query;
+};
+
+/**
+ * Builds the main query for fetching content stock items with pagination, filters, and sorting.
+ */
+export const buildContentStockQuery = (
+    { page, pageSize, searchQuery, filters, sortConfig, isUsingMemoryFilter }: BuildStockQueryParams,
+    client = supabase
+) => {
+    let query = client
+        .from('contents')
+        .select(CONTENT_FULL_SELECT_FIELDS, { count: 'exact' });
+
+    // Apply common search & secondary filters (searchQuery, channelId, format, pillar, category, stock-only, shoot dates)
+    query = applyStockCommonFilters(query, filters, searchQuery);
+
+    // Missing Storage
     if (filters.onlyMissingStorage) {
         query = query
-            .or('local_path.is.null,drive_label.is.null')
+            .or('local_path.is.null,and(drive_label.is.null,storage_hub_id.is.null)')
             .or('status.ilike.%edit%,status.ilike.%feedback%,status.ilike.%approve%,status.ilike.%done%,status.ilike.%publish%,status.ilike.%posted%,status.ilike.%complete%,status.ilike.%success%');
     }
 
-    // 6. Active vs Archive / Overdue Tab Logic
+    // Active vs Archive / Overdue Tab Logic
     if (filters.onlyOverdue) {
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
@@ -126,19 +152,8 @@ export const buildContentStockQuery = (
             query = query.in('status', filters.statuses);
         }
     }
-    
-    // 7. Shoot Date Range Filter
-    if (filters.hasShootDate) {
-        query = query.not('shoot_date', 'is', null);
-    }
-    if (filters.shootDateStart) {
-        query = query.gte('shoot_date', filters.shootDateStart);
-    }
-    if (filters.shootDateEnd) {
-        query = query.lte('shoot_date', filters.shootDateEnd);
-    }
 
-    // 8. Sorting
+    // Sorting
     if (sortConfig) {
         const sortKeyMap: Record<string, string> = {
             'title': 'title', 
@@ -168,7 +183,7 @@ export const buildContentStockQuery = (
         query = query.order('created_at', { ascending: false });
     }
 
-    // 9. Pagination (bypassed if memory filter is active)
+    // Pagination (bypassed if memory filter is active)
     if (!isUsingMemoryFilter) {
         const from = (page - 1) * pageSize;
         const to = from + pageSize - 1;
@@ -179,9 +194,10 @@ export const buildContentStockQuery = (
 };
 
 /**
- * Builds the query to count overdue analytics tasks.
+ * Builds the query to count overdue analytics tasks,
+ * respecting secondary filters (format, pillar, category, channel, date, search).
  */
-export const buildOverdueCountQuery = (filters: StockFilters, client = supabase) => {
+export const buildOverdueCountQuery = (filters: StockFilters, searchQuery = '', client = supabase) => {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
@@ -193,29 +209,25 @@ export const buildOverdueCountQuery = (filters: StockFilters, client = supabase)
         .eq('is_unscheduled', false)
         .neq('analytics_status', 'COMPLETE');
 
-    if (filters.channelId && filters.channelId.length > 0) {
-        const hasNoChannel = filters.channelId.includes('NO_CHANNEL');
-        const realChannels = filters.channelId.filter(id => id && id !== 'NO_CHANNEL' && id.trim() !== '');
-        if (hasNoChannel && realChannels.length > 0) {
-            overdueQuery = overdueQuery.or(`channel_id.in.(${realChannels.join(',')}),channel_id.is.null`);
-        } else if (hasNoChannel) {
-            overdueQuery = overdueQuery.is('channel_id', null);
-        } else if (realChannels.length > 0) {
-            overdueQuery = overdueQuery.in('channel_id', realChannels);
-        }
+    // Apply common search & secondary filters (format, pillar, category, channel, dates, search)
+    overdueQuery = applyStockCommonFilters(overdueQuery, filters, searchQuery);
+
+    if (filters.statuses && filters.statuses.length > 0) {
+        overdueQuery = overdueQuery.in('status', filters.statuses);
     }
 
     return overdueQuery;
 };
 
 /**
- * Builds the query to count tasks with missing storage (local_path or drive_label).
+ * Builds the query to count tasks with missing storage (local_path or drive_label/storage_hub_id),
+ * respecting secondary filters (format, pillar, category, channel, date, search).
  */
-export const buildMissingStorageCountQuery = (filters: StockFilters, client = supabase) => {
+export const buildMissingStorageCountQuery = (filters: StockFilters, searchQuery = '', client = supabase) => {
     let missingStorageQuery = client
         .from('contents')
         .select('*', { count: 'exact', head: true })
-        .or('local_path.is.null,drive_label.is.null');
+        .or('local_path.is.null,and(drive_label.is.null,storage_hub_id.is.null)');
 
     if (filters.contentSubTab === 'ARCHIVE') {
         missingStorageQuery = missingStorageQuery
@@ -225,16 +237,12 @@ export const buildMissingStorageCountQuery = (filters: StockFilters, client = su
             .or('status.ilike.%edit%,status.ilike.%feedback%,status.ilike.%approve%');
     }
 
-    if (filters.channelId && filters.channelId.length > 0) {
-        const hasNoChannel = filters.channelId.includes('NO_CHANNEL');
-        const realChannels = filters.channelId.filter(id => id && id !== 'NO_CHANNEL' && id.trim() !== '');
-        if (hasNoChannel && realChannels.length > 0) {
-            missingStorageQuery = missingStorageQuery.or(`channel_id.in.(${realChannels.join(',')}),channel_id.is.null`);
-        } else if (hasNoChannel) {
-            missingStorageQuery = missingStorageQuery.is('channel_id', null);
-        } else if (realChannels.length > 0) {
-            missingStorageQuery = missingStorageQuery.in('channel_id', realChannels);
-        }
+    // Apply common search & secondary filters (format, pillar, category, channel, dates, search)
+    missingStorageQuery = applyStockCommonFilters(missingStorageQuery, filters, searchQuery);
+
+    // If specific statuses were selected, restrict to them
+    if (filters.statuses && filters.statuses.length > 0) {
+        missingStorageQuery = missingStorageQuery.in('status', filters.statuses);
     }
 
     return missingStorageQuery;

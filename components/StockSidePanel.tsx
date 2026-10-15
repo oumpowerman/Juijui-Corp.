@@ -218,7 +218,8 @@ const StockSidePanel: React.FC<StockSidePanelProps> = ({
                         existing.channelId !== task.channelId ||
                         existing.isUnscheduled !== task.isUnscheduled ||
                         existing.localPath !== task.localPath ||
-                        existing.driveLabel !== task.driveLabel
+                        existing.driveLabel !== task.driveLabel ||
+                        existing.storageHubId !== task.storageHubId
                     ) {
                         updatedList[index] = task;
                         modified = true;

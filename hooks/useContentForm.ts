@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { format, isValid } from 'date-fns';
 import { Task, Status, Priority, ContentPillar, ContentFormat, Platform, TaskAsset, Channel, MasterOption, TaskPerformance, Difficulty, AssigneeType, Script, User } from '../types';
+import { useStorage } from '../context/StorageContext';
 
 interface UseContentFormProps {
     initialData?: Task | null;
@@ -14,6 +15,8 @@ interface UseContentFormProps {
 }
 
 export const useContentForm = ({ initialData, selectedDate, sourceScript, channels, masterOptions, onSave, currentUser, tagInputRef }: UseContentFormProps) => {
+    const { storageConfigs } = useStorage();
+
     // --- State ---
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
@@ -40,6 +43,7 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
     const [shootLocation, setShootLocation] = useState('');
     const [localPath, setLocalPath] = useState('');
     const [driveLabel, setDriveLabel] = useState('');
+    const [storageHubId, setStorageHubId] = useState('');
 
     // People
     const [ideaOwnerIds, setIdeaOwnerIds] = useState<string[]>([]);
@@ -201,6 +205,10 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
             setShootDate(initialData.shootDate && isValid(new Date(initialData.shootDate)) ? format(initialData.shootDate, 'yyyy-MM-dd') : '');
             setShootLocation(initialData.shootLocation || '');
             setLocalPath(initialData.localPath || '');
+            
+            // Storage Hub ID & Drive Label (Auto-detect ID from storageConfigs if legacy content has driveLabel)
+            const matchedHubId = initialData.storageHubId || (initialData.driveLabel ? storageConfigs.find(c => c.label === initialData.driveLabel)?.id : '');
+            setStorageHubId(matchedHubId || '');
             setDriveLabel(initialData.driveLabel || '');
 
             setIdeaOwnerIds(initialData.ideaOwnerIds || []);
@@ -248,6 +256,7 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
             setShootLocation('');
             setLocalPath('');
             setDriveLabel('');
+            setStorageHubId('');
             
             const initialIdeaOwners = sourceScript?.ideaOwnerId ? [sourceScript.ideaOwnerId] : (currentUser ? [currentUser.id] : []);
             setIdeaOwnerIds(initialIdeaOwners);
@@ -334,6 +343,7 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
                 shootLocation: shootLocation.trim() || undefined,
                 localPath: localPath.trim() || undefined,
                 driveLabel: driveLabel || undefined,
+                storageHubId: storageHubId || undefined,
 
                 // People
                 ideaOwnerIds,
@@ -401,6 +411,7 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
         shootLocation, setShootLocation,
         localPath, setLocalPath,
         driveLabel, setDriveLabel,
+        storageHubId, setStorageHubId,
 
         ideaOwnerIds, setIdeaOwnerIds,
         editorIds, setEditorIds,

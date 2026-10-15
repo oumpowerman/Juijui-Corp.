@@ -31,7 +31,7 @@ interface StockHeaderProps {
   onShareLink?: () => void;
 }
 
-const springTransition = { type: 'spring', stiffness: 380, damping: 30 } as const;
+const springTransition = { type: 'spring', stiffness: 320, damping: 30, mass: 0.8 } as const;
 
 const StockHeader: React.FC<StockHeaderProps> = ({
   viewTab,
@@ -74,7 +74,7 @@ const StockHeader: React.FC<StockHeaderProps> = ({
     collapseTimeoutRef.current = setTimeout(() => {
       setIsStackExpanded(false);
       collapseTimeoutRef.current = null;
-    }, 200);
+    }, 150);
   };
 
   const handleActionsMouseEnter = () => {
@@ -246,19 +246,13 @@ const StockHeader: React.FC<StockHeaderProps> = ({
             whileTap={{ scale: 0.95 }}
             onClick={onAdd}
             title="เพิ่มคอนเทนต์ใหม่"
-            className={`
-              relative group flex items-center justify-center h-11
-              ${isStackExpanded 
-                ? 'w-11 px-0 rounded-2xl' 
-                : 'px-5 sm:px-6 rounded-[1.25rem]'
-              }
-              bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400
-              text-white font-bold text-sm tracking-tight
-              shadow-[0_10px_25px_-5px_rgba(165,180,252,0.5)]
-              hover:shadow-[0_20px_40px_-10px_rgba(192,132,252,0.6)]
-              border border-white/30
-              overflow-hidden shrink-0 cursor-pointer
-            `}
+            animate={{
+              width: isStackExpanded ? 44 : 148,
+              paddingLeft: isStackExpanded ? 12 : 20,
+              paddingRight: isStackExpanded ? 12 : 20,
+              borderRadius: isStackExpanded ? 16 : 20,
+            }}
+            className="relative group flex items-center justify-center h-11 bg-gradient-to-r from-indigo-400 via-purple-400 to-pink-400 text-white font-bold text-sm tracking-tight shadow-[0_10px_25px_-5px_rgba(165,180,252,0.5)] hover:shadow-[0_20px_40px_-10px_rgba(192,132,252,0.6)] border border-white/30 overflow-hidden shrink-0 cursor-pointer"
           >
             {/* Floating Sparkle Animation (only when full) */}
             {!isStackExpanded && (
@@ -277,7 +271,7 @@ const StockHeader: React.FC<StockHeaderProps> = ({
             {/* Shimmer Light effect */}
             <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover:animate-shimmer pointer-events-none" />
 
-            <div className="relative z-10 flex items-center justify-center gap-2">
+            <div className="relative z-10 flex items-center justify-center">
               <div className="flex items-center justify-center shrink-0">
                 <Plus className="w-5 h-5 stroke-[3.5px]" />
               </div>
@@ -286,10 +280,10 @@ const StockHeader: React.FC<StockHeaderProps> = ({
                 {!isStackExpanded && (
                   <motion.span 
                     key="add-content-text"
-                    initial={{ opacity: 0, width: 0 }}
-                    animate={{ opacity: 1, width: 'auto' }}
-                    exit={{ opacity: 0, width: 0 }}
-                    transition={{ duration: 0.18, ease: "easeInOut" }}
+                    initial={{ opacity: 0, width: 0, marginLeft: 0 }}
+                    animate={{ opacity: 1, width: 84, marginLeft: 8 }}
+                    exit={{ opacity: 0, width: 0, marginLeft: 0 }}
+                    transition={springTransition}
                     className="drop-shadow-sm whitespace-nowrap overflow-hidden text-sm font-bold"
                   >
                     เพิ่มคอนเทนต์

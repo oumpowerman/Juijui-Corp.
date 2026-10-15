@@ -1,12 +1,14 @@
 import { useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Task } from '../../types';
-import { clearStockCache } from './types';
+import { clearStockCache, checkIsMissingStorage, checkIsOverdue } from './types';
 
 interface UseContentStockActionsProps {
     setContents: React.Dispatch<React.SetStateAction<Task[]>>;
     setTotalCount: React.Dispatch<React.SetStateAction<number>>;
     setUnassignedChannelCount: React.Dispatch<React.SetStateAction<number>>;
+    setMissingStorageCount?: React.Dispatch<React.SetStateAction<number>>;
+    setOverdueCount?: React.Dispatch<React.SetStateAction<number>>;
     fetchUnassignedChannelCount?: () => Promise<void> | void;
     trackedAddedIds: React.MutableRefObject<Set<string>>;
     pageRef: React.MutableRefObject<number>;
@@ -17,6 +19,8 @@ export const useContentStockActions = ({
     setContents,
     setTotalCount,
     setUnassignedChannelCount,
+    setMissingStorageCount,
+    setOverdueCount,
     fetchUnassignedChannelCount,
     trackedAddedIds,
     pageRef,
@@ -40,6 +44,15 @@ export const useContentStockActions = ({
                 if (wasUnassigned) {
                     setUnassignedChannelCount(prev => Math.max(0, prev - 1));
                     fetchUnassignedChannelCount?.();
+                }
+
+                // Missing storage & Overdue adjustment on delete
+                const itemToDelete = existingItem || task;
+                if (checkIsMissingStorage(itemToDelete)) {
+                    setMissingStorageCount?.(prev => Math.max(0, prev - 1));
+                }
+                if (checkIsOverdue(itemToDelete)) {
+                    setOverdueCount?.(prev => Math.max(0, prev - 1));
                 }
 
                 if (exists || trackedAddedIds.current.has(task.id)) {
@@ -67,6 +80,46 @@ export const useContentStockActions = ({
                 // If it's a completely new addition to the active page, sync accurately from DB instead of arbitrary +1
                 if (newIsUnassigned && !trackedAddedIds.current.has(task.id)) {
                     fetchUnassignedChannelCount?.();
+                }
+            }
+
+            // Construct merged task preview for calculation
+            const updatedTaskPreview: Task = existingItem ? {
+                ...existingItem,
+                ...task,
+                ...((task as any)._isPartial ? {
+                    description: existingItem.description || task.description,
+                    remark: existingItem.remark || task.remark,
+                    shootNotes: existingItem.shootNotes || task.shootNotes,
+                    publishedLinks: existingItem.publishedLinks || task.publishedLinks,
+                    reviews: (existingItem.reviews && existingItem.reviews.length > 0) ? existingItem.reviews : task.reviews,
+                    sponsorship: existingItem.sponsorship || task.sponsorship,
+                } : {})
+            } : task;
+
+            // In-memory optimistic update for missing storage count & overdue count
+            if (existingItem) {
+                const wasMissingStorage = checkIsMissingStorage(existingItem);
+                const isNowMissingStorage = checkIsMissingStorage(updatedTaskPreview);
+                if (wasMissingStorage && !isNowMissingStorage) {
+                    setMissingStorageCount?.(prev => Math.max(0, prev - 1));
+                } else if (!wasMissingStorage && isNowMissingStorage) {
+                    setMissingStorageCount?.(prev => prev + 1);
+                }
+
+                const wasOverdue = checkIsOverdue(existingItem);
+                const isNowOverdue = checkIsOverdue(updatedTaskPreview);
+                if (wasOverdue && !isNowOverdue) {
+                    setOverdueCount?.(prev => Math.max(0, prev - 1));
+                } else if (!wasOverdue && isNowOverdue) {
+                    setOverdueCount?.(prev => prev + 1);
+                }
+            } else {
+                if (checkIsMissingStorage(task) && !trackedAddedIds.current.has(task.id)) {
+                    setMissingStorageCount?.(prev => prev + 1);
+                }
+                if (checkIsOverdue(task) && !trackedAddedIds.current.has(task.id)) {
+                    setOverdueCount?.(prev => prev + 1);
                 }
             }
 
@@ -119,7 +172,7 @@ export const useContentStockActions = ({
                 return prevList;
             }
         });
-    }, [checkDoesItMatchFilters, fetchUnassignedChannelCount, pageRef, setContents, setTotalCount, setUnassignedChannelCount, trackedAddedIds]);
+    }, [checkDoesItMatchFilters, fetchUnassignedChannelCount, pageRef, setContents, setMissingStorageCount, setOverdueCount, setTotalCount, setUnassignedChannelCount, trackedAddedIds]);
 
     const toggleShootQueue = useCallback(async (id: string, currentStatus: boolean): Promise<boolean> => {
         clearStockCache();

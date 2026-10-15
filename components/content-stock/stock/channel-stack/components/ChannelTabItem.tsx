@@ -62,7 +62,7 @@ export const ChannelTabItem: React.FC<ChannelTabItemProps> = ({
         transition: { type: 'spring', stiffness: 400, damping: 24 }
       }}
       whileTap={{ scale: 0.97 }}
-      transition={smoothTransition}
+      transition={springTransition}
       className={`
         relative h-11 transition-colors border flex items-center gap-2.5 shrink-0 outline-none select-none cursor-pointer
         ${displayMode === 'logo'

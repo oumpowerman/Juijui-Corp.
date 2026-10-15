@@ -1,5 +1,6 @@
 import { Dispatch, SetStateAction, RefObject } from 'react';
 import { Task, Channel, User, MasterOption } from '../../types';
+import { isStockTerminalStatus } from '../../config/status';
 import { StockCSVValidationResult, ParsedStockItemPreview } from '../../services/stockImportValidator';
 
 export type SortKey = 'title' | 'status' | 'date' | 'remark' | 'publishDate' | 'shootDate' | 'shortNote' | 'ideaOwner' | 'editor' | 'helper' | 'createdAt';
@@ -62,6 +63,32 @@ export const isStorageRequiredStatus = (status: string | undefined | null): bool
     if (!status) return false;
     const s = status.trim().toUpperCase();
     return s.includes('EDIT') || s.includes('FEEDBACK') || s.includes('APPROVE') || s.includes('DONE') || s.includes('PUBLISH') || s.includes('POSTED');
+};
+
+/**
+ * Checks if a task is missing local path or drive label when in a status that requires storage.
+ */
+export const checkIsMissingStorage = (task: Task | null | undefined): boolean => {
+    if (!task) return false;
+    if (!isStorageRequiredStatus(task.status)) return false;
+    const hasLocal = !!task.localPath && task.localPath.trim() !== '';
+    const hasDrive = !!task.driveLabel && task.driveLabel.trim() !== '';
+    return !hasLocal || !hasDrive;
+};
+
+/**
+ * Checks if a task is overdue for analytics (terminal status, scheduled, end date > 7 days ago, not complete).
+ */
+export const checkIsOverdue = (task: Task | null | undefined): boolean => {
+    if (!task) return false;
+    if (task.isUnscheduled) return false;
+    if (!isStockTerminalStatus(task.status)) return false;
+    if (task.analyticsStatus === 'COMPLETE') return false;
+    if (!task.endDate) return false;
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    const end = task.endDate instanceof Date ? task.endDate : new Date(task.endDate);
+    return !isNaN(end.getTime()) && end <= sevenDaysAgo;
 };
 
 export interface StockFilterState {

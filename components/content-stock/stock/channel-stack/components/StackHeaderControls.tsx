@@ -36,7 +36,7 @@ export const StackHeaderControls: React.FC<StackHeaderControlsProps> = ({
       transition={springTransition}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      className="flex items-center gap-3.5 shrink-0 group relative select-none h-[86px] min-h-[86px]"
+      className="flex items-center gap-0 shrink-0 group relative select-none h-[86px] min-h-[86px]"
     >
       {/* Icon with Ambient Shimmer & Activity Pulse & Compact Badge */}
       <motion.div 
@@ -69,143 +69,89 @@ export const StackHeaderControls: React.FC<StackHeaderControlsProps> = ({
           </span>
         )}
 
-        {/* Selected Count Badge in Compact Mode */}
-        <AnimatePresence>
-          {isCompact && (
-            <motion.span
-              key="compact-badge"
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0, opacity: 0 }}
-              transition={springTransition}
-              className={`absolute -bottom-1 -right-1.5 flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-black border-2 border-white shadow-md z-20 ${
-                activeCount > 0
-                  ? 'bg-purple-600 text-white'
-                  : 'bg-slate-700 text-white'
-              }`}
-            >
-              {activeCount > 0 ? activeCount : totalChannelsCount}
-            </motion.span>
-          )}
-        </AnimatePresence>
+        {/* Selected / Total Count Badge (Always visible on the icon) */}
+        <motion.span
+          key={activeCount > 0 ? `active-${activeCount}` : `total-${totalChannelsCount}`}
+          initial={{ scale: 0.8, opacity: 0 }}
+          animate={{ scale: 1, opacity: 1 }}
+          transition={springTransition}
+          className={`absolute -bottom-1 -right-1.5 flex items-center justify-center min-w-[20px] h-5 px-1.5 rounded-full text-[10px] font-bold border-2 border-white shadow-md z-20 ${
+            activeCount > 0
+              ? 'bg-purple-600 text-white'
+              : 'bg-slate-700 text-white'
+          }`}
+        >
+          {activeCount > 0 ? activeCount : totalChannelsCount}
+        </motion.span>
       </motion.div>
       
-      {/* Expanded Controls & Information */}
+      {/* Expanded Controls & Information (Balanced 2-Row Inline Layout) */}
       <AnimatePresence initial={false}>
         {!isCompact && (
           <motion.div
             key="header-controls-expanded-body"
-            initial={{ opacity: 0, width: 0 }}
-            animate={{ opacity: 1, width: 'auto' }}
-            exit={{ opacity: 0, width: 0 }}
-            transition={{ duration: 0.22, ease: [0.2, 0, 0, 1] }}
-            className="flex flex-col justify-center overflow-hidden whitespace-nowrap h-full"
+            initial={{ opacity: 0, width: 0, marginLeft: 0 }}
+            animate={{ opacity: 1, width: 216, marginLeft: 14 }}
+            exit={{ opacity: 0, width: 0, marginLeft: 0 }}
+            transition={springTransition}
+            className="flex flex-col justify-center overflow-hidden whitespace-nowrap h-full gap-1.5"
           >
-            {/* Activity Indicator Label */}
-            <div className="flex items-center gap-1.5 h-3.5">
-              <motion.span 
-                animate={{ 
-                  scale: activeCount > 0 ? [1, 1.05, 1] : 1,
-                }}
-                transition={{ repeat: activeCount > 0 ? Infinity : 0, duration: 2, ease: "easeInOut" }}
-                className={`w-2 h-2 rounded-full ${activeCount > 0 ? 'bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.7)]' : 'bg-indigo-400/60'}`} 
-              />
-              <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-500/80 leading-none">
-                {activeCount > 0 ? 'MULTI FILTER ACTIVE' : 'ALL RACKS OFFLINE'}
-              </span>
-            </div>
-            
-            {/* Title & Selected Counter Badge */}
-            <h4 className="text-sm font-bold text-slate-800 tracking-tight flex items-center gap-2 mt-0.5 h-5">
-              <span>แฟ้มแยกช่อง</span>
-              
-              <AnimatePresence mode="wait">
-                <motion.span 
-                  key={activeCount}
-                  initial={{ scale: 0.8, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.8, opacity: 0 }}
-                  className="inline-flex items-center justify-center bg-indigo-50 px-2 py-0.5 rounded-full text-[10px] text-indigo-600 font-semibold border border-indigo-100/60 shadow-xs"
-                >
-                  {activeCount > 0 ? `เลือกอยู่ ${activeCount} ช่อง` : `ทั้งหมด (${totalChannelsCount})`}
-                </motion.span>
-              </AnimatePresence>
+            {/* Row 1: Title and Share Link */}
+            <div className="flex items-center justify-between pr-0.5">
+              <h4 className="text-sm font-bold text-slate-800 tracking-tight flex items-center gap-1.5">
+                <span>แฟ้มแยกช่อง</span>
+                {activeCount > 0 && (
+                  <span className="w-1.5 h-1.5 rounded-full bg-purple-500 shadow-[0_0_6px_rgba(168,85,247,0.7)] animate-pulse" />
+                )}
+              </h4>
 
+              {/* Share Link Button */}
               {onShareLink && (
                 <motion.button
                   type="button"
-                  whileHover={{ scale: 1.06 }}
-                  whileTap={{ scale: 0.94 }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
                   onClick={(e) => {
                     e.stopPropagation();
                     onShareLink();
                   }}
                   title="คัดลอกลิงก์มุมมองนี้เพื่อแชร์ให้คนในทีม (Copy Filter Link)"
-                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-indigo-700 bg-indigo-50/90 hover:bg-indigo-100 active:bg-indigo-200 border border-indigo-200/80 shadow-xs transition-colors cursor-pointer select-none"
+                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-indigo-700 bg-indigo-50/90 hover:bg-indigo-100 hover:text-indigo-800 border border-indigo-200/80 shadow-2xs transition-colors cursor-pointer select-none"
                 >
                   <Link2 className="w-3 h-3 text-indigo-600" />
                   <span>แชร์ลิงก์</span>
                 </motion.button>
               )}
-            </h4>
+            </div>
 
-            {/* Mode Switchers: Vertical 1-Click Toggles */}
-            <div className="flex flex-col gap-1 mt-1 w-fit">
+            {/* Row 2: Mode Switchers (Balanced Horizontal Segmented Pills) */}
+            <div className="flex items-center gap-1.5">
               {/* Button 1: Grouping Toggle */}
               <motion.button
                 type="button"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => onChangeGroupingMode(viewGroupingMode === 'grouped' ? 'flat' : 'grouped')}
-                title={viewGroupingMode === 'grouped' ? 'คลิกเพื่อสลับเป็น: ทั้งหมด' : 'คลิกเพื่อสลับเป็น: จัดกลุ่ม'}
-                className={`h-[22px] min-w-[85px] px-2 rounded-md text-[10px] font-bold transition-all cursor-pointer flex items-center justify-between gap-1.5 border shadow-xs select-none group/btn ${
+                title={viewGroupingMode === 'grouped' ? 'คลิกเพื่อสลับเป็น: ทั้งหมด (ไม่จัดกลุ่ม)' : 'คลิกเพื่อสลับเป็น: จัดกลุ่มตามแคบิเน็ต'}
+                className={`h-[24px] px-2.5 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer flex items-center gap-1.5 border shadow-2xs select-none group/btn ${
                   viewGroupingMode === 'grouped'
-                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200/80 hover:bg-indigo-100 hover:border-indigo-300'
-                    : 'bg-slate-100/90 text-slate-600 border-slate-200 hover:bg-slate-200/80 hover:text-slate-800'
+                    ? 'bg-indigo-50/90 text-indigo-700 border-indigo-200/90 hover:bg-indigo-100'
+                    : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-800'
                 }`}
               >
-                <div className="flex items-center gap-1.5 overflow-hidden">
-                  <AnimatePresence mode="wait" initial={false}>
-                    {viewGroupingMode === 'grouped' ? (
-                      <motion.span
-                        key="icon-grouped"
-                        initial={{ rotate: -90, opacity: 0 }}
-                        animate={{ rotate: 0, opacity: 1 }}
-                        exit={{ rotate: 90, opacity: 0 }}
-                        transition={{ duration: 0.16 }}
-                        className="flex items-center shrink-0"
-                      >
-                        <Layers className="w-3 h-3 text-indigo-600" />
-                      </motion.span>
-                    ) : (
-                      <motion.span
-                        key="icon-flat"
-                        initial={{ rotate: -90, opacity: 0 }}
-                        animate={{ rotate: 0, opacity: 1 }}
-                        exit={{ rotate: 90, opacity: 0 }}
-                        transition={{ duration: 0.16 }}
-                        className="flex items-center shrink-0"
-                      >
-                        <AlignLeft className="w-3 h-3 text-slate-600" />
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
-                  
-                  <AnimatePresence mode="wait" initial={false}>
-                    <motion.span
-                      key={viewGroupingMode}
-                      initial={{ y: 6, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      exit={{ y: -6, opacity: 0 }}
-                      transition={{ duration: 0.14 }}
-                      className="leading-none whitespace-nowrap"
-                    >
-                      {viewGroupingMode === 'grouped' ? 'จัดกลุ่ม' : 'ทั้งหมด'}
-                    </motion.span>
-                  </AnimatePresence>
-                </div>
+                <span className="flex items-center shrink-0">
+                  {viewGroupingMode === 'grouped' ? (
+                    <Layers className="w-3 h-3 text-indigo-600" />
+                  ) : (
+                    <AlignLeft className="w-3 h-3 text-slate-500" />
+                  )}
+                </span>
+                
+                <span className="leading-none whitespace-nowrap">
+                  {viewGroupingMode === 'grouped' ? 'จัดกลุ่ม' : 'ทั้งหมด'}
+                </span>
 
-                <ArrowLeftRight className="w-2.5 h-2.5 opacity-40 group-hover/btn:opacity-90 group-hover/btn:rotate-180 transition-all duration-300 shrink-0" />
+                <ArrowLeftRight className="w-2.5 h-2.5 opacity-40 group-hover/btn:opacity-90 group-hover/btn:rotate-180 transition-all duration-300 shrink-0 ml-0.5" />
               </motion.button>
 
               {/* Button 2: Display Style Toggle */}
@@ -215,54 +161,25 @@ export const StackHeaderControls: React.FC<StackHeaderControlsProps> = ({
                 whileTap={{ scale: 0.95 }}
                 onClick={() => onChangeDisplayMode(displayMode === 'classic' ? 'logo' : 'classic')}
                 title={displayMode === 'classic' ? 'คลิกเพื่อสลับเป็น: โชว์โลโก้' : 'คลิกเพื่อสลับเป็น: แบบแฟ้ม'}
-                className={`h-[22px] min-w-[85px] px-2 rounded-md text-[10px] font-bold transition-all cursor-pointer flex items-center justify-between gap-1.5 border shadow-xs select-none group/btn ${
+                className={`h-[24px] px-2.5 rounded-lg text-[10.5px] font-bold transition-all cursor-pointer flex items-center gap-1.5 border shadow-2xs select-none group/btn ${
                   displayMode === 'classic'
-                    ? 'bg-amber-50/80 text-amber-800 border-amber-200/80 hover:bg-amber-100 hover:border-amber-300'
-                    : 'bg-purple-50 text-purple-700 border-purple-200/80 hover:bg-purple-100 hover:border-purple-300'
+                    ? 'bg-indigo-50/90 text-indigo-700 border-indigo-200/90 hover:bg-indigo-100'
+                    : 'bg-purple-50/90 text-purple-700 border-purple-200/90 hover:bg-purple-100'
                 }`}
               >
-                <div className="flex items-center gap-1.5 overflow-hidden">
-                  <AnimatePresence mode="wait" initial={false}>
-                    {displayMode === 'classic' ? (
-                      <motion.span
-                        key="icon-classic"
-                        initial={{ scale: 0.5, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0.5, opacity: 0 }}
-                        transition={{ duration: 0.16 }}
-                        className="flex items-center shrink-0"
-                      >
-                        <Folder className="w-3 h-3 text-amber-600" />
-                      </motion.span>
-                    ) : (
-                      <motion.span
-                        key="icon-logo"
-                        initial={{ scale: 0.5, opacity: 0 }}
-                        animate={{ scale: 1, opacity: 1 }}
-                        exit={{ scale: 0.5, opacity: 0 }}
-                        transition={{ duration: 0.16 }}
-                        className="flex items-center shrink-0"
-                      >
-                        <Image className="w-3 h-3 text-purple-600" />
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
-                  
-                  <AnimatePresence mode="wait" initial={false}>
-                    <motion.span
-                      key={displayMode}
-                      initial={{ y: 6, opacity: 0 }}
-                      animate={{ y: 0, opacity: 1 }}
-                      exit={{ y: -6, opacity: 0 }}
-                      transition={{ duration: 0.14 }}
-                      className="leading-none whitespace-nowrap"
-                    >
-                      {displayMode === 'classic' ? 'แบบแฟ้ม' : 'โชว์โลโก้'}
-                    </motion.span>
-                  </AnimatePresence>
-                </div>
+                <span className="flex items-center shrink-0">
+                  {displayMode === 'classic' ? (
+                    <Folder className="w-3 h-3 text-indigo-600" />
+                  ) : (
+                    <Image className="w-3 h-3 text-purple-600" />
+                  )}
+                </span>
+                
+                <span className="leading-none whitespace-nowrap">
+                  {displayMode === 'classic' ? 'แบบแฟ้ม' : 'โลโก้'}
+                </span>
 
-                <ArrowLeftRight className="w-2.5 h-2.5 opacity-40 group-hover/btn:opacity-90 group-hover/btn:rotate-180 transition-all duration-300 shrink-0" />
+                <ArrowLeftRight className="w-2.5 h-2.5 opacity-40 group-hover/btn:opacity-90 group-hover/btn:rotate-180 transition-all duration-300 shrink-0 ml-0.5" />
               </motion.button>
             </div>
           </motion.div>

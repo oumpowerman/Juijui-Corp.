@@ -60,7 +60,7 @@ export const GroupCabinetTab: React.FC<GroupCabinetTabProps> = ({
           transition: { type: 'spring', stiffness: 450, damping: 20 }
         }}
         whileTap={{ scale: 0.97 }}
-        transition={smoothTransition}
+        transition={springTransition}
         className={`
           relative h-11 transition-colors border flex items-center gap-2 shrink-0 outline-none select-none cursor-pointer rounded-t-2xl rounded-b-xl pr-3.5 pl-3 text-xs
           ${allGroupSelected

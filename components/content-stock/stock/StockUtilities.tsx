@@ -26,7 +26,7 @@ interface StockUtilitiesProps {
   compact?: boolean;
 }
 
-const springTransition = { type: 'spring', stiffness: 380, damping: 30 } as const;
+const springTransition = { type: 'spring', stiffness: 320, damping: 30, mass: 0.8 } as const;
 
 const StockUtilities: React.FC<StockUtilitiesProps> = ({
   onOpenInventory,
@@ -125,25 +125,24 @@ const StockUtilities: React.FC<StockUtilitiesProps> = ({
                     onClick={() => setIsExpanded(true)}
                     title="เครื่องมือและนำเข้า (Tools)"
                     animate={{
-                      width: compact ? 44 : 'auto',
-                      paddingLeft: compact ? 12 : 16,
-                      paddingRight: compact ? 12 : 16,
-                      gap: compact ? 0 : 8
+                      width: compact ? 44 : 96,
+                      paddingLeft: compact ? 12 : 14,
+                      paddingRight: compact ? 12 : 14,
                     }}
-                    className="flex items-center justify-center h-11 bg-white border border-slate-200/90 rounded-2xl text-slate-500 hover:text-indigo-600 hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-500/10 shadow-sm group active:scale-95 shrink-0 cursor-pointer overflow-hidden"
+                    className="flex items-center justify-center h-11 bg-white border border-slate-200/90 rounded-2xl text-slate-500 hover:text-indigo-600 hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-500/10 shadow-sm group active:scale-95 shrink-0 cursor-pointer overflow-hidden gap-0"
                 >
                     <Wrench className="w-4 h-4 group-hover:rotate-45 transition-transform duration-500 shrink-0" />
                     <AnimatePresence initial={false}>
                       {!compact && (
                         <motion.div
                           key="tools-text-group"
-                          initial={{ opacity: 0, width: 0 }}
-                          animate={{ opacity: 1, width: 'auto' }}
-                          exit={{ opacity: 0, width: 0 }}
+                          initial={{ opacity: 0, width: 0, marginLeft: 0 }}
+                          animate={{ opacity: 1, width: 44, marginLeft: 6 }}
+                          exit={{ opacity: 0, width: 0, marginLeft: 0 }}
                           transition={springTransition}
                           className="flex items-center gap-1 overflow-hidden whitespace-nowrap"
                         >
-                          <span className="text-[11px] font-black uppercase tracking-tight">Tools</span>
+                          <span className="text-[11px] font-bold uppercase tracking-tight">Tools</span>
                           <ChevronLeft className="w-3.5 h-3.5 text-slate-300 shrink-0" />
                         </motion.div>
                       )}

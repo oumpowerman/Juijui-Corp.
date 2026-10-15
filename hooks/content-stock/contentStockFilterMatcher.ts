@@ -1,7 +1,7 @@
 import { format } from 'date-fns';
 import { Task, MasterOption, getChecklistGroupKey } from '../../types';
 import { isStockTerminalStatus } from '../../config/status';
-import { StockFilters, isStorageRequiredStatus } from './types';
+import { StockFilters, isStorageRequiredStatus, checkIsMissingStorage, checkIsOverdue } from './types';
 
 /**
  * Pure function to check whether a Task matches the given stock filters and search query.
@@ -101,19 +101,7 @@ export const checkDoesItMatchFilters = (
     const isTerminalStatus = isStockTerminalStatus(task.status);
     
     if (activeFilters.onlyOverdue) {
-        // Overdue Analytics Match: MUST be explicitly scheduled (false) AND terminal AND > 7 days AND incomplete analytics
-        const sevenDaysAgo = new Date();
-        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-        
-        const endDateObj = task.endDate ? (task.endDate instanceof Date ? task.endDate : new Date(task.endDate)) : null;
-        const isActuallyOverdue = 
-            !task.isUnscheduled && 
-            isTerminalStatus && 
-            task.analyticsStatus !== 'COMPLETE' && 
-            endDateObj && 
-            endDateObj <= sevenDaysAgo;
-        
-        if (!isActuallyOverdue) return false;
+        if (!checkIsOverdue(task)) return false;
         
         // Status override check if specific status selected
         if (activeFilters.statuses && activeFilters.statuses.length > 0 && !activeFilters.statuses.includes(task.status as any)) return false;
@@ -133,10 +121,7 @@ export const checkDoesItMatchFilters = (
 
     // 7. Missing Storage Filter
     if (activeFilters.onlyMissingStorage) {
-        if (!isStorageRequiredStatus(task.status)) return false;
-        const hasLocalPath = !!task.localPath && task.localPath.trim() !== '';
-        const hasDriveLabel = !!task.driveLabel && task.driveLabel.trim() !== '';
-        if (hasLocalPath && hasDriveLabel) return false;
+        if (!checkIsMissingStorage(task)) return false;
     }
 
     // 8. Shoot Date Filter

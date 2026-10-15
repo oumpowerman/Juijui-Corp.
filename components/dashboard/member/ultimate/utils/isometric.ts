@@ -30,7 +30,7 @@ export const FURNITURE_MAP = {
     MEETING_TABLE:     { fx: 0.15,  fy: 0.25,  label: '🤝 โต๊ะเวทมนตร์ประชุมใหญ่ (กิลด์ทีม)' },
     
     // NEW DECORATIVE FURNITURE
-    CAULDRON:          { fx: -1.20, fy: 0.15,  label: '🧪 หม้อปรุงยาเวทมนตร์เดือดปุดๆ' },
+    CAULDRON:          { fx: -1.20, fy: 0.15,  label: '🧪 หม้อเวทมนตร์เดือดปุดๆ' },
     CAT_BED:           { fx: 0.35,  fy: -1.20, label: '🐈 เบาะนอนแมวดำผู้พิทักษ์' },
     STELLAR_GLOBE:     { fx: -0.30, fy: -1.20, label: '🌌 ลูกโลกจำลองวิถีดวงดาวดาราศาสตร์' },
     MAGIC_WELL:        { fx: 1.20,  fy: -0.30, label: '💎 บ่อคริสตัลอธิษฐานจิตสมาธิ' },

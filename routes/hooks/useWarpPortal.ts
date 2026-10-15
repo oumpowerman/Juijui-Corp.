@@ -67,15 +67,19 @@ export function useWarpPortal() {
     setWarpTargetView(targetView);
     setGlobalWarpStage('WARPING_IN');
 
-    // Change page in background at peak opacity (950ms)
+    // Change page swiftly at peak portal opacity (250ms) for responsive UX
     setTimeout(() => {
-      onPeakAction();
+      try {
+        onPeakAction();
+      } catch (err) {
+        console.error("Warp peak action failed:", err);
+      }
       setGlobalWarpStage('WARPING_OUT');
       setTimeout(() => {
         setGlobalWarpStage('IDLE');
         setWarpTargetView(null);
-      }, 1100);
-    }, 950);
+      }, 500);
+    }, 250);
   }, [playWarpSound]);
 
   return {

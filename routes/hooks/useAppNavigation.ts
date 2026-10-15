@@ -55,6 +55,11 @@ export function useAppNavigation({
       });
     });
 
+    // 3. Special Standalone Views ที่ไม่ได้แสดงใน Sidebar ปกติ แต่อนุญาตให้เปิดใช้งานได้ (เช่น Cozy Ultimate Workroom)
+    if (!views.includes('ULTIMATE_WORKROOM')) {
+      views.push('ULTIMATE_WORKROOM');
+    }
+
     return views;
   }, [masterOptions, currentUserProfile]);
 
@@ -184,7 +189,8 @@ export function useAppNavigation({
     }
 
     // If a view is specified in URL but it is NOT allowed, redirect to default view!
-    if (view && allowedViews.length > 0 && !allowedViews.includes(view)) {
+    // Never redirect away from ULTIMATE_WORKROOM which is a globally accessible standalone view
+    if (view && view !== 'ULTIMATE_WORKROOM' && allowedViews.length > 0 && !allowedViews.includes(view)) {
       setSearchParams((next: any) => {
         next.set('view', defaultView);
         return next;

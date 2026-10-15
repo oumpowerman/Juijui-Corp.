@@ -58,7 +58,7 @@ export const StockChannelStack: React.FC<StockChannelStackProps> = ({
       setHoveredSection('none');
       setIsManuallyPinned(false);
       onMouseLeave?.();
-    }, 180);
+    }, 150);
   };
 
   useEffect(() => {
@@ -131,9 +131,7 @@ export const StockChannelStack: React.FC<StockChannelStackProps> = ({
         />
 
         {/* Filing Tab Track Wrapper */}
-        <motion.div 
-          layout
-          transition={springTransition}
+        <div 
           className="relative flex-1 min-w-0 flex items-center h-[86px] min-h-[86px]"
           onMouseEnter={handleTrackMouseEnter}
         >
@@ -221,7 +219,7 @@ export const StockChannelStack: React.FC<StockChannelStackProps> = ({
               )}
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
     </div>
   );

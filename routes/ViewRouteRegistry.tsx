@@ -23,6 +23,7 @@ const LeaderboardView = lazy(() => import('../components/LeaderboardView'));
 const NexusHub = lazy(() => import('../components/nexus/NexusHub'));
 const RoadmapView = lazy(() => import('../components/roadmap/RoadmapView'));
 const ContentAnalyticsView = lazy(() => import('../components/analytics/ContentAnalyticsView'));
+const UltimateWorkroomView = lazy(() => import('../components/dashboard/member/UltimateWorkroomView'));
 
 // --- NEW MODULE BRIDGES (Lazy Loaded) ---
 const AttendanceRouter = lazy(() => import('./AttendanceRouter'));
@@ -407,6 +408,23 @@ export const ViewRouteRegistry: React.FC<ViewRouteRegistryProps> = ({
 
           case 'ANALYTICS':
             return <ContentAnalyticsView />;
+
+          case 'ULTIMATE_WORKROOM':
+            return (
+              <UltimateWorkroomView
+                tasks={tasks}
+                masterOptions={masterOptions}
+                users={activeUsers || users || allUsers}
+                currentUser={currentUserProfile}
+                onEditTask={handleEditTask}
+                onUpdateTask={handleSaveTask}
+                onDeleteTask={handleDeleteTask}
+                onNavigateBack={() => handleNavigate('DASHBOARD')}
+                onNavigate={handleNavigate}
+                onRefreshProfile={fetchProfile}
+                isFetching={isTaskFetching}
+              />
+            );
 
           default:
             return <div className="p-10 text-center text-gray-500">เร็วๆ นี้... (Coming Soon)</div>;

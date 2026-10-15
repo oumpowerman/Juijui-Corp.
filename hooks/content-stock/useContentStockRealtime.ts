@@ -1,12 +1,14 @@
 import { useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Task } from '../../types';
-import { clearStockCache } from './types';
+import { clearStockCache, checkIsMissingStorage, checkIsOverdue } from './types';
 
 interface UseContentStockRealtimeProps {
     setContents: React.Dispatch<React.SetStateAction<Task[]>>;
     setTotalCount: React.Dispatch<React.SetStateAction<number>>;
     setUnassignedChannelCount: React.Dispatch<React.SetStateAction<number>>;
+    setMissingStorageCount?: React.Dispatch<React.SetStateAction<number>>;
+    setOverdueCount?: React.Dispatch<React.SetStateAction<number>>;
     fetchUnassignedChannelCount?: () => Promise<void> | void;
     trackedAddedIds: React.MutableRefObject<Set<string>>;
     pageRef: React.MutableRefObject<number>;
@@ -19,6 +21,8 @@ export const useContentStockRealtime = ({
     setContents,
     setTotalCount,
     setUnassignedChannelCount,
+    setMissingStorageCount,
+    setOverdueCount,
     fetchUnassignedChannelCount,
     trackedAddedIds,
     pageRef,
@@ -50,6 +54,15 @@ export const useContentStockRealtime = ({
                     if (wasUnassigned) {
                         setUnassignedChannelCount(prev => Math.max(0, prev - 1));
                         fetchUnassignedChannelCount?.();
+                    }
+
+                    if (existingItem) {
+                        if (checkIsMissingStorage(existingItem)) {
+                            setMissingStorageCount?.(prev => Math.max(0, prev - 1));
+                        }
+                        if (checkIsOverdue(existingItem)) {
+                            setOverdueCount?.(prev => Math.max(0, prev - 1));
+                        }
                     }
 
                     if (exists || trackedAddedIds.current.has(oldId)) {
@@ -100,8 +113,24 @@ export const useContentStockRealtime = ({
                             // Preserve relations that postgres changes don't send
                             reviews: existingItem.reviews,
                             hasAnalytics: existingItem.hasAnalytics,
-                            analyticsStatus: existingItem.analyticsStatus,
+                            analyticsStatus: mappedPartial.analyticsStatus !== undefined ? mappedPartial.analyticsStatus : existingItem.analyticsStatus,
                         };
+
+                        const wasMissingStorage = checkIsMissingStorage(existingItem);
+                        const isNowMissingStorage = checkIsMissingStorage(mergedTask);
+                        if (wasMissingStorage && !isNowMissingStorage) {
+                            setMissingStorageCount?.(prev => Math.max(0, prev - 1));
+                        } else if (!wasMissingStorage && isNowMissingStorage) {
+                            setMissingStorageCount?.(prev => prev + 1);
+                        }
+
+                        const wasOverdue = checkIsOverdue(existingItem);
+                        const isNowOverdue = checkIsOverdue(mergedTask);
+                        if (wasOverdue && !isNowOverdue) {
+                            setOverdueCount?.(prev => Math.max(0, prev - 1));
+                        } else if (!wasOverdue && isNowOverdue) {
+                            setOverdueCount?.(prev => prev + 1);
+                        }
 
                         const isMatch = checkDoesItMatchFilters(mergedTask);
 
@@ -148,6 +177,25 @@ export const useContentStockRealtime = ({
             if (isMatch) {
                 setContents(prevList => {
                     const exists = prevList.some(item => item.id === targetId);
+                    const existingItem = prevList.find(item => item.id === targetId);
+                    if (existingItem) {
+                        const wasMissingStorage = checkIsMissingStorage(existingItem);
+                        const isNowMissingStorage = checkIsMissingStorage(fullTask);
+                        if (wasMissingStorage && !isNowMissingStorage) {
+                            setMissingStorageCount?.(prev => Math.max(0, prev - 1));
+                        } else if (!wasMissingStorage && isNowMissingStorage) {
+                            setMissingStorageCount?.(prev => prev + 1);
+                        }
+
+                        const wasOverdue = checkIsOverdue(existingItem);
+                        const isNowOverdue = checkIsOverdue(fullTask);
+                        if (wasOverdue && !isNowOverdue) {
+                            setOverdueCount?.(prev => Math.max(0, prev - 1));
+                        } else if (!wasOverdue && isNowOverdue) {
+                            setOverdueCount?.(prev => prev + 1);
+                        }
+                    }
+
                     if (!exists && !trackedAddedIds.current.has(targetId)) {
                         setTotalCount(prev => prev + 1);
                         trackedAddedIds.current.add(targetId);
@@ -163,6 +211,25 @@ export const useContentStockRealtime = ({
             } else {
                 setContents(prevList => {
                     const exists = prevList.some(item => item.id === targetId);
+                    const existingItem = prevList.find(item => item.id === targetId);
+                    if (existingItem) {
+                        const wasMissingStorage = checkIsMissingStorage(existingItem);
+                        const isNowMissingStorage = checkIsMissingStorage(fullTask);
+                        if (wasMissingStorage && !isNowMissingStorage) {
+                            setMissingStorageCount?.(prev => Math.max(0, prev - 1));
+                        } else if (!wasMissingStorage && isNowMissingStorage) {
+                            setMissingStorageCount?.(prev => prev + 1);
+                        }
+
+                        const wasOverdue = checkIsOverdue(existingItem);
+                        const isNowOverdue = checkIsOverdue(fullTask);
+                        if (wasOverdue && !isNowOverdue) {
+                            setOverdueCount?.(prev => Math.max(0, prev - 1));
+                        } else if (!wasOverdue && isNowOverdue) {
+                            setOverdueCount?.(prev => prev + 1);
+                        }
+                    }
+
                     if (exists || trackedAddedIds.current.has(targetId)) {
                         setTotalCount(prev => Math.max(0, prev - 1));
                         trackedAddedIds.current.delete(targetId);
@@ -175,7 +242,7 @@ export const useContentStockRealtime = ({
         } catch (err) {
             console.error("Smart Hydration Error:", err);
         }
-    }, [mapSupabaseToTask, checkDoesItMatchFilters, fetchUnassignedChannelCount, pageRef, setContents, setTotalCount, setUnassignedChannelCount, trackedAddedIds]);
+    }, [checkDoesItMatchFilters, fetchUnassignedChannelCount, mapSupabaseToTask, pageRef, setContents, setMissingStorageCount, setOverdueCount, setTotalCount, setUnassignedChannelCount, trackedAddedIds]);
 
     // Realtime Subscription Lifecycle
     useEffect(() => {
@@ -185,7 +252,7 @@ export const useContentStockRealtime = ({
             refreshTimeout = setTimeout(() => {
                 triggerCountRefresh();
                 fetchUnassignedChannelCount?.();
-            }, 2000); 
+            }, 1000); 
         };
 
         const channel = supabase
@@ -202,7 +269,23 @@ export const useContentStockRealtime = ({
 
                     if (eventType === 'UPDATE' || eventType === 'INSERT') {
                         await handleRealtimeUpdate(eventType, newRec, oldRec);
-                        if (eventType === 'INSERT') debouncedCountRefresh();
+                        if (eventType === 'INSERT') {
+                            debouncedCountRefresh();
+                        } else if (eventType === 'UPDATE') {
+                            const isOldRecMinimal = !oldRec || oldRec.drive_label === undefined;
+                            const hasRelevantChanges = isOldRecMinimal ||
+                                oldRec.drive_label !== newRec?.drive_label ||
+                                oldRec.local_path !== newRec?.local_path ||
+                                oldRec.status !== newRec?.status ||
+                                oldRec.analytics_status !== newRec?.analytics_status ||
+                                oldRec.channel_id !== newRec?.channel_id ||
+                                oldRec.end_date !== newRec?.end_date ||
+                                oldRec.is_unscheduled !== newRec?.is_unscheduled;
+
+                            if (hasRelevantChanges) {
+                                debouncedCountRefresh();
+                            }
+                        }
                     } else if (eventType === 'DELETE') {
                         await handleRealtimeUpdate('DELETE', null, oldRec);
                         debouncedCountRefresh();
@@ -215,5 +298,5 @@ export const useContentStockRealtime = ({
             supabase.removeChannel(channel);
             clearTimeout(refreshTimeout);
         };
-    }, [handleRealtimeUpdate, triggerCountRefresh]);
+    }, [handleRealtimeUpdate, triggerCountRefresh, fetchUnassignedChannelCount]);
 };

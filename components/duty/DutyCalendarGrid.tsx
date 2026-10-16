@@ -97,15 +97,19 @@ const DutyCalendarGrid: React.FC<DutyCalendarGridProps> = ({
                     <div 
                         key={day.toString()} 
                         className={`
-                            rounded-[1.5rem] flex flex-col h-full min-h-[350px] transition-all relative overflow-hidden
+                            rounded-[1.75rem] flex flex-col h-full min-h-[350px] max-h-[620px] transition-all duration-300 relative overflow-hidden group
                             ${isCurrentDay 
-                                ? 'bg-indigo-50/90 backdrop-blur-md border-2 border-indigo-200 shadow-lg ring-2 ring-indigo-100 ring-offset-2 scale-[1.02] z-10' 
-                                : 'bg-white/80 backdrop-blur-md border border-gray-200/80 shadow-sm hover:border-indigo-200 hover:bg-white/95'
+                                ? 'bg-indigo-50/50 dark:bg-indigo-950/40 backdrop-blur-xl backdrop-saturate-150 border-2 border-indigo-400/80 dark:border-indigo-400/70 shadow-[0_8px_32px_0_rgba(99,102,241,0.22),inset_0_1px_2px_0_rgba(255,255,255,0.95)] z-10' 
+                                : isWeekendDay && !meta.isSpecialWork
+                                    ? 'bg-slate-50/35 dark:bg-slate-900/35 backdrop-blur-xl backdrop-saturate-150 border border-white/50 dark:border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.04),inset_0_1px_1px_0_rgba(255,255,255,0.7)] hover:border-indigo-200/80 hover:bg-white/55'
+                                    : 'bg-white/45 dark:bg-slate-900/40 backdrop-blur-xl backdrop-saturate-150 border border-white/60 dark:border-white/10 shadow-[0_8px_32px_0_rgba(31,38,135,0.07),inset_0_1px_1px_0_rgba(255,255,255,0.8)] hover:border-indigo-200/90 hover:bg-white/55 hover:shadow-[0_12px_40px_0_rgba(31,38,135,0.1),inset_0_1px_2px_0_rgba(255,255,255,0.9)]'
                             }
-                            ${meta.isHoliday && !meta.isSpecialWork ? 'grayscale-[0.5] opacity-90' : ''}
-                            ${isWeekendDay && !meta.isSpecialWork ? 'bg-slate-50/60 backdrop-blur-md' : ''}
+                            ${meta.isHoliday && !meta.isSpecialWork ? 'grayscale-[0.35] opacity-90' : ''}
                         `}
                     >
+                        {/* Top Specular Sheen Gradient (Simulates angled glass light reflection) */}
+                        <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-white/40 via-white/10 to-transparent pointer-events-none" />
+
                         {/* Holiday Pattern Background */}
                         {meta.isHoliday && !meta.isSpecialWork && (
                             <div className="absolute inset-0 opacity-[0.03] pointer-events-none" style={{ backgroundImage: 'repeating-linear-gradient(45deg, #000, #000 10px, transparent 10px, transparent 20px)' }}></div>
@@ -113,17 +117,23 @@ const DutyCalendarGrid: React.FC<DutyCalendarGridProps> = ({
 
                         {/* Day Header */}
                         <div className={`
-                            p-4 border-b flex flex-col items-center justify-center text-center relative
-                            ${isCurrentDay ? 'border-indigo-100 bg-white/60 rounded-t-[1.5rem]' : 'border-gray-100/60 bg-gray-50/60 rounded-t-[1.5rem]'}
+                            p-4 border-b flex flex-col items-center justify-center text-center relative transition-colors backdrop-blur-md
+                            ${isCurrentDay 
+                                ? 'border-indigo-200/70 bg-white/50 dark:bg-indigo-900/30' 
+                                : 'border-white/40 dark:border-white/10 bg-white/35 dark:bg-slate-800/30'
+                            }
                         `}>
-                            <p className={`text-xs font-bold uppercase tracking-wider mb-1 ${isWeekendDay ? 'text-red-400' : 'text-gray-400'}`}>
+                            <p className={`text-xs font-bold uppercase tracking-wider mb-1.5 ${isWeekendDay ? 'text-rose-500/80 dark:text-rose-400' : 'text-gray-500 dark:text-gray-400'}`}>
                                 {format(day, 'EEEE')}
                             </p>
                             
                             <div className="relative">
                                 <div className={`
-                                    w-11 h-11 rounded-full flex items-center justify-center text-lg font-bold shadow-sm transition-transform group-hover:scale-110
-                                    ${isCurrentDay ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 border border-gray-200'}
+                                    w-11 h-11 rounded-2xl flex items-center justify-center text-lg font-bold transition-transform group-hover:scale-105
+                                    ${isCurrentDay 
+                                        ? 'bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white shadow-[0_4px_14px_rgba(99,102,241,0.4),inset_0_1px_1px_rgba(255,255,255,0.4)]' 
+                                        : 'bg-white/85 dark:bg-slate-800/85 text-gray-800 dark:text-gray-100 border border-white/80 dark:border-slate-700/80 shadow-[0_3px_10px_rgba(0,0,0,0.05),inset_0_1px_1px_rgba(255,255,255,0.9)]'
+                                    }
                                 `}>
                                     {format(day, 'd')}
                                 </div>
@@ -139,34 +149,34 @@ const DutyCalendarGrid: React.FC<DutyCalendarGridProps> = ({
                             {/* Calendar Badges */}
                             <div className="mt-2 flex flex-col items-center gap-1">
                                 {meta.isSpecialWork ? (
-                                    <span className="text-[9px] font-bold text-amber-600 bg-amber-100 px-2 py-0.5 rounded-full border border-amber-200 uppercase animate-in zoom-in">
+                                    <span className="text-[9px] font-bold text-amber-600 bg-amber-100/90 px-2 py-0.5 rounded-full border border-amber-200 uppercase animate-in zoom-in shadow-2xs">
                                         Special Workday ⚡
                                     </span>
                                 ) : meta.isHoliday ? (
-                                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border uppercase flex items-center gap-1 ${meta.isAnnual ? 'bg-rose-100 text-rose-600 border-rose-200' : 'bg-slate-100 text-slate-500 border-slate-200'}`}>
+                                    <span className={`text-[9px] font-bold px-2 py-0.5 rounded-full border uppercase flex items-center gap-1 shadow-2xs ${meta.isAnnual ? 'bg-rose-100/90 text-rose-600 border-rose-200' : 'bg-slate-100/90 text-slate-500 border-slate-200'}`}>
                                         <Ban className="w-2.5 h-2.5" /> {meta.label || 'Closed'}
                                     </span>
                                 ) : isCurrentDay && (
-                                    <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">Today</span>
+                                    <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Today</span>
                                 )}
                             </div>
                         </div>
 
                         {/* Duty List */}
-                        <div className="p-3 flex-1 space-y-3 relative z-10">
+                        <div className="p-3 flex-1 space-y-3 relative z-10 overflow-y-auto max-h-[380px] md:max-h-[440px] scrollbar-thin scrollbar-thumb-white/40">
                             {meta.isHoliday && !meta.isSpecialWork && dayDuties.length === 0 ? (
                                 <div className="h-full flex flex-col items-center justify-center text-slate-400 p-4 text-center">
-                                    <div className="p-4 bg-slate-100 rounded-full mb-3 shadow-inner">
-                                        <Ban className="w-8 h-8 opacity-20" />
+                                    <div className="p-4 bg-white/40 dark:bg-slate-800/40 rounded-2xl mb-3 shadow-inner border border-white/50 backdrop-blur-sm">
+                                        <Ban className="w-8 h-8 opacity-25" />
                                     </div>
-                                    <p className="text-xs font-black uppercase tracking-widest text-slate-300">Office Closed</p>
-                                    <p className="text-[10px] mt-1 italic text-slate-400">ไม่ต้องทำเวร พักผ่อนได้เลย 🌴</p>
+                                    <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Office Closed</p>
+                                    <p className="text-[10px] mt-1 italic text-slate-500">ไม่ต้องทำเวร พักผ่อนได้เลย 🌴</p>
                                 </div>
                             ) : (
                                 <>
                                     {dayDuties.length === 0 && !isAddMode && (
-                                        <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-300 opacity-40">
-                                            <Coffee className="w-12 h-12 mb-2" />
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center text-gray-400/60 pointer-events-none">
+                                            <Coffee className="w-10 h-10 mb-2 opacity-50" />
                                             <p className="text-xs font-bold uppercase tracking-widest">All Clear</p>
                                         </div>
                                     )}
@@ -192,10 +202,10 @@ const DutyCalendarGrid: React.FC<DutyCalendarGridProps> = ({
 
                                     {/* Add Form Inline */}
                                     {isAddMode && isSameDay(isAddMode, day) ? (
-                                        <div className="bg-white border-2 border-indigo-400 rounded-2xl p-3 shadow-lg animate-in zoom-in-95 relative z-20">
+                                        <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-2xl border border-indigo-300 dark:border-indigo-500/50 rounded-2xl p-3.5 shadow-[0_12px_32px_rgba(99,102,241,0.2),inset_0_1px_1px_rgba(255,255,255,0.9)] animate-in zoom-in-95 relative z-20">
                                             <input 
                                                 autoFocus
-                                                className="w-full text-sm font-bold border-b-2 border-indigo-100 pb-1 mb-2 outline-none focus:border-indigo-500 text-indigo-900 placeholder:text-indigo-200"
+                                                className="w-full text-sm font-bold border-b-2 border-indigo-100 dark:border-indigo-900 pb-1 mb-2.5 outline-none focus:border-indigo-500 text-indigo-950 dark:text-indigo-100 placeholder:text-indigo-300 bg-transparent"
                                                 placeholder="ทำอะไรดี?"
                                                 value={newDutyTitle}
                                                 onChange={e => setNewDutyTitle(e.target.value)}
@@ -203,7 +213,7 @@ const DutyCalendarGrid: React.FC<DutyCalendarGridProps> = ({
                                             />
                                             <div className="flex gap-2">
                                                 <select 
-                                                    className="flex-1 text-xs bg-indigo-50 rounded-lg p-1.5 outline-none cursor-pointer font-bold text-indigo-700"
+                                                    className="flex-1 text-xs bg-indigo-50/80 dark:bg-slate-700/80 rounded-xl p-2 outline-none cursor-pointer font-bold text-indigo-700 dark:text-indigo-200 border border-indigo-100 dark:border-slate-600"
                                                     value={assigneeId}
                                                     onChange={e => setAssigneeId(e.target.value)}
                                                 >
@@ -215,11 +225,11 @@ const DutyCalendarGrid: React.FC<DutyCalendarGridProps> = ({
                                                 <button 
                                                     onClick={onAdd}
                                                     disabled={!newDutyTitle || !assigneeId}
-                                                    className="bg-indigo-600 text-white p-1.5 rounded-lg hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm"
+                                                    className="bg-indigo-600 text-white p-2 rounded-xl hover:bg-indigo-700 disabled:opacity-50 transition-all shadow-sm active:scale-95"
                                                 >
                                                     <Plus className="w-4 h-4" />
                                                 </button>
-                                                <button onClick={onCancelAdd} className="text-gray-400 hover:text-red-500 p-1.5 transition-colors">
+                                                <button onClick={onCancelAdd} className="text-gray-400 hover:text-red-500 p-2 transition-colors rounded-xl">
                                                     <X className="w-4 h-4" />
                                                 </button>
                                             </div>
@@ -227,9 +237,9 @@ const DutyCalendarGrid: React.FC<DutyCalendarGridProps> = ({
                                     ) : (
                                         <button 
                                             onClick={() => onStartAdd(day)}
-                                            className="w-full py-2 border-2 border-dashed border-gray-100 rounded-xl text-xs font-bold text-gray-300 hover:text-indigo-500 hover:border-indigo-200 hover:bg-indigo-50/50 transition-all flex items-center justify-center gap-1 group-hover:opacity-100"
+                                            className="w-full py-2.5 border border-dashed border-white/70 dark:border-white/20 bg-white/30 dark:bg-white/5 hover:bg-white/60 dark:hover:bg-white/10 rounded-2xl text-xs font-semibold text-gray-500 hover:text-indigo-600 hover:border-indigo-300/80 transition-all shadow-2xs backdrop-blur-sm flex items-center justify-center gap-1.5 active:scale-[0.99]"
                                         >
-                                            <Plus className="w-3 h-3" /> เพิ่มเวร
+                                            <Plus className="w-3.5 h-3.5" /> เพิ่มเวร
                                         </button>
                                     )}
                                 </>

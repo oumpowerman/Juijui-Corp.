@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { User, DutyConfig, Duty } from '../types';
 import { useDuty } from '../hooks/useDuty';
 import { useGoogleDrive } from '../hooks/useGoogleDrive'; // New Import
@@ -52,6 +53,34 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
 
     // View State
     const [currentDate, setCurrentDate] = useState(new Date());
+    const [direction, setDirection] = useState<number>(0);
+    
+    // Directional transition variants for week navigation
+    const weekVariants: Variants = useMemo(() => ({
+        enter: (dir: number) => ({
+            x: dir > 0 ? 36 : dir < 0 ? -36 : 0,
+            opacity: 0,
+            filter: 'blur(3px)',
+        }),
+        center: {
+            x: 0,
+            opacity: 1,
+            filter: 'blur(0px)',
+            transition: {
+                duration: 0.24,
+                ease: [0.16, 1, 0.3, 1] as const,
+            },
+        },
+        exit: (dir: number) => ({
+            x: dir > 0 ? -36 : 36,
+            opacity: 0,
+            filter: 'blur(3px)',
+            transition: {
+                duration: 0.18,
+                ease: [0.16, 1, 0.3, 1] as const,
+            },
+        }),
+    }), []);
     
     // Add Duty State
     const [isAddMode, setIsAddMode] = useState<Date | null>(null);
@@ -277,7 +306,7 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
                 currentUser={currentUser}
             />
 
-            <div className="space-y-8 animate-in fade-in duration-500 pb-20 relative z-20">
+            <div className="space-y-8 animate-in fade-in duration-500 pb-36 md:pb-40 relative z-20">
                 
                 {/* --- LOADING OVERLAY FOR PROOF UPLOAD --- */}
                 {isProofUploading && (
@@ -336,7 +365,14 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
 
                     {/* Center: Navigator */}
                     <div className="flex items-center bg-gray-100/50 p-1 rounded-xl border border-gray-200/60">
-                        <button onClick={() => setCurrentDate(addWeeks(currentDate, -1))} className="p-2 hover:bg-white hover:shadow-sm rounded-lg text-gray-500 hover:text-indigo-600 transition-all">
+                        <button 
+                            onClick={() => {
+                                setDirection(-1);
+                                setCurrentDate(prev => addWeeks(prev, -1));
+                            }} 
+                            className="p-2 hover:bg-white hover:shadow-sm rounded-lg text-gray-500 hover:text-indigo-600 transition-all active:scale-95"
+                            title="สัปดาห์ก่อนหน้า"
+                        >
                             <ChevronLeft className="w-5 h-5" />
                         </button>
                         <div className="px-6 text-center min-w-[140px]">
@@ -345,7 +381,14 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
                                 {format(start, 'd MMM')} - {format(end, 'd MMM')}
                             </p>
                         </div>
-                        <button onClick={() => setCurrentDate(addWeeks(currentDate, 1))} className="p-2 hover:bg-white hover:shadow-sm rounded-lg text-gray-500 hover:text-indigo-600 transition-all">
+                        <button 
+                            onClick={() => {
+                                setDirection(1);
+                                setCurrentDate(prev => addWeeks(prev, 1));
+                            }} 
+                            className="p-2 hover:bg-white hover:shadow-sm rounded-lg text-gray-500 hover:text-indigo-600 transition-all active:scale-95"
+                            title="สัปดาห์ถัดไป"
+                        >
                             <ChevronRight className="w-5 h-5" />
                         </button>
                     </div>
@@ -376,25 +419,38 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
                     </div>
                 </div>
 
-                {/* --- GRID --- */}
-                <DutyCalendarGrid 
-                    weekDays={weekDays}
-                    duties={duties}
-                    users={users}
-                    currentUser={currentUser || { id: '', name: 'Guest' } as User}
-                    isAddMode={isAddMode}
-                    newDutyTitle={newDutyTitle}
-                    assigneeId={assigneeId}
-                    onStartAdd={handleStartAdd}
-                    onCancelAdd={() => setIsAddMode(null)}
-                    onAdd={handleConfirmAdd}
-                    setNewDutyTitle={setNewDutyTitle}
-                    setAssigneeId={setAssigneeId}
-                    onToggleDuty={handleToggleDuty}
-                    onDeleteDuty={deleteDuty}
-                    onSubmitProof={handleSubmitProof} 
-                    onRequestSwap={handleInitiateSwap}
-                />
+                {/* --- GRID WITH DIRECTIONAL SLIDE TRANSITION --- */}
+                <div className="overflow-x-clip overflow-y-visible px-2 py-3 -mx-2 -my-3">
+                    <AnimatePresence mode="wait" custom={direction}>
+                        <motion.div 
+                            key={format(start, 'yyyy-MM-dd')}
+                            custom={direction}
+                            variants={weekVariants}
+                            initial="enter"
+                            animate="center"
+                            exit="exit"
+                        >
+                            <DutyCalendarGrid 
+                                weekDays={weekDays}
+                                duties={duties}
+                                users={users}
+                                currentUser={currentUser || { id: '', name: 'Guest' } as User}
+                                isAddMode={isAddMode}
+                                newDutyTitle={newDutyTitle}
+                                assigneeId={assigneeId}
+                                onStartAdd={handleStartAdd}
+                                onCancelAdd={() => setIsAddMode(null)}
+                                onAdd={handleConfirmAdd}
+                                setNewDutyTitle={setNewDutyTitle}
+                                setAssigneeId={setAssigneeId}
+                                onToggleDuty={handleToggleDuty}
+                                onDeleteDuty={deleteDuty}
+                                onSubmitProof={handleSubmitProof} 
+                                onRequestSwap={handleInitiateSwap}
+                            />
+                        </motion.div>
+                    </AnimatePresence>
+                </div>
 
                 {/* --- BOTTOM AMBIENT STATUS PILL --- */}
                 <div className="pt-2 flex justify-center">

@@ -45,13 +45,13 @@ const DutyCard: React.FC<DutyCardProps> = ({
     const dayOfWeek = getDay(dutyDate);
     const dayColor = useMemo(() => {
         const colors: Record<number, string> = {
-            0: 'from-red-50/80 to-rose-100/80 border-red-200/60 text-red-700',      // Sunday
-            1: 'from-yellow-50/80 to-amber-100/80 border-yellow-200/60 text-amber-700', // Monday
-            2: 'from-pink-50/80 to-rose-100/80 border-pink-200/60 text-pink-700',    // Tuesday
-            3: 'from-green-50/80 to-emerald-100/80 border-green-200/60 text-green-700', // Wednesday
-            4: 'from-orange-50/80 to-amber-100/80 border-orange-200/60 text-orange-700', // Thursday
-            5: 'from-blue-50/80 to-sky-100/80 border-blue-200/60 text-blue-700',     // Friday
-            6: 'from-purple-50/80 to-violet-100/80 border-purple-200/60 text-purple-700', // Saturday
+            0: 'from-red-50/50 to-rose-100/40 border-rose-200/60 text-rose-800 dark:text-rose-200',      // Sunday
+            1: 'from-amber-50/50 to-yellow-100/40 border-amber-200/60 text-amber-800 dark:text-amber-200', // Monday
+            2: 'from-pink-50/50 to-rose-100/40 border-pink-200/60 text-pink-800 dark:text-pink-200',    // Tuesday
+            3: 'from-emerald-50/50 to-green-100/40 border-emerald-200/60 text-emerald-800 dark:text-emerald-200', // Wednesday
+            4: 'from-orange-50/50 to-amber-100/40 border-orange-200/60 text-orange-800 dark:text-orange-200', // Thursday
+            5: 'from-sky-50/50 to-blue-100/40 border-sky-200/60 text-sky-800 dark:text-sky-200',     // Friday
+            6: 'from-violet-50/50 to-purple-100/40 border-violet-200/60 text-violet-800 dark:text-violet-200', // Saturday
         };
         return colors[dayOfWeek] || colors[1];
     }, [dayOfWeek]);
@@ -130,35 +130,38 @@ const DutyCard: React.FC<DutyCardProps> = ({
         }
     };
 
-    // Dynamic Styles
-    let cardStyle = `bg-gradient-to-br ${dayColor} backdrop-blur-md border shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all`;
+    // Dynamic Semi-Glass Styles
+    let cardStyle = `bg-gradient-to-br ${dayColor} backdrop-blur-md border border-white/70 dark:border-white/10 shadow-[0_4px_16px_rgba(0,0,0,0.03),inset_0_1px_1px_rgba(255,255,255,0.8)] hover:shadow-md hover:-translate-y-0.5 hover:bg-white/65 transition-all duration-200`;
     let statusBadge = null;
 
     if (isAbandoned) {
-        cardStyle = 'bg-gray-200 border-gray-300 opacity-60 grayscale cursor-not-allowed';
-        statusBadge = <div className="absolute right-[-15px] top-[15px] rotate-45 bg-red-600 text-white text-[9px] px-6 py-1 font-black shadow-md z-10 border-2 border-white">FAILED</div>;
+        cardStyle = 'bg-gray-200/70 dark:bg-gray-800/70 backdrop-blur-md border border-gray-300 opacity-60 grayscale cursor-not-allowed shadow-xs';
+        statusBadge = <div className="absolute right-[-15px] top-[15px] rotate-45 bg-red-600 text-white text-[9px] px-6 py-1 font-bold shadow-md z-10 border-2 border-white">FAILED</div>;
     } else if (duty.isDone) {
-        cardStyle = 'bg-emerald-50/80 backdrop-blur-md border-emerald-200/60 shadow-inner';
+        cardStyle = 'bg-emerald-50/45 dark:bg-emerald-950/30 backdrop-blur-md border border-emerald-200/60 shadow-[0_2px_8px_rgba(16,185,129,0.06),inset_0_1px_1px_rgba(255,255,255,0.7)] text-emerald-900';
         if (isLateDone) {
-             statusBadge = <div className="absolute right-2 top-2 text-[8px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded border border-orange-200 font-bold">LATE</div>;
+             statusBadge = <div className="absolute right-2 top-2 text-[8px] bg-orange-100/90 text-orange-600 px-1.5 py-0.5 rounded-md border border-orange-200 font-bold shadow-2xs">LATE</div>;
         }
     } else if (isTribunal) {
-        cardStyle = 'bg-yellow-50/90 backdrop-blur-md border-yellow-400 border-dashed shadow-lg ring-4 ring-yellow-400/20 animate-pulse';
+        cardStyle = 'bg-yellow-50/65 dark:bg-yellow-950/40 backdrop-blur-md border border-yellow-400 border-dashed shadow-lg ring-4 ring-yellow-400/20 animate-pulse';
     } else if (isMissed) {
-        cardStyle = 'bg-red-50/90 backdrop-blur-md border-red-400 border-dashed opacity-90 shadow-lg';
+        cardStyle = 'bg-red-50/65 dark:bg-red-950/40 backdrop-blur-md border border-red-400 border-dashed opacity-90 shadow-lg';
     } else if (isGracePeriod) {
-        cardStyle = 'bg-blue-50/90 backdrop-blur-md border-blue-400 border-dashed animate-pulse shadow-lg';
+        cardStyle = 'bg-blue-50/65 dark:bg-blue-950/40 backdrop-blur-md border border-blue-400 border-dashed animate-pulse shadow-lg';
     } else if (isCurrentUser) {
-        cardStyle = `bg-gradient-to-br ${dayColor} border-indigo-400 shadow-xl ring-4 ring-indigo-500/10 transform scale-[1.03] z-10`;
+        cardStyle = `bg-gradient-to-br ${dayColor} backdrop-blur-lg border border-indigo-300/80 shadow-[0_8px_24px_rgba(99,102,241,0.18),inset_0_1px_1px_rgba(255,255,255,0.9)] ring-2 ring-indigo-500/20 transform scale-[1.02] z-10`;
     }
 
     return (
         <div className={`
-            relative flex flex-col p-4 rounded-3xl border-2 transition-all group overflow-hidden
+            relative flex flex-col p-4 rounded-3xl border transition-all group overflow-hidden
             ${cardStyle}
         `}>
             {statusBadge}
             
+            {/* Top Specular Sheen for 3D Glass Effect */}
+            <div className="absolute inset-x-0 top-0 h-10 bg-gradient-to-b from-white/35 via-white/10 to-transparent pointer-events-none rounded-t-3xl" />
+
             {/* Subtle Pattern Overlay */}
             <div className="absolute inset-0 opacity-[0.03] pointer-events-none" 
                  style={{ 
@@ -207,7 +210,7 @@ const DutyCard: React.FC<DutyCardProps> = ({
                 </div>
 
                 <div className="flex-1 min-w-0">
-                    <p className={`text-sm font-black truncate leading-tight ${duty.isDone ? 'text-gray-500 line-through decoration-2' : isAbandoned ? 'text-gray-500 line-through' : isMissed ? 'text-red-800' : 'text-gray-900'}`}>
+                    <p className={`text-sm font-bold truncate leading-tight ${duty.isDone ? 'text-gray-500 line-through decoration-2' : isAbandoned ? 'text-gray-500 line-through' : isMissed ? 'text-red-800' : 'text-gray-900'}`}>
                         {duty.title}
                     </p>
                     <p className={`text-xs font-bold truncate mt-0.5 ${isCurrentUser ? 'text-indigo-600' : 'text-gray-500'}`}>
@@ -216,15 +219,15 @@ const DutyCard: React.FC<DutyCardProps> = ({
                     
                     {/* Status Text */}
                     {isAbandoned ? (
-                         <p className="text-[10px] text-gray-600 font-black mt-1 bg-gray-100 px-2 py-0.5 rounded-full w-fit">ABANDONED (ละเลย)</p>
+                         <p className="text-[10px] text-gray-600 font-bold mt-1 bg-gray-100 px-2 py-0.5 rounded-full w-fit">ABANDONED (ละเลย)</p>
                     ) : isTribunal ? (
-                         <p className="text-[10px] text-yellow-700 font-black mt-1 bg-yellow-100 px-2 py-0.5 rounded-full w-fit animate-bounce">WAITING TRIBUNAL</p>
+                         <p className="text-[10px] text-yellow-700 font-bold mt-1 bg-yellow-100 px-2 py-0.5 rounded-full w-fit animate-bounce">WAITING TRIBUNAL</p>
                     ) : isGracePeriod ? (
-                         <p className="text-[10px] text-blue-700 font-black mt-1 bg-blue-100 px-2 py-0.5 rounded-full w-fit">GRACE PERIOD (รอตรวจ)</p>
+                         <p className="text-[10px] text-blue-700 font-bold mt-1 bg-blue-100 px-2 py-0.5 rounded-full w-fit">GRACE PERIOD (รอตรวจ)</p>
                     ) : isMissed ? (
-                        <p className="text-[10px] text-red-600 font-black mt-1 bg-red-100 px-2 py-0.5 rounded-full w-fit">Missed</p>
+                        <p className="text-[10px] text-red-600 font-bold mt-1 bg-red-100 px-2 py-0.5 rounded-full w-fit">Missed</p>
                     ) : isCurrentUser && !duty.isDone ? (
-                        <p className="text-[10px] text-indigo-600 font-black mt-1 bg-indigo-100 px-2 py-0.5 rounded-full w-fit">Your Duty ✨</p>
+                        <p className="text-[10px] text-indigo-600 font-bold mt-1 bg-indigo-100 px-2 py-0.5 rounded-full w-fit">Your Duty ✨</p>
                     ) : null}
                 </div>
             </div>
@@ -234,7 +237,7 @@ const DutyCard: React.FC<DutyCardProps> = ({
                 <div className="flex gap-2">
                      <button 
                         onClick={handleToggleCheck} 
-                        className={`text-xs font-black flex items-center gap-1.5 transition-all ${
+                        className={`text-xs font-bold flex items-center gap-1.5 transition-all ${
                             !isCurrentUser ? 'cursor-default opacity-50' : 
                             isAbandoned ? 'text-gray-400 cursor-not-allowed' :
                             duty.isDone ? 'text-emerald-600' : 
@@ -266,7 +269,7 @@ const DutyCard: React.FC<DutyCardProps> = ({
                     {!isCurrentUser && !duty.isDone && !isAbandoned && (
                         <button 
                             onClick={handleHeroAssist}
-                            className="flex items-center gap-1 px-3 py-1.5 bg-rose-500 text-white hover:bg-rose-600 rounded-xl text-[10px] font-black shadow-sm transition-all active:scale-95"
+                            className="flex items-center gap-1 px-3 py-1.5 bg-rose-500 text-white hover:bg-rose-600 rounded-xl text-[10px] font-bold shadow-sm transition-all active:scale-95"
                             title="ช่วยเพื่อนทำเวร (ได้ XP)"
                         >
                             <HeartHandshake className="w-4 h-4" /> Assist

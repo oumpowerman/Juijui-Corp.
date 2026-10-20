@@ -20,6 +20,10 @@ import { FinanceProvider } from './context/FinanceContext';
 import { WikiProvider } from './context/WikiContext';
 import { MeetingProvider } from './context/MeetingContext';
 import { UserSessionProvider, useUserSession } from './context/UserSessionContext';
+import { OrganizationProvider } from './context/OrganizationContext';
+import { DemoSandboxProvider, setDemoIntentFlag } from './context/DemoSandboxContext';
+import { DemoSandboxHudBar } from './components/demo/DemoSandboxHudBar';
+import { WorkspaceSwitcherModal } from './components/organization/WorkspaceSwitcherModal';
 import { useMasterData } from './hooks/useMasterData';
 import GatekeeperOverlay from './components/layout/GatekeeperOverlay';
 import { ShootQueueProvider } from './context/ShootQueueContext';
@@ -48,6 +52,14 @@ function App() {
     const lineUserIdParam = queryParams.get('line_user_id');
     if (lineUserIdParam) {
       sessionStorage.setItem('pending_line_user_id', lineUserIdParam.trim());
+    }
+
+    const claimOrgParam = queryParams.get('claim_org');
+    const joinOrgParam = queryParams.get('join_org');
+    if (claimOrgParam && claimOrgParam.trim()) {
+      sessionStorage.setItem('juijui_pending_onboarding_code', claimOrgParam.trim().toUpperCase());
+    } else if (joinOrgParam && joinOrgParam.trim()) {
+      sessionStorage.setItem('juijui_pending_onboarding_code', joinOrgParam.trim().toUpperCase());
     }
 
     const viewParam = queryParams.get('view');
@@ -89,7 +101,10 @@ function App() {
 
   const [session, setSession] = useState<any>(null);
   const [loading, setLoading] = useState(true);
-  const [showLogin, setShowLogin] = useState(BRAND_CONFIG.initialRouteMode === 2);
+  const [showLogin, setShowLogin] = useState(() => {
+    const params = new URLSearchParams(window.location.search);
+    return BRAND_CONFIG.initialRouteMode === 2 || params.has('claim_org') || params.has('join_org');
+  });
   const [isRecoveryMode, setIsRecoveryMode] = useState(false);
 
   // --- INITIAL AUTH CHECK ---
@@ -211,7 +226,16 @@ function App() {
           exit={{ opacity: 0, y: -25, filter: "blur(4px)" }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
         >
-          <LandingPage onGoToLogin={() => setShowLogin(true)} />
+          <LandingPage
+            onGoToLogin={() => {
+              setDemoIntentFlag(false);
+              setShowLogin(true);
+            }}
+            onStartDemo={() => {
+              setDemoIntentFlag(true);
+              setShowLogin(true);
+            }}
+          />
         </motion.div>
       );
     }
@@ -247,9 +271,13 @@ function AuthenticatedApp({ user }: { user: any }) {
     <GoogleDriveProvider>
       <MasterDataProvider>
         <UserSessionProvider sessionUser={user}>
-          <StorageProvider>
-            <AuthenticatedAppInner user={user} />
-          </StorageProvider>
+          <DemoSandboxProvider sessionUser={user}>
+            <OrganizationProvider>
+              <StorageProvider>
+                <AuthenticatedAppInner user={user} />
+              </StorageProvider>
+            </OrganizationProvider>
+          </DemoSandboxProvider>
         </UserSessionProvider>
       </MasterDataProvider>
     </GoogleDriveProvider>
@@ -291,6 +319,8 @@ function AuthenticatedAppInner({ user }: { user: any }) {
                         <GlobalRealtimeSync />
                         <LineUserIdLinker />
                         <ScreenSessionLimiter user={user} />
+                        <WorkspaceSwitcherModal />
+                        <DemoSandboxHudBar />
                         <AppRouter user={user} />
                       </ShootQueueProvider>
                     </TaskProvider>

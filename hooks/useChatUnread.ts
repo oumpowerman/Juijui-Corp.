@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { User } from '../types';
+import { getActiveOrgIdSync, getOrgChannelName } from '../lib/tenantStorage';
 
 export const useChatUnread = (currentUser: User | null) => {
     const [unreadCount, setUnreadCount] = useState(0);
@@ -29,32 +30,37 @@ export const useChatUnread = (currentUser: User | null) => {
 
         fetchUnread();
 
-        // 3. Subscribe to NEW messages
-        // Use a more specific channel name to avoid collisions
+        // 3. Subscribe to NEW messages scoped by active organization
+        const activeOrgId = getActiveOrgIdSync();
         const channel = supabase
-            .channel(`chat-unread-global-${currentUser.id}`)
+            .channel(getOrgChannelName(`chat-unread-global-${currentUser.id}`, activeOrgId))
             .on('postgres_changes', { 
                 event: 'INSERT', 
                 schema: 'public', 
                 table: 'team_messages' 
-            }, () => {
+            }, (payload) => {
+                if (payload.new?.org_id && activeOrgId && payload.new.org_id !== activeOrgId) return;
                 // Robust approach: Re-fetch the count from DB on every insert
-                // This handles multiple messages and ensures consistency with DB state
                 fetchUnread();
             })
             .subscribe();
 
-        // Listen for local read events to clear badge immediately
+        // Listen for local read events and workspace switch events
         const handleLocalRead = () => {
             setUnreadCount(0);
         };
+        const handleOrgSwitched = () => {
+            fetchUnread();
+        };
         window.addEventListener('juijui-chat-read', handleLocalRead);
+        window.addEventListener('org-workspace-switched', handleOrgSwitched);
 
         return () => {
             supabase.removeChannel(channel);
             window.removeEventListener('juijui-chat-read', handleLocalRead);
+            window.removeEventListener('org-workspace-switched', handleOrgSwitched);
         };
-    }, [currentUser?.id, currentUser?.lastReadChatAt?.getTime()]); // Use getTime() to prevent unnecessary re-runs from new Date object instances
+    }, [currentUser?.id, currentUser?.lastReadChatAt?.getTime()]);
 
     // Mark as read function
     const markAsRead = async () => {

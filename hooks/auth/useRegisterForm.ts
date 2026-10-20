@@ -5,6 +5,8 @@ import { BRAND_CONFIG } from '../../config/brand';
 import { EMOJI_POOL, DEFAULT_EMOJI } from '../../constants/emojis';
 import { useCompanies } from '../useCompanies';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
+import { setActiveOrgIdSync } from '../../lib/tenantStorage';
+import { PRIMARY_DEFAULT_ORG_ID } from '../../lib/multiTenantMigrationSql';
 
 export interface UseRegisterFormOptions {
   onRegisterSuccess: () => void;
@@ -28,6 +30,14 @@ export function useRegisterForm({
   const [phone, setPhone] = useState('');
   const [reason, setReason] = useState('');
   const [companyId, setCompanyId] = useState('');
+  const [onboardingCode, setOnboardingCode] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    const params = new URLSearchParams(window.location.search);
+    const claim = params.get('claim_org');
+    const join = params.get('join_org');
+    const saved = sessionStorage.getItem('juijui_pending_onboarding_code');
+    return (claim || join || saved || '').trim().toUpperCase();
+  });
 
   // Master positions options & Companies
   const { activeCompanies: companies } = useCompanies();
@@ -161,6 +171,7 @@ export function useRegisterForm({
     setEmploymentType('');
     setPhone('');
     setReason('');
+    setOnboardingCode('');
     setAvatarFile(null);
     setAvatarPreview(null);
     setErrorMsg(null);
@@ -254,8 +265,79 @@ export function useRegisterForm({
 
       // Upsert customized user details
       const finalCompanyId = companyId || (companies.length > 0 ? companies[0].id : null);
+      const cleanOnboardingCode = onboardingCode.trim().toUpperCase();
 
-      const { error: profileError } = await supabase.from('profiles').upsert({
+      // Resolve onboarding code if provided (Owner Claim Token vs Team Invite Code)
+      let resolvedMode: 'CLAIM' | 'INVITE' | 'NONE' = 'NONE';
+      let matchedOrgId: string | null = null;
+      let isNativeOrgDB = false;
+      let matchedFallbackWorkspaceRow: any = null;
+
+      if (cleanOnboardingCode) {
+        const { data: orgRows, error: orgQueryErr } = await supabase
+          .from('organizations')
+          .select('*')
+          .eq('is_active', true);
+
+        if (!orgQueryErr && orgRows) {
+          isNativeOrgDB = true;
+          const claimMatch = orgRows.find(
+            (o: any) => (o.owner_claim_token || '').toUpperCase() === cleanOnboardingCode
+          );
+          if (claimMatch) {
+            resolvedMode = 'CLAIM';
+            matchedOrgId = claimMatch.id;
+          } else {
+            const inviteMatch = orgRows.find(
+              (o: any) =>
+                (o.invite_code || '').toUpperCase() === cleanOnboardingCode &&
+                o.invite_enabled !== false
+            );
+            if (inviteMatch) {
+              resolvedMode = 'INVITE';
+              matchedOrgId = inviteMatch.id;
+            }
+          }
+        } else {
+          // Fallback: check master_options SAAS_WORKSPACE
+          const { data: workspaceOpts } = await supabase
+            .from('master_options')
+            .select('*')
+            .eq('type', 'SAAS_WORKSPACE');
+
+          if (cleanOnboardingCode === 'JUIJUI-HQ') {
+            resolvedMode = 'INVITE';
+            matchedOrgId = PRIMARY_DEFAULT_ORG_ID;
+          } else {
+            for (const w of workspaceOpts || []) {
+              try {
+                const meta = w.description ? JSON.parse(w.description) : {};
+                if ((meta.ownerClaimToken || '').toUpperCase() === cleanOnboardingCode) {
+                  resolvedMode = 'CLAIM';
+                  matchedOrgId = w.key || w.id;
+                  matchedFallbackWorkspaceRow = w;
+                  break;
+                }
+                if (
+                  (meta.inviteCode || '').toUpperCase() === cleanOnboardingCode &&
+                  meta.inviteEnabled !== false
+                ) {
+                  resolvedMode = 'INVITE';
+                  matchedOrgId = w.key || w.id;
+                  matchedFallbackWorkspaceRow = w;
+                  break;
+                }
+              } catch {
+                // ignore
+              }
+            }
+          }
+        }
+      }
+
+      const isOwnerClaimSuccess = resolvedMode === 'CLAIM' && Boolean(matchedOrgId);
+
+      const profilePayload: Record<string, any> = {
         id: userId,
         email: cleanEmail || null,
         username: cleanUsername,
@@ -270,7 +352,8 @@ export function useRegisterForm({
         phone_number: phone,
         bio: reason,
         company_id: finalCompanyId,
-        role: 'MEMBER',
+        role: isOwnerClaimSuccess ? 'ADMIN' : 'MEMBER',
+        is_approved: isOwnerClaimSuccess ? true : false,
         work_days: [1, 2, 3, 4, 5],
         hp: BRAND_CONFIG.initialHpMode === 2 ? 0 : 100,
         max_hp: 100,
@@ -279,9 +362,115 @@ export function useRegisterForm({
         available_points: 0,
         death_count: 0,
         emoji: selectedEmoji,
-      });
+      };
+
+      if (matchedOrgId) {
+        profilePayload.current_org_id = matchedOrgId;
+      }
+
+      const { error: profileError } = await supabase.from('profiles').upsert(profilePayload);
 
       if (profileError) throw profileError;
+
+      // Process Organization Claim or Pending Invite Request
+      if (resolvedMode === 'CLAIM' && matchedOrgId) {
+        if (isNativeOrgDB) {
+          await supabase
+            .from('organizations')
+            .update({
+              owner_id: userId,
+              owner_claim_token: null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', matchedOrgId);
+
+          await supabase.from('organization_members').upsert(
+            [
+              {
+                org_id: matchedOrgId,
+                user_id: userId,
+                role: 'OWNER',
+                status: 'ACTIVE',
+              },
+            ],
+            { onConflict: 'org_id,user_id' }
+          );
+        } else if (matchedFallbackWorkspaceRow) {
+          const meta = matchedFallbackWorkspaceRow.description
+            ? JSON.parse(matchedFallbackWorkspaceRow.description)
+            : {};
+          meta.ownerId = userId;
+          meta.ownerClaimToken = null;
+          await supabase
+            .from('master_options')
+            .update({ description: JSON.stringify(meta) })
+            .eq('id', matchedFallbackWorkspaceRow.id);
+
+          await supabase.from('master_options').insert([
+            {
+              type: 'SAAS_WORKSPACE_MEMBER',
+              key: `OWN_${matchedOrgId.slice(0, 6)}_${userId.slice(0, 6)}`,
+              parent_key: matchedOrgId,
+              label: fullNameCombined || name,
+              description: JSON.stringify({
+                userId,
+                email: cleanEmail || null,
+                role: 'OWNER',
+                status: 'ACTIVE',
+              }),
+              sort_order: 1,
+              is_active: true,
+            },
+          ]);
+        }
+
+        setActiveOrgIdSync(matchedOrgId);
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('juijui_pending_onboarding_code');
+          if (window.location.search.includes('claim_org')) {
+            window.history.replaceState({}, '', window.location.pathname);
+          }
+        }
+      } else if (resolvedMode === 'INVITE' && matchedOrgId) {
+        if (isNativeOrgDB) {
+          await supabase.from('organization_members').upsert(
+            [
+              {
+                org_id: matchedOrgId,
+                user_id: userId,
+                role: 'MEMBER',
+                status: 'PENDING',
+              },
+            ],
+            { onConflict: 'org_id,user_id' }
+          );
+        } else {
+          await supabase.from('master_options').insert([
+            {
+              type: 'SAAS_WORKSPACE_MEMBER',
+              key: `REQ_${matchedOrgId.slice(0, 6)}_${userId.slice(0, 6)}_${Date.now().toString().slice(-4)}`,
+              parent_key: matchedOrgId,
+              label: fullNameCombined || name,
+              description: JSON.stringify({
+                userId,
+                email: cleanEmail || null,
+                role: 'MEMBER',
+                status: 'PENDING',
+              }),
+              sort_order: 10,
+              is_active: true,
+            },
+          ]);
+        }
+
+        setActiveOrgIdSync(matchedOrgId);
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('juijui_pending_onboarding_code');
+          if (window.location.search.includes('join_org')) {
+            window.history.replaceState({}, '', window.location.pathname);
+          }
+        }
+      }
 
       if (authData.session) {
         onSessionLoginSuccess();
@@ -351,6 +540,8 @@ export function useRegisterForm({
     setReason,
     companyId,
     setCompanyId,
+    onboardingCode,
+    setOnboardingCode,
     companies,
     positions,
     takenEmojis,

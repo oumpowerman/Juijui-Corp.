@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useMasterDataContext } from '../context/MasterDataContext';
+import { useOrganization } from '../context/OrganizationContext';
 import { SidebarProps } from './sidebar/types';
 import { MENU_GROUPS } from './sidebar/menuConfig';
 import { getSidebarThemeStyles } from './sidebar/sidebarThemes';
@@ -23,6 +24,7 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const isAdmin = currentUser.role === 'ADMIN';
   const { masterOptions } = useMasterDataContext();
+  const { isModuleAllowed } = useOrganization();
 
   // Active custom views from Sidebar Control Center configuration
   const activeViews = useMemo(() => {
@@ -37,15 +39,20 @@ const Sidebar: React.FC<SidebarProps> = ({
   }, [masterOptions]);
 
   const filteredMenuGroups = useMemo(() => {
-    if (!activeViews || activeViews.length === 0) return MENU_GROUPS;
     return MENU_GROUPS.map(group => {
-      const visibleItems = group.items.filter(item => activeViews.includes(item.view) || item.view === 'COMPANY_CHECKLIST');
+      const visibleItems = group.items.filter(item => {
+        // Tier 1: Super Admin Commercial SaaS Module License check
+        if (!isModuleAllowed(item.view)) return false;
+        // Tier 2: Organization Admin Sidebar Control check
+        if (!activeViews || activeViews.length === 0) return true;
+        return activeViews.includes(item.view) || item.view === 'COMPANY_CHECKLIST';
+      });
       return {
         ...group,
         items: visibleItems
       };
     }).filter(group => group.items.length > 0);
-  }, [activeViews]);
+  }, [activeViews, isModuleAllowed]);
 
   // Dynamic seasonal and social theme detection
   const [activeBgTheme, setActiveBgTheme] = useState<string>(() => {

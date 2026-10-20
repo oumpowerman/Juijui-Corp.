@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
-import { Sparkles } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { Sparkles, Building2, ChevronsUpDown } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { SidebarThemeStyles } from './types';
 import { useMasterDataContext } from '../../context/MasterDataContext';
+import { useOrganization } from '../../context/OrganizationContext';
 import { BRAND_CONFIG } from '../../config/brand';
 
 interface SidebarBrandProps {
@@ -17,8 +18,24 @@ export const SidebarBrand: React.FC<SidebarBrandProps> = ({
   onLogoTrigger
 }) => {
   const { masterOptions } = useMasterDataContext();
+  const { currentOrg, myOrganizations, pendingJoinRequests, openSwitcherModal } = useOrganization();
   const [clickCount, setClickCount] = useState(0);
   const [lastClickTime, setLastClickTime] = useState(0);
+  const [imgError, setImgError] = useState(false);
+
+  // Dynamic Logo URL from Master Data (BRAND_CONFIG / SYSTEM_CONFIG)
+  const logoUrl = useMemo(() => {
+    const logoOpt = masterOptions.find(o => 
+      (o.type === 'BRAND_CONFIG' || o.type === 'SYSTEM_CONFIG') &&
+      (o.key === 'SYSTEM_LOGO' || o.key === 'BRAND_LOGO' || o.key === 'APP_LOGO')
+    );
+    return logoOpt?.label?.trim() || '';
+  }, [masterOptions]);
+
+  // Reset imgError when logoUrl changes
+  useEffect(() => {
+    setImgError(false);
+  }, [logoUrl]);
 
   // Brand Name & Subtitle derived dynamically from masterOptions or BRAND_CONFIG
   const brandName = useMemo(() => {
@@ -30,7 +47,22 @@ export const SidebarBrand: React.FC<SidebarBrandProps> = ({
     return sysNameOpt?.label || BRAND_CONFIG.name || 'Kontent OS';
   }, [masterOptions]);
 
+  // Optional custom subtitle from Master Data
+  const customSubtitle = useMemo(() => {
+    const subOpt = masterOptions.find(o => 
+      (o.type === 'BRAND_CONFIG' || o.type === 'SYSTEM_CONFIG') &&
+      (o.key === 'SYSTEM_SUBTITLE' || o.key === 'BRAND_SUBTITLE')
+    );
+    return subOpt?.label?.trim() || '';
+  }, [masterOptions]);
+
   const { mainPart, subPart } = useMemo(() => {
+    if (customSubtitle) {
+      return {
+        mainPart: brandName.trim(),
+        subPart: customSubtitle
+      };
+    }
     const trimmed = brandName.trim();
     const parts = trimmed.split(/\s+/);
     if (parts.length > 1) {
@@ -43,7 +75,7 @@ export const SidebarBrand: React.FC<SidebarBrandProps> = ({
       mainPart: trimmed,
       subPart: ''
     };
-  }, [brandName]);
+  }, [brandName, customSubtitle]);
 
   const handleLogoClick = () => {
     const now = Date.now();
@@ -61,87 +93,135 @@ export const SidebarBrand: React.FC<SidebarBrandProps> = ({
   };
 
   return (
-    <div 
-      onClick={handleLogoClick} 
-      className={`flex items-center bg-gradient-to-b ${themeClasses.logoArea} overflow-hidden cursor-pointer select-none ${
-        isCollapsed ? 'px-5 py-8 justify-center' : 'px-8 py-8'
-      }`}
-    >
-      <motion.div 
-        initial={{ rotate: -10, scale: 0.9, opacity: 0 }}
-        animate={{ rotate: 0, scale: 1, opacity: 1 }}
-        transition={{ duration: 0.8, ease: "easeOut" }}
-        className={`
-          ${themeClasses.iconBg} rounded-2xl flex items-center justify-center shrink-0 sidebar-icon relative overflow-hidden group transition-all duration-300
-          ${isCollapsed ? 'w-12 h-12' : 'w-12 h-12 mr-4'}
-        `}
+    <div className={`bg-gradient-to-b ${themeClasses.logoArea} select-none`}>
+      <div 
+        onClick={handleLogoClick} 
+        className={`flex items-center overflow-hidden cursor-pointer ${
+          isCollapsed ? 'px-5 pt-7 pb-3 justify-center' : 'px-8 pt-7 pb-3'
+        }`}
       >
-        <Sparkles className="w-7 h-7 stroke-[2.5px] relative z-10 transition-transform duration-300 group-hover:scale-110" />
         <motion.div 
-          animate={{ 
-            x: ['-100%', '200%'],
-          }}
-          transition={{ 
-            duration: 2, 
-            repeat: Infinity, 
-            repeatDelay: 3,
-            ease: "linear" 
-          }}
-          className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12"
-        />
-      </motion.div>
-      
-      {!isCollapsed && (
-        <div className="sidebar-item-text overflow-hidden">
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            variants={{
-              hidden: { opacity: 0 },
-              visible: {
-                opacity: 1,
-                transition: { staggerChildren: 0.05, delayChildren: 0.1 }
-              }
-            }}
-            className="flex items-center flex-wrap"
-          >
-            {mainPart.split('').map((char, i) => (
-              <motion.span
-                key={`${char}-${i}`}
-                variants={{
-                  hidden: { opacity: 0, y: 5 },
-                  visible: { opacity: 1, y: 0 }
-                }}
-                className={`text-xl font-bold ${themeClasses.text} tracking-tight leading-none font-inter drop-shadow-sm`}
-              >
-                {char === ' ' ? '\u00A0' : char}
-              </motion.span>
-            ))}
-          </motion.div>
-          
-          {subPart ? (
-            <motion.div
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.5, duration: 0.4 }}
-              className="flex items-center gap-1.5 mt-1"
-            >
-              <div className={`h-[2px] w-4 ${themeClasses.brandAccentBg} rounded-full`} />
-              <p className={`text-[10px] font-bold ${themeClasses.brandAccentText} tracking-[0.3em] uppercase font-inter`}>{subPart}</p>
-              <div className={`h-[2px] flex-1 bg-gradient-to-r ${themeClasses.brandAccentGradient} to-transparent rounded-full`} />
-            </motion.div>
+          initial={{ rotate: -10, scale: 0.9, opacity: 0 }}
+          animate={{ rotate: 0, scale: 1, opacity: 1 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className={`
+            ${themeClasses.iconBg} rounded-2xl flex items-center justify-center shrink-0 sidebar-icon relative overflow-hidden group transition-all duration-300
+            ${isCollapsed ? 'w-12 h-12' : 'w-12 h-12 mr-4'}
+          `}
+        >
+          {logoUrl && !imgError ? (
+            <img 
+              src={logoUrl} 
+              alt={brandName}
+              onError={() => setImgError(true)}
+              className="w-8 h-8 object-contain relative z-10 transition-transform duration-300 group-hover:scale-110 drop-shadow-sm select-none"
+            />
           ) : (
-            <motion.div
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.5, duration: 0.4 }}
-              className="flex items-center gap-1.5 mt-1"
-            >
-              <div className={`h-[2px] flex-1 bg-gradient-to-r ${themeClasses.brandAccentGradient} to-transparent rounded-full`} />
-            </motion.div>
+            <Sparkles className="w-7 h-7 stroke-[2.5px] relative z-10 transition-transform duration-300 group-hover:scale-110" />
           )}
-        </div>
-      )}
+          <motion.div 
+            animate={{ 
+              x: ['-100%', '200%'],
+            }}
+            transition={{ 
+              duration: 2, 
+              repeat: Infinity, 
+              repeatDelay: 3,
+              ease: "linear" 
+            }}
+            className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent skew-x-12 pointer-events-none"
+          />
+        </motion.div>
+        
+        {!isCollapsed && (
+          <div className="sidebar-item-text overflow-hidden">
+            <motion.div
+              initial="hidden"
+              animate="visible"
+              variants={{
+                hidden: { opacity: 0 },
+                visible: {
+                  opacity: 1,
+                  transition: { staggerChildren: 0.05, delayChildren: 0.1 }
+                }
+              }}
+              className="flex items-center flex-wrap"
+            >
+              {mainPart.split('').map((char, i) => (
+                <motion.span
+                  key={`${char}-${i}`}
+                  variants={{
+                    hidden: { opacity: 0, y: 5 },
+                    visible: { opacity: 1, y: 0 }
+                  }}
+                  className={`text-xl font-bold ${themeClasses.text} tracking-tight leading-none font-inter drop-shadow-sm`}
+                >
+                  {char === ' ' ? '\u00A0' : char}
+                </motion.span>
+              ))}
+            </motion.div>
+            
+            {subPart ? (
+              <motion.div
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.5, duration: 0.4 }}
+                className="flex items-center gap-1.5 mt-1"
+              >
+                <div className={`h-[2px] w-4 ${themeClasses.brandAccentBg} rounded-full`} />
+                <p className={`text-[10px] font-bold ${themeClasses.brandAccentText} tracking-[0.3em] uppercase font-inter`}>{subPart}</p>
+                <div className={`h-[2px] flex-1 bg-gradient-to-r ${themeClasses.brandAccentGradient} to-transparent rounded-full`} />
+              </motion.div>
+            ) : (
+              <motion.div
+                initial={{ opacity: 0, x: -10 }}
+                animate={{ opacity: 1, x: 0 }}
+                transition={{ delay: 0.5, duration: 0.4 }}
+                className="flex items-center gap-1.5 mt-1"
+              >
+                <div className={`h-[2px] flex-1 bg-gradient-to-r ${themeClasses.brandAccentGradient} to-transparent rounded-full`} />
+              </motion.div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Multi-Tenant Workspace Switcher Button */}
+      <div className={isCollapsed ? 'px-3 pb-4 flex justify-center' : 'px-5 pb-4'}>
+        <button
+          type="button"
+          onClick={() => openSwitcherModal('SWITCH')}
+          title={`Workspace: ${currentOrg.name} (คลิกเพื่อสลับองค์กร / รหัสเชิญ)`}
+          className={`w-full rounded-xl border border-slate-200/70 dark:border-white/10 bg-white/60 dark:bg-slate-800/60 hover:bg-white dark:hover:bg-slate-800 backdrop-blur-sm transition-all flex items-center ${
+            isCollapsed ? 'p-2.5 justify-center' : 'px-3 py-2 justify-between gap-2'
+          }`}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            <div className="w-6 h-6 rounded-lg bg-indigo-600/10 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0 relative">
+              <Building2 className="w-3.5 h-3.5" />
+              {pendingJoinRequests.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-500" />
+              )}
+            </div>
+            {!isCollapsed && (
+              <div className="min-w-0 text-left">
+                <p className="text-xs font-bold text-slate-800 dark:text-slate-100 truncate">
+                  {currentOrg.name}
+                </p>
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 truncate font-mono tabular-nums">
+                  {myOrganizations.length > 1
+                    ? `${myOrganizations.length} Workspaces · ${currentOrg.inviteCode}`
+                    : `Code: ${currentOrg.inviteCode}`}
+                </p>
+              </div>
+            )}
+          </div>
+          {!isCollapsed && (
+            <ChevronsUpDown className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+          )}
+        </button>
+      </div>
     </div>
   );
 };
+

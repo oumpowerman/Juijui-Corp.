@@ -14,11 +14,12 @@ import { getLandingSettings, LandingSettings, MOCKUP_SETTINGS } from '../../serv
 
 interface LandingPageProps {
   onGoToLogin: () => void;
+  onStartDemo?: () => void;
 }
 
 export type LandingView = 'HOME' | 'FEATURES' | 'PRICING' | 'FAQS' | 'UPDATES' | 'PRIVACY' | 'TERMS';
 
-const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
+const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin, onStartDemo }) => {
   const [currentView, setCurrentView] = useState<LandingView>('HOME');
   const [settings, setSettings] = useState<LandingSettings>(MOCKUP_SETTINGS);
   const [isContactOpen, setIsContactOpen] = useState(false);
@@ -63,7 +64,8 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
       <Navbar 
         currentView={currentView} 
         onNavigate={handleNavigate} 
-        onLogin={onGoToLogin} 
+        onLogin={onGoToLogin}
+        onStartDemo={onStartDemo || onGoToLogin}
       />
 
       <main>
@@ -78,6 +80,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin }) => {
             {currentView === 'HOME' && (
               <Hero 
                 onStart={onGoToLogin} 
+                onStartDemo={onStartDemo || onGoToLogin}
                 onSeeFeatures={() => setCurrentView('FEATURES')} 
                 videoConfig={settings?.hero_video}
               />

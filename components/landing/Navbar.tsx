@@ -9,9 +9,10 @@ interface NavbarProps {
   currentView: LandingView;
   onNavigate: (view: LandingView) => void;
   onLogin: () => void;
+  onStartDemo?: () => void;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onLogin }) => {
+const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onLogin, onStartDemo }) => {
   return (
     <nav className="sticky top-0 z-50 bg-white/70 backdrop-blur-xl border-b border-purple-50">
       <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
@@ -54,18 +55,19 @@ const Navbar: React.FC<NavbarProps> = ({ currentView, onNavigate, onLogin }) => 
           </button>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <button 
             onClick={onLogin}
-            className="text-sm font-bold text-purple-600 hover:text-purple-700 px-4 py-2"
+            className="text-sm font-bold text-slate-700 hover:text-purple-600 px-3 py-2 whitespace-nowrap"
           >
             เข้าสู่ระบบ
           </button>
           <button 
-            onClick={onLogin}
-            className="hidden sm:block text-sm font-bold bg-purple-600 text-white px-6 py-2.5 rounded-full hover:bg-purple-700 hover:shadow-lg hover:shadow-purple-100 transition-all active:scale-95"
+            onClick={onStartDemo || onLogin}
+            className="hidden sm:flex items-center gap-1.5 text-sm font-bold bg-purple-600 text-white px-5 py-2.5 rounded-full hover:bg-purple-700 hover:shadow-lg hover:shadow-purple-100 transition-all active:scale-95 whitespace-nowrap"
           >
-            เริ่มใช้งานฟรี
+            <Sparkles className="w-4 h-4" />
+            <span>ทดลองเล่นฟรี 10 นาที</span>
           </button>
         </div>
       </div>

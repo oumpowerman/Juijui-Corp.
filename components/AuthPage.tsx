@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, AlertCircle } from 'lucide-react';
+import { ArrowRight, AlertCircle, Sparkles } from 'lucide-react';
 import ImageCropper from './ImageCropper';
+import { hasDemoIntentFlag } from '../context/DemoSandboxContext';
 
 // Modular Auth Sub-components
 import { BrandSection } from './auth/BrandSection';
@@ -205,6 +206,42 @@ const AuthPage: React.FC<AuthPageProps> = ({
                   </div>
                 )}
 
+                {/* Demo Sandbox Intent Banner */}
+                {hasDemoIntentFlag() && (isLogin || isRegister) && (
+                  <div className="mb-5 p-3.5 rounded-2xl bg-gradient-to-r from-indigo-900 to-purple-900 text-white border border-indigo-400/30 flex items-start gap-3 shadow-md">
+                    <Sparkles className="w-5 h-5 shrink-0 mt-0.5 text-indigo-300" />
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-white">
+                        โหมดทดลองเล่นระบบจริง (ฟรี 10 นาที / 1 บัญชี)
+                      </p>
+                      <p className="text-[11px] font-medium text-indigo-200 mt-0.5 leading-relaxed">
+                        เข้าสู่ระบบด้วย Google, Facebook หรือบัญชีเว็บไซต์เพื่อเข้าสู่โหมด Sandbox ทันที (นับเวลาเฉพาะตอนเปิดหน้าเว็บเล่นอยู่)
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Onboarding Code Detected Banner in Login Mode */}
+                {isLogin && registerForm.onboardingCode && (
+                  <div className="mb-5 p-3.5 rounded-2xl bg-indigo-50/90 border border-indigo-200/80 flex items-center justify-between gap-3 shadow-sm">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-indigo-900">
+                        ตรวจพบรหัสองค์กร: <span className="font-mono bg-white px-2 py-0.5 rounded-md border border-indigo-200 text-indigo-700">{registerForm.onboardingCode}</span>
+                      </p>
+                      <p className="text-[11px] font-semibold text-indigo-600/90 mt-0.5">
+                        เข้าสู่ระบบด้วยบัญชีเดิม หรือสลับไปแท็บสมัครสมาชิกเพื่อใช้รหัสนี้ทันที
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => toggleMode('REGISTER')}
+                      className="shrink-0 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-colors shadow-sm"
+                    >
+                      ไปหน้าสมัคร
+                    </button>
+                  </div>
+                )}
+
                 {/* Rendering corresponding active sub-forms */}
                 {isLogin ? (
                   <LoginForm
@@ -218,6 +255,7 @@ const AuthPage: React.FC<AuthPageProps> = ({
                     onSubmit={loginForm.handleLoginSubmit}
                     onForgotPasswordClick={() => toggleMode('FORGOT')}
                     onGoogleSignIn={loginForm.handleGoogleSignIn}
+                    onFacebookSignIn={loginForm.handleFacebookSignIn}
                   />
                 ) : isRegister ? (
                   <RegisterForm
@@ -247,6 +285,8 @@ const AuthPage: React.FC<AuthPageProps> = ({
                     companyId={registerForm.companyId}
                     setCompanyId={registerForm.setCompanyId}
                     companies={registerForm.companies}
+                    onboardingCode={registerForm.onboardingCode}
+                    setOnboardingCode={registerForm.setOnboardingCode}
                     avatarPreview={registerForm.avatarPreview}
                     isConvertingImg={registerForm.isConvertingImg}
                     fileInputRef={registerForm.fileInputRef}

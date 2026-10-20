@@ -2,6 +2,7 @@
 import { supabase } from '../../lib/supabase';
 import { ChatMessage, User } from '../../types';
 import { useToast } from '../../context/ToastContext';
+import { getOrgStoragePath } from '../../lib/tenantStorage';
 
 export const useChatActions = (
     currentUser: User | null, 
@@ -102,7 +103,8 @@ export const useChatActions = (
                 publicUrl = await customUploader(file);
             } else {
                 const fileExt = file.name.split('.').pop();
-                const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+                const rawFileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+                const fileName = getOrgStoragePath(rawFileName);
                 
                 const { error: uploadError } = await supabase.storage
                     .from('chat-files') 

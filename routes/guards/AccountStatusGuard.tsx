@@ -6,6 +6,7 @@ import InactiveScreen from '../../components/InactiveScreen';
 import DeathScreen from '../../components/gamification/DeathScreen';
 import { MissingProfileScreen } from '../../components/auth/MissingProfileScreen';
 import { User } from '../../types';
+import { useDemoSandbox } from '../../context/DemoSandboxContext';
 
 interface AccountStatusGuardProps {
   isManagerLoading: boolean;
@@ -20,6 +21,8 @@ export const AccountStatusGuard: React.FC<AccountStatusGuardProps> = ({
   onLogout,
   children,
 }) => {
+  const { isDemoMode } = useDemoSandbox();
+
   if (isManagerLoading) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50 flex-col">
@@ -27,6 +30,10 @@ export const AccountStatusGuard: React.FC<AccountStatusGuardProps> = ({
         <p className="text-gray-500 font-medium animate-pulse">กำลังเชื่อมต่อฐานข้อมูล...</p>
       </div>
     );
+  }
+
+  if (isDemoMode) {
+    return <>{children}</>;
   }
 
   if (!currentUserProfile) {
@@ -47,3 +54,4 @@ export const AccountStatusGuard: React.FC<AccountStatusGuardProps> = ({
 
   return <>{children}</>;
 };
+

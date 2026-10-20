@@ -3,6 +3,7 @@ import { isSameDay, subDays } from 'date-fns';
 import { User, AnnualHoliday } from '../types';
 import { isHolidayOrException, countWorkingDaysLate, isUserOnLeave } from '../utils/judgeUtils';
 import { toValidUuid } from '../utils/gamificationUtils';
+import { getActiveOrgIdSync } from '../lib/tenantStorage';
 
 export const useDutyJudge = (
     currentUser: User | null,
@@ -81,17 +82,20 @@ export const useDutyJudge = (
             .neq('penalty_status', 'EXCUSED');
 
         if (!dutyError && missedDuties && missedDuties.length > 0) {
+            const activeOrgId = getActiveOrgIdSync();
             // Check if user has a NEW duty today (to trigger Negligence Protocol)
             const { data: todayDutyData } = await supabase
                 .from('duties')
-                .select('id')
+                .select('id, org_id')
                 .eq('assignee_id', currentUser.id)
                 .eq('date', todayStr)
-                .limit(1);
+                .limit(5);
             
-            const hasNewDutyToday = todayDutyData && todayDutyData.length > 0;
+            const scopedTodayDuties = (todayDutyData || []).filter((d: any) => !d.org_id || !activeOrgId || d.org_id === activeOrgId);
+            const hasNewDutyToday = scopedTodayDuties.length > 0;
 
             for (const duty of missedDuties) {
+                if (duty.org_id && activeOrgId && duty.org_id !== activeOrgId) continue;
                 if (isProcessingRef.current.has(duty.id)) continue;
 
                 const dutyDateStr = duty.date; 

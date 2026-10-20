@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, User, Briefcase, Mail, Phone, Lock, Quote, ArrowRight, Loader2, Building2 } from 'lucide-react';
+import { Sparkles, User, Briefcase, Mail, Phone, Lock, Quote, ArrowRight, Loader2, Building2, KeyRound, ShieldCheck, Users } from 'lucide-react';
 import FormInputField from '../common/FormInputField';
 import FormTextareaField from '../common/FormTextareaField';
 import FilterDropdown from '../common/FilterDropdown';
@@ -37,6 +37,8 @@ export interface RegisterFormProps {
   companyId?: string;
   setCompanyId?: (val: string) => void;
   companies?: Company[];
+  onboardingCode?: string;
+  setOnboardingCode?: (val: string) => void;
   
   positions: { key: string; label: string }[];
   avatarPreview: string | null;
@@ -92,6 +94,8 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
   companyId,
   setCompanyId,
   companies = [],
+  onboardingCode = '',
+  setOnboardingCode,
   positions,
   avatarPreview,
   isConvertingImg,
@@ -223,9 +227,60 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
     onSubmit(e);
   };
 
+  const trimmedCode = onboardingCode.trim().toUpperCase();
+  const isClaimTokenFormat = trimmedCode.startsWith('CLAIM-') || trimmedCode.startsWith('OWN-');
+
   return (
     <>
       <form onSubmit={handleFormSubmit} className="space-y-4" noValidate>
+        {/* Optional Multi-Tenant Onboarding Code Card (Invite Code or Owner Claim Token) */}
+        <div
+          id="register-onboardingCode-container"
+          className={`p-4 rounded-2xl border transition-all duration-300 ${
+            trimmedCode
+              ? isClaimTokenFormat
+                ? 'bg-emerald-50/70 border-emerald-200 shadow-sm'
+                : 'bg-indigo-50/70 border-indigo-200 shadow-sm'
+              : 'bg-slate-50/80 border-slate-200/80'
+          }`}
+        >
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+              <KeyRound className={`w-4 h-4 ${trimmedCode ? (isClaimTokenFormat ? 'text-emerald-600' : 'text-indigo-600') : 'text-slate-400'}`} />
+              <span>รหัสเชิญเข้าทีม / รหัสรับมอบองค์กร (ถ้ามี)</span>
+            </label>
+            <span className="text-[11px] font-semibold text-slate-400">เว้นว่างเพื่อกรอกทีหลังได้</span>
+          </div>
+
+          <input
+            type="text"
+            value={onboardingCode}
+            onChange={(e) => setOnboardingCode?.(e.target.value.toUpperCase())}
+            placeholder="เช่น ORG-XXXX หรือ CLAIM-XXXXXX-XXXXXX"
+            className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none font-mono text-sm font-bold text-slate-800 placeholder:font-sans placeholder:font-normal placeholder:text-slate-400 transition-all uppercase tracking-wider"
+          />
+
+          {trimmedCode ? (
+            <div className={`mt-2 flex items-center gap-2 text-xs font-bold ${isClaimTokenFormat ? 'text-emerald-700' : 'text-indigo-700'}`}>
+              {isClaimTokenFormat ? (
+                <>
+                  <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-600" />
+                  <span>รหัสรับมอบองค์กร (Owner Claim): ปลดล็อกสิทธิ์ OWNER และเข้าใช้งานทันทีหลังสมัคร</span>
+                </>
+              ) : (
+                <>
+                  <Users className="w-4 h-4 shrink-0 text-indigo-600" />
+                  <span>รหัสเชิญเข้าทีม (Invite Code): ระบบจะส่งคำขอเข้าร่วมองค์กรให้อัตโนมัติ</span>
+                </>
+              )}
+            </div>
+          ) : (
+            <p className="mt-1.5 text-[11px] font-semibold text-slate-500">
+              หากคุณได้รับรหัสจากหัวหน้าทีมหรือลิงก์เปิดองค์กรใหม่ สามารถกรอกที่นี่ หรือข้ามไปกรอกในหน้ารออนุมัติภายหลังได้ครับ
+            </p>
+          )}
+        </div>
+
         {/* Avatar Image Selection */}
         <AvatarUploadSection
           avatarPreview={avatarPreview}
@@ -510,7 +565,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
           <button 
             type="submit" 
             disabled={isLoading || isConvertingImg}
-            className={`w-full py-4 rounded-xl font-black text-white text-base shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 ${isLoading || isConvertingImg ? 'opacity-50 cursor-not-allowed' : ''} bg-gradient-to-r from-pink-500 to-rose-500 shadow-pink-200`}
+            className={`w-full py-4 rounded-xl font-bold text-white text-base shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 ${isLoading || isConvertingImg ? 'opacity-50 cursor-not-allowed' : ''} bg-gradient-to-r from-pink-500 to-rose-500 shadow-pink-200`}
           >
             {isLoading || isConvertingImg ? (
               <>

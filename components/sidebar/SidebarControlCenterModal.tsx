@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Check, Settings, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Check, Lock, Settings, ToggleLeft, ToggleRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MenuGroup } from '../../types';
 import { MENU_GROUPS } from '../Sidebar';
+import { useOrganization } from '../../context/OrganizationContext';
 
 interface SidebarControlCenterModalProps {
   isOpen: boolean;
@@ -17,29 +17,33 @@ export const SidebarControlCenterModal: React.FC<SidebarControlCenterModalProps>
   activeViews,
   onSave
 }) => {
+  const { currentOrg, isModuleAllowed, isSuperAdmin } = useOrganization();
   const [selectedMenus, setSelectedMenus] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   // Initialize selected menus when modal opens or activeViews change
   useEffect(() => {
     if (isOpen) {
-      const initialSelected = activeViews || MENU_GROUPS.flatMap(g => g.items.map(item => item.view));
+      const licensedKeys = MENU_GROUPS.flatMap(g => g.items.map(item => item.view)).filter(v => isModuleAllowed(v));
+      const initialSelected = activeViews
+        ? activeViews.filter(v => isModuleAllowed(v))
+        : licensedKeys;
       setSelectedMenus(initialSelected);
     }
-  }, [isOpen, activeViews]);
+  }, [isOpen, activeViews, isModuleAllowed]);
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      await onSave(selectedMenus);
+      await onSave(selectedMenus.filter(v => isModuleAllowed(v)));
     } finally {
       setIsSaving(false);
     }
   };
 
   const handleSelectAll = () => {
-    const all = MENU_GROUPS.flatMap(g => g.items.map(item => item.view));
-    setSelectedMenus(all);
+    const allLicensed = MENU_GROUPS.flatMap(g => g.items.map(item => item.view)).filter(v => isModuleAllowed(v));
+    setSelectedMenus(allLicensed);
   };
 
   const handleClearAll = () => {
@@ -68,10 +72,12 @@ export const SidebarControlCenterModal: React.FC<SidebarControlCenterModalProps>
                   <Settings className="w-6 h-6 animate-spin" style={{ animationDuration: '6s' }} />
                 </div>
                 <div>
-                  <h2 className="text-xl font-black tracking-tight flex items-center gap-2">
-                    Sidebar Control Center 🛠️
+                  <h2 className="text-xl font-bold tracking-tight flex items-center gap-2">
+                    Sidebar Control Center ({currentOrg.name})
                   </h2>
-                  <p className="text-xs text-slate-400 mt-0.5">เปิด-ปิดเมนูระบบตามสเปกที่ลูกค้าสั่งซื้อ บันทึกลงฐานข้อมูลเพื่อใช้งานร่วมกัน</p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    ปรับแต่งการแสดงผลเมนูขององค์กรภายใต้แพ็กเกจ {currentOrg.planTier || 'ENTERPRISE'} {isSuperAdmin ? '(Super Admin สามารถจัดการสิทธิ์ระดับแพ็กเกจได้ที่หน้า Multi-Tenant SaaS)' : ''}
+                  </p>
                 </div>
               </div>
               <div className="flex gap-2">
@@ -79,7 +85,7 @@ export const SidebarControlCenterModal: React.FC<SidebarControlCenterModalProps>
                   onClick={handleSelectAll}
                   className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-xl text-xs font-bold transition-colors"
                 >
-                  เลือกทั้งหมด
+                  เลือกทั้งหมดที่ได้รับสิทธิ์
                 </button>
                 <button
                   onClick={handleClearAll}
@@ -97,18 +103,22 @@ export const SidebarControlCenterModal: React.FC<SidebarControlCenterModalProps>
                   <div key={group.id} className="bg-slate-950/40 border border-slate-800/60 rounded-2xl p-5 space-y-4">
                     <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
                       {React.createElement(group.icon, { className: "w-5 h-5 text-indigo-400" })}
-                      <h4 className="text-sm font-black uppercase tracking-wider text-slate-300">
+                      <h4 className="text-sm font-bold uppercase tracking-wider text-slate-300">
                         {group.title} Group
                       </h4>
                     </div>
                     
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {group.items.map((item) => {
-                        const isSelected = selectedMenus.includes(item.view);
+                        const isLicensed = isModuleAllowed(item.view);
+                        const isSelected = isLicensed && selectedMenus.includes(item.view);
                         return (
                           <button
                             key={item.view}
+                            type="button"
+                            disabled={!isLicensed}
                             onClick={() => {
+                              if (!isLicensed) return;
                               if (isSelected) {
                                 setSelectedMenus(selectedMenus.filter(v => v !== item.view));
                               } else {
@@ -116,16 +126,20 @@ export const SidebarControlCenterModal: React.FC<SidebarControlCenterModalProps>
                               }
                             }}
                             className={`flex items-center justify-between p-3 rounded-xl border transition-all text-left group
-                              ${isSelected 
+                              ${!isLicensed
+                                ? 'bg-slate-950/60 border-slate-800/30 text-slate-600 opacity-60 cursor-not-allowed'
+                                : isSelected 
                                 ? 'bg-indigo-600/10 border-indigo-500/40 text-white' 
                                 : 'bg-slate-900/50 border-slate-800/50 text-slate-400 hover:border-slate-700 hover:text-slate-200'}`}
                           >
-                            <div className="flex items-center gap-2.5">
-                              {React.createElement(item.icon, { className: `w-4 h-4 ${isSelected ? 'text-indigo-400' : 'text-slate-500'}` })}
-                              <span className="text-xs font-bold">{item.label}</span>
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              {React.createElement(item.icon, { className: `w-4 h-4 shrink-0 ${isSelected ? 'text-indigo-400' : 'text-slate-500'}` })}
+                              <span className="text-xs font-bold truncate">{item.label}</span>
                             </div>
-                            <div>
-                              {isSelected ? (
+                            <div className="shrink-0">
+                              {!isLicensed ? (
+                                <Lock className="w-4 h-4 text-slate-600" />
+                              ) : isSelected ? (
                                 <ToggleRight className="w-6 h-6 text-indigo-400" />
                               ) : (
                                 <ToggleLeft className="w-6 h-6 text-slate-600" />

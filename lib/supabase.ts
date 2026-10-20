@@ -35,6 +35,10 @@ if (!supabaseUrl || !supabaseAnonKey) {
     console.warn("⚠️ Supabase credentials missing. Please check your .env file.");
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+import { createDemoAwareSupabaseClient } from './demoSandboxEngine';
+
+export const rawSupabase = createClient(supabaseUrl, supabaseAnonKey);
+export const supabase = createDemoAwareSupabaseClient(rawSupabase);
+
 
 

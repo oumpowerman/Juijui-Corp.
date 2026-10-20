@@ -32,6 +32,8 @@ import ContentAlertRulesView from './admin/master/views/ContentAlertRulesView';
 import FollowerSyncConfigView from './admin/master/views/FollowerSyncConfigView';
 import PillarCategoryMasterView from './admin/master/views/PillarCategoryMasterView';
 import ChecklistAlertRulesView from './admin/master/views/ChecklistAlertRulesView';
+import BrandConfigMasterView from './admin/master/views/BrandConfigMasterView';
+import MultiTenantSaaSView from './admin/master/views/MultiTenantSaaSView';
 import MasterDataTabConfigModal from './admin/master/MasterDataTabConfigModal';
 
 const MasterDataManager: React.FC = () => {
@@ -300,6 +302,15 @@ const MasterDataManager: React.FC = () => {
                                         onUpdate={updateMasterOption}
                                         onAdd={addMasterOption}
                                     />
+                                ) : activeTab === 'BRAND_CONFIG' ? (
+                                    <BrandConfigMasterView 
+                                        masterOptions={masterOptions}
+                                        onUpdate={updateMasterOption}
+                                        onAdd={addMasterOption}
+                                        onDelete={deleteMasterOption}
+                                    />
+                                ) : activeTab === 'MULTI_TENANT_SAAS' ? (
+                                    <MultiTenantSaaSView />
                                 ) : activeTab === 'GREETINGS' ? (
                                     <div className="space-y-6">
                                         <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">

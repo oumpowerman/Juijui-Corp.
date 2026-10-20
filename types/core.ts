@@ -7,8 +7,75 @@ export type EmploymentType = 'FULL_TIME' | 'PROBATION' | 'INTERN' | 'FREELANCE' 
 
 export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'DEATH';
 
+export type OrganizationRole = 'OWNER' | 'ADMIN' | 'MEMBER';
+export type OrganizationMemberStatus = 'ACTIVE' | 'PENDING' | 'REJECTED';
+export type PlanTier = 'STARTER' | 'PRO' | 'ENTERPRISE' | 'LIFETIME';
+export type SubscriptionStatus = 'TRIAL' | 'ACTIVE' | 'GRACE_PERIOD' | 'PAST_DUE' | 'EXPIRED' | 'SUSPENDED';
+
+export interface Organization {
+    id: string;
+    name: string;
+    slug: string;
+    description?: string;
+    logoUrl?: string;
+    color?: string;
+    inviteCode: string;
+    inviteEnabled: boolean;
+    ownerId?: string | null;
+    planTier?: PlanTier;
+    subscriptionStatus?: SubscriptionStatus;
+    expiresAt?: Date | null;
+    gracePeriodDays?: number;
+    maxMembers?: number;
+    allowedModules?: string[] | null;
+    ownerClaimToken?: string | null;
+    billingEmail?: string | null;
+    externalCustomerId?: string | null;
+    memberCount?: number;
+    isActive: boolean;
+    createdAt?: Date;
+    updatedAt?: Date;
+}
+
+export interface SubscriptionInvoice {
+    id: string;
+    orgId: string;
+    orgName?: string;
+    invoiceNumber: string;
+    planTier: PlanTier;
+    amount: number;
+    currency: string;
+    billingCycle: 'MONTHLY' | 'YEARLY' | 'LIFETIME';
+    paymentMethod: 'STRIPE' | 'OMISE' | 'BANK_TRANSFER' | 'MANUAL';
+    paymentStatus: 'PENDING' | 'PAID' | 'REJECTED' | 'FAILED';
+    slipUrl?: string | null;
+    note?: string | null;
+    externalChargeId?: string | null;
+    periodStart?: Date | null;
+    periodEnd?: Date | null;
+    approvedBy?: string | null;
+    createdAt: Date;
+}
+
+export interface OrganizationMember {
+    id: string;
+    orgId: string;
+    userId: string;
+    role: OrganizationRole;
+    status: OrganizationMemberStatus;
+    joinedAt?: Date;
+    user?: {
+        id: string;
+        name: string;
+        email: string;
+        avatarUrl?: string;
+        position?: string;
+    };
+}
+
 export interface Company {
     id: string;
+    orgId?: string | null;
     name: string;
     shortName: string;
     code?: string;
@@ -48,7 +115,9 @@ export interface User {
     lastReadChatAt?: Date;
     lastReadNotificationAt?: Date;
     
-    // Multi-Company Affiliate
+    // Multi-Tenant SaaS Organization & Sub-Company Affiliate
+    isSuperAdmin?: boolean;
+    currentOrgId?: string | null;
     companyId?: string | null;
     company?: Company | null;
     
@@ -92,3 +161,4 @@ export interface User {
     // PWA App Version Tracking
     appVersion?: string;
 }
+

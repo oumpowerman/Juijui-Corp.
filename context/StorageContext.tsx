@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { supabase } from '../lib/supabase';
 import { StorageConfig } from '../types';
 import { useToast } from './ToastContext';
+import { getOrgChannelName } from '../lib/tenantStorage';
 
 interface StorageContextType {
     storageConfigs: StorageConfig[];
@@ -95,14 +96,18 @@ export const StorageProvider: React.FC<{ children: React.ReactNode }> = ({ child
     useEffect(() => {
         fetchConfigs();
 
-        const channel = supabase.channel('storage_config_changes')
+        const channel = supabase.channel(getOrgChannelName('storage_config_changes'))
             .on('postgres_changes', { event: '*', schema: 'public', table: 'storage_config' }, () => {
                 fetchConfigs();
             })
             .subscribe();
 
+        const handleOrgSwitched = () => fetchConfigs();
+        window.addEventListener('org-workspace-switched', handleOrgSwitched);
+
         return () => {
             supabase.removeChannel(channel);
+            window.removeEventListener('org-workspace-switched', handleOrgSwitched);
         };
     }, [fetchConfigs]);
 

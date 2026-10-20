@@ -4,14 +4,16 @@ import { motion } from 'framer-motion';
 import { ArrowRight, Play, CheckCircle2, Star, Sparkles } from 'lucide-react';
 import { HeroVideo } from '../../services/landingService';
 import { BRAND_CONFIG } from '../../config/brand.ts';
+import { HeroMotionShowcase } from './showcase/HeroMotionShowcase';
 
 interface HeroProps {
   onStart: () => void;
+  onStartDemo?: () => void;
   onSeeFeatures: () => void;
   videoConfig?: HeroVideo;
 }
 
-const Hero: React.FC<HeroProps> = ({ onStart, onSeeFeatures, videoConfig }) => {
+const Hero: React.FC<HeroProps> = ({ onStart, onStartDemo, onSeeFeatures, videoConfig }) => {
   const getVideoEmbedUrl = () => {
     if (!videoConfig?.url) return null;
     const url = videoConfig.url;
@@ -74,65 +76,56 @@ const Hero: React.FC<HeroProps> = ({ onStart, onSeeFeatures, videoConfig }) => {
          </motion.p>
 
         <motion.div 
-          className="flex flex-col sm:flex-row items-center justify-center gap-4"
+          className="flex flex-col sm:flex-row flex-wrap items-center justify-center gap-4"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.6 }}
         >
           <button 
-            onClick={onStart}
-            className="w-full sm:w-auto bg-purple-600 text-white px-10 py-4 rounded-2xl font-bold text-lg shadow-xl shadow-purple-200 hover:bg-purple-700 hover:translate-y-[-2px] transition-all flex items-center justify-center gap-2"
+            onClick={onStartDemo || onStart}
+            className="w-full sm:w-auto bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-600 text-white px-8 py-4 rounded-2xl font-bold text-lg shadow-xl shadow-indigo-200 hover:translate-y-[-2px] transition-all flex items-center justify-center gap-2.5"
           >
-            เริ่มใช้งานฟรี <ArrowRight className="w-5 h-5" />
+            <Sparkles className="w-5 h-5" />
+            <span>ทดลองเล่นระบบจริง (ฟรี 10 นาที)</span>
+          </button>
+          <button 
+            onClick={onStart}
+            className="w-full sm:w-auto bg-slate-900 text-white px-8 py-4 rounded-2xl font-bold text-lg shadow-lg shadow-slate-200 hover:bg-slate-800 hover:translate-y-[-2px] transition-all flex items-center justify-center gap-2"
+          >
+            <span>เข้าสู่ระบบองค์กร</span>
+            <ArrowRight className="w-5 h-5" />
           </button>
           <button 
             onClick={onSeeFeatures}
-            className="w-full sm:w-auto bg-white text-slate-700 border border-slate-200 px-10 py-4 rounded-2xl font-bold text-lg hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
+            className="w-full sm:w-auto bg-white text-slate-700 border border-slate-200 px-8 py-4 rounded-2xl font-bold text-lg hover:bg-slate-50 transition-all flex items-center justify-center gap-2"
           >
             <Play className="w-5 h-5 fill-slate-700" /> ดูฟีเจอร์ทั้งหมด
           </button>
         </motion.div>
 
-        {/* Mockup Preview */}
+        {/* Interactive Motion Showcase Preview */}
         <motion.div 
-          className="mt-20 relative p-2 bg-white rounded-[2rem] shadow-2xl border border-slate-100 max-w-5xl mx-auto"
+          className="mt-16 sm:mt-20 relative p-2 sm:p-3 bg-white rounded-[2rem] shadow-2xl border border-slate-200/80 max-w-5xl mx-auto"
           initial={{ opacity: 0, y: 40 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5, duration: 1 }}
+          transition={{ delay: 0.4, duration: 0.8 }}
         >
-          <div className="bg-slate-50 rounded-[1.5rem] overflow-hidden aspect-[16/9] flex items-center justify-center relative">
-            {embedUrl ? (
-              <iframe
-                src={embedUrl}
-                className="absolute inset-0 w-full h-full border-0"
-                allow="autoplay; encrypted-media; picture-in-picture"
-                allowFullScreen
-                title={`${BRAND_CONFIG.name} Preview`}
-              />
-            ) : (
-              <div className="p-8 text-center">
-                <Sparkles className="w-16 h-16 text-purple-200 mb-4 mx-auto animate-bounce" />
-                <p className="text-slate-400 font-bold">{BRAND_CONFIG.name} Dashboard Preview</p>
-                <div className="mt-8 flex gap-4 justify-center flex-wrap">
-                  <div className="w-32 h-4 bg-slate-200 rounded-full animate-pulse" />
-                  <div className="w-48 h-4 bg-slate-200 rounded-full animate-pulse delay-75" />
-                  <div className="w-24 h-4 bg-slate-200 rounded-full animate-pulse delay-150" />
-                </div>
-              </div>
-            )}
-          </div>
+          <HeroMotionShowcase
+            onStartDemo={onStartDemo || onStart}
+            embedUrl={embedUrl}
+          />
           
           {/* Floating tags */}
-          <div className="absolute -left-4 top-1/4 bg-white p-4 rounded-xl shadow-xl border border-purple-50 hidden md:block">
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="text-green-500 w-5 h-5" />
-              <span className="text-sm font-bold text-slate-700">Calendar Sync</span>
+          <div className="absolute -left-5 top-1/4 bg-white px-4 py-3 rounded-xl shadow-xl border border-purple-100 hidden lg:block z-30">
+            <div className="flex items-center gap-2.5">
+              <CheckCircle2 className="text-emerald-500 w-5 h-5" />
+              <span className="text-xs font-bold text-slate-700">Sun Tracker & Calendar Sync</span>
             </div>
           </div>
-          <div className="absolute -right-6 bottom-1/4 bg-white p-4 rounded-xl shadow-xl border border-indigo-50 hidden md:block">
-            <div className="flex items-center gap-3">
+          <div className="absolute -right-6 bottom-1/4 bg-white px-4 py-3 rounded-xl shadow-xl border border-indigo-100 hidden lg:block z-30">
+            <div className="flex items-center gap-2.5">
               <CheckCircle2 className="text-indigo-500 w-5 h-5" />
-              <span className="text-sm font-bold text-slate-700">Team Collaboration</span>
+              <span className="text-xs font-bold text-slate-700">Quality Gate & RPG Rewards</span>
             </div>
           </div>
         </motion.div>

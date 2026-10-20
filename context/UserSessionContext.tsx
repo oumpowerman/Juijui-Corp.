@@ -82,6 +82,8 @@ const mapProfileToUser = (data: any): User => ({
     waveBgEnabled: data.wave_bg_enabled !== false,
     ultimateWorkroomEnabled: data.ultimate_workroom_enabled !== false,
     emoji: data.emoji || '',
+    isSuperAdmin: Boolean(data.is_super_admin) || (data.email || '').toLowerCase() === 'dramaeveryday222@gmail.com',
+    currentOrgId: data.current_org_id || data.company_org_id || data.currentOrgId || null,
     companyId: data.company_id || data.companyId || null,
     company: data.companies ? mapCompanyFromDB(data.companies) : (data.company || null),
     firstName: data.first_name || '',
@@ -280,7 +282,21 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
             if (currentProfileRes.error) throw currentProfileRes.error;
 
             const activeData = activeProfilesRes.data || [];
-            const currentData = currentProfileRes.data;
+            const currentData = currentProfileRes.data || {
+                id: sessionUser.id,
+                email: sessionUser.email || '',
+                full_name:
+                    sessionUser.user_metadata?.full_name ||
+                    sessionUser.user_metadata?.name ||
+                    (sessionUser.email ? sessionUser.email.split('@')[0] : 'ผู้ใช้งานใหม่'),
+                avatar_url: sessionUser.user_metadata?.avatar_url || '',
+                role: 'MEMBER',
+                position: 'Member',
+                is_approved: false,
+                is_active: true,
+                status: 'ACTIVE',
+                accepted_terms_version: 99
+            };
 
             const userMap = new Map<string, any>();
             activeData.forEach(p => userMap.set(p.id, p));
@@ -762,11 +778,18 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
                 checkDayChange();
             }
         };
+        const handleWorkspaceSwitch = () => {
+            fetchInitialData();
+        };
         document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('org-workspace-switched', handleWorkspaceSwitch);
+        window.addEventListener('demo-sandbox-toggled', handleWorkspaceSwitch);
 
         return () => {
             clearTimeout(timeoutId);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('org-workspace-switched', handleWorkspaceSwitch);
+            window.removeEventListener('demo-sandbox-toggled', handleWorkspaceSwitch);
         };
     }, [fetchInitialData]);
 

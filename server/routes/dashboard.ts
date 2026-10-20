@@ -1,6 +1,7 @@
 import express from 'express';
 import { isSameMonth, isAfter, addDays, isPast, isToday, isBefore } from 'date-fns';
 import { serverSupabase, isTaskCompletedServer, mapDbToTaskServer } from '../utils/supabase.js';
+import { resolveRequestOrgId } from '../utils/tenantContext.js';
 
 const router = express.Router();
 
@@ -12,6 +13,7 @@ router.get('/api/dashboard/stats', async (req, res) => {
 
     try {
         const today = new Date();
+        const activeOrgId = await resolveRequestOrgId(req, userId);
 
         // 1. Fetch configurations
         const { data: configs, error: configError } = await serverSupabase
@@ -25,36 +27,62 @@ router.get('/api/dashboard/stats', async (req, res) => {
         const { data: contents, error: contentError } = await serverSupabase
             .from('contents')
             .select(`
-                id, title, description, status, pillar, category, content_formats, tags,
+                id, org_id, title, description, status, pillar, category, content_formats, tags,
                 start_date, end_date, channel_id, created_at, updated_at, is_unscheduled, remark, scheduled_time,
                 target_platform, assignee_ids, idea_owner_ids, editor_ids, shoot_trip_id,
                 shoot_date, is_in_shoot_queue, is_soft_finished
             `);
         
-        if (contentError) throw contentError;
+        // Fallback if org_id column does not exist yet
+        let resolvedContents = contents;
+        if (contentError) {
+            const { data: fallbackContents, error: fbContentErr } = await serverSupabase
+                .from('contents')
+                .select(`
+                    id, title, description, status, pillar, category, content_formats, tags,
+                    start_date, end_date, channel_id, created_at, updated_at, is_unscheduled, remark, scheduled_time,
+                    target_platform, assignee_ids, idea_owner_ids, editor_ids, shoot_trip_id,
+                    shoot_date, is_in_shoot_queue, is_soft_finished
+                `);
+            if (fbContentErr) throw fbContentErr;
+            resolvedContents = fallbackContents;
+        }
 
         // 3. Fetch tasks
         const { data: dbTasks, error: dbTasksError } = await serverSupabase
             .from('tasks')
             .select(`
-                id, title, status, priority, start_date, end_date, created_at, updated_at, 
+                id, org_id, title, status, priority, start_date, end_date, created_at, updated_at, 
                 assignee_ids, content_id, show_on_board, target_position, roadmap_id, 
                 difficulty, assignee_type, estimated_hours, scheduled_time
             `);
 
-        if (dbTasksError) throw dbTasksError;
+        let resolvedTasks = dbTasks;
+        if (dbTasksError) {
+            const { data: fallbackTasks, error: fbTasksErr } = await serverSupabase
+                .from('tasks')
+                .select(`
+                    id, title, status, priority, start_date, end_date, created_at, updated_at, 
+                    assignee_ids, content_id, show_on_board, target_position, roadmap_id, 
+                    difficulty, assignee_type, estimated_hours, scheduled_time
+                `);
+            if (fbTasksErr) throw fbTasksErr;
+            resolvedTasks = fallbackTasks;
+        }
 
-        // Combine into unified Task model (simplified for stat aggregate)
+        // Combine into unified Task model, strictly filtering by activeOrgId when org_id is present
         const combined: any[] = [];
 
-        if (contents) {
-            contents.forEach((d: any) => {
+        if (resolvedContents) {
+            resolvedContents.forEach((d: any) => {
+                if (activeOrgId && d.org_id && d.org_id !== activeOrgId) return;
                 combined.push(mapDbToTaskServer(d, 'CONTENT'));
             });
         }
 
-        if (dbTasks) {
-            dbTasks.forEach((d: any) => {
+        if (resolvedTasks) {
+            resolvedTasks.forEach((d: any) => {
+                if (activeOrgId && d.org_id && d.org_id !== activeOrgId) return;
                 combined.push(mapDbToTaskServer(d, 'TASK'));
             });
         }

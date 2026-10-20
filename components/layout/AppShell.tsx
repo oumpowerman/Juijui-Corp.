@@ -8,6 +8,7 @@ import { useMasterDataContext } from '../../context/MasterDataContext';
 import { useToast } from '../../context/ToastContext';
 import { PasscodeModal } from '../sidebar/PasscodeModal';
 import { SidebarControlCenterModal } from '../sidebar/SidebarControlCenterModal';
+import { SubscriptionGateOverlay } from '../organization/SubscriptionGateOverlay';
 
 interface AppShellProps {
     currentUser: User;
@@ -154,6 +155,7 @@ const AppShell: React.FC<AppShellProps> = ({
 
             {/* Main Content Area */}
             <main className="flex-1 flex flex-col min-w-0 overflow-hidden relative">
+                <SubscriptionGateOverlay />
                 <div className={`flex-1 min-h-0 ${currentView === 'CHAT' ? 'p-0 overflow-hidden flex flex-col' : isEdgeToEdgeView ? 'p-0 overflow-auto flex flex-col scrollbar-hide' : 'p-4 md:p-6 pb-24 lg:pb-6 overflow-auto scrollbar-hide'}`}>
                     {children}
                 </div>

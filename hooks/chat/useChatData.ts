@@ -1,7 +1,8 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
 import { ChatMessage, User } from '../../types';
+import { getActiveOrgIdSync, getOrgChannelName } from '../../lib/tenantStorage';
 
 const PAGE_SIZE = 20;
 
@@ -52,7 +53,9 @@ export const useChatData = (currentUser: User | null) => {
             if (error) throw error;
 
             if (data) {
-                const mappedMessages = data.map(mapMessage).reverse();
+                const activeOrgId = getActiveOrgIdSync();
+                const orgScopedRows = data.filter((row: any) => !row.org_id || !activeOrgId || row.org_id === activeOrgId);
+                const mappedMessages = orgScopedRows.map(mapMessage).reverse();
                 if (offset === 0) {
                     setMessages(mappedMessages);
                 } else {
@@ -76,16 +79,32 @@ export const useChatData = (currentUser: User | null) => {
         }
     };
 
+    const [activeOrgId, setActiveOrgId] = useState<string>(() => getActiveOrgIdSync());
+
+    useEffect(() => {
+        const handleOrgSwitched = (e: Event) => {
+            const detail = (e as CustomEvent).detail;
+            const nextOrgId = detail?.orgId || getActiveOrgIdSync();
+            setActiveOrgId(nextOrgId);
+            setHasMore(true);
+            fetchMessages(0);
+        };
+        window.addEventListener('org-workspace-switched', handleOrgSwitched);
+        return () => window.removeEventListener('org-workspace-switched', handleOrgSwitched);
+    }, []);
+
     useEffect(() => {
         if (!currentUser?.id) return;
 
-        // Use a shared channel name for all users to ensure consistent real-time updates
-        const channel = supabase.channel('room:team-chat')
+        // Use an organization-scoped channel name to ensure strict real-time chat isolation per Org
+        const channelName = getOrgChannelName('room:team-chat', activeOrgId);
+        const channel = supabase.channel(channelName)
             .on('postgres_changes', { 
                 event: 'INSERT', 
                 schema: 'public', 
                 table: 'team_messages' 
             }, async (payload) => {
+                if (payload.new?.org_id && activeOrgId && payload.new.org_id !== activeOrgId) return;
                 // Fetch full message with profile to ensure we have all data for mapping
                 const { data, error } = await supabase
                     .from('team_messages')
@@ -94,6 +113,7 @@ export const useChatData = (currentUser: User | null) => {
                     .maybeSingle();
                 
                 if (data && !error) {
+                    if (data.org_id && activeOrgId && data.org_id !== activeOrgId) return;
                     const newMessage = mapMessage(data);
                     setMessages(prev => {
                         // Prevent duplicates (especially for the sender who already has an optimistic update)
@@ -114,6 +134,7 @@ export const useChatData = (currentUser: User | null) => {
                 schema: 'public', 
                 table: 'team_messages' 
             }, async (payload) => {
+                if (payload.new?.org_id && activeOrgId && payload.new.org_id !== activeOrgId) return;
                 const { data, error } = await supabase
                     .from('team_messages')
                     .select(`*, profiles (*)`)
@@ -127,16 +148,16 @@ export const useChatData = (currentUser: User | null) => {
             })
             .subscribe((status) => {
                 if (status === 'SUBSCRIBED') {
-                    console.log('Successfully subscribed to real-time chat');
+                    console.log('Successfully subscribed to real-time chat:', channelName);
                 }
             });
 
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [currentUser?.id]);
+    }, [currentUser?.id, activeOrgId]);
 
-    useEffect(() => { fetchMessages(0); }, []);
+    useEffect(() => { fetchMessages(0); }, [activeOrgId]);
 
     return { messages, setMessages, isLoading, isLoadingMore, hasMore, loadMore, mapMessage };
 };

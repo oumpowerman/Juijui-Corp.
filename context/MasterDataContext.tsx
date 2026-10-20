@@ -155,6 +155,22 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         channelsDomain.updateChannelsLocalCache
     ]);
 
+    // Reload master data whenever user switches active Organization Workspace
+    useEffect(() => {
+        const handleWorkspaceSwitched = () => {
+            try {
+                localStorage.removeItem(CACHE_KEY_VERSION);
+                localStorage.removeItem(CACHE_KEY_INVENTORY_VERSION);
+                localStorage.removeItem(CACHE_KEY_CHANNELS_VERSION);
+            } catch {
+                // Ignore storage errors
+            }
+            fetchAllMasterData();
+        };
+        window.addEventListener('org-workspace-switched', handleWorkspaceSwitched);
+        return () => window.removeEventListener('org-workspace-switched', handleWorkspaceSwitched);
+    }, [fetchAllMasterData]);
+
     // 4. Compose Combined Context Value
     const value = useMemo<MasterDataContextType>(() => ({
         masterOptions: masterOptionsDomain.options,

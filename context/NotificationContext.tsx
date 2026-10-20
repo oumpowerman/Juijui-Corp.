@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { User, AppNotification, GameLog } from '../types';
+import { getActiveOrgIdSync, getOrgChannelName } from '../lib/tenantStorage';
 
 interface NotificationContextType {
     notifications: any[];
@@ -159,10 +160,11 @@ export const NotificationProvider: React.FC<{ currentUser: User | null, children
         }
 
         const isAdmin = currentUser.role === 'ADMIN';
+        const activeOrgId = getActiveOrgIdSync();
 
-        // Single Channel for all real-time updates
+        // Single Org-Scoped Channel for all real-time updates
         const channel = supabase
-            .channel(`notification-hub-${currentUser.id}`)
+            .channel(getOrgChannelName(`notification-hub-${currentUser.id}`, activeOrgId))
             // Listen to Notifications (Always personal)
             .on('postgres_changes', { 
                 event: '*', 
@@ -378,8 +380,14 @@ export const NotificationProvider: React.FC<{ currentUser: User | null, children
             }
         });
 
+        const handleOrgSwitched = () => {
+            fetchAllData();
+        };
+        window.addEventListener('org-workspace-switched', handleOrgSwitched);
+
         return () => {
             supabase.removeChannel(channel);
+            window.removeEventListener('org-workspace-switched', handleOrgSwitched);
         };
     }, [currentUser?.id, currentUser?.role, fetchAllData]);
 

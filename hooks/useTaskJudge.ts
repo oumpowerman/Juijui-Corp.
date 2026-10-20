@@ -5,6 +5,7 @@ import { isTaskCompleted } from '../constants';
 import { isUserOnLeave, isHolidayOrException } from '../utils/judgeUtils';
 
 import { toValidUuid } from '../utils/gamificationUtils';
+import { getActiveOrgIdSync } from '../lib/tenantStorage';
 
 export const useTaskJudge = (
     currentUser: User | null,
@@ -78,7 +79,9 @@ export const useTaskJudge = (
             .lt('end_date', todayStr); // งานที่เลย Deadline
 
         if (!taskError && overdueTasks) {
+            const activeOrgId = getActiveOrgIdSync();
             for (const task of overdueTasks) {
+                if (task.org_id && activeOrgId && task.org_id !== activeOrgId) continue;
                 // 1. ถ้างานเสร็จแล้ว หรือเป็นงาน Unscheduled หรือกำลังประมวลผล ข้ามไป
                 const rawStatus = task.status || '';
                 const normalizedStatus = rawStatus.trim().toUpperCase();

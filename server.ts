@@ -16,6 +16,7 @@ import previewRouter from './server/routes/preview.js';
 import channelsRouter from './server/routes/channels.js';
 import cronRouter from './server/routes/cron.js';
 import internAiRouter from './server/routes/internAi.js';
+import billingRouter from './server/routes/billing.js';
 
 const PORT = 3000;
 const app = express();
@@ -50,6 +51,7 @@ app.use(previewRouter);
 app.use(channelsRouter);
 app.use(cronRouter);
 app.use(internAiRouter);
+app.use(billingRouter);
 
 async function startServer() {
     try {

@@ -27,24 +27,30 @@ export function useLoginForm({ onLoginSuccess, onError }: UseLoginFormOptions) {
     try {
       const cleanUsername = username.toLowerCase().trim();
       if (!cleanUsername) {
-        throw new Error('กรุณากรอกชื่อผู้ใช้ด้วยนะครับ');
+        throw new Error('กรุณากรอกชื่อผู้ใช้หรืออีเมลด้วยนะครับ');
       }
 
-      // ค้นหาโปรไฟล์ในตาราง profiles ด้วยเงื่อนไข username
-      const { data: profile, error: profileErr } = await supabase
-        .from('profiles')
-        .select('email')
-        .eq('username', cleanUsername)
-        .maybeSingle();
+      let loginEmail = '';
 
-      if (profileErr) throw profileErr;
-      if (!profile) {
-        throw new Error('ไม่พบชื่อผู้ใช้นี้ในระบบนะครับ');
+      if (cleanUsername.includes('@')) {
+        loginEmail = cleanUsername;
+      } else {
+        // ค้นหาโปรไฟล์ในตาราง profiles ด้วยเงื่อนไข username
+        const { data: profile, error: profileErr } = await supabase
+          .from('profiles')
+          .select('email')
+          .eq('username', cleanUsername)
+          .maybeSingle();
+
+        if (profileErr) throw profileErr;
+        if (!profile) {
+          throw new Error('ไม่พบชื่อผู้ใช้นี้ในระบบนะครับ');
+        }
+
+        loginEmail = profile.email
+          ? profile.email
+          : `${cleanUsername}@juijui-app.com`;
       }
-
-      const loginEmail = profile.email
-        ? profile.email
-        : `${cleanUsername}@juijui-app.com`;
 
       let { error } = await supabase.auth.signInWithPassword({
         email: loginEmail,
@@ -52,7 +58,7 @@ export function useLoginForm({ onLoginSuccess, onError }: UseLoginFormOptions) {
       });
 
       // If it fails and the email was our default mock domain, let's fallback to the old mock domain for backward compatibility
-      if (error && !profile.email) {
+      if (error && !cleanUsername.includes('@')) {
         const fallbackEmail = `${cleanUsername}@juijui.local`;
         const { error: fallbackError } = await supabase.auth.signInWithPassword({
           email: fallbackEmail,
@@ -86,7 +92,27 @@ export function useLoginForm({ onLoginSuccess, onError }: UseLoginFormOptions) {
       });
       if (error) throw error;
     } catch (err: any) {
-      const msg = err.message || 'ระบบเกิดข้อผิดพลาดในการกู้คืนผ่านระบบ Google';
+      const msg = err.message || 'ระบบเกิดข้อผิดพลาดในการเข้าสู่ระบบผ่าน Google';
+      setErrorMsg(msg);
+      onError?.(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleFacebookSignIn = async () => {
+    setIsLoading(true);
+    setErrorMsg(null);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'facebook',
+        options: {
+          redirectTo: `${window.location.origin}/`,
+        },
+      });
+      if (error) throw error;
+    } catch (err: any) {
+      const msg = err.message || 'ระบบเกิดข้อผิดพลาดในการเข้าสู่ระบบผ่าน Facebook';
       setErrorMsg(msg);
       onError?.(msg);
     } finally {
@@ -107,6 +133,7 @@ export function useLoginForm({ onLoginSuccess, onError }: UseLoginFormOptions) {
     resetForm,
     handleLoginSubmit,
     handleGoogleSignIn,
+    handleFacebookSignIn,
   };
 }
 

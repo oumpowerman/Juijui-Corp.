@@ -17,6 +17,7 @@ import { BRAND_CONFIG } from '../config/brand';
 import SidebarBadge from './SidebarBadge';
 import CommandPalette from '../components/ui/CommandPalette';
 import { useMasterDataContext } from '../context/MasterDataContext';
+import { useOrganization } from '../context/OrganizationContext';
 import SkinManager from './dashboard/member/welcome-header/SkinManager';
 import { MOBILE_SKIN_THEMES } from './navigation/MobileSkinThemes';
 import MobileUserHeader from './navigation/MobileUserHeader';

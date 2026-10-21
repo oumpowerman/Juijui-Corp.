@@ -1,4 +1,17 @@
-export const DEFAULT_OPTIONS = [
+export interface DefaultMasterOption {
+    type: string;
+    key: string;
+    label: string;
+    color: string;
+    sort_order: number;
+    progress_value?: number;
+    description?: string;
+    parent_key?: string;
+    is_active?: boolean;
+    is_default?: boolean;
+}
+
+export const DEFAULT_OPTIONS: DefaultMasterOption[] = [
     { type: 'STATUS', key: 'TODO', label: 'To Do 📝', color: 'bg-gray-100 text-gray-600', sort_order: 1, progress_value: 0 },
     { type: 'STATUS', key: 'IDEA', label: 'Idea / Draft 💡', color: 'bg-yellow-50 text-yellow-600', sort_order: 2, progress_value: 15 },
     { type: 'STATUS', key: 'SCRIPT', label: 'Scripting ✍️', color: 'bg-orange-50 text-orange-600', sort_order: 3, progress_value: 30 },

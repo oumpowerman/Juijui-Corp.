@@ -8,9 +8,10 @@ import { handleDeathSequence } from '../../lib/gamification/deathSystem.js';
 import { toValidUuid } from '../../utils/gamificationUtils.js';
 
 const router = express.Router();
+const PRIMARY_DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000001';
 
 /**
- * Auto-seed LINE_APPROVAL_MODE master config option
+ * Auto-seed LINE_APPROVAL_MODE master config option for primary organization
  */
 async function seedMasterOption() {
     try {
@@ -19,6 +20,7 @@ async function seedMasterOption() {
             .select('id')
             .eq('type', 'WORK_CONFIG')
             .eq('key', 'LINE_APPROVAL_MODE')
+            .eq('org_id', PRIMARY_DEFAULT_ORG_ID)
             .maybeSingle();
 
         if (error) {
@@ -31,6 +33,7 @@ async function seedMasterOption() {
             const { error: insertErr } = await supabase
                 .from('master_options')
                 .insert({
+                    org_id: PRIMARY_DEFAULT_ORG_ID,
                     type: 'WORK_CONFIG',
                     key: 'LINE_APPROVAL_MODE',
                     label: 'INTERACTIVE',
@@ -54,13 +57,15 @@ async function seedMasterOption() {
 seedMasterOption();
 
 /**
- * Helper to fetch and merge game configuration server-side
+ * Helper to fetch and merge game configuration server-side scoped by org_id
  */
-async function fetchServerGameConfig() {
+async function fetchServerGameConfig(orgId?: string | null) {
+    const targetOrgId = orgId || PRIMARY_DEFAULT_ORG_ID;
     try {
         const { data, error } = await supabase
             .from('game_configs')
-            .select('*');
+            .select('*')
+            .eq('org_id', targetOrgId);
 
         if (error || !data) {
             return DEFAULT_GAME_CONFIG;
@@ -84,7 +89,8 @@ async function fetchServerGameConfig() {
 /**
  * Server-side mirror of the processAction hook from useGamification.ts
  */
-async function processActionServer(userId: string, action: string, context: any = {}) {
+async function processActionServer(userId: string, action: string, context: any = {}, orgId?: string | null) {
+    const targetOrgId = orgId || PRIMARY_DEFAULT_ORG_ID;
     try {
         const targetId = toValidUuid(context.id || null);
         if (targetId) {
@@ -93,6 +99,7 @@ async function processActionServer(userId: string, action: string, context: any 
                 .select('id')
                 .eq('user_id', userId)
                 .eq('related_id', targetId)
+                .eq('org_id', targetOrgId)
                 .maybeSingle();
             
             if (existingLog) {
@@ -101,7 +108,7 @@ async function processActionServer(userId: string, action: string, context: any 
             }
         }
 
-        const config = await fetchServerGameConfig();
+        const config = await fetchServerGameConfig(targetOrgId);
         const result = await updateGameStats(userId, action as any, context, config);
         
         if (result) {
@@ -195,6 +202,7 @@ const handleLineAction = async (req: express.Request, res: express.Response) => 
         }
 
         const currentStatus = isDedicatedOt ? otReqData.status : reqData.status;
+        const targetOrgId = (isDedicatedOt ? otReqData.org_id : reqData.org_id) || PRIMARY_DEFAULT_ORG_ID;
 
         // 3. Double-Submission Prevention: Verify request status is still PENDING
         if (currentStatus !== 'PENDING') {
@@ -222,10 +230,19 @@ const handleLineAction = async (req: express.Request, res: express.Response) => 
             });
         }
 
-        // 4. Fetch dependent configuration tables
-        const { data: masterOptions } = await supabase.from('master_options').select('*');
-        const { data: annualHolidays } = await supabase.from('annual_holidays').select('*');
-        const { data: calendarExceptions } = await supabase.from('calendar_exceptions').select('*');
+        // 4. Fetch dependent configuration tables scoped strictly to targetOrgId
+        const [
+            { data: masterOptions },
+            { data: annualHolidays },
+            { data: calendarExceptions }
+        ] = await Promise.all([
+            supabase.from('master_options').select('*').eq('org_id', targetOrgId),
+            supabase.from('annual_holidays').select('*').eq('org_id', targetOrgId),
+            supabase.from('calendar_exceptions').select('*').eq('org_id', targetOrgId),
+        ]);
+
+        const scopedProcessAction = (userId: string, act: string, ctx: any = {}) =>
+            processActionServer(userId, act, ctx, targetOrgId);
 
         const currentUser = {
             id: adminProfile.id,
@@ -271,7 +288,7 @@ const handleLineAction = async (req: express.Request, res: express.Response) => 
                     otReq: mappedOtRequest,
                     currentUser,
                     adminNote: 'อนุมัติคำขอ OT ผ่าน LINE Interactive',
-                    processAction: processActionServer
+                    processAction: scopedProcessAction
                 });
             } else if (action === 'reject') {
                 await adminApprovalService.rejectRequestTransaction({
@@ -281,7 +298,7 @@ const handleLineAction = async (req: express.Request, res: express.Response) => 
                     isDedicatedOtRequest: true,
                     otReq: mappedOtRequest,
                     masterOptions: masterOptions || [],
-                    processAction: processActionServer
+                    processAction: scopedProcessAction
                 });
             } else {
                 return res.status(400).json({ success: false, error: 'Invalid action specified' });
@@ -316,7 +333,7 @@ const handleLineAction = async (req: express.Request, res: express.Response) => 
                     masterOptions: masterOptions || [],
                     annualHolidays: annualHolidays || [],
                     calendarExceptions: calendarExceptions || [],
-                    processAction: processActionServer
+                    processAction: scopedProcessAction
                 });
             } else if (action === 'reject') {
                 await adminApprovalService.rejectRequestTransaction({
@@ -326,7 +343,7 @@ const handleLineAction = async (req: express.Request, res: express.Response) => 
                     isDedicatedOtRequest: false,
                     targetReq: mappedRequest as any,
                     masterOptions: masterOptions || [],
-                    processAction: processActionServer
+                    processAction: scopedProcessAction
                 });
             } else {
                 return res.status(400).json({ success: false, error: 'Invalid action specified' });
@@ -346,7 +363,8 @@ const handleLineAction = async (req: express.Request, res: express.Response) => 
                 message: updatedMsg,
                 title: `✅ ดำเนินการ${actionLabel}เรียบร้อย`
             })
-            .eq('related_id', requestId);
+            .eq('related_id', requestId)
+            .eq('org_id', targetOrgId);
 
         const reqReason = isDedicatedOt 
             ? (otReqData?.reason || otReqData?.title || '-')

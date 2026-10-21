@@ -1,402 +1,283 @@
-
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '../lib/supabase';
-import { ChecklistItem, ChecklistPreset, InventoryItem } from '../types';
-import { useToast } from './ToastContext';
-import { useGlobalDialog } from './GlobalDialogContext';
+import { useQueryClient } from '@tanstack/react-query';
+import { ChecklistItem } from '../types';
 import { useMasterData } from '../hooks/useMasterData';
+import { useUserSession } from './UserSessionContext';
+import { getActiveOrgIdSync } from '../lib/tenantStorage';
+import {
+    ChecklistContextType,
+    SHOOT_SESSION_MASTER_TYPE,
+    SHOOT_SESSION_MASTER_KEY,
+    SHOOT_ARCHIVE_MASTER_TYPE,
+    SHOOT_ROUND_META,
+    ShootDateFilterPreset,
+    ShootTripQueryParams,
+    ShootTripPaginatedResult,
+    formatThaiShortDate,
+    buildDefaultShootTitle,
+    createDefaultShootSession
+} from './checklist/types';
+import { useChecklistItemsDomain } from './checklist/useChecklistItemsDomain';
+import { useShootSessionDomain } from './checklist/useShootSessionDomain';
+import { useChecklistPresetsDomain } from './checklist/useChecklistPresetsDomain';
+import { useChecklistInventoryActions } from './checklist/useChecklistInventoryActions';
 
-const NIL_UUID = '00000000-0000-0000-0000-000000000000';
-
-interface ChecklistContextType {
-    activeChecklistItems: ChecklistItem[];
-    checklistPresets: ChecklistPreset[];
-    activePresetId: string | null;
-    activePresetName: string | null;
-    inventoryItems: InventoryItem[];
-    isLoading: boolean;
-    
-    loadChecklistData: () => Promise<void>;
-    handleToggleChecklist: (id: string, currentStatus: boolean) => Promise<void>;
-    handleAddChecklistItem: (text: string, categoryId: string) => Promise<void>;
-    handleDeleteChecklistItem: (id: string) => Promise<void>;
-    handleResetChecklist: () => Promise<void>;
-    
-    handleLoadPreset: (presetId: string, clearFirst?: boolean) => Promise<void>;
-    handleAddPreset: (name: string, selectedInventoryIds?: string[]) => Promise<void>;
-    handleUpdatePreset: (id: string, name: string, items: { text: string; categoryId: string }[]) => Promise<void>;
-    handleDeletePreset: (id: string) => Promise<void>;
-
-    handleAddInventoryItem: (name: string, description: string, categoryId: string, imageFile?: File, assetGroup?: string) => Promise<boolean>;
-    handleUpdateInventoryItem: (id: string, updates: Partial<InventoryItem>, imageFile?: File) => Promise<boolean>;
-    handleDeleteInventoryItem: (id: string) => Promise<void>;
-}
+export type {
+    ChecklistContextType,
+    ShootDateFilterPreset,
+    ShootTripQueryParams,
+    ShootTripPaginatedResult
+};
+export {
+    SHOOT_SESSION_MASTER_TYPE,
+    SHOOT_SESSION_MASTER_KEY,
+    SHOOT_ARCHIVE_MASTER_TYPE,
+    SHOOT_ROUND_META,
+    formatThaiShortDate,
+    buildDefaultShootTitle,
+    createDefaultShootSession
+};
 
 const ChecklistContext = createContext<ChecklistContextType | undefined>(undefined);
 
 export const ChecklistProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const { showToast } = useToast();
-    const { showConfirm } = useGlobalDialog();
     const { masterOptions, inventoryItems } = useMasterData();
+    const { currentUserProfile } = useUserSession();
     const queryClient = useQueryClient();
 
-    const [activeChecklistItems, setActiveChecklistItems] = useState<ChecklistItem[]>([]);
-    const [checklistPresets, setChecklistPresets] = useState<ChecklistPreset[]>([]);
-    const [activePresetId, setActivePresetId] = useState<string | null>(null);
-    const [activePresetName, setActivePresetName] = useState<string | null>(null);
+    const [activeOrgId, setActiveOrgId] = useState<string>(() => getActiveOrgIdSync());
 
-    // 1. React Query for Active Items
-    const { data: activeData, isLoading: isActiveLoading, refetch: refetchActive } = useQuery({
-        queryKey: ['active_checklist_items'],
-        queryFn: async () => {
-            const { data, error } = await supabase
-                .from('active_checklist_items')
-                .select('*')
-                .order('created_at', { ascending: true });
-            if (error) throw error;
-            return data || [];
-        },
-        staleTime: 1000 * 60 * 5, // 5 minutes
+    // 1. Active Bag Items Domain
+    const {
+        rawChecklistItems,
+        setRawChecklistItems,
+        isActiveLoading,
+        refetchActive,
+        createChecklistItemActions
+    } = useChecklistItemsDomain({
+        activeOrgId,
+        currentUserProfile
     });
 
-    // 2. React Query for Presets
-    const { data: presetData, isLoading: isPresetsLoading, refetch: refetchPresets } = useQuery({
-        queryKey: ['checklist_presets_db'],
-        queryFn: async () => {
-            const { data, error } = await supabase
-                .from('checklist_presets_db')
-                .select('*')
-                .order('name', { ascending: true });
-            if (error) throw error;
-            return data || [];
-        },
-        staleTime: 1000 * 60 * 5,
+    // 2. Presets Domain (initializes activePresetId / activePresetName)
+    // Note: We also pass shoot session handlers via ref/state below
+    const [activePresetMeta, setActivePresetMeta] = useState<{
+        id: string | null;
+        name: string | null;
+    }>({ id: null, name: null });
+
+    // Enrich activeChecklistItems with per-item checker attribution from activeShootSession
+    const [sessionAttrs, setSessionAttrs] = useState<Record<string, any>>({});
+
+    const activeChecklistItems = useMemo<ChecklistItem[]>(() => {
+        const attrs = sessionAttrs || {};
+        return rawChecklistItems.map(item => {
+            if (!item.isChecked) {
+                return item;
+            }
+            const attr = attrs[item.id] || attrs[`text::${item.text}`];
+            if (!attr) return item;
+            return {
+                ...item,
+                checkedBy: attr.checkedBy,
+                checkedByName: attr.checkedByName,
+                checkedByAvatar: attr.checkedByAvatar,
+                checkedByPosition: attr.checkedByPosition,
+                checkedAt: attr.checkedAt
+            };
+        });
+    }, [rawChecklistItems, sessionAttrs]);
+
+    // 3. 3-Round Shoot Session & Historical Trip Archive Domain
+    const {
+        activeShootSession,
+        setActiveShootSession,
+        shootTripRecords,
+        setShootTripRecords,
+        isSubmittingRound,
+        syncShootSessionToServer,
+        refetchSession,
+        refetchArchive,
+        handleUpdateShootSessionTitle,
+        handleSetShootRound,
+        handleStartNewShootSession,
+        handleSubmitShootRound,
+        handleResumeShootTrip,
+        handleDeleteShootTripRecord,
+        fetchPaginatedShootTrips
+    } = useShootSessionDomain({
+        activeOrgId,
+        activePresetId: activePresetMeta.id,
+        activePresetName: activePresetMeta.name,
+        rawChecklistItems,
+        setRawChecklistItems,
+        activeChecklistItems,
+        masterOptions,
+        currentUserProfile,
+        refetchActive
     });
 
-    // Sync Query Data to Local State (for backward compatibility)
     useEffect(() => {
-        if (activeData) {
-            setActiveChecklistItems(activeData.map((i: any) => ({
-                id: i.id,
-                text: i.text,
-                isChecked: i.is_checked,
-                categoryId: i.category_id
-            })));
-        }
-    }, [activeData]);
+        setSessionAttrs(activeShootSession?.itemAttributions || {});
+    }, [activeShootSession?.itemAttributions]);
+
+    // 4. Checklist Presets Domain
+    const {
+        checklistPresets,
+        setChecklistPresets,
+        activePresetId,
+        activePresetName,
+        isPresetsLoading,
+        refetchPresets,
+        handleLoadPreset,
+        handleAddPreset,
+        handleUpdatePreset,
+        handleDeletePreset
+    } = useChecklistPresetsDomain({
+        activeOrgId,
+        masterOptions,
+        inventoryItems,
+        rawChecklistItems,
+        setRawChecklistItems,
+        activeShootSession,
+        setActiveShootSession,
+        syncShootSessionToServer,
+        refetchActive
+    });
 
     useEffect(() => {
-        if (presetData) {
-            setChecklistPresets(presetData.map((p: any) => ({
-                id: p.id,
-                name: p.name,
-                items: p.items || []
-            })));
-        }
-    }, [presetData]);
+        setActivePresetMeta({ id: activePresetId, name: activePresetName });
+    }, [activePresetId, activePresetName]);
+
+    // 5. Inventory CRUD Actions Domain
+    const {
+        handleAddInventoryItem,
+        handleUpdateInventoryItem,
+        handleDeleteInventoryItem
+    } = useChecklistInventoryActions();
+
+    // 6. Bind Item Actions to Current Shoot Session
+    const {
+        handleToggleChecklist,
+        handleAddChecklistItem,
+        handleDeleteChecklistItem,
+        handleResetChecklist
+    } = useMemo(
+        () =>
+            createChecklistItemActions(
+                activeShootSession,
+                setActiveShootSession,
+                syncShootSessionToServer
+            ),
+        [
+            createChecklistItemActions,
+            activeShootSession,
+            setActiveShootSession,
+            syncShootSessionToServer
+        ]
+    );
+
+    // 7. Workspace Switch Listener (Multi-Tenant Isolation)
+    useEffect(() => {
+        const handleWorkspaceSwitch = (e: Event) => {
+            const customEvent = e as CustomEvent<{ orgId?: string }>;
+            const nextOrgId = customEvent.detail?.orgId || getActiveOrgIdSync();
+            setActiveOrgId(nextOrgId);
+            setRawChecklistItems([]);
+            setChecklistPresets([]);
+            setActiveShootSession(createDefaultShootSession());
+            setShootTripRecords([]);
+            queryClient.invalidateQueries({ queryKey: ['active_checklist_items'] });
+            queryClient.invalidateQueries({ queryKey: ['checklist_presets_db'] });
+            queryClient.invalidateQueries({ queryKey: ['shoot_checklist_session'] });
+            queryClient.invalidateQueries({ queryKey: ['shoot_trip_archive'] });
+            queryClient.invalidateQueries({ queryKey: ['shoot_trip_paginated'] });
+        };
+        window.addEventListener('org-workspace-switched', handleWorkspaceSwitch);
+        return () => window.removeEventListener('org-workspace-switched', handleWorkspaceSwitch);
+    }, [
+        queryClient,
+        setActiveShootSession,
+        setChecklistPresets,
+        setRawChecklistItems,
+        setShootTripRecords
+    ]);
 
     const isLoading = isActiveLoading || isPresetsLoading;
 
     const loadChecklistData = useCallback(async () => {
-        await Promise.all([refetchActive(), refetchPresets()]);
-    }, [refetchActive, refetchPresets]);
+        await Promise.all([
+            refetchActive(),
+            refetchPresets(),
+            refetchSession(),
+            refetchArchive()
+        ]);
+    }, [refetchActive, refetchPresets, refetchSession, refetchArchive]);
 
-    useEffect(() => {
-        const configData = masterOptions.find(o => o.type === 'CHECKLIST_CONFIG' && o.key === 'ACTIVE_PRESET_ID');
-        if (configData) {
-            const pId = configData.label;
-            setActivePresetId(pId);
-            const activeP = checklistPresets.find(p => p.id === pId);
-            setActivePresetName(activeP ? activeP.name : null);
-        } else {
-            setActivePresetId(null);
-            setActivePresetName(null);
-        }
-    }, [masterOptions, checklistPresets]);
-
-    const handleToggleChecklist = async (id: string, currentStatus: boolean) => {
-        setActiveChecklistItems(prev => prev.map(item => item.id === id ? { ...item, isChecked: !currentStatus } : item));
-        try {
-            await supabase.from('active_checklist_items').update({ is_checked: !currentStatus }).eq('id', id);
-        } catch (err) {
-            console.error("Toggle error", err);
-        }
-    };
-
-    const handleAddChecklistItem = async (text: string, categoryId: string) => {
-        try {
-            const { error } = await supabase.from('active_checklist_items').insert({
-                text,
-                category_id: categoryId,
-                is_checked: false
-            });
-            if (error) throw error;
-            // Realtime will handle the update
-        } catch (err) {
-            showToast('เพิ่มรายการไม่สำเร็จ', 'error');
-        }
-    };
-
-    const handleDeleteChecklistItem = async (id: string) => {
-        try {
-            await supabase.from('active_checklist_items').delete().eq('id', id);
-            // Realtime will handle the update
-        } catch (err) { console.error(err); }
-    };
-
-    const handleResetChecklist = async () => {
-        const confirmed = await showConfirm('รีเซ็ตสถานะเช็คลิสต์ทั้งหมด?', 'ยืนยันการรีเซ็ต');
-        if (confirmed) {
-            setActiveChecklistItems(prev => prev.map(i => ({ ...i, isChecked: false })));
-            try {
-                await supabase.from('active_checklist_items').update({ is_checked: false }).neq('id', NIL_UUID); 
-                showToast('รีเซ็ตสถานะแล้ว', 'info');
-            } catch (err) { console.error(err); }
-        }
-    };
-
-    const handleAddInventoryItem = async (name: string, description: string, categoryId: string, imageFile?: File, assetGroup?: string) => {
-        try {
-            let imageUrl = null;
-            if (imageFile) {
-                const fileExt = imageFile.name.split('.').pop();
-                const fileName = `inventory-${Date.now()}.${fileExt}`;
-                const { error: uploadError } = await supabase.storage
-                    .from('avatars') 
-                    .upload(`inventory/${fileName}`, imageFile);
-
-                if (uploadError) throw uploadError;
-                const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(`inventory/${fileName}`);
-                imageUrl = urlData.publicUrl;
-            }
-
-            const { error } = await supabase.from('inventory_items').insert({
-                name,
-                description,
-                category_id: categoryId,
-                asset_group: assetGroup || null,
-                image_url: imageUrl,
-                condition: 'GOOD',
-                item_type: 'FIXED',
-                quantity: 1
-            });
-            
-            if (error) throw error;
-            showToast('เพิ่มเข้าคลังอุปกรณ์แล้ว ✅', 'success');
-            return true;
-        } catch (err: any) {
-            console.error('Add inventory error:', err);
-            showToast('เพิ่มเข้าคลังไม่สำเร็จ: ' + err.message, 'error');
-            return false;
-        }
-    };
-
-    const handleUpdateInventoryItem = async (id: string, updates: Partial<InventoryItem>, imageFile?: File) => {
-        try {
-            let imageUrl = updates.imageUrl;
-            if (imageFile) {
-                const fileExt = imageFile.name.split('.').pop();
-                const fileName = `inventory-${Date.now()}.${fileExt}`;
-                const { error: uploadError } = await supabase.storage.from('avatars').upload(`inventory/${fileName}`, imageFile);
-                if (uploadError) throw uploadError;
-                const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(`inventory/${fileName}`);
-                imageUrl = urlData.publicUrl;
-            }
-
-            const payload: any = {
-                name: updates.name,
-                description: updates.description,
-                category_id: updates.categoryId,
-            };
-            if (imageUrl) payload.image_url = imageUrl;
-            if (updates.assetGroup) payload.asset_group = updates.assetGroup;
-
-            const { error } = await supabase.from('inventory_items').update(payload).eq('id', id);
-            if (error) throw error;
-            showToast('แก้ไขข้อมูลเรียบร้อย ✅', 'success');
-            return true;
-        } catch (err: any) {
-            console.error(err);
-            showToast('แก้ไขไม่สำเร็จ: ' + err.message, 'error');
-            return false;
-        }
-    };
-
-    const handleDeleteInventoryItem = async (id: string) => {
-        const confirmed = await showConfirm('ลบรายการนี้ออกจากคลังถาวร?', 'ยืนยันการลบ');
-        if (confirmed) {
-            try {
-                const { error } = await supabase.from('inventory_items').delete().eq('id', id);
-                if (error) throw error;
-                showToast('ลบจากคลังแล้ว', 'info');
-            } catch (err) { console.error(err); }
-        }
-    };
-
-    const updateGlobalActivePreset = async (presetId: string | null) => {
-        try {
-            const existing = masterOptions.find(o => o.type === 'CHECKLIST_CONFIG' && o.key === 'ACTIVE_PRESET_ID');
-            if (existing) {
-                await supabase.from('master_options').update({ label: presetId || '' }).eq('id', existing.id);
-            } else {
-                await supabase.from('master_options').insert({
-                    type: 'CHECKLIST_CONFIG',
-                    key: 'ACTIVE_PRESET_ID',
-                    label: presetId || '',
-                    sort_order: 999
-                });
-            }
-        } catch (err) {
-            console.error("Update Global Preset Error:", err);
-        }
-    };
-
-    const handleLoadPreset = async (presetId: string, clearFirst: boolean = false) => {
-        if (presetId === 'CLEAR') {
-            setActiveChecklistItems([]); 
-            await supabase.from('active_checklist_items').delete().neq('id', NIL_UUID);
-            await updateGlobalActivePreset(null);
-            showToast('ล้างกระเป๋าเรียบร้อย', 'warning');
-            return;
-        }
-
-        const preset = checklistPresets.find(p => p.id === presetId);
-        if(preset) {
-            const tempItems: ChecklistItem[] = preset.items.map((i, idx) => ({
-                id: `temp-${Date.now()}-${idx}`,
-                text: i.text,
-                categoryId: i.categoryId,
-                isChecked: false
-            }));
-
-            if (clearFirst) {
-                setActiveChecklistItems(tempItems); 
-            } else {
-                setActiveChecklistItems(prev => [...prev, ...tempItems]); 
-            }
-
-            try {
-                if (clearFirst) {
-                    await supabase.from('active_checklist_items').delete().neq('id', NIL_UUID);
-                    await updateGlobalActivePreset(presetId);
-                }
-
-                const itemsToInsert = preset.items.map(i => ({
-                    text: i.text,
-                    category_id: i.categoryId,
-                    is_checked: false
-                }));
-                
-                if (itemsToInsert.length > 0) {
-                    await supabase.from('active_checklist_items').insert(itemsToInsert);
-                    showToast(`โหลดชุด "${preset.name}" เรียบร้อย`, 'success');
-                }
-            } catch (err) {
-                console.error("Load Preset DB Error", err);
-            }
-        }
-    };
-
-    const handleAddPreset = async (name: string, selectedInventoryIds?: string[]) => {
-        try {
-            let itemsToSave: { text: string, categoryId: string }[] = [];
-            if (selectedInventoryIds && selectedInventoryIds.length > 0) {
-                itemsToSave = inventoryItems
-                    .filter(i => selectedInventoryIds.includes(i.id))
-                    .map(i => ({ text: i.name, categoryId: i.categoryId }));
-            } else {
-                if (activeChecklistItems.length === 0) {
-                    showToast('ไม่มีรายการให้บันทึกครับ', 'warning');
-                    return;
-                }
-                itemsToSave = activeChecklistItems.map(i => ({
-                    text: i.text,
-                    categoryId: i.categoryId
-                }));
-            }
-            
-            const { error } = await supabase.from('checklist_presets_db').insert({
-                name,
-                items: itemsToSave
-            });
-            if (error) throw error;
-            showToast(`บันทึก Preset "${name}" แล้ว`, 'success');
-        } catch (err) {
-            console.error(err);
-            showToast('บันทึก Preset ไม่สำเร็จ', 'error');
-        }
-    };
-
-    const handleUpdatePreset = async (id: string, name: string, items: { text: string; categoryId: string }[]) => {
-        try {
-            const { error } = await supabase.from('checklist_presets_db').update({
-                name,
-                items
-            }).eq('id', id);
-            if (error) throw error;
-            showToast('อัปเดต Preset เรียบร้อย ✅', 'success');
-        } catch (err) {
-            console.error(err);
-            showToast('อัปเดตไม่สำเร็จ', 'error');
-        }
-    };
-
-    const handleDeletePreset = async (id: string) => {
-        const confirmed = await showConfirm('ยืนยันลบ Preset นี้?', 'ลบ Preset');
-        if(confirmed) {
-            try {
-                await supabase.from('checklist_presets_db').delete().eq('id', id);
-                showToast('ลบ Preset เรียบร้อย', 'info');
-            } catch (err) { console.error(err); }
-        }
-    };
-
-    const value = useMemo(() => ({
-        activeChecklistItems,
-        checklistPresets,
-        activePresetId,
-        activePresetName,
-        inventoryItems,
-        isLoading,
-        loadChecklistData,
-        handleToggleChecklist,
-        handleAddChecklistItem,
-        handleDeleteChecklistItem,
-        handleResetChecklist,
-        handleLoadPreset,
-        handleAddPreset,
-        handleUpdatePreset,
-        handleDeletePreset,
-        handleAddInventoryItem,
-        handleUpdateInventoryItem,
-        handleDeleteInventoryItem
-    }), [
-        activeChecklistItems,
-        checklistPresets,
-        activePresetId,
-        activePresetName,
-        isLoading,
-        loadChecklistData,
-        handleToggleChecklist,
-        handleAddChecklistItem,
-        handleDeleteChecklistItem,
-        handleResetChecklist,
-        handleLoadPreset,
-        handleAddPreset,
-        handleUpdatePreset,
-        handleDeletePreset,
-        inventoryItems,
-        handleAddInventoryItem,
-        handleUpdateInventoryItem,
-        handleDeleteInventoryItem
-    ]);
-
-    return (
-        <ChecklistContext.Provider value={value}>
-            {children}
-        </ChecklistContext.Provider>
+    const value = useMemo<ChecklistContextType>(
+        () => ({
+            activeChecklistItems,
+            checklistPresets,
+            activePresetId,
+            activePresetName,
+            inventoryItems,
+            isLoading,
+            activeShootSession,
+            shootTripRecords,
+            isSubmittingRound,
+            loadChecklistData,
+            handleToggleChecklist,
+            handleAddChecklistItem,
+            handleDeleteChecklistItem,
+            handleResetChecklist,
+            handleLoadPreset,
+            handleAddPreset,
+            handleUpdatePreset,
+            handleDeletePreset,
+            handleAddInventoryItem,
+            handleUpdateInventoryItem,
+            handleDeleteInventoryItem,
+            handleUpdateShootSessionTitle,
+            handleSetShootRound,
+            handleSubmitShootRound,
+            handleStartNewShootSession,
+            handleResumeShootTrip,
+            handleDeleteShootTripRecord,
+            fetchPaginatedShootTrips
+        }),
+        [
+            activeChecklistItems,
+            checklistPresets,
+            activePresetId,
+            activePresetName,
+            inventoryItems,
+            isLoading,
+            activeShootSession,
+            shootTripRecords,
+            isSubmittingRound,
+            loadChecklistData,
+            handleToggleChecklist,
+            handleAddChecklistItem,
+            handleDeleteChecklistItem,
+            handleResetChecklist,
+            handleLoadPreset,
+            handleAddPreset,
+            handleUpdatePreset,
+            handleDeletePreset,
+            handleAddInventoryItem,
+            handleUpdateInventoryItem,
+            handleDeleteInventoryItem,
+            handleUpdateShootSessionTitle,
+            handleSetShootRound,
+            handleSubmitShootRound,
+            handleStartNewShootSession,
+            handleResumeShootTrip,
+            handleDeleteShootTripRecord,
+            fetchPaginatedShootTrips
+        ]
     );
+
+    return <ChecklistContext.Provider value={value}>{children}</ChecklistContext.Provider>;
 };
 
 export const useChecklistContext = () => {

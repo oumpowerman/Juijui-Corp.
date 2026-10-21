@@ -178,11 +178,79 @@ export interface ScriptComment {
 }
 
 // --- CHECKLIST & ASSETS ---
+export type ShootRoundKey = 'PACK_OUT' | 'PACK_BACK' | 'RETURN_STORAGE';
+
+export interface ShootItemCheckAttribution {
+    itemId: string;
+    itemText: string;
+    checkedBy: string;
+    checkedByName: string;
+    checkedByAvatar?: string;
+    checkedByPosition?: string;
+    checkedAt: string; // ISO string
+}
+
+export interface ShootRoundSnapshotItem {
+    itemId: string;
+    text: string;
+    categoryId: string;
+    categoryLabel?: string;
+    isChecked: boolean;
+    checkedBy?: string;
+    checkedByName?: string;
+    checkedByAvatar?: string;
+    checkedByPosition?: string;
+    checkedAt?: string;
+}
+
+export interface ShootRoundReport {
+    roundKey: ShootRoundKey;
+    roundLabel: string;
+    submittedBy: string;
+    submittedByName: string;
+    submittedByAvatar?: string;
+    submittedByPosition?: string;
+    submittedAt: string; // ISO string
+    note?: string;
+    checkedCount: number;
+    totalCount: number;
+    items: ShootRoundSnapshotItem[];
+}
+
+export interface ShootTripRecord {
+    id: string;
+    title: string;
+    presetId?: string | null;
+    presetName?: string | null;
+    createdAt: string; // ISO string
+    updatedAt: string; // ISO string
+    status: 'IN_PROGRESS' | 'COMPLETED';
+    currentRound: ShootRoundKey;
+    rounds: Partial<Record<ShootRoundKey, ShootRoundReport>>;
+}
+
+export interface ActiveShootSessionState {
+    tripId: string;
+    title: string;
+    presetId?: string | null;
+    presetName?: string | null;
+    currentRound: ShootRoundKey;
+    startedAt: string;
+    updatedAt: string;
+    itemAttributions: Record<string, ShootItemCheckAttribution>;
+    completedRounds: Partial<Record<ShootRoundKey, ShootRoundReport>>;
+}
+
 export interface ChecklistItem {
     id: string;
     text: string;
     isChecked: boolean;
     categoryId: string;
+    checkedBy?: string;
+    checkedByName?: string;
+    checkedByAvatar?: string;
+    checkedByPosition?: string;
+    checkedAt?: string;
 }
 
 export interface ChecklistPreset {
@@ -236,9 +304,22 @@ export interface CompanyChecklistNode {
     updatedAt?: Date;
 }
 
+export interface ActiveChecklistCase {
+    id: string;
+    checklistId: string;
+    caseKey: string;
+    caseTitle: string;
+    createdBy?: string;
+    createdByName?: string;
+    sortOrder?: number;
+    createdAt?: Date;
+    updatedAt?: Date;
+}
+
 export interface ActiveChecklistItemState {
     nodeId: string;
     checklistId: string;
+    caseKey?: string;
     isChecked: boolean;
     checkedBy: string;
     checkedByName: string;
@@ -280,6 +361,7 @@ export interface SavedChecklistRecord {
     id: string;
     checklistId: string;
     checklistTitle: string;
+    caseKey?: string;
     caseTitle: string; // e.g. "ตรวจจบฝึกงาน - น้องเจมส์ (Editor)" or "ตรวจประจำต้นเดือน ตุลาคม 2026"
     submittedBy: string;
     submittedByName: string;

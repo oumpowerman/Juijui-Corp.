@@ -1,66 +1,99 @@
-
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { InventoryItem, ChecklistItem } from '../../types';
-import { X, CheckCircle2, Box, Image as ImageIcon, ExternalLink } from 'lucide-react';
+import { X, CheckCircle2, Box } from 'lucide-react';
 
 interface ItemVerifyModalProps {
     isOpen: boolean;
     onClose: () => void;
     item: ChecklistItem;
-    inventoryItem?: InventoryItem; // To get image/desc
+    inventoryItem?: InventoryItem;
     onConfirm: () => void;
 }
 
-const ItemVerifyModal: React.FC<ItemVerifyModalProps> = ({ 
-    isOpen, onClose, item, inventoryItem, onConfirm 
+const ItemVerifyModal: React.FC<ItemVerifyModalProps> = ({
+    isOpen,
+    onClose,
+    item,
+    inventoryItem,
+    onConfirm
 }) => {
     if (!isOpen) return null;
 
     return createPortal(
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="bg-white w-full max-w-sm rounded-3xl shadow-2xl overflow-hidden flex flex-col relative animate-in zoom-in-95 duration-200 border border-gray-200">
-                
-                {/* Header with Dark Background for Full Image visibility */}
-                <div className="relative h-64 bg-gray-900 flex items-center justify-center overflow-hidden">
-                    {inventoryItem?.imageUrl ? (
-                        <img 
-                            src={inventoryItem.imageUrl} 
-                            alt={item.text} 
-                            className="w-full h-full object-contain" 
-                            referrerPolicy="no-referrer"
-                        />
-                    ) : (
-                        <div className="flex flex-col items-center text-gray-500">
-                            <Box className="w-16 h-16 mb-2 opacity-50" />
-                            <span className="text-xs font-bold uppercase">No Image</span>
-                        </div>
-                    )}
-                    <button 
+        <div
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+            onClick={onClose}
+        >
+            <div
+                className="w-full max-w-md max-h-[92vh] sm:max-h-[85vh] flex flex-col bg-white rounded-t-[2rem] sm:rounded-3xl shadow-2xl overflow-hidden border border-gray-100 animate-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200"
+                onClick={e => e.stopPropagation()}
+            >
+                {/* 1. Rigid Header */}
+                <div className="flex-shrink-0 px-5 sm:px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                    <h3 className="font-bold text-gray-900 text-base truncate pr-2">
+                        รายละเอียดอุปกรณ์
+                    </h3>
+                    <button
                         onClick={onClose}
-                        className="absolute top-4 right-4 p-2 bg-black/40 hover:bg-black/60 text-white rounded-full transition-colors backdrop-blur-md"
+                        className="p-2 -mr-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl min-w-[40px] min-h-[40px] flex items-center justify-center transition-colors"
                     >
                         <X className="w-5 h-5" />
                     </button>
                 </div>
 
-                <div className="p-6">
-                    <div className="mb-6">
-                        <h3 className="text-2xl font-black text-gray-800 leading-tight mb-2">
-                            {item.text}
-                        </h3>
-                        <p className="text-sm text-gray-500 leading-relaxed">
-                            {inventoryItem?.description || "ไม่มีรายละเอียดเพิ่มเติม"}
-                        </p>
+                {/* 2. Scrollable Body */}
+                <div className="flex-1 overflow-y-auto overscroll-contain px-5 sm:px-6 py-4 space-y-4">
+                    <div className="relative h-56 bg-slate-900 rounded-2xl flex items-center justify-center overflow-hidden">
+                        {inventoryItem?.imageUrl ? (
+                            <img
+                                src={inventoryItem.imageUrl}
+                                alt={item.text}
+                                className="w-full h-full object-contain"
+                                referrerPolicy="no-referrer"
+                            />
+                        ) : (
+                            <div className="flex flex-col items-center text-slate-400">
+                                <Box className="w-14 h-14 mb-2 opacity-60" />
+                                <span className="text-xs font-bold uppercase tracking-wider">
+                                    ไม่มีรูปภาพตัวอย่าง
+                                </span>
+                            </div>
+                        )}
                     </div>
 
-                    <button 
-                        onClick={() => { onConfirm(); onClose(); }}
-                        className="w-full py-4 bg-green-600 hover:bg-green-700 text-white rounded-2xl font-bold shadow-lg shadow-green-200 transition-all active:scale-95 flex items-center justify-center gap-2 text-lg"
+                    <div>
+                        <h4 className="text-xl font-bold text-gray-900 leading-tight mb-1.5">
+                            {item.text}
+                        </h4>
+                        <p className="text-sm text-gray-600 leading-relaxed">
+                            {inventoryItem?.description || 'ไม่มีรายละเอียดเพิ่มเติมสำหรับอุปกรณ์ชิ้นนี้'}
+                        </p>
+                    </div>
+                </div>
+
+                {/* 3. Rigid Sticky Footer */}
+                <div className="flex-shrink-0 px-5 sm:px-6 py-3.5 bg-gray-50/80 border-t border-gray-100 flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pb-[max(0.875rem,env(safe-area-inset-bottom))]">
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="w-full sm:w-auto px-4 py-2.5 text-sm font-semibold text-gray-700 bg-white border border-gray-200 hover:bg-gray-50 rounded-xl transition-colors min-h-[44px]"
                     >
-                        <CheckCircle2 className="w-6 h-6" />
-                        เช็คเรียบร้อย! (Checked)
+                        ปิด
                     </button>
+                    {!item.isChecked && (
+                        <button
+                            type="button"
+                            onClick={() => {
+                                onConfirm();
+                                onClose();
+                            }}
+                            className="w-full sm:w-auto px-5 py-2.5 text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl shadow-md transition-all flex items-center justify-center gap-2 min-h-[44px]"
+                        >
+                            <CheckCircle2 className="w-4 h-4" />
+                            <span>ยืนยันติ๊กเช็คอุปกรณ์นี้</span>
+                        </button>
+                    )}
                 </div>
             </div>
         </div>,

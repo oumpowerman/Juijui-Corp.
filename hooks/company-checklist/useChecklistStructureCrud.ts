@@ -2,9 +2,16 @@ import React, { useCallback } from 'react';
 import {
     CompanyChecklist,
     CompanyChecklistNode,
-    ActiveChecklistItemState
+    ActiveChecklistItemState,
+    ActiveChecklistCase
 } from '../../types';
-import { syncWorkspacePayloadToServer } from './storageAndSerializers';
+import {
+    syncWorkspacePayloadToServer,
+    upsertChecklistBoardToDb,
+    deleteChecklistBoardFromDb,
+    upsertChecklistNodesToDb,
+    deleteChecklistNodesFromDb
+} from './storageAndSerializers';
 
 interface UseChecklistStructureCrudArgs {
     checklists: CompanyChecklist[];
@@ -13,6 +20,7 @@ interface UseChecklistStructureCrudArgs {
     setNodes: React.Dispatch<React.SetStateAction<CompanyChecklistNode[]>>;
     activeItemStates: Record<string, ActiveChecklistItemState>;
     activeCaseTitles: Record<string, string>;
+    activeCasesByChecklist?: Record<string, ActiveChecklistCase[]>;
     showToast: (
         message: string,
         type?: 'success' | 'error' | 'info' | 'warning'
@@ -26,6 +34,7 @@ export const useChecklistStructureCrud = ({
     setNodes,
     activeItemStates,
     activeCaseTitles,
+    activeCasesByChecklist,
     showToast
 }: UseChecklistStructureCrudArgs) => {
     const createChecklistBoard = useCallback(
@@ -38,35 +47,64 @@ export const useChecklistStructureCrud = ({
             };
             const nextBoards = [...checklists, newBoard];
             setChecklists(nextBoards);
-            await syncWorkspacePayloadToServer(
-                nextBoards,
-                nodes,
-                activeItemStates,
-                activeCaseTitles,
-                true
-            );
+            await Promise.all([
+                upsertChecklistBoardToDb(newBoard),
+                syncWorkspacePayloadToServer(
+                    nextBoards,
+                    nodes,
+                    activeItemStates,
+                    activeCaseTitles,
+                    true,
+                    activeCasesByChecklist
+                )
+            ]);
             showToast(`สร้างหัวข้อ Checklist "${newBoard.title}" เรียบร้อย ✅`, 'success');
             return newBoard;
         },
-        [checklists, nodes, activeItemStates, activeCaseTitles, setChecklists, showToast]
+        [
+            checklists,
+            nodes,
+            activeItemStates,
+            activeCaseTitles,
+            activeCasesByChecklist,
+            setChecklists,
+            showToast
+        ]
     );
 
     const updateChecklistBoard = useCallback(
         async (id: string, updates: Partial<CompanyChecklist>) => {
-            const nextBoards = checklists.map(b =>
-                b.id === id ? { ...b, ...updates } : b
-            );
+            let updatedBoard: CompanyChecklist | null = null;
+            const nextBoards = checklists.map(b => {
+                if (b.id === id) {
+                    updatedBoard = { ...b, ...updates };
+                    return updatedBoard;
+                }
+                return b;
+            });
             setChecklists(nextBoards);
-            await syncWorkspacePayloadToServer(
-                nextBoards,
-                nodes,
-                activeItemStates,
-                activeCaseTitles,
-                true
-            );
+            await Promise.all([
+                updatedBoard ? upsertChecklistBoardToDb(updatedBoard) : Promise.resolve(),
+                syncWorkspacePayloadToServer(
+                    nextBoards,
+                    nodes,
+                    activeItemStates,
+                    activeCaseTitles,
+                    true,
+                    activeCasesByChecklist
+                )
+            ]);
             showToast('อัปเดตหัวข้อ Checklist เรียบร้อย ✅', 'success');
         },
-        [checklists, nodes, activeItemStates, activeCaseTitles, setChecklists, showToast]
+        [
+            checklists,
+            nodes,
+            activeItemStates,
+            activeCaseTitles,
+            activeCasesByChecklist,
+            setChecklists,
+            showToast
+        ]
     );
 
     const deleteChecklistBoard = useCallback(
@@ -75,13 +113,17 @@ export const useChecklistStructureCrud = ({
             const nextNodes = nodes.filter(n => n.checklistId !== id);
             setChecklists(nextBoards);
             setNodes(nextNodes);
-            await syncWorkspacePayloadToServer(
-                nextBoards,
-                nextNodes,
-                activeItemStates,
-                activeCaseTitles,
-                true
-            );
+            await Promise.all([
+                deleteChecklistBoardFromDb(id),
+                syncWorkspacePayloadToServer(
+                    nextBoards,
+                    nextNodes,
+                    activeItemStates,
+                    activeCaseTitles,
+                    true,
+                    activeCasesByChecklist
+                )
+            ]);
             showToast('ลบหัวข้อ Checklist เรียบร้อย', 'info');
         },
         [
@@ -89,6 +131,7 @@ export const useChecklistStructureCrud = ({
             nodes,
             activeItemStates,
             activeCaseTitles,
+            activeCasesByChecklist,
             setChecklists,
             setNodes,
             showToast
@@ -112,15 +155,27 @@ export const useChecklistStructureCrud = ({
 
             const nextNodes = [...nodes, newNode];
             setNodes(nextNodes);
-            await syncWorkspacePayloadToServer(
-                checklists,
-                nextNodes,
-                activeItemStates,
-                activeCaseTitles
-            );
+            await Promise.all([
+                upsertChecklistNodesToDb([newNode]),
+                syncWorkspacePayloadToServer(
+                    checklists,
+                    nextNodes,
+                    activeItemStates,
+                    activeCaseTitles,
+                    false,
+                    activeCasesByChecklist
+                )
+            ]);
             return newNode;
         },
-        [checklists, nodes, activeItemStates, activeCaseTitles, setNodes]
+        [
+            checklists,
+            nodes,
+            activeItemStates,
+            activeCaseTitles,
+            activeCasesByChecklist,
+            setNodes
+        ]
     );
 
     const bulkCreateItems = useCallback(
@@ -149,30 +204,62 @@ export const useChecklistStructureCrud = ({
 
             const nextNodes = [...nodes, ...createdNodes];
             setNodes(nextNodes);
-            await syncWorkspacePayloadToServer(
-                checklists,
-                nextNodes,
-                activeItemStates,
-                activeCaseTitles
-            );
+            await Promise.all([
+                upsertChecklistNodesToDb(createdNodes),
+                syncWorkspacePayloadToServer(
+                    checklists,
+                    nextNodes,
+                    activeItemStates,
+                    activeCaseTitles,
+                    false,
+                    activeCasesByChecklist
+                )
+            ]);
             showToast(`เพิ่มรายการเช็ค ${createdNodes.length} ข้อ เรียบร้อย ✅`, 'success');
             return createdNodes;
         },
-        [checklists, nodes, activeItemStates, activeCaseTitles, setNodes, showToast]
+        [
+            checklists,
+            nodes,
+            activeItemStates,
+            activeCaseTitles,
+            activeCasesByChecklist,
+            setNodes,
+            showToast
+        ]
     );
 
     const updateNode = useCallback(
         async (id: string, updates: Partial<CompanyChecklistNode>) => {
-            const nextNodes = nodes.map(n => (n.id === id ? { ...n, ...updates } : n));
+            let updatedNode: CompanyChecklistNode | null = null;
+            const nextNodes = nodes.map(n => {
+                if (n.id === id) {
+                    updatedNode = { ...n, ...updates };
+                    return updatedNode;
+                }
+                return n;
+            });
             setNodes(nextNodes);
-            await syncWorkspacePayloadToServer(
-                checklists,
-                nextNodes,
-                activeItemStates,
-                activeCaseTitles
-            );
+            await Promise.all([
+                updatedNode ? upsertChecklistNodesToDb([updatedNode]) : Promise.resolve(),
+                syncWorkspacePayloadToServer(
+                    checklists,
+                    nextNodes,
+                    activeItemStates,
+                    activeCaseTitles,
+                    false,
+                    activeCasesByChecklist
+                )
+            ]);
         },
-        [checklists, nodes, activeItemStates, activeCaseTitles, setNodes]
+        [
+            checklists,
+            nodes,
+            activeItemStates,
+            activeCaseTitles,
+            activeCasesByChecklist,
+            setNodes
+        ]
     );
 
     const moveNodeOrder = useCallback(
@@ -202,18 +289,36 @@ export const useChecklistStructureCrud = ({
             const orderMap = new Map<string, number>();
             reorderedSiblings.forEach((s, i) => orderMap.set(s.id, i + 1));
 
-            const nextNodes = nodes.map(n =>
-                orderMap.has(n.id) ? { ...n, sortOrder: orderMap.get(n.id)! } : n
-            );
+            const changedNodes: CompanyChecklistNode[] = [];
+            const nextNodes = nodes.map(n => {
+                if (orderMap.has(n.id)) {
+                    const updated = { ...n, sortOrder: orderMap.get(n.id)! };
+                    changedNodes.push(updated);
+                    return updated;
+                }
+                return n;
+            });
             setNodes(nextNodes);
-            await syncWorkspacePayloadToServer(
-                checklists,
-                nextNodes,
-                activeItemStates,
-                activeCaseTitles
-            );
+            await Promise.all([
+                upsertChecklistNodesToDb(changedNodes),
+                syncWorkspacePayloadToServer(
+                    checklists,
+                    nextNodes,
+                    activeItemStates,
+                    activeCaseTitles,
+                    false,
+                    activeCasesByChecklist
+                )
+            ]);
         },
-        [checklists, nodes, activeItemStates, activeCaseTitles, setNodes]
+        [
+            checklists,
+            nodes,
+            activeItemStates,
+            activeCaseTitles,
+            activeCasesByChecklist,
+            setNodes
+        ]
     );
 
     const deleteNode = useCallback(
@@ -236,15 +341,28 @@ export const useChecklistStructureCrud = ({
 
             const nextNodes = nodes.filter(n => !idsToRemove.has(n.id));
             setNodes(nextNodes);
-            await syncWorkspacePayloadToServer(
-                checklists,
-                nextNodes,
-                activeItemStates,
-                activeCaseTitles
-            );
+            await Promise.all([
+                deleteChecklistNodesFromDb(Array.from(idsToRemove)),
+                syncWorkspacePayloadToServer(
+                    checklists,
+                    nextNodes,
+                    activeItemStates,
+                    activeCaseTitles,
+                    false,
+                    activeCasesByChecklist
+                )
+            ]);
             showToast('ลบรายการเรียบร้อย', 'info');
         },
-        [checklists, nodes, activeItemStates, activeCaseTitles, setNodes, showToast]
+        [
+            checklists,
+            nodes,
+            activeItemStates,
+            activeCaseTitles,
+            activeCasesByChecklist,
+            setNodes,
+            showToast
+        ]
     );
 
     return {

@@ -3,6 +3,7 @@ import { format } from 'date-fns';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
 import { useGoogleDrive } from '../useGoogleDrive';
+import { getOrgStoragePath } from '../../lib/tenantStorage';
 
 /**
  * Hook to handle uploading attendance & leave proof attachments.
@@ -51,13 +52,14 @@ export const useAttendanceProofUploader = () => {
                     showToast('กำลังอัปโหลดไปที่ Storage สำรอง...', 'info');
                     const fileExt = singleFile.name.split('.').pop();
                     const fileName = `${user?.id || 'anon'}_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
+                    const storagePath = getOrgStoragePath(`proofs/${fileName}`);
                     const { error: uploadErr } = await supabase.storage
                         .from('chat-files')
-                        .upload(`proofs/${fileName}`, singleFile);
+                        .upload(storagePath, singleFile);
 
                     if (uploadErr) throw uploadErr;
 
-                    const { data } = supabase.storage.from('chat-files').getPublicUrl(`proofs/${fileName}`);
+                    const { data } = supabase.storage.from('chat-files').getPublicUrl(storagePath);
                     fileUrl = data.publicUrl;
                 } catch (supabaseErr: any) {
                     console.error("Supabase upload failed", supabaseErr);

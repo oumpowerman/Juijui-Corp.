@@ -9,6 +9,7 @@ import { calculateCheckOutStatus, checkIsLate, getLateMinutes, mergeAttendanceNo
 import { useMasterData } from '../useMasterData';
 import { attendanceService } from '../../services/attendanceService';
 import { useUserSession } from '../../context/UserSessionContext';
+import { getOrgStoragePath } from '../../lib/tenantStorage';
 import { 
     getHalfDayOffset, 
     calculatePMShiftDetails, 
@@ -129,10 +130,10 @@ export const useAttendanceActions = (userId: string) => {
                 }
                 if (!proofUrl) {
                     const fileExt = file.name.split('.').pop();
-                    const fileName = `attendance-${userId}-${Date.now()}.${fileExt}`;
-                    const { error: uploadError } = await supabase.storage.from('chat-files').upload(`proofs/${fileName}`, file);
+                    const storagePath = getOrgStoragePath(`proofs/attendance-${userId}-${Date.now()}.${fileExt}`);
+                    const { error: uploadError } = await supabase.storage.from('chat-files').upload(storagePath, file);
                     if (!uploadError) {
-                        const { data: urlData } = supabase.storage.from('chat-files').getPublicUrl(`proofs/${fileName}`);
+                        const { data: urlData } = supabase.storage.from('chat-files').getPublicUrl(storagePath);
                         proofUrl = urlData.publicUrl;
                     }
                 }
@@ -387,10 +388,10 @@ export const useAttendanceActions = (userId: string) => {
                 if (externalUploadFn) proofUrl = await externalUploadFn(file);
                 if (!proofUrl) {
                     const fileExt = file.name.split('.').pop();
-                    const fileName = `attendance-${userId}-${Date.now()}.${fileExt}`;
-                    const { error: uploadError } = await supabase.storage.from('chat-files').upload(`proofs/${fileName}`, file);
+                    const storagePath = getOrgStoragePath(`proofs/attendance-${userId}-${Date.now()}.${fileExt}`);
+                    const { error: uploadError } = await supabase.storage.from('chat-files').upload(storagePath, file);
                     if (!uploadError) {
-                        const { data: urlData } = supabase.storage.from('chat-files').getPublicUrl(`proofs/${fileName}`);
+                        const { data: urlData } = supabase.storage.from('chat-files').getPublicUrl(storagePath);
                         proofUrl = urlData.publicUrl;
                     }
                 }

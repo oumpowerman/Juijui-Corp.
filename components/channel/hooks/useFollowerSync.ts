@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Channel } from '../../../types';
+import { getActiveOrgIdSync } from '../../../lib/tenantStorage';
 import { SyncModalState } from '../sync/FollowerSyncProgressModal';
 import { 
   FullSyncSummary, 
@@ -31,26 +32,31 @@ export function useFollowerSync({
   // Global follower sync last run metadata (persisted in DB & localStorage)
   const [lastGlobalSyncInfo, setLastGlobalSyncInfo] = useState<FollowerSyncLastRunInfo | null>(() => {
     try {
-      const saved = localStorage.getItem('channel_last_global_sync_info');
+      const saved = localStorage.getItem(`channel_last_global_sync_info_${getActiveOrgIdSync()}`);
       return saved ? JSON.parse(saved) : null;
     } catch {
       return null;
     }
   });
 
-  // Fetch last global run info on initial load
+  // Fetch last global run info on initial load and workspace switch
   useEffect(() => {
     let isMounted = true;
     const fetchLastRun = async () => {
       try {
-        const res = await fetch('/api/cron/follower-sync-last-run');
+        const activeOrgId = getActiveOrgIdSync();
+        const res = await fetch('/api/cron/follower-sync-last-run', {
+          headers: { 'x-org-id': activeOrgId }
+        });
         if (res.ok) {
           const data = await res.json();
-          if (data?.lastRun && isMounted) {
-            setLastGlobalSyncInfo(data.lastRun);
-            try {
-              localStorage.setItem('channel_last_global_sync_info', JSON.stringify(data.lastRun));
-            } catch {}
+          if (isMounted) {
+            setLastGlobalSyncInfo(data?.lastRun || null);
+            if (data?.lastRun) {
+              try {
+                localStorage.setItem(`channel_last_global_sync_info_${activeOrgId}`, JSON.stringify(data.lastRun));
+              } catch {}
+            }
           }
         }
       } catch (err) {
@@ -58,8 +64,16 @@ export function useFollowerSync({
       }
     };
     fetchLastRun();
+
+    const handleWorkspaceSwitch = () => {
+      setLastGlobalSyncInfo(null);
+      fetchLastRun();
+    };
+    window.addEventListener('org-workspace-switched', handleWorkspaceSwitch);
+
     return () => {
       isMounted = false;
+      window.removeEventListener('org-workspace-switched', handleWorkspaceSwitch);
     };
   }, []);
 
@@ -94,11 +108,13 @@ export function useFollowerSync({
     showToast(`กำลังอัปเดตยอดผู้ติดตาม "${nameToDisplay}"... ⏳`, 'info');
 
     try {
+      const activeOrgId = getActiveOrgIdSync();
       const res = await fetch(`/api/channels/${channelId}/sync-followers`, {
         method: 'POST',
         headers: {
           'Accept': 'application/json',
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'x-org-id': activeOrgId,
         },
       });
 
@@ -190,12 +206,14 @@ export function useFollowerSync({
     showToast('กำลังซิงค์ยอดผู้ติดตามแบบ Real-time... ⏳', 'info');
 
     try {
+      const activeOrgId = getActiveOrgIdSync();
       // 1. Start background worker job on server and obtain sessionId
       const startRes = await fetch('/api/cron/sync-followers-start?source=manual', {
         method: 'POST',
         headers: { 
           'Accept': 'application/json',
-          'Content-Type': 'application/json' 
+          'Content-Type': 'application/json',
+          'x-org-id': activeOrgId,
         },
       });
 
@@ -216,7 +234,8 @@ export function useFollowerSync({
           method: 'POST',
           headers: { 
             'Accept': 'application/json',
-            'Content-Type': 'application/json' 
+            'Content-Type': 'application/json',
+            'x-org-id': activeOrgId,
           },
         });
 

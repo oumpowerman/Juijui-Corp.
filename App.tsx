@@ -20,10 +20,12 @@ import { FinanceProvider } from './context/FinanceContext';
 import { WikiProvider } from './context/WikiContext';
 import { MeetingProvider } from './context/MeetingContext';
 import { UserSessionProvider, useUserSession } from './context/UserSessionContext';
-import { OrganizationProvider } from './context/OrganizationContext';
+import { OrganizationProvider, useOrganization } from './context/OrganizationContext';
 import { DemoSandboxProvider, setDemoIntentFlag } from './context/DemoSandboxContext';
 import { DemoSandboxHudBar } from './components/demo/DemoSandboxHudBar';
 import { WorkspaceSwitcherModal } from './components/organization/WorkspaceSwitcherModal';
+import { SuperAdminPortalView } from './components/super-admin/SuperAdminPortalView';
+import { SuperAdminWorkspaceBanner } from './components/super-admin/SuperAdminWorkspaceBanner';
 import { useMasterData } from './hooks/useMasterData';
 import GatekeeperOverlay from './components/layout/GatekeeperOverlay';
 import { ShootQueueProvider } from './context/ShootQueueContext';
@@ -286,14 +288,25 @@ function AuthenticatedApp({ user }: { user: any }) {
 
 function AuthenticatedAppInner({ user }: { user: any }) {
   const { currentUserProfile, isReady } = useUserSession();
+  const { isReady: isOrgReady, isSuperAdmin, isInSuperAdminPortal } = useOrganization();
   const { masterOptions } = useMasterData();
 
-  if (!isReady) {
+  if (!isReady || !isOrgReady) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-900 flex-col">
         <Loader2 className="w-12 h-12 animate-spin text-indigo-500 mb-4" />
         <p className="text-slate-300 animate-pulse font-medium">กำลังเตรียมข้อมูลระบบ...</p>
       </div>
+    );
+  }
+
+  // Dedicated SaaS Control Plane for Platform Owner (Super Admin)
+  if (isSuperAdmin && isInSuperAdminPortal) {
+    return (
+      <>
+        <WorkspaceSwitcherModal />
+        <SuperAdminPortalView />
+      </>
     );
   }
 
@@ -321,6 +334,7 @@ function AuthenticatedAppInner({ user }: { user: any }) {
                         <ScreenSessionLimiter user={user} />
                         <WorkspaceSwitcherModal />
                         <DemoSandboxHudBar />
+                        <SuperAdminWorkspaceBanner />
                         <AppRouter user={user} />
                       </ShootQueueProvider>
                     </TaskProvider>

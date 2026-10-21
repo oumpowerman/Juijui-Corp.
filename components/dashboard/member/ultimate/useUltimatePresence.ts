@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '../../../../lib/supabase';
 import { SyncedPlayer } from './utils/isometric';
 import { User } from '../../../../types';
+import { getActiveOrgIdSync, getOrgChannelName } from '../../../../lib/tenantStorage';
 
 export function useUltimatePresence(
     currentUser: User, 
@@ -9,6 +10,7 @@ export function useUltimatePresence(
     onReactionReceived?: (reaction: any) => void
 ) {
     const [otherPlayers, setOtherPlayers] = useState<SyncedPlayer[]>([]);
+    const [activeOrgId, setActiveOrgId] = useState<string>(() => getActiveOrgIdSync());
     const channelRef = useRef<any>(null);
     const lastReportTime = useRef<number>(0);
     
@@ -30,8 +32,21 @@ export function useUltimatePresence(
     }, [onReactionReceived]);
 
     useEffect(() => {
-        // Create a unique channel for live-sync presence in the workroom
-        const channel = supabase.channel('room:ultimate_presence_v1', {
+        const handleWorkspaceSwitch = (e: Event) => {
+            const customEvent = e as CustomEvent<{ orgId?: string }>;
+            const nextOrgId = customEvent.detail?.orgId || getActiveOrgIdSync();
+            positionsRef.current = {};
+            setOtherPlayers([]);
+            setActiveOrgId(nextOrgId);
+        };
+        window.addEventListener('org-workspace-switched', handleWorkspaceSwitch);
+        return () => window.removeEventListener('org-workspace-switched', handleWorkspaceSwitch);
+    }, []);
+
+    useEffect(() => {
+        // Create an organization-isolated channel for live-sync presence in the workroom
+        const channelName = getOrgChannelName('room:ultimate_presence_v1', activeOrgId);
+        const channel = supabase.channel(channelName, {
             config: {
                 presence: {
                     key: presenceKey,
@@ -134,9 +149,10 @@ export function useUltimatePresence(
             });
 
         return () => {
+            if (stateUpdateTimer) clearTimeout(stateUpdateTimer);
             channel.unsubscribe();
         };
-    }, [currentUser, presenceKey]);
+    }, [currentUser, presenceKey, activeOrgId]);
 
     const reportPosition = useCallback((x: number, y: number, isIdle: boolean) => {
         const now = Date.now();

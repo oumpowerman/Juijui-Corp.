@@ -20,6 +20,7 @@ interface AppBackgroundProps {
     theme?: BackgroundTheme;
     pattern?: 'grid' | 'dots' | 'icons' | 'none';
     customBgUrl?: string; // Support for custom wallpaper/scenery background images
+    transparent?: boolean; // When true, does not render background gradient so custom portal backgrounds shine through
     className?: string;
     children?: React.ReactNode;
 }
@@ -28,6 +29,7 @@ const AppBackground: React.FC<AppBackgroundProps> = ({
     theme = 'neutral', 
     pattern = 'grid', 
     customBgUrl,
+    transparent = false,
     className = '', 
     children 
 }) => {
@@ -205,7 +207,7 @@ const AppBackground: React.FC<AppBackgroundProps> = ({
     return (
         <div className={`relative w-auto min-h-full flex flex-col overflow-x-hidden max-w-full ${className}`}>
             {/* Background Layer */}
-            {customBgUrl ? (
+            {transparent ? null : customBgUrl ? (
                 <div 
                     className="fixed inset-0 bg-cover bg-center transition-all duration-1000 pointer-events-none z-0"
                     style={{ backgroundImage: `url(${customBgUrl})` }}
@@ -219,7 +221,7 @@ const AppBackground: React.FC<AppBackgroundProps> = ({
             )}
             
             {/* Pattern Layer */}
-            {(!theme.startsWith('season-')) && theme !== 'beach-ocean' && theme !== 'rainbow-sky' && !customBgUrl && (
+            {!transparent && (!theme.startsWith('season-')) && theme !== 'beach-ocean' && theme !== 'rainbow-sky' && !customBgUrl && (
                 <div className="fixed inset-0 pointer-events-none z-0" style={{ ...patternStyle }} />
             )}
 

@@ -1,8 +1,8 @@
-
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { WikiArticle, User } from '../types';
 import { useToast } from './ToastContext';
+import { getActiveOrgIdSync, getOrgChannelName } from '../lib/tenantStorage';
 
 interface WikiContextType {
     articles: WikiArticle[];
@@ -17,13 +17,14 @@ interface WikiContextType {
 
 const WikiContext = createContext<WikiContextType | undefined>(undefined);
 
-// LocalStorage Keys
-const CACHE_KEY_WIKI = 'wiki_articles_cache';
-const CACHE_KEY_WIKI_VERSION = 'wiki_articles_version_cache';
+// LocalStorage Keys (scoped per org dynamically)
+const getCacheKeyWiki = () => `wiki_articles_cache_${getActiveOrgIdSync()}`;
+const getCacheKeyWikiVersion = () => `wiki_articles_version_cache_${getActiveOrgIdSync()}`;
 
 export const WikiProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [articles, setArticles] = useState<WikiArticle[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [activeOrgId, setActiveOrgId] = useState<string>(() => getActiveOrgIdSync());
     const { showToast } = useToast();
     const isMutatingCache = useRef(false);
 
@@ -62,9 +63,12 @@ export const WikiProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const fetchArticles = useCallback(async () => {
         try {
+            const cacheKeyWiki = getCacheKeyWiki();
+            const cacheKeyVersion = getCacheKeyWikiVersion();
+
             // 1. Check LocalStorage Cache
-            const cachedWiki = localStorage.getItem(CACHE_KEY_WIKI);
-            const cachedVersion = localStorage.getItem(CACHE_KEY_WIKI_VERSION);
+            const cachedWiki = localStorage.getItem(cacheKeyWiki);
+            const cachedVersion = localStorage.getItem(cacheKeyVersion);
 
             // 2. Fetch Current Version from system_metadata
             let { data: versionData, error: versionError } = await supabase
@@ -98,7 +102,7 @@ export const WikiProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
             if (isMutatingCache.current) {
                 useCache = true;
-                wikiData = JSON.parse(localStorage.getItem(CACHE_KEY_WIKI) || '[]');
+                wikiData = JSON.parse(localStorage.getItem(cacheKeyWiki) || '[]');
                 console.log('🚀 Wiki: Using cached version (Mutation in progress)');
             } else if (!versionError && cachedWiki && cachedVersion && currentVersion && cachedVersion === currentVersion) {
                 try {
@@ -107,8 +111,8 @@ export const WikiProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     console.log('🚀 Wiki: Using cached version', currentVersion);
                 } catch (e) {
                     console.warn('⚠️ Wiki: Cache corrupted, clearing...');
-                    localStorage.removeItem(CACHE_KEY_WIKI);
-                    localStorage.removeItem(CACHE_KEY_WIKI_VERSION);
+                    localStorage.removeItem(cacheKeyWiki);
+                    localStorage.removeItem(cacheKeyVersion);
                 }
             }
 
@@ -131,8 +135,8 @@ export const WikiProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
                 // Update Cache
                 if (data && currentVersion) {
-                    localStorage.setItem(CACHE_KEY_WIKI, JSON.stringify(data));
-                    localStorage.setItem(CACHE_KEY_WIKI_VERSION, currentVersion);
+                    localStorage.setItem(cacheKeyWiki, JSON.stringify(data));
+                    localStorage.setItem(cacheKeyVersion, currentVersion);
                 }
             }
 
@@ -149,7 +153,9 @@ export const WikiProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const updateLocalCache = async (action: 'ADD' | 'UPDATE' | 'DELETE', payload: any, skipVersionUpdate: boolean = false) => {
         isMutatingCache.current = true;
         try {
-            const cachedWiki = localStorage.getItem(CACHE_KEY_WIKI);
+            const cacheKeyWiki = getCacheKeyWiki();
+            const cacheKeyVersion = getCacheKeyWikiVersion();
+            const cachedWiki = localStorage.getItem(cacheKeyWiki);
             let rawArticles = cachedWiki ? JSON.parse(cachedWiki) : [];
             
             if (action === 'ADD') {
@@ -178,13 +184,13 @@ export const WikiProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
             });
 
-            localStorage.setItem(CACHE_KEY_WIKI, JSON.stringify(rawArticles));
+            localStorage.setItem(cacheKeyWiki, JSON.stringify(rawArticles));
             setArticles(rawArticles.map(mapArticle));
 
             if (!skipVersionUpdate) {
                 const newVersion = await updateSystemVersion();
                 if (newVersion) {
-                    localStorage.setItem(CACHE_KEY_WIKI_VERSION, newVersion);
+                    localStorage.setItem(cacheKeyVersion, newVersion);
                 }
             }
         } catch (e) {
@@ -197,10 +203,26 @@ export const WikiProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     useEffect(() => {
+        const handleWorkspaceSwitch = (e: Event) => {
+            const customEvent = e as CustomEvent<{ orgId?: string }>;
+            const nextOrgId = customEvent.detail?.orgId || getActiveOrgIdSync();
+            setActiveOrgId(nextOrgId);
+            setArticles([]);
+            setIsLoading(true);
+            try {
+                localStorage.removeItem(`wiki_articles_version_cache_${nextOrgId}`);
+            } catch {}
+            fetchArticles();
+        };
+        window.addEventListener('org-workspace-switched', handleWorkspaceSwitch);
+        return () => window.removeEventListener('org-workspace-switched', handleWorkspaceSwitch);
+    }, [fetchArticles]);
+
+    useEffect(() => {
         fetchArticles();
 
         // 1. Listen to system_metadata for version updates (Delta Sync Versioning)
-        const metadataChannel = supabase.channel('wiki-metadata-changes')
+        const metadataChannel = supabase.channel(getOrgChannelName('wiki-metadata-changes', activeOrgId))
             .on('postgres_changes', { 
                 event: 'UPDATE', 
                 schema: 'public', 
@@ -208,12 +230,12 @@ export const WikiProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 filter: 'key=eq.wiki_version'
             }, (payload) => {
                 const remoteVersion = payload.new.last_updated_at;
-                const localVersion = localStorage.getItem(CACHE_KEY_WIKI_VERSION);
+                const localVersion = localStorage.getItem(getCacheKeyWikiVersion());
 
                 if (remoteVersion !== localVersion) {
                     // Safe-Sync: Wait for Delta Sync to update the version cache
                     setTimeout(() => {
-                        if (localStorage.getItem(CACHE_KEY_WIKI_VERSION) !== remoteVersion) {
+                        if (localStorage.getItem(getCacheKeyWikiVersion()) !== remoteVersion) {
                             console.log('🔄 Wiki: Delta missed, healing with full fetch...');
                             fetchArticles();
                         }
@@ -223,7 +245,7 @@ export const WikiProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // 2. Listen to wiki_articles for content changes (Delta Sync Content)
         const articlesChannel = supabase
-            .channel('wiki-articles-changes')
+            .channel(getOrgChannelName('wiki-articles-changes', activeOrgId))
             .on(
                 'postgres_changes', 
                 { event: '*', schema: 'public', table: 'wiki_articles' }, 
@@ -265,7 +287,7 @@ export const WikiProvider: React.FC<{ children: React.ReactNode }> = ({ children
             supabase.removeChannel(metadataChannel);
             supabase.removeChannel(articlesChannel);
         };
-    }, [fetchArticles, mapArticle]);
+    }, [fetchArticles, mapArticle, activeOrgId]);
 
     const addArticle = async (article: Omit<WikiArticle, 'id' | 'lastUpdated' | 'helpfulCount' | 'createdAt' | 'author' | 'lastEditor'>, currentUser: User) => {
         try {

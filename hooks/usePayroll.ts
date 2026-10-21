@@ -7,6 +7,7 @@ import { useToast } from '../context/ToastContext';
 import { endOfMonth, format } from 'date-fns';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
 import { useMasterData } from './useMasterData';
+import { getOrgStoragePath } from '../lib/tenantStorage';
 
 export const usePayroll = (currentUser: User) => {
     const { showToast } = useToast();
@@ -297,10 +298,10 @@ export const usePayroll = (currentUser: User) => {
 
             if (file) {
                  const fileExt = file.name.split('.').pop();
-                 const fileName = `payslip-${slipId}-${Date.now()}.${fileExt}`;
-                 const { error: uploadError } = await supabase.storage.from('chat-files').upload(`finance/${fileName}`, file);
+                 const storagePath = getOrgStoragePath(`finance/payslip-${slipId}-${Date.now()}.${fileExt}`);
+                 const { error: uploadError } = await supabase.storage.from('chat-files').upload(storagePath, file);
                  if (uploadError) throw uploadError;
-                 const { data } = supabase.storage.from('chat-files').getPublicUrl(`finance/${fileName}`);
+                 const { data } = supabase.storage.from('chat-files').getPublicUrl(storagePath);
                  slipUrl = data.publicUrl;
             }
 
@@ -443,7 +444,16 @@ export const usePayroll = (currentUser: User) => {
         } : undefined
     });
 
-    useEffect(() => { fetchCycles(); }, []);
+    useEffect(() => {
+        fetchCycles();
+        const handleWorkspaceSwitch = () => {
+            setCycles([]);
+            setCurrentSlips([]);
+            fetchCycles();
+        };
+        window.addEventListener('org-workspace-switched', handleWorkspaceSwitch);
+        return () => window.removeEventListener('org-workspace-switched', handleWorkspaceSwitch);
+    }, []);
 
     return {
         cycles,
@@ -456,8 +466,8 @@ export const usePayroll = (currentUser: User) => {
         finalizeCycle,
         deleteSlip, 
         createSlip,
-        sendToReview,    // New
-        respondToSlip,   // New
-        isSeniorHR       // New
+        sendToReview,
+        respondToSlip,
+        isSeniorHR
     };
 };

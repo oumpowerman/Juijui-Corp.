@@ -6,6 +6,7 @@ import {
   rescheduleFollowerCronJob
 } from '../services/followerSyncService.js';
 import { serverSupabase } from '../utils/supabase.js';
+import { resolveRequestOrgId } from '../utils/tenantContext.js';
 import { 
   createSyncSession, 
   getSyncSession, 
@@ -18,6 +19,7 @@ import {
 } from '../services/metaGraphApiService.js';
 
 const router = Router();
+const PRIMARY_DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000001';
 
 // Validate CRON authorization (supports Header Authorization Bearer, x-cron-secret header, or session/admin)
 function isAuthorized(req: Request): boolean {
@@ -70,14 +72,21 @@ router.post('/api/cron/sync-followers-start', async (req: Request, res: Response
     }
 
     const source = (req.query.source as 'cron' | 'api' | 'manual') || 'manual';
+    const activeOrgId = await resolveRequestOrgId(req);
+    const overrideConfig = req.body?.config;
 
     // 1. Create session
     const session = createSyncSession();
 
     // 2. Launch background worker with onProgress updater
-    syncAllChannelFollowers(source, (event) => {
-        handleSessionProgressEvent(session.id, event);
-    }).catch((err: any) => {
+    syncAllChannelFollowers(
+        source,
+        overrideConfig,
+        (event) => {
+            handleSessionProgressEvent(session.id, event);
+        },
+        activeOrgId
+    ).catch((err: any) => {
         console.error(`[CronRoute] Background sync session ${session.id} error:`, err);
         handleSessionProgressEvent(session.id, {
             type: 'error',
@@ -140,6 +149,8 @@ const handleFollowerSyncStream = async (req: Request, res: Response) => {
     }
 
     const source = (req.query.source as 'cron' | 'api' | 'manual') || 'manual';
+    const activeOrgId = await resolveRequestOrgId(req);
+    const overrideConfig = req.body?.config;
 
     // Set SSE headers
     res.writeHead(200, {
@@ -174,7 +185,7 @@ const handleFollowerSyncStream = async (req: Request, res: Response) => {
     });
 
     try {
-        await syncAllChannelFollowers(source, sendProgress);
+        await syncAllChannelFollowers(source, overrideConfig, sendProgress, activeOrgId);
     } catch (err: any) {
         sendProgress({
             type: 'error',
@@ -193,7 +204,7 @@ router.get('/api/cron/sync-followers-stream', handleFollowerSyncStream);
 
 /**
  * Endpoint: POST /api/cron/sync-followers
- * Triggers follower synchronization across all channels.
+ * Triggers follower synchronization across channels.
  * Can be called by:
  *   - Supabase pg_cron / Cloud Scheduler (with Authorization: Bearer <CRON_SECRET>)
  *   - Frontend Admin manual sync button
@@ -207,9 +218,11 @@ router.post('/api/cron/sync-followers', async (req: Request, res: Response) => {
     }
 
     const source = (req.query.source as 'cron' | 'api' | 'manual') || 'api';
+    const activeOrgId = await resolveRequestOrgId(req);
+    const overrideConfig = req.body?.config;
 
     try {
-        const summary = await syncAllChannelFollowers(source);
+        const summary = await syncAllChannelFollowers(source, overrideConfig, undefined, activeOrgId);
         return res.json({
             success: true,
             message: `Successfully synchronized ${summary.totalChannelsChecked} channels (${summary.totalChannelsUpdated} updated)`,
@@ -237,9 +250,10 @@ router.get('/api/cron/sync-followers', async (req: Request, res: Response) => {
     }
 
     const source = (req.query.source as 'cron' | 'api' | 'manual') || 'cron';
+    const activeOrgId = await resolveRequestOrgId(req);
 
     try {
-        const summary = await syncAllChannelFollowers(source);
+        const summary = await syncAllChannelFollowers(source, undefined, undefined, activeOrgId);
         return res.json({
             success: true,
             message: `Successfully synchronized ${summary.totalChannelsChecked} channels (${summary.totalChannelsUpdated} updated)`,
@@ -256,11 +270,12 @@ router.get('/api/cron/sync-followers', async (req: Request, res: Response) => {
 
 /**
  * Endpoint: GET /api/cron/follower-sync-last-run
- * Returns the most recent global follower sync run status and timestamp
+ * Returns the most recent tenant follower sync run status and timestamp
  */
 router.get('/api/cron/follower-sync-last-run', async (req: Request, res: Response) => {
     try {
-        const lastRun = await getFollowerSyncLastRun();
+        const activeOrgId = (await resolveRequestOrgId(req)) || PRIMARY_DEFAULT_ORG_ID;
+        const lastRun = await getFollowerSyncLastRun(activeOrgId);
         res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
         return res.json({
             success: true,
@@ -281,7 +296,9 @@ router.get('/api/cron/follower-sync-last-run', async (req: Request, res: Respons
 router.post('/api/cron/reschedule', async (req: Request, res: Response) => {
     try {
         const config = req.body?.config;
-        await rescheduleFollowerCronJob(config);
+        const activeOrgId = (await resolveRequestOrgId(req)) || PRIMARY_DEFAULT_ORG_ID;
+        igConnectionsCacheByOrg.delete(activeOrgId);
+        await rescheduleFollowerCronJob(config, activeOrgId);
         return res.json({ success: true, message: 'Follower sync configuration updated' });
     } catch (err: any) {
         return res.status(500).json({ success: false, error: err?.message || 'Failed to update schedule' });
@@ -373,30 +390,33 @@ router.post('/api/follower-sync/test-meta-token', async (req: Request, res: Resp
     }
 });
 
-// In-memory cache for IG Connection Overview (5 minutes TTL)
+// In-memory cache for IG Connection Overview per organization (5 minutes TTL)
 interface CachedIgConnections {
     data: any;
     timestamp: number;
 }
-let igConnectionsCache: CachedIgConnections | null = null;
+const igConnectionsCacheByOrg = new Map<string, CachedIgConnections>();
 const IG_CONNECTIONS_CACHE_TTL_MS = 5 * 60 * 1000;
 
 /**
  * Endpoint: GET /api/follower-sync/ig-connections
- * Returns the Meta Graph connection status for all channels in the system
+ * Returns the Meta Graph connection status for all channels in the active organization
  */
 router.get('/api/follower-sync/ig-connections', async (req: Request, res: Response) => {
+    const activeOrgId = (await resolveRequestOrgId(req)) || PRIMARY_DEFAULT_ORG_ID;
     const force = req.query.force === '1' || req.query.force === 'true';
-    if (!force && igConnectionsCache && (Date.now() - igConnectionsCache.timestamp < IG_CONNECTIONS_CACHE_TTL_MS)) {
+    const existingCache = igConnectionsCacheByOrg.get(activeOrgId);
+
+    if (!force && existingCache && (Date.now() - existingCache.timestamp < IG_CONNECTIONS_CACHE_TTL_MS)) {
         return res.json({
             success: true,
-            ...igConnectionsCache.data,
+            ...existingCache.data,
             cached: true,
         });
     }
 
     try {
-        const config = await getFollowerSyncConfig();
+        const config = await getFollowerSyncConfig(activeOrgId);
         const metaApi = config.metaApi;
 
         // 1. Gather all active tokens
@@ -457,22 +477,24 @@ router.get('/api/follower-sync/ig-connections', async (req: Request, res: Respon
             }
         }
 
-        // 3. Fetch all channels
+        // 3. Fetch all channels for this organization
         const { data: channelsData, error: chErr } = await serverSupabase
             .from('channels')
-            .select('id, name, logoUrl, color, social_links, followers, meta_api, status, group_id, group_name')
+            .select('id, name, logo_url, color, social_links, followers, meta_api, status, group_id, group_name')
+            .eq('org_id', activeOrgId)
             .order('name');
 
         if (chErr) throw chErr;
 
         const channels = channelsData || [];
         const channelStatuses = channels.map((ch: any) => {
+            const logoUrl = ch.logo_url || ch.logoUrl;
             const igUrl = ch.social_links?.INSTAGRAM || ch.social_links?.instagram || '';
             if (!igUrl || typeof igUrl !== 'string' || !igUrl.trim()) {
                 return {
                     channelId: ch.id,
                     channelName: ch.name,
-                    logoUrl: ch.logoUrl,
+                    logoUrl,
                     color: ch.color,
                     groupName: ch.group_name,
                     status: 'NO_IG_LINK',
@@ -484,14 +506,14 @@ router.get('/api/follower-sync/ig-connections', async (req: Request, res: Respon
             }
 
             const cleanUsername = extractInstagramUsername(igUrl);
-            const channelMeta = ch.meta_api;
+            const channelMeta = ch.meta_api || ch.social_links?._meta_api;
             const hasChannelOverride = Boolean(channelMeta?.enabled !== false && channelMeta?.accessToken?.trim());
 
             if (hasChannelOverride) {
                 return {
                     channelId: ch.id,
                     channelName: ch.name,
-                    logoUrl: ch.logoUrl,
+                    logoUrl,
                     color: ch.color,
                     groupName: ch.group_name,
                     status: 'CONNECTED',
@@ -514,7 +536,7 @@ router.get('/api/follower-sync/ig-connections', async (req: Request, res: Respon
                     return {
                         channelId: ch.id,
                         channelName: ch.name,
-                        logoUrl: ch.logoUrl,
+                        logoUrl,
                         color: ch.color,
                         groupName: ch.group_name,
                         status: 'CONNECTED',
@@ -532,7 +554,7 @@ router.get('/api/follower-sync/ig-connections', async (req: Request, res: Respon
             return {
                 channelId: ch.id,
                 channelName: ch.name,
-                logoUrl: ch.logoUrl,
+                logoUrl,
                 color: ch.color,
                 groupName: ch.group_name,
                 status: 'NOT_FOUND_IN_TOKEN',
@@ -559,10 +581,10 @@ router.get('/api/follower-sync/ig-connections', async (req: Request, res: Respon
             timestamp: new Date().toISOString(),
         };
 
-        igConnectionsCache = {
+        igConnectionsCacheByOrg.set(activeOrgId, {
             data: resultData,
             timestamp: Date.now(),
-        };
+        });
 
         return res.json({
             success: true,

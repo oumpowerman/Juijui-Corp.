@@ -1,7 +1,7 @@
-
 import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { DEFAULT_GAME_CONFIG } from '../lib/gameLogic';
+import { getActiveOrgIdSync, getOrgChannelName } from '../lib/tenantStorage';
 
 interface GameConfigContextType {
     config: any;
@@ -17,6 +17,7 @@ export const GameConfigProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     // Initial state is the fallback default
     const [config, setConfig] = useState<any>(DEFAULT_GAME_CONFIG);
     const [isLoading, setIsLoading] = useState(true);
+    const [activeOrgId, setActiveOrgId] = useState<string>(() => getActiveOrgIdSync());
     const isSavingRef = useRef(false);
 
     const fetchConfigs = async () => {
@@ -40,10 +41,12 @@ export const GameConfigProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                 }, {});
 
                 // Merge with default to ensure no missing keys
-                setConfig((prev: any) => ({
-                    ...prev,
+                setConfig({
+                    ...DEFAULT_GAME_CONFIG,
                     ...configMap
-                }));
+                });
+            } else {
+                setConfig(DEFAULT_GAME_CONFIG);
             }
         } catch (err) {
             console.error("Failed to load game config", err);
@@ -220,11 +223,22 @@ export const GameConfigProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     };
 
     useEffect(() => {
+        const handleWorkspaceSwitch = (e: Event) => {
+            const customEvent = e as CustomEvent<{ orgId?: string }>;
+            const nextOrgId = customEvent.detail?.orgId || getActiveOrgIdSync();
+            setActiveOrgId(nextOrgId);
+            setConfig(DEFAULT_GAME_CONFIG);
+        };
+        window.addEventListener('org-workspace-switched', handleWorkspaceSwitch);
+        return () => window.removeEventListener('org-workspace-switched', handleWorkspaceSwitch);
+    }, []);
+
+    useEffect(() => {
         fetchConfigs();
 
-        // Subscribe to changes
+        // Subscribe to changes isolated per organization
         const channel = supabase
-            .channel('realtime-game-config')
+            .channel(getOrgChannelName('realtime-game-config', activeOrgId))
             .on('postgres_changes', { event: '*', schema: 'public', table: 'game_configs' }, () => {
                 if (!isSavingRef.current) {
                     console.log("Realtime event received: updating configs");
@@ -236,7 +250,7 @@ export const GameConfigProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             .subscribe();
 
         return () => { supabase.removeChannel(channel); };
-    }, []);
+    }, [activeOrgId]);
 
     return (
         <GameConfigContext.Provider value={{ config, isLoading, refreshConfig: fetchConfigs, updateConfigValue, updateConfigsBulk }}>

@@ -70,6 +70,8 @@ export interface OrganizationMember {
         email: string;
         avatarUrl?: string;
         position?: string;
+        isActive?: boolean;
+        status?: UserStatus;
     };
 }
 

@@ -1,5 +1,6 @@
 import express from 'express';
 import { tagIndexService, getTopTags } from '../../utils/tagIndexer.js';
+import { resolveRequestOrgId } from '../utils/tenantContext.js';
 
 const router = express.Router();
 
@@ -9,9 +10,11 @@ router.get('/api/tags', async (req, res) => {
     const startTime = process.hrtime();
     
     try {
+        const activeOrgId = await resolveRequestOrgId(req);
         const { status, channelId, format, pillar, category, contentSubTab, showStockOnly } = req.query;
         
         const matchedTags = await getTopTags(limit, {
+            orgId: activeOrgId || undefined,
             status: status as string,
             channelId: channelId as string,
             format: format as string,

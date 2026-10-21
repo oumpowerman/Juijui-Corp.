@@ -11,6 +11,7 @@ import {
     CompanyChecklistNode,
     ActiveChecklistItemState
 } from '../../../types';
+import { formatChecklistTimestamp } from '../utils/checklistCadenceUtils';
 
 export interface ChecklistItemProps {
     item: CompanyChecklistNode;
@@ -116,12 +117,7 @@ export const ChecklistItem: React.FC<ChecklistItemProps> = ({
                                         : ''}
                                 </span>
                                 <span className="text-emerald-700 font-semibold tabular-nums">
-                                    ·{' '}
-                                    {new Date(activeState.checkedAt).toLocaleTimeString('th-TH', {
-                                        hour: '2-digit',
-                                        minute: '2-digit'
-                                    })}{' '}
-                                    น.
+                                    · {formatChecklistTimestamp(activeState.checkedAt)}
                                 </span>
                             </div>
                         )}

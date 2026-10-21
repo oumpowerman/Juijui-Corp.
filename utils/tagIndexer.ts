@@ -117,6 +117,7 @@ export const tagIndexService = new EnterpriseTagIndex();
 export async function getTopTags(
     limit: number = 10,
     filters?: {
+        orgId?: string;
         status?: string;
         channelId?: string;
         format?: string;
@@ -134,6 +135,10 @@ export async function getTopTags(
 
     try {
         let query = client.from('contents').select('tags, status, channel_id, pillar, category, content_formats, is_unscheduled');
+
+        if (filters?.orgId) {
+            query = query.eq('org_id', filters.orgId);
+        }
 
         // Apply filters
         if (filters?.status) {

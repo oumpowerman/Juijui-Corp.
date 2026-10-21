@@ -1,10 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { serverSupabase } from '../utils/supabase.js';
+import { resolveRequestOrgId } from '../utils/tenantContext.js';
 import { syncSingleChannelFollowers } from '../services/followerSyncService.js';
 
 const router = Router();
 
-// Server-side cache for aggregate content counts
+// Server-side cache for aggregate content counts scoped per organization
 interface CachedCountData {
     total: number;
     counts: Record<string, number>;
@@ -12,7 +13,7 @@ interface CachedCountData {
     source: 'rpc' | 'head_aggregate';
 }
 
-let countCache: CachedCountData | null = null;
+const countCacheByOrg: Record<string, CachedCountData> = {};
 const CACHE_TTL_MS = 60 * 1000; // 60 seconds cache TTL
 
 /**
@@ -26,84 +27,46 @@ router.get('/api/channels/content-counts', async (req: Request, res: Response) =
     const rawChannelIds = req.query.channelIds as string | undefined;
     const forceRefresh = req.query.force === '1';
 
-    // 1. Return in-memory cache if valid within 60s
-    if (!forceRefresh && countCache && (Date.now() - countCache.timestamp < CACHE_TTL_MS)) {
-        return res.json({
-            success: true,
-            total: countCache.total,
-            counts: countCache.counts,
-            source: countCache.source,
-            cached: true,
-        });
-    }
-
     try {
-        // 1. Primary: Try PostgreSQL RPC Function (1 database pass, GROUP BY channel_id)
-        const rpcPromise = serverSupabase.rpc('get_channel_content_counts');
+        const activeOrgId = await resolveRequestOrgId(req);
+        const cacheKey = `${activeOrgId || 'GLOBAL'}:${rawChannelIds || 'ALL'}`;
+        const existingCache = countCacheByOrg[cacheKey];
 
-        // Optional: Head count query on contents/tasks table
-        const totalPromise = serverSupabase
-            .from('contents')
-            .select('*', { count: 'exact', head: true });
-
-        const [rpcResult, totalResult] = await Promise.allSettled([
-            rpcPromise,
-            totalPromise,
-        ]);
-
-        // If RPC succeeds, map grouped rows directly
-        if (rpcResult.status === 'fulfilled' && !rpcResult.value.error && Array.isArray(rpcResult.value.data)) {
-            const countsMap: Record<string, number> = {};
-            let calculatedSum = 0;
-
-            rpcResult.value.data.forEach((row: { channel_id?: string; content_count?: number | string }) => {
-                if (row.channel_id) {
-                    const countNum = Number(row.content_count || 0);
-                    countsMap[row.channel_id] = countNum;
-                    calculatedSum += countNum;
-                }
-            });
-
-            // Derive total directly from the sum of channel card counts
-            const exactTableCount = totalResult.status === 'fulfilled' && !totalResult.value.error
-                ? (totalResult.value.count || 0)
-                : 0;
-            const finalTotal = Math.max(calculatedSum, exactTableCount);
-
-            countCache = {
-                total: finalTotal,
-                counts: countsMap,
-                timestamp: Date.now(),
-                source: 'rpc',
-            };
-
+        // 1. Return in-memory cache if valid within 60s
+        if (!forceRefresh && existingCache && (Date.now() - existingCache.timestamp < CACHE_TTL_MS)) {
             return res.json({
                 success: true,
-                total: finalTotal,
-                counts: countsMap,
-                source: 'rpc',
-                cached: false,
+                total: existingCache.total,
+                counts: existingCache.counts,
+                source: existingCache.source,
+                cached: true,
             });
         }
 
-        // 2. Resilient Fallback: If RPC is not available, aggregate head counts
+        // 2. Aggregate head counts per channel scoped to activeOrgId
         let targetChannelIds: string[] = [];
         if (rawChannelIds && rawChannelIds.trim()) {
             targetChannelIds = rawChannelIds.split(',').map(s => s.trim()).filter(Boolean);
         } else {
-            const { data: channelsData } = await serverSupabase
-                .from('channels')
-                .select('id');
+            let channelsQuery = serverSupabase.from('channels').select('id');
+            if (activeOrgId) {
+                channelsQuery = channelsQuery.eq('org_id', activeOrgId);
+            }
+            const { data: channelsData } = await channelsQuery;
             if (channelsData) {
                 targetChannelIds = channelsData.map((c: { id: string }) => c.id);
             }
         }
 
         const fallbackPromises = targetChannelIds.map(async (channelId) => {
-            const { count, error } = await serverSupabase
+            let contentCountQuery = serverSupabase
                 .from('contents')
                 .select('*', { count: 'exact', head: true })
                 .eq('channel_id', channelId);
+            if (activeOrgId) {
+                contentCountQuery = contentCountQuery.eq('org_id', activeOrgId);
+            }
+            const { count, error } = await contentCountQuery;
             return { channelId, count: error ? 0 : (count || 0) };
         });
 
@@ -115,7 +78,7 @@ router.get('/api/channels/content-counts', async (req: Request, res: Response) =
             fallbackSum += item.count;
         });
 
-        countCache = {
+        countCacheByOrg[cacheKey] = {
             total: fallbackSum,
             counts: fallbackCountsMap,
             timestamp: Date.now(),

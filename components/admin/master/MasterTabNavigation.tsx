@@ -70,7 +70,7 @@ export const MASTER_META: Record<string, MasterTabMeta> = {
     MENTOR_TIPS: { label: 'Mentor Tips', icon: Sparkles, desc: 'จัดการและเปิด-ปิดคำแนะนำระบบ (Mentor Tips) ในแต่ละหน้าจอ', group: 'SYSTEM' },
     CHECKLIST_ALERT: { label: 'Checklist LINE Alerts', icon: ShieldCheck, desc: 'ตั้งค่าระบบตรวจเช็คและแจ้งเตือนเช็คลิสต์บริษัทค้างตรวจประจำวันผ่าน LINE อัตโนมัติ (Daily Overdue Alert)', group: 'SYSTEM' },
     BRAND_CONFIG: { label: 'Brand & Logo', icon: Sparkles, desc: 'ตั้งค่าชื่อระบบและ URL โลโก้แบรนด์บน Sidebar (Dynamic Logo)', group: 'SYSTEM' },
-    MULTI_TENANT_SAAS: { label: 'Multi-Tenant SaaS & RLS', icon: Building2, desc: 'ศูนย์ควบคุมระบบหลายองค์กร (Workspaces, รหัสเชิญ, อนุมัติสมาชิก และสคริปต์ SQL RLS 51 ตาราง)', group: 'SYSTEM' },
+    MULTI_TENANT_SAAS: { label: 'องค์กร & แพ็กเกจ (Workspace)', icon: Building2, desc: 'จัดการรหัสเชิญพนักงานเข้าทีม อนุมัติสมาชิกใหม่ และตรวจสอบสถานะแพ็กเกจของบริษัท', group: 'SYSTEM' },
 };
 
 /**

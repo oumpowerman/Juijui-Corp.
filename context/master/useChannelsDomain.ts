@@ -3,9 +3,15 @@ import { supabase } from '../../lib/supabase';
 import { Channel } from '../../types';
 import { useToast } from '../ToastContext';
 import { updateSystemVersion } from './masterVersionSync';
+import { getActiveOrgIdSync, getOrgStoragePath } from '../../lib/tenantStorage';
 
 export const CACHE_KEY_CHANNELS = 'channels_cache';
 export const CACHE_KEY_CHANNELS_VERSION = 'channels_version_cache';
+
+export const getChannelsCacheKey = (orgId?: string) => `${CACHE_KEY_CHANNELS}_${orgId || getActiveOrgIdSync()}`;
+export const getChannelsVersionCacheKey = (orgId?: string) => `${CACHE_KEY_CHANNELS_VERSION}_${orgId || getActiveOrgIdSync()}`;
+const getTenantChannelsCacheKey = () => getChannelsCacheKey();
+const getTenantChannelsVersionCacheKey = () => getChannelsVersionCacheKey();
 
 export const mapChannel = (c: any): Channel => ({
     id: c.id,
@@ -47,7 +53,9 @@ export const useChannelsDomain = () => {
     ) => {
         isMutatingChannelsCache.current = true;
         try {
-            const cachedChannels = localStorage.getItem(CACHE_KEY_CHANNELS);
+            const cacheKey = getTenantChannelsCacheKey();
+            const versionKey = getTenantChannelsVersionCacheKey();
+            const cachedChannels = localStorage.getItem(cacheKey);
             let rawChannels = cachedChannels ? JSON.parse(cachedChannels) : [];
             
             if (action === 'ADD') {
@@ -65,13 +73,13 @@ export const useChannelsDomain = () => {
                 rawChannels = rawChannels.filter((c: any) => c.id !== payload);
             }
             
-            localStorage.setItem(CACHE_KEY_CHANNELS, JSON.stringify(rawChannels));
+            localStorage.setItem(cacheKey, JSON.stringify(rawChannels));
             setChannels(rawChannels.map(mapChannel));
 
             if (!skipVersionUpdate) {
                 const newVersion = await updateSystemVersion('channels_version');
                 if (newVersion) {
-                    localStorage.setItem(CACHE_KEY_CHANNELS_VERSION, newVersion);
+                    localStorage.setItem(versionKey, newVersion);
                 }
             }
         } catch (e) {
@@ -84,14 +92,16 @@ export const useChannelsDomain = () => {
     }, []);
 
     const loadChannelsFromCacheOrRemote = useCallback(async (currentChannelsVersion?: string) => {
-        const cachedChannels = localStorage.getItem(CACHE_KEY_CHANNELS);
-        const cachedChannelsVersion = localStorage.getItem(CACHE_KEY_CHANNELS_VERSION);
+        const cacheKey = getTenantChannelsCacheKey();
+        const versionKey = getTenantChannelsVersionCacheKey();
+        const cachedChannels = localStorage.getItem(cacheKey);
+        const cachedChannelsVersion = localStorage.getItem(versionKey);
         let channelsData = null;
         let useCache = false;
 
         if (isMutatingChannelsCache.current) {
             useCache = true;
-            channelsData = JSON.parse(localStorage.getItem(CACHE_KEY_CHANNELS) || '[]');
+            channelsData = JSON.parse(localStorage.getItem(cacheKey) || '[]');
             console.log('🚀 Master Data: Using cached channels (Mutation in progress)');
         } else if (cachedChannels && cachedChannelsVersion && currentChannelsVersion && cachedChannelsVersion === currentChannelsVersion) {
             try {
@@ -114,8 +124,8 @@ export const useChannelsDomain = () => {
             channelsData = data;
 
             if (data && currentChannelsVersion) {
-                localStorage.setItem(CACHE_KEY_CHANNELS, JSON.stringify(data));
-                localStorage.setItem(CACHE_KEY_CHANNELS_VERSION, currentChannelsVersion);
+                localStorage.setItem(cacheKey, JSON.stringify(data));
+                localStorage.setItem(versionKey, currentChannelsVersion);
             }
         }
 
@@ -139,12 +149,12 @@ export const useChannelsDomain = () => {
 
             if (file) {
                 const fileExt = file.name.split('.').pop();
-                const fileName = `channel-logo-${finalId}-${Date.now()}.${fileExt}`;
-                const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file);
+                const storagePath = getOrgStoragePath(`channels/channel-logo-${finalId}-${Date.now()}.${fileExt}`);
+                const { error: uploadError } = await supabase.storage.from('avatars').upload(storagePath, file);
                 
                 if (uploadError) throw uploadError;
                 
-                const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
+                const { data } = supabase.storage.from('avatars').getPublicUrl(storagePath);
                 logoUrl = data.publicUrl;
             }
             
@@ -208,12 +218,12 @@ export const useChannelsDomain = () => {
 
             if (file) {
                 const fileExt = file.name.split('.').pop();
-                const fileName = `channel-logo-${updatedChannel.id}-${Date.now()}.${fileExt}`;
-                const { error: uploadError } = await supabase.storage.from('avatars').upload(fileName, file);
+                const storagePath = getOrgStoragePath(`channels/channel-logo-${updatedChannel.id}-${Date.now()}.${fileExt}`);
+                const { error: uploadError } = await supabase.storage.from('avatars').upload(storagePath, file);
                 
                 if (uploadError) throw uploadError;
                 
-                const { data } = supabase.storage.from('avatars').getPublicUrl(fileName);
+                const { data } = supabase.storage.from('avatars').getPublicUrl(storagePath);
                 logoUrl = data.publicUrl;
             }
 

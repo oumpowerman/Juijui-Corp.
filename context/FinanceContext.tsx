@@ -3,8 +3,9 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { supabase } from '../lib/supabase';
 import { FinanceTransaction, FinanceStats, ShootTrip, PotentialTrip, Task } from '../types';
 import { useToast } from './ToastContext';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth } from 'date-fns';
 import { useMasterData } from '../hooks/useMasterData';
+import { getActiveOrgIdSync, getOrgChannelName } from '../lib/tenantStorage';
 
 const PAGE_SIZE = 15;
 
@@ -46,6 +47,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const [isLoadingTrips, setIsLoadingTrips] = useState(false);
     const [totalCount, setTotalCount] = useState(0);
     const [currentPage, setCurrentPage] = useState(1);
+    const [activeOrgId, setActiveOrgId] = useState<string>(() => getActiveOrgIdSync());
 
     const mapTransaction = useCallback((item: any, projectTitleOverride?: string): FinanceTransaction => {
         const catOpt = masterOptions.find(o => o.key === item.category_key && (o.type === 'FINANCE_IN_CAT' || o.type === 'FINANCE_OUT_CAT'));
@@ -408,10 +410,33 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         fetchTrips();
     }, [fetchStats, fetchTransactions, fetchTrips]);
 
-    // Real-time Subscription
+    // Listen for workspace switch to clear finance state and reload for new organization
+    useEffect(() => {
+        const handleWorkspaceSwitch = (e: Event) => {
+            const customEvent = e as CustomEvent<{ orgId?: string }>;
+            const nextOrgId = customEvent.detail?.orgId || getActiveOrgIdSync();
+            setActiveOrgId(nextOrgId);
+            setTransactions([]);
+            setStats({ totalIncome: 0, totalExpense: 0, netProfit: 0, chartData: [] });
+            setTrips([]);
+            setPotentialTrips([]);
+            setTotalCount(0);
+            setCurrentPage(1);
+            const now = new Date();
+            const startOfMonthDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            const endOfMonthDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            fetchStats(startOfMonthDate, endOfMonthDate);
+            fetchTransactions(startOfMonthDate, endOfMonthDate, 1);
+            fetchTrips();
+        };
+        window.addEventListener('org-workspace-switched', handleWorkspaceSwitch);
+        return () => window.removeEventListener('org-workspace-switched', handleWorkspaceSwitch);
+    }, [fetchStats, fetchTransactions, fetchTrips]);
+
+    // Real-time Subscription scoped per organization
     useEffect(() => {
         const channel = supabase
-            .channel('finance-realtime-changes')
+            .channel(getOrgChannelName('finance-realtime-changes', activeOrgId))
             .on('postgres_changes', { event: '*', schema: 'public', table: 'finance_transactions' }, () => {
                 // We need the current dates to refresh correctly
                 // Since this useEffect doesn't track startDate/endDate directly to avoid loops,
@@ -426,7 +451,7 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [fetchTrips]);
+    }, [fetchTrips, activeOrgId]);
 
     const value = useMemo(() => ({
         transactions,

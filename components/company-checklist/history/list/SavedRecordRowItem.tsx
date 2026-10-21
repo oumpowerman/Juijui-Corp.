@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
 import { Clock, UserCheck, Eye, Trash2 } from 'lucide-react';
 import { SavedChecklistRecord } from '../../../../types';
+import { formatChecklistTimestamp } from '../../utils/checklistCadenceUtils';
 
 interface SavedRecordRowItemProps {
     record: SavedChecklistRecord;
@@ -62,16 +63,7 @@ export const SavedRecordRowItem: React.FC<SavedRecordRowItemProps> = ({
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 mt-1">
                         <span className="inline-flex items-center gap-1 tabular-nums">
                             <Clock className="w-3.5 h-3.5 text-slate-400" />
-                            <span>
-                                {new Date(record.submittedAt).toLocaleString('th-TH', {
-                                    day: 'numeric',
-                                    month: 'short',
-                                    year: 'numeric',
-                                    hour: '2-digit',
-                                    minute: '2-digit'
-                                })}{' '}
-                                น.
-                            </span>
+                            <span>{formatChecklistTimestamp(record.submittedAt)}</span>
                         </span>
 
                         <span>·</span>

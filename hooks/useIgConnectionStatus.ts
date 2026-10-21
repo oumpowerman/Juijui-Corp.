@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Channel } from '../types';
+import { getActiveOrgIdSync } from '../lib/tenantStorage';
 
 export type ChannelIgStatusType = 'CONNECTED' | 'NOT_FOUND_IN_TOKEN' | 'NO_IG_LINK';
 
@@ -77,8 +78,11 @@ async function fetchIgConnections(force = false) {
 
   fetchPromise = (async () => {
     try {
+      const activeOrgId = getActiveOrgIdSync();
       const url = force ? '/api/follower-sync/ig-connections?force=1' : '/api/follower-sync/ig-connections';
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        headers: { 'x-org-id': activeOrgId }
+      });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = await res.json();
 
@@ -116,6 +120,28 @@ async function fetchIgConnections(force = false) {
   })();
 
   return fetchPromise;
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('org-workspace-switched', () => {
+    sharedState = {
+      channels: [],
+      statusMap: {},
+      summary: {
+        totalChannels: 0,
+        connectedCount: 0,
+        notFoundCount: 0,
+        noLinkCount: 0,
+        activeTokensCount: 0,
+        discoveredAccountsCount: 0,
+      },
+      timestamp: null,
+      loading: false,
+      error: null,
+    };
+    notifyListeners();
+    fetchIgConnections(true);
+  });
 }
 
 export function useIgConnectionStatus() {

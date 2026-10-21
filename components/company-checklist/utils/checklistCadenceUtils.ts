@@ -35,6 +35,41 @@ const THAI_MONTH_FULL = [
     'ธันวาคม'
 ];
 
+const THAI_MONTH_SHORT = [
+    'ม.ค.',
+    'ก.พ.',
+    'มี.ค.',
+    'เม.ย.',
+    'พ.ค.',
+    'มิ.ย.',
+    'ก.ค.',
+    'ส.ค.',
+    'ก.ย.',
+    'ต.ค.',
+    'พ.ย.',
+    'ธ.ค.'
+];
+
+/**
+ * Formats a Date or ISO timestamp into Thai Short Date + Time:
+ * e.g. "21 ต.ค. 69 เวลา 14:30 น."
+ */
+export const formatChecklistTimestamp = (
+    dateInput?: Date | string | number | null
+): string => {
+    if (!dateInput) return '';
+    const d = dateInput instanceof Date ? dateInput : new Date(dateInput);
+    if (isNaN(d.getTime())) return '';
+
+    const day = d.getDate();
+    const monthShort = THAI_MONTH_SHORT[d.getMonth()] || '';
+    const buddhistYearShort = String((d.getFullYear() + 543) % 100).padStart(2, '0');
+    const hours = String(d.getHours()).padStart(2, '0');
+    const minutes = String(d.getMinutes()).padStart(2, '0');
+
+    return `${day} ${monthShort} ${buddhistYearShort} เวลา ${hours}:${minutes} น.`;
+};
+
 export interface ChecklistCadenceEvaluation {
     isRecurring: boolean;
     cycleKey: string;

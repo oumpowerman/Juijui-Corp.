@@ -40,26 +40,31 @@ export const DEFAULT_FOLLOWER_SYNC_CONFIG: FollowerSyncConfig = {
     },
 };
 
-let cachedConfig: FollowerSyncConfig = { ...DEFAULT_FOLLOWER_SYNC_CONFIG };
+const PRIMARY_DEFAULT_ORG_ID = '00000000-0000-0000-0000-000000000001';
+const cachedConfigByOrg = new Map<string, FollowerSyncConfig>();
 
 /**
- * Fetch current sync configuration from Supabase master_options table
+ * Fetch current sync configuration from Supabase master_options table scoped by org_id
  */
-export async function getFollowerSyncConfig(): Promise<FollowerSyncConfig> {
+export async function getFollowerSyncConfig(orgId?: string | null): Promise<FollowerSyncConfig> {
+    const targetOrgId = orgId || PRIMARY_DEFAULT_ORG_ID;
+    const existingCached = cachedConfigByOrg.get(targetOrgId) || { ...DEFAULT_FOLLOWER_SYNC_CONFIG };
+
     try {
         const { data, error } = await serverSupabase
             .from('master_options')
             .select('label')
             .eq('type', 'MASTER_DATA_CONFIG')
             .eq('key', 'FOLLOWER_SYNC_CONFIG')
-            .single();
+            .eq('org_id', targetOrgId)
+            .maybeSingle();
 
         if (error || !data?.label) {
-            return cachedConfig;
+            return existingCached;
         }
 
         const parsed = JSON.parse(data.label) as Partial<FollowerSyncConfig>;
-        cachedConfig = {
+        const nextConfig: FollowerSyncConfig = {
             ...DEFAULT_FOLLOWER_SYNC_CONFIG,
             ...parsed,
             platforms: {
@@ -73,22 +78,28 @@ export async function getFollowerSyncConfig(): Promise<FollowerSyncConfig> {
             },
             enabledChannelIds: Array.isArray(parsed.enabledChannelIds) ? parsed.enabledChannelIds : [],
         };
-        return cachedConfig;
+        cachedConfigByOrg.set(targetOrgId, nextConfig);
+        return nextConfig;
     } catch {
-        return cachedConfig;
+        return existingCached;
     }
 }
 
 /**
- * Persist the global follower sync execution summary to master_options (FOLLOWER_SYNC_LAST_RUN)
+ * Persist the tenant follower sync execution summary to master_options (FOLLOWER_SYNC_LAST_RUN)
  */
-export async function recordFollowerSyncLastRun(summary: FollowerSyncLastRunSummary): Promise<void> {
+export async function recordFollowerSyncLastRun(
+    summary: FollowerSyncLastRunSummary,
+    orgId?: string | null
+): Promise<void> {
+    const targetOrgId = orgId || PRIMARY_DEFAULT_ORG_ID;
     try {
         const { data: existing } = await serverSupabase
             .from('master_options')
             .select('id')
             .eq('type', 'MASTER_DATA_CONFIG')
             .eq('key', 'FOLLOWER_SYNC_LAST_RUN')
+            .eq('org_id', targetOrgId)
             .maybeSingle();
 
         if (existing?.id) {
@@ -99,11 +110,13 @@ export async function recordFollowerSyncLastRun(summary: FollowerSyncLastRunSumm
                     description: `Follower sync executed at ${summary.last_sync_at} (${summary.triggered_by})`,
                     is_active: true
                 })
-                .eq('id', existing.id);
+                .eq('id', existing.id)
+                .eq('org_id', targetOrgId);
         } else {
             await serverSupabase
                 .from('master_options')
                 .insert({
+                    org_id: targetOrgId,
                     type: 'MASTER_DATA_CONFIG',
                     key: 'FOLLOWER_SYNC_LAST_RUN',
                     label: JSON.stringify(summary),
@@ -113,20 +126,22 @@ export async function recordFollowerSyncLastRun(summary: FollowerSyncLastRunSumm
                 });
         }
     } catch (err) {
-        console.error('[FollowerSync] Failed to record FOLLOWER_SYNC_LAST_RUN:', err);
+        console.error(`[FollowerSync] Failed to record FOLLOWER_SYNC_LAST_RUN for org ${targetOrgId}:`, err);
     }
 }
 
 /**
- * Retrieve the latest global follower sync execution summary
+ * Retrieve the latest tenant follower sync execution summary
  */
-export async function getFollowerSyncLastRun(): Promise<FollowerSyncLastRunSummary | null> {
+export async function getFollowerSyncLastRun(orgId?: string | null): Promise<FollowerSyncLastRunSummary | null> {
+    const targetOrgId = orgId || PRIMARY_DEFAULT_ORG_ID;
     try {
         const { data } = await serverSupabase
             .from('master_options')
             .select('label')
             .eq('type', 'MASTER_DATA_CONFIG')
             .eq('key', 'FOLLOWER_SYNC_LAST_RUN')
+            .eq('org_id', targetOrgId)
             .maybeSingle();
 
         if (!data?.label) return null;
@@ -421,19 +436,78 @@ async function extractFollowersFromUrl(
     return undefined;
 }
 
-// Main function to sync all channel followers
+// Main function to sync channel followers (supports single org or multi-org automated cron loop)
 export async function syncAllChannelFollowers(
     triggeredBy: 'cron' | 'api' | 'manual' = 'manual',
     overrideConfigOrProgress?: Partial<FollowerSyncConfig> | ((event: any) => void),
-    maybeProgress?: (event: any) => void
+    maybeProgress?: (event: any) => void,
+    targetOrgId?: string | null
 ): Promise<FullSyncSummary> {
     const startTime = Date.now();
 
     const overrideConfig = typeof overrideConfigOrProgress === 'object' ? overrideConfigOrProgress : undefined;
     const onProgress = typeof overrideConfigOrProgress === 'function' ? overrideConfigOrProgress : maybeProgress;
-    
-    // 1. Fetch current sync config
-    const currentConfig = await getFollowerSyncConfig();
+
+    // Multi-Tenant Automated Cron Loop: When triggered by scheduled cron without a specific targetOrgId,
+    // iterate through all active organizations using each organization's own FOLLOWER_SYNC_CONFIG.
+    if (triggeredBy === 'cron' && !targetOrgId) {
+        console.log(`[FollowerSync] Starting multi-tenant automated cron run across all active organizations at ${new Date().toISOString()}`);
+        let orgIds: string[] = [PRIMARY_DEFAULT_ORG_ID];
+        try {
+            const { data: orgRows, error: orgErr } = await serverSupabase
+                .from('organizations')
+                .select('id, is_active');
+            if (!orgErr && orgRows && orgRows.length > 0) {
+                orgIds = orgRows
+                    .filter((o: any) => o.is_active !== false)
+                    .map((o: any) => o.id);
+            }
+        } catch (err) {
+            console.warn('[FollowerSync] Could not query organizations list, defaulting to primary organization:', err);
+        }
+
+        const aggregatedResults: ChannelSyncResult[] = [];
+        let totalChecked = 0;
+        let totalUpdated = 0;
+
+        for (const orgId of orgIds) {
+            try {
+                const orgSummary = await syncAllChannelFollowers('cron', overrideConfig, undefined, orgId);
+                totalChecked += orgSummary.totalChannelsChecked;
+                totalUpdated += orgSummary.totalChannelsUpdated;
+                aggregatedResults.push(...orgSummary.results);
+            } catch (orgSyncErr) {
+                console.error(`[FollowerSync] Error syncing organization ${orgId} during cron:`, orgSyncErr);
+            }
+        }
+
+        const totalDurationMs = Date.now() - startTime;
+        const multiOrgSummary: FullSyncSummary = {
+            timestamp: new Date().toISOString(),
+            triggeredBy,
+            totalChannelsChecked: totalChecked,
+            totalChannelsUpdated: totalUpdated,
+            results: aggregatedResults,
+            durationMs: totalDurationMs,
+        };
+
+        onProgress?.({
+            type: 'finish',
+            currentIndex: totalChecked,
+            totalChannels: totalChecked,
+            percentage: 100,
+            message: `ซิงค์ยอดผู้ติดตามอัตโนมัติครบ ${orgIds.length} องค์กร (${totalChecked} ช่อง / อัปเดต ${totalUpdated} ช่อง)`,
+            timestamp: multiOrgSummary.timestamp,
+            summary: multiOrgSummary,
+        });
+
+        return multiOrgSummary;
+    }
+
+    const activeOrgId = targetOrgId || PRIMARY_DEFAULT_ORG_ID;
+
+    // 1. Fetch current sync config for this organization
+    const currentConfig = await getFollowerSyncConfig(activeOrgId);
     const config: FollowerSyncConfig = {
         ...currentConfig,
         ...(overrideConfig || {}),
@@ -443,9 +517,9 @@ export async function syncAllChannelFollowers(
         }
     };
 
-    // If triggered by automatic cron and system is toggled off, skip
+    // If triggered by automatic cron and system is toggled off for this org, skip
     if (triggeredBy === 'cron' && !config.isEnabled) {
-        console.log('[FollowerSync] Auto-Sync is disabled in Master Data settings. Skipping cron run.');
+        console.log(`[FollowerSync] Auto-Sync is disabled for org ${activeOrgId}. Skipping cron run.`);
         const emptySummary: FullSyncSummary = {
             timestamp: new Date().toISOString(),
             triggeredBy,
@@ -466,17 +540,18 @@ export async function syncAllChannelFollowers(
         return emptySummary;
     }
 
-    console.log(`[FollowerSync] Starting channel follower sync (${triggeredBy}) at ${new Date().toISOString()}`);
+    console.log(`[FollowerSync] Starting channel follower sync (${triggeredBy}) for org ${activeOrgId} at ${new Date().toISOString()}`);
     console.log(`[FollowerSync] Enabled platforms:`, config.platforms);
 
     const results: ChannelSyncResult[] = [];
     let updatedCount = 0;
 
     try {
-        // Fetch all channels from Supabase
+        // Fetch channels scoped strictly to activeOrgId
         const { data: rawChannels, error: fetchError } = await serverSupabase
             .from('channels')
-            .select('id, name, social_links, followers, logo_url')
+            .select('id, name, social_links, followers, logo_url, meta_api')
+            .eq('org_id', activeOrgId)
             .order('created_at', { ascending: true });
 
         if (fetchError) {
@@ -498,6 +573,7 @@ export async function syncAllChannelFollowers(
             social_links?: Record<string, string> | null;
             followers?: Record<string, number> | null;
             logo_url?: string;
+            meta_api?: any;
         }
 
         // Filter by enabledChannelIds if user selected specific channels
@@ -509,7 +585,7 @@ export async function syncAllChannelFollowers(
         });
 
         if (!channels || channels.length === 0) {
-            console.log('[FollowerSync] No matching channels found to sync.');
+            console.log(`[FollowerSync] No matching channels found to sync for org ${activeOrgId}.`);
             const emptySummary: FullSyncSummary = {
                 timestamp: new Date().toISOString(),
                 triggeredBy,
@@ -672,7 +748,8 @@ export async function syncAllChannelFollowers(
                     let { error: updateError } = await serverSupabase
                         .from('channels')
                         .update(updatePayload)
-                        .eq('id', channel.id);
+                        .eq('id', channel.id)
+                        .eq('org_id', activeOrgId);
 
                     // Dual-compatible fallback if column last_sync_followers_at is not created yet
                     if (updateError && (updateError.message?.includes('last_sync_followers_at') || (updateError as any).code === '42703')) {
@@ -680,7 +757,8 @@ export async function syncAllChannelFollowers(
                         const retryRes = await serverSupabase
                             .from('channels')
                             .update(updatePayload)
-                            .eq('id', channel.id);
+                            .eq('id', channel.id)
+                            .eq('org_id', activeOrgId);
                         updateError = retryRes.error;
                     }
 
@@ -747,7 +825,7 @@ export async function syncAllChannelFollowers(
     }
 
     const durationMs = Date.now() - startTime;
-    console.log(`[FollowerSync] Sync finished in ${durationMs}ms. Updated ${updatedCount} channels.`);
+    console.log(`[FollowerSync] Sync finished for org ${activeOrgId} in ${durationMs}ms. Updated ${updatedCount} channels.`);
 
     const finalSummary: FullSyncSummary = {
         timestamp: new Date().toISOString(),
@@ -758,14 +836,14 @@ export async function syncAllChannelFollowers(
         durationMs,
     };
 
-    // Save global last run summary to master_options table
+    // Save tenant last run summary to master_options table
     await recordFollowerSyncLastRun({
         last_sync_at: finalSummary.timestamp,
         triggered_by: triggeredBy,
         total_channels: results.length,
         updated_channels: updatedCount,
         duration_ms: durationMs,
-    });
+    }, activeOrgId);
 
     onProgress?.({
         type: 'finish',
@@ -785,8 +863,6 @@ export async function syncAllChannelFollowers(
  * Executes all platforms concurrently (takes only ~1-2 seconds).
  */
 export async function syncSingleChannelFollowers(channelId: string): Promise<ChannelSyncResult & { newFollowers?: Record<string, number> }> {
-    const config = await getFollowerSyncConfig();
-
     const { data: channel, error: fetchErr } = await serverSupabase
         .from('channels')
         .select('*')
@@ -796,6 +872,9 @@ export async function syncSingleChannelFollowers(channelId: string): Promise<Cha
     if (fetchErr || !channel) {
         throw new Error(fetchErr?.message || `Channel with ID ${channelId} not found`);
     }
+
+    const channelOrgId = (channel as any).org_id || PRIMARY_DEFAULT_ORG_ID;
+    const config = await getFollowerSyncConfig(channelOrgId);
 
     const socialLinks = (channel.social_links || {}) as Record<string, string>;
     const existingFollowers = (channel.followers || {}) as Record<string, any>;
@@ -885,7 +964,8 @@ export async function syncSingleChannelFollowers(channelId: string): Promise<Cha
     let { error: updateError } = await serverSupabase
         .from('channels')
         .update(updatePayload)
-        .eq('id', channel.id);
+        .eq('id', channel.id)
+        .eq('org_id', channelOrgId);
 
     // Dual-compatible fallback if column last_sync_followers_at is not created yet
     if (updateError && (updateError.message?.includes('last_sync_followers_at') || (updateError as any).code === '42703')) {
@@ -893,7 +973,8 @@ export async function syncSingleChannelFollowers(channelId: string): Promise<Cha
         const retryRes = await serverSupabase
             .from('channels')
             .update(updatePayload)
-            .eq('id', channel.id);
+            .eq('id', channel.id)
+            .eq('org_id', channelOrgId);
         updateError = retryRes.error;
     }
 
@@ -959,7 +1040,12 @@ export function buildUtcCronExpression(bangkokTimeStr: string): { cronUtc: strin
 /**
  * Kept for backwards compatibility if called by frontend /api/cron/reschedule
  */
-export async function rescheduleFollowerCronJob(customConfig?: FollowerSyncConfig) {
-    const config = customConfig || await getFollowerSyncConfig();
-    console.log(`[FollowerSync] Configuration updated. Scheduled via Supabase pg_cron at ${config.syncTime} Asia/Bangkok (Active: ${config.isEnabled})`);
+export async function rescheduleFollowerCronJob(customConfig?: FollowerSyncConfig, orgId?: string | null) {
+    const targetOrgId = orgId || PRIMARY_DEFAULT_ORG_ID;
+    if (customConfig) {
+        cachedConfigByOrg.set(targetOrgId, customConfig);
+    }
+    const config = customConfig || await getFollowerSyncConfig(targetOrgId);
+    console.log(`[FollowerSync] Configuration updated for org ${targetOrgId}. Scheduled via Supabase pg_cron at ${config.syncTime} Asia/Bangkok (Active: ${config.isEnabled})`);
 }
+

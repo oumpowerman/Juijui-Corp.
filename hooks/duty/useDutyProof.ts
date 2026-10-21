@@ -5,6 +5,7 @@ import { Duty, User } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
 import { useGamification } from '../useGamification';
+import { getOrgStoragePath } from '../../lib/tenantStorage';
 import { format } from 'date-fns';
 
 export const useDutyProof = (
@@ -69,17 +70,17 @@ export const useDutyProof = (
                 // ... (supabase upload logic) ...
                 try {
                     const fileExt = file.name.split('.').pop();
-                    const fileName = `duty-proof-${dutyId}-${Date.now()}.${fileExt}`;
+                    const storagePath = getOrgStoragePath(`duty/duty-proof-${dutyId}-${Date.now()}.${fileExt}`);
                     
                     const { error: uploadError } = await supabase.storage
                         .from('chat-files') 
-                        .upload(fileName, file);
+                        .upload(storagePath, file);
 
                     if (uploadError) throw uploadError;
 
                     const { data: urlData } = supabase.storage
                         .from('chat-files')
-                        .getPublicUrl(fileName);
+                        .getPublicUrl(storagePath);
                     
                     imageUrl = urlData.publicUrl;
                     showToast('บันทึกผ่านระบบสำรองเรียบร้อย', 'info');
@@ -167,12 +168,11 @@ export const useDutyProof = (
         try {
             let proofUrl = null;
             if (file) {
-                // ... (appeal upload logic) ...
                 const fileExt = file.name.split('.').pop();
-                const fileName = `duty-appeal-${dutyId}-${Date.now()}.${fileExt}`;
-                const { error: uploadError } = await supabase.storage.from('chat-files').upload(fileName, file);
+                const storagePath = getOrgStoragePath(`duty/duty-appeal-${dutyId}-${Date.now()}.${fileExt}`);
+                const { error: uploadError } = await supabase.storage.from('chat-files').upload(storagePath, file);
                 if (!uploadError) {
-                    const { data } = supabase.storage.from('chat-files').getPublicUrl(fileName);
+                    const { data } = supabase.storage.from('chat-files').getPublicUrl(storagePath);
                     proofUrl = data.publicUrl;
                 }
             }

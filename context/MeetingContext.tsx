@@ -1,10 +1,10 @@
-
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { MeetingLog, MeetingCategory, User } from '../types';
 import { useToast } from './ToastContext';
 import { useGlobalDialog } from './GlobalDialogContext';
 import { format, isValid, startOfMonth, endOfMonth } from 'date-fns';
+import { getActiveOrgIdSync, getOrgChannelName } from '../lib/tenantStorage';
 
 interface MeetingContextType {
     meetings: MeetingLog[];
@@ -35,6 +35,7 @@ export const MeetingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const [page, setPage] = useState(0);
     const [historyPage, setHistoryPage] = useState(0);
     const [currentMonth, setCurrentMonth] = useState(new Date());
+    const [activeOrgId, setActiveOrgId] = useState<string>(() => getActiveOrgIdSync());
     const { showToast } = useToast();
     const { showConfirm } = useGlobalDialog();
 
@@ -168,6 +169,25 @@ export const MeetingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         }
     }, [meetings]);
 
+    // Listen for workspace switch to clear meetings and reload for the new organization
+    useEffect(() => {
+        const handleWorkspaceSwitch = (e: Event) => {
+            const customEvent = e as CustomEvent<{ orgId?: string }>;
+            const nextOrgId = customEvent.detail?.orgId || getActiveOrgIdSync();
+            setActiveOrgId(nextOrgId);
+            setMeetings([]);
+            setHistoryMeetings([]);
+            setPage(0);
+            setHistoryPage(0);
+            setHasMore(true);
+            setHistoryHasMore(true);
+            fetchMeetingsByMonth(currentMonth, 0);
+            fetchHistoryMeetings(0);
+        };
+        window.addEventListener('org-workspace-switched', handleWorkspaceSwitch);
+        return () => window.removeEventListener('org-workspace-switched', handleWorkspaceSwitch);
+    }, [currentMonth, fetchMeetingsByMonth, fetchHistoryMeetings]);
+
     useEffect(() => {
         setPage(0); // Reset page on month change
         fetchMeetingsByMonth(currentMonth, 0);
@@ -177,8 +197,8 @@ export const MeetingProvider: React.FC<{ children: React.ReactNode }> = ({ child
             fetchHistoryMeetings(0);
         }
         
-        // Real-time subscription (Context-based)
-        const channel = supabase.channel('realtime-meetings-context')
+        // Real-time subscription (Context-based, isolated per organization)
+        const channel = supabase.channel(getOrgChannelName('realtime-meetings-context', activeOrgId))
             .on('postgres_changes', { event: '*', schema: 'public', table: 'meeting_logs' }, (payload) => {
                 if (payload.eventType === 'INSERT') {
                     const newMeetingDate = new Date(payload.new.date);
@@ -199,7 +219,7 @@ export const MeetingProvider: React.FC<{ children: React.ReactNode }> = ({ child
             .subscribe();
 
         return () => { supabase.removeChannel(channel); };
-    }, [currentMonth, fetchMeetingsByMonth, mapMeeting]);
+    }, [currentMonth, fetchMeetingsByMonth, fetchHistoryMeetings, mapMeeting, activeOrgId]);
 
     const createMeeting = async (title: string, date: Date, userId: string, extra?: Partial<MeetingLog>) => {
         try {

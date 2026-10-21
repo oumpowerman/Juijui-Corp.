@@ -5,9 +5,13 @@ import { useToast } from '../ToastContext';
 import { useGlobalDialog } from '../GlobalDialogContext';
 import { DEFAULT_OPTIONS } from '../masterDefaults';
 import { updateSystemVersion } from './masterVersionSync';
+import { getActiveOrgIdSync } from '../../lib/tenantStorage';
 
 export const CACHE_KEY_OPTIONS = 'master_options_cache';
 export const CACHE_KEY_VERSION = 'master_options_version_cache';
+
+export const getOptionsCacheKey = (orgId?: string) => `${CACHE_KEY_OPTIONS}_${orgId || getActiveOrgIdSync()}`;
+export const getOptionsVersionCacheKey = (orgId?: string) => `${CACHE_KEY_VERSION}_${orgId || getActiveOrgIdSync()}`;
 
 const mapRawOption = (item: any): MasterOption => ({
     id: item.id,
@@ -36,7 +40,9 @@ export const useMasterOptionsDomain = () => {
     ) => {
         isMutatingOptionsCache.current = true;
         try {
-            const cachedOptions = localStorage.getItem(CACHE_KEY_OPTIONS);
+            const cacheKey = getOptionsCacheKey();
+            const versionKey = getOptionsVersionCacheKey();
+            const cachedOptions = localStorage.getItem(cacheKey);
             let rawOptions = cachedOptions ? JSON.parse(cachedOptions) : [];
             
             if (action === 'ADD') {
@@ -51,13 +57,13 @@ export const useMasterOptionsDomain = () => {
             }
             
             rawOptions.sort((a: any, b: any) => (a.sort_order || 0) - (b.sort_order || 0));
-            localStorage.setItem(CACHE_KEY_OPTIONS, JSON.stringify(rawOptions));
+            localStorage.setItem(cacheKey, JSON.stringify(rawOptions));
             setOptions(rawOptions.map(mapRawOption));
 
             if (!skipVersionUpdate) {
                 const newVersion = await updateSystemVersion('master_options_version');
                 if (newVersion) {
-                    localStorage.setItem(CACHE_KEY_VERSION, newVersion);
+                    localStorage.setItem(versionKey, newVersion);
                 }
             }
         } catch (e) {
@@ -70,14 +76,16 @@ export const useMasterOptionsDomain = () => {
     }, []);
 
     const loadOptionsFromCacheOrRemote = useCallback(async (currentOptionsVersion?: string) => {
-        const cachedOptions = localStorage.getItem(CACHE_KEY_OPTIONS);
-        const cachedOptionsVersion = localStorage.getItem(CACHE_KEY_VERSION);
+        const cacheKey = getOptionsCacheKey();
+        const versionKey = getOptionsVersionCacheKey();
+        const cachedOptions = localStorage.getItem(cacheKey);
+        const cachedOptionsVersion = localStorage.getItem(versionKey);
         let optionsData = null;
         let useCache = false;
 
         if (isMutatingOptionsCache.current) {
             useCache = true;
-            optionsData = JSON.parse(localStorage.getItem(CACHE_KEY_OPTIONS) || '[]');
+            optionsData = JSON.parse(localStorage.getItem(cacheKey) || '[]');
             console.log('🚀 Master Data: Using cached options (Mutation in progress)');
         } else if (cachedOptions && cachedOptionsVersion && currentOptionsVersion && cachedOptionsVersion === currentOptionsVersion) {
             try {
@@ -94,14 +102,15 @@ export const useMasterOptionsDomain = () => {
             const { data, error } = await supabase
                 .from('master_options')
                 .select('*')
+                .not('type', 'in', '("SHOOT_TRIP_ARCHIVE","SHOOT_CHECKLIST_SESSION")')
                 .order('sort_order', { ascending: true });
             
             if (error) throw error;
             optionsData = data;
 
             if (data && currentOptionsVersion) {
-                localStorage.setItem(CACHE_KEY_OPTIONS, JSON.stringify(data));
-                localStorage.setItem(CACHE_KEY_VERSION, currentOptionsVersion);
+                localStorage.setItem(cacheKey, JSON.stringify(data));
+                localStorage.setItem(versionKey, currentOptionsVersion);
             }
         }
 
@@ -220,12 +229,14 @@ export const useMasterOptionsDomain = () => {
                 if (error) throw error;
             }
 
-            localStorage.setItem(CACHE_KEY_OPTIONS, JSON.stringify(bulkOptions));
+            const cacheKey = getOptionsCacheKey();
+            const versionKey = getOptionsVersionCacheKey();
+            localStorage.setItem(cacheKey, JSON.stringify(bulkOptions));
             setOptions(bulkOptions.map(mapRawOption));
 
             const newVersion = await updateSystemVersion('master_options_version');
             if (newVersion) {
-                localStorage.setItem(CACHE_KEY_VERSION, newVersion);
+                localStorage.setItem(versionKey, newVersion);
             }
 
             showToast('บันทึกข้อมูลเรียบร้อย ✨', 'success');
@@ -263,9 +274,22 @@ export const useMasterOptionsDomain = () => {
                 const existing = existingMap.get(compositeKey);
 
                 if (!existing) {
+                    const payload: Record<string, any> = {
+                        type: opt.type,
+                        key: opt.key,
+                        label: opt.label,
+                        color: opt.color,
+                        sort_order: opt.sort_order,
+                    };
+                    if (opt.progress_value !== undefined) payload.progress_value = opt.progress_value;
+                    if (opt.description !== undefined) payload.description = opt.description;
+                    if (opt.parent_key !== undefined) payload.parent_key = opt.parent_key;
+                    if (opt.is_active !== undefined) payload.is_active = opt.is_active;
+                    if (opt.is_default !== undefined) payload.is_default = opt.is_default;
+
                     const { error: insertError } = await supabase
                         .from('master_options')
-                        .insert(opt);
+                        .insert(payload);
 
                     if (!insertError) {
                         insertedCount++;

@@ -1,151 +1,92 @@
-import React, { useState, useMemo } from 'react';
+import React, { useMemo } from 'react';
+import { Building2, Crown, RefreshCw } from 'lucide-react';
 import { useOrganization } from '../../../../context/OrganizationContext';
-import { useDemoSandbox } from '../../../../context/DemoSandboxContext';
-import { Organization } from '../../../../types';
-import { ConsoleSubTab } from './multi-tenant/multiTenantConstants';
-import { SaaSConsoleHeader } from './multi-tenant/SaaSConsoleHeader';
-import { SuperAdminTenantsTab } from './multi-tenant/SuperAdminTenantsTab';
-import { BillingWebhookTab } from './multi-tenant/BillingWebhookTab';
-import { DemoTrialLogsTab } from './multi-tenant/DemoTrialLogsTab';
 import { WorkspaceInvitesTab } from './multi-tenant/WorkspaceInvitesTab';
-import { SqlMigrationTab } from './multi-tenant/SqlMigrationTab';
-import { ProvisionTenantModal } from './multi-tenant/ProvisionTenantModal';
-import { EditTenantLicenseModal } from './multi-tenant/EditTenantLicenseModal';
-import { OwnerHandoverModal } from './multi-tenant/OwnerHandoverModal';
+import { TenantSubscriptionOverview } from './multi-tenant/TenantSubscriptionOverview';
 
 const MultiTenantSaaSView: React.FC = () => {
     const {
         isSuperAdmin,
         currentOrg,
-        allPlatformOrganizations,
         currentOrgMembers,
         pendingJoinRequests,
-        invoices: subscriptionInvoices,
+        invoices,
         isOrgAdmin,
+        computedSubscriptionStatus,
+        daysUntilExpiry,
         openSwitcherModal,
-        switchOrganization,
         approveMemberRequest,
         rejectMemberRequest,
         regenerateInviteCode,
+        submitRenewalRequest,
         refreshOrganizations,
-        createOrganization,
-        updateOrganizationLicense,
-        approveInvoiceRequest,
-        rejectInvoiceRequest
+        returnToSuperAdminPortal
     } = useOrganization();
-
-    const { allTrialSessions, fetchAllDemoTrialSessions } = useDemoSandbox();
-
-    const [activeSubTab, setActiveSubTab] = useState<ConsoleSubTab>(
-        isSuperAdmin ? 'SUPER_ADMIN' : 'WORKSPACE_INVITES'
-    );
-
-    // Modal Orchestration State
-    const [isProvisionModalOpen, setIsProvisionModalOpen] = useState(false);
-    const [editingOrg, setEditingOrg] = useState<Organization | null>(null);
-    const [handoverOrg, setHandoverOrg] = useState<Organization | null>(null);
-    const [initialClaimToken, setInitialClaimToken] = useState<string | null>(null);
 
     const activeMemberCount = useMemo(
         () => currentOrgMembers.filter(m => m.status === 'ACTIVE').length,
         [currentOrgMembers]
     );
 
-    const pendingInvoicesCount = useMemo(
-        () => subscriptionInvoices.filter(inv => inv.paymentStatus === 'PENDING').length,
-        [subscriptionInvoices]
-    );
-
-    const handleOpenHandoverModal = (org: Organization, tokenOverride?: string | null) => {
-        setHandoverOrg(org);
-        setInitialClaimToken(tokenOverride ?? org.ownerClaimToken ?? null);
-    };
-
-    const handleRefreshAll = async () => {
-        await Promise.all([refreshOrganizations(), fetchAllDemoTrialSessions()]);
-    };
-
     return (
         <div className="space-y-6">
-            <SaaSConsoleHeader
-                isSuperAdmin={isSuperAdmin}
-                activeSubTab={activeSubTab}
-                onSelectSubTab={setActiveSubTab}
-                totalOrgsCount={allPlatformOrganizations.length}
-                pendingInvoicesCount={pendingInvoicesCount}
-                demoTrialsCount={allTrialSessions.length}
-                currentOrgName={currentOrg.name}
-                onRefresh={handleRefreshAll}
-                onOpenProvisionModal={() => setIsProvisionModalOpen(true)}
+            {/* Customer Organization Header */}
+            <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                <div className="flex items-start gap-3.5">
+                    <div className="p-3 rounded-2xl bg-indigo-600 text-white shadow-sm shrink-0">
+                        <Building2 className="w-6 h-6" />
+                    </div>
+                    <div>
+                        <h2 className="text-xl font-bold text-slate-900">
+                            ข้อมูลองค์กร รหัสเชิญทีม และแพ็กเกจการใช้งาน ({currentOrg.name})
+                        </h2>
+                        <p className="text-xs text-slate-500 mt-1">
+                            จัดการรหัสเชิญสำหรับพนักงานในบริษัท อนุมัติคำขอเข้าร่วมทีม และตรวจสอบสถานะแพ็กเกจขององค์กรคุณ
+                        </p>
+                    </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
+                    <button
+                        type="button"
+                        onClick={refreshOrganizations}
+                        className="px-3.5 py-2.5 text-xs font-bold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors flex items-center gap-1.5"
+                    >
+                        <RefreshCw className="w-3.5 h-3.5" /> รีเฟรชข้อมูล
+                    </button>
+
+                    {isSuperAdmin && (
+                        <button
+                            type="button"
+                            onClick={returnToSuperAdminPortal}
+                            className="px-4 py-2.5 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl shadow-sm transition-colors flex items-center gap-1.5"
+                        >
+                            <Crown className="w-4 h-4 text-amber-400" />
+                            เปิดศูนย์ควบคุมแพลตฟอร์ม (Super Admin Portal)
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* Section 1: Team Invite Code & Member Approval Queue */}
+            <WorkspaceInvitesTab
+                currentOrg={currentOrg}
+                activeMemberCount={activeMemberCount}
+                isOrgAdmin={isOrgAdmin}
+                pendingJoinRequests={pendingJoinRequests}
+                onOpenSwitcherModal={() => openSwitcherModal('SWITCH')}
+                onRegenerateInviteCode={regenerateInviteCode}
+                onApproveMemberRequest={approveMemberRequest}
+                onRejectMemberRequest={rejectMemberRequest}
             />
 
-            {activeSubTab === 'SUPER_ADMIN' && (
-                <SuperAdminTenantsTab
-                    isSuperAdmin={isSuperAdmin}
-                    currentOrg={currentOrg}
-                    allPlatformOrganizations={allPlatformOrganizations}
-                    activeMemberCount={activeMemberCount}
-                    pendingInvoicesCount={pendingInvoicesCount}
-                    onOpenProvisionModal={() => setIsProvisionModalOpen(true)}
-                    onOpenEditLicenseModal={org => setEditingOrg(org)}
-                    onOpenHandoverModal={org => handleOpenHandoverModal(org)}
-                    onSwitchOrganization={switchOrganization}
-                    onGoToBillingTab={() => setActiveSubTab('BILLING_WEBHOOK')}
-                />
-            )}
-
-            {activeSubTab === 'BILLING_WEBHOOK' && (
-                <BillingWebhookTab
-                    isSuperAdmin={isSuperAdmin}
-                    currentOrgId={currentOrg.id}
-                    allPlatformOrganizations={allPlatformOrganizations}
-                    subscriptionInvoices={subscriptionInvoices}
-                    onApproveInvoice={approveInvoiceRequest}
-                    onRejectInvoice={rejectInvoiceRequest}
-                    onRefreshOrganizations={refreshOrganizations}
-                />
-            )}
-
-            {activeSubTab === 'DEMO_TRIALS' && <DemoTrialLogsTab />}
-
-            {activeSubTab === 'WORKSPACE_INVITES' && (
-                <WorkspaceInvitesTab
-                    currentOrg={currentOrg}
-                    activeMemberCount={activeMemberCount}
-                    isOrgAdmin={isOrgAdmin}
-                    pendingJoinRequests={pendingJoinRequests}
-                    onOpenSwitcherModal={() => openSwitcherModal('SWITCH')}
-                    onRegenerateInviteCode={regenerateInviteCode}
-                    onApproveMemberRequest={approveMemberRequest}
-                    onRejectMemberRequest={rejectMemberRequest}
-                />
-            )}
-
-            {activeSubTab === 'SQL_MIGRATION' && <SqlMigrationTab />}
-
-            <ProvisionTenantModal
-                isOpen={isProvisionModalOpen}
-                onClose={() => setIsProvisionModalOpen(false)}
-                onCreateOrganization={createOrganization}
-                onCreatedWithClaimToken={(org, claimToken) => handleOpenHandoverModal(org, claimToken)}
-            />
-
-            <EditTenantLicenseModal
-                editingOrg={editingOrg}
-                onClose={() => setEditingOrg(null)}
-                onUpdateLicense={updateOrganizationLicense}
-            />
-
-            <OwnerHandoverModal
-                handoverOrg={handoverOrg}
-                initialClaimToken={initialClaimToken}
-                allPlatformOrganizations={allPlatformOrganizations}
-                onClose={() => {
-                    setHandoverOrg(null);
-                    setInitialClaimToken(null);
-                }}
-                onUpdateLicense={updateOrganizationLicense}
-                onRefreshOrganizations={refreshOrganizations}
+            {/* Section 2: Current Company Subscription Plan & Renewal History */}
+            <TenantSubscriptionOverview
+                currentOrg={currentOrg}
+                computedSubscriptionStatus={computedSubscriptionStatus}
+                daysUntilExpiry={daysUntilExpiry}
+                invoices={invoices}
+                onSubmitRenewalRequest={submitRenewalRequest}
             />
         </div>
     );

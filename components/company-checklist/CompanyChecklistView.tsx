@@ -54,6 +54,13 @@ export const CompanyChecklistView: React.FC<CompanyChecklistViewProps> = ({
         getResponsibilityLabel,
         isUserResponsibleForSection,
         getSectionItemNodes,
+        getActiveCaseKeyForChecklist,
+        getActiveCasesForChecklist,
+        getCaseProgressForChecklist,
+        getCaseTitleForChecklist,
+        selectActiveCaseForPreset,
+        createActiveCaseForPreset,
+        deleteActiveCaseForPreset,
         setCaseTitleForPreset,
         toggleActiveItem,
         updateActiveItemRemark,
@@ -142,7 +149,7 @@ export const CompanyChecklistView: React.FC<CompanyChecklistViewProps> = ({
     // Auto-fill currentCaseTitle when activePreset is recurring and caseTitle is empty
     useEffect(() => {
         if (!activePreset || !activePresetCadence?.isRecurring) return;
-        const existingTitle = activeCaseTitles?.[activePreset.id];
+        const existingTitle = getCaseTitleForChecklist(activePreset.id);
         if (!existingTitle && activePresetCadence.autoCaseTitle) {
             setCaseTitleForPreset(
                 activePreset.id,
@@ -160,13 +167,23 @@ export const CompanyChecklistView: React.FC<CompanyChecklistViewProps> = ({
 
     const currentCaseTitle = useMemo(() => {
         if (!activePreset) return '';
-        const stored = activeCaseTitles?.[activePreset.id];
+        const stored = getCaseTitleForChecklist(activePreset.id);
         if (stored !== undefined && stored !== '') return stored;
         if (activePresetCadence?.isRecurring && activePresetCadence.autoCaseTitle) {
             return activePresetCadence.autoCaseTitle;
         }
         return stored ?? '';
-    }, [activePreset, activeCaseTitles, activePresetCadence]);
+    }, [activePreset, activeCaseTitles, activePresetCadence, getCaseTitleForChecklist]);
+
+    const activePresetCases = useMemo(() => {
+        if (!activePreset) return [];
+        return getActiveCasesForChecklist(activePreset.id);
+    }, [activePreset, getActiveCasesForChecklist]);
+
+    const activePresetSelectedCaseKey = useMemo(() => {
+        if (!activePreset) return '';
+        return getActiveCaseKeyForChecklist(activePreset.id);
+    }, [activePreset, getActiveCaseKeyForChecklist]);
 
     // Filtered sections
     const filteredSections = useMemo(() => {
@@ -262,12 +279,27 @@ export const CompanyChecklistView: React.FC<CompanyChecklistViewProps> = ({
 
     const handleResetActivePreset = async () => {
         if (!activePreset) return;
+        const targetLabel =
+            activePreset.resetCycle === 'ONCE' && currentCaseTitle
+                ? `เคส "${currentCaseTitle}"`
+                : `"${activePreset.title}"`;
         const confirmed = await showConfirm(
-            `ต้องการล้างเครื่องหมายติ๊กทั้งหมดของ "${activePreset.title}" เพื่อเริ่มเช็ครายการใหม่ใช่หรือไม่?`,
+            `ต้องการล้างเครื่องหมายติ๊กทั้งหมดของ ${targetLabel} เพื่อเริ่มเช็ครายการใหม่ใช่หรือไม่?`,
             'รีเซ็ตรายการเช็คปัจจุบัน'
         );
         if (confirmed) {
             await resetActiveChecklistWorkspace(activePreset.id);
+        }
+    };
+
+    const handleDeleteActiveCase = async (caseKey: string, caseTitle: string) => {
+        if (!activePreset) return;
+        const confirmed = await showConfirm(
+            `ต้องการปิดและล้างเคส "${caseTitle}" ออกจากกระดานตรวจปัจจุบันใช่หรือไม่? (เคสอื่นที่เปิดอยู่จะไม่ถูกกระทบ)`,
+            'ยืนยันการปิดเคสตรวจ'
+        );
+        if (confirmed) {
+            await deleteActiveCaseForPreset(activePreset.id, caseKey);
         }
     };
 
@@ -419,6 +451,19 @@ export const CompanyChecklistView: React.FC<CompanyChecklistViewProps> = ({
                                         onChangeCaseTitle={title =>
                                             setCaseTitleForPreset(activePreset.id, title)
                                         }
+                                        activeCases={activePresetCases}
+                                        selectedCaseKey={activePresetSelectedCaseKey}
+                                        onSelectCase={caseKey =>
+                                            selectActiveCaseForPreset(
+                                                activePreset.id,
+                                                caseKey
+                                            )
+                                        }
+                                        onCreateNewCase={() => {
+                                            createActiveCaseForPreset(activePreset.id);
+                                        }}
+                                        onDeleteCase={handleDeleteActiveCase}
+                                        getCaseProgress={getCaseProgressForChecklist}
                                         presetProgress={presetProgress}
                                         activeItemStates={activeItemStates}
                                         getSectionItemNodes={getSectionItemNodes}

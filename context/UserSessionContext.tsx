@@ -227,6 +227,8 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
             }
         });
 
+        let newlyFetchedUsers: User[] = [];
+
         if (uncachedIds.length > 0) {
             try {
                 const { data, error } = await supabase
@@ -238,6 +240,7 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
                     console.error('Error fetching missing profiles:', error);
                 } else if (data) {
                     const fetchedUsers = data.map(mapProfileToUser);
+                    newlyFetchedUsers = fetchedUsers;
                     
                     // Update cache
                     uncachedIds.forEach(id => {
@@ -259,7 +262,11 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
             }
         }
 
-        return allUsers.filter(u => userIds.includes(u.id));
+        const resultMap = new Map<string, User>();
+        allUsers.filter(u => userIds.includes(u.id)).forEach(u => resultMap.set(u.id, u));
+        cachedUsers.forEach(u => resultMap.set(u.id, u));
+        newlyFetchedUsers.forEach(u => resultMap.set(u.id, u));
+        return Array.from(resultMap.values());
     }, [allUsers]);
 
     // --- INITIAL BATCH FETCH ---

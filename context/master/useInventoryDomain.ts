@@ -1,11 +1,16 @@
 import { useState, useRef, useCallback } from 'react';
 import { supabase } from '../../lib/supabase';
+import { InventoryItem } from '../../types';
 import { updateSystemVersion } from './masterVersionSync';
+import { getActiveOrgIdSync } from '../../lib/tenantStorage';
 
 export const CACHE_KEY_INVENTORY = 'inventory_items_cache';
 export const CACHE_KEY_INVENTORY_VERSION = 'inventory_version_cache';
 
-export const mapInventoryItem = (i: any) => ({
+export const getInventoryCacheKey = (orgId?: string) => `${CACHE_KEY_INVENTORY}_${orgId || getActiveOrgIdSync()}`;
+export const getInventoryVersionCacheKey = (orgId?: string) => `${CACHE_KEY_INVENTORY_VERSION}_${orgId || getActiveOrgIdSync()}`;
+
+export const mapInventoryItem = (i: any): InventoryItem => ({
     id: i.id,
     name: i.name,
     description: i.description, 
@@ -16,7 +21,7 @@ export const mapInventoryItem = (i: any) => ({
     unit: i.unit,
     minThreshold: i.min_threshold,
     maxCapacity: i.max_capacity,
-    tags: i.tags || [],
+    tags: Array.isArray(i.tags) ? i.tags : [],
     assetGroup: i.asset_group,
     purchasePrice: i.purchase_price,
     purchaseDate: i.purchase_date ? new Date(i.purchase_date) : undefined,
@@ -26,10 +31,10 @@ export const mapInventoryItem = (i: any) => ({
     currentHolderId: i.current_holder_id,
     groupLabel: i.group_label,
     createdAt: i.created_at ? new Date(i.created_at) : undefined
-});
+} as InventoryItem);
 
 export const useInventoryDomain = () => {
-    const [inventoryItems, setInventoryItems] = useState<any[]>([]);
+    const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
     const isMutatingInventoryCache = useRef(false);
 
     const updateInventoryLocalCache = useCallback(async (
@@ -39,7 +44,9 @@ export const useInventoryDomain = () => {
     ) => {
         isMutatingInventoryCache.current = true;
         try {
-            const cachedInventory = localStorage.getItem(CACHE_KEY_INVENTORY);
+            const cacheKey = getInventoryCacheKey();
+            const versionKey = getInventoryVersionCacheKey();
+            const cachedInventory = localStorage.getItem(cacheKey);
             let rawInventory = cachedInventory ? JSON.parse(cachedInventory) : [];
             
             if (action === 'ADD') {
@@ -67,13 +74,13 @@ export const useInventoryDomain = () => {
             }
             
             rawInventory.sort((a: any, b: any) => (a.name || '').localeCompare(b.name || ''));
-            localStorage.setItem(CACHE_KEY_INVENTORY, JSON.stringify(rawInventory));
+            localStorage.setItem(cacheKey, JSON.stringify(rawInventory));
             setInventoryItems(rawInventory.map(mapInventoryItem));
 
             if (!skipVersionUpdate) {
                 const newVersion = await updateSystemVersion('inventory_version');
                 if (newVersion) {
-                    localStorage.setItem(CACHE_KEY_INVENTORY_VERSION, newVersion);
+                    localStorage.setItem(versionKey, newVersion);
                 }
             }
         } catch (e) {
@@ -86,14 +93,16 @@ export const useInventoryDomain = () => {
     }, []);
 
     const loadInventoryFromCacheOrRemote = useCallback(async (currentInventoryVersion?: string) => {
-        const cachedInventory = localStorage.getItem(CACHE_KEY_INVENTORY);
-        const cachedInventoryVersion = localStorage.getItem(CACHE_KEY_INVENTORY_VERSION);
+        const cacheKey = getInventoryCacheKey();
+        const versionKey = getInventoryVersionCacheKey();
+        const cachedInventory = localStorage.getItem(cacheKey);
+        const cachedInventoryVersion = localStorage.getItem(versionKey);
         let inventoryData = null;
         let useCache = false;
 
         if (isMutatingInventoryCache.current) {
             useCache = true;
-            inventoryData = JSON.parse(localStorage.getItem(CACHE_KEY_INVENTORY) || '[]');
+            inventoryData = JSON.parse(localStorage.getItem(cacheKey) || '[]');
             console.log('🚀 Master Data: Using cached inventory (Mutation in progress)');
         } else if (cachedInventory && cachedInventoryVersion && currentInventoryVersion && cachedInventoryVersion === currentInventoryVersion) {
             try {
@@ -116,8 +125,8 @@ export const useInventoryDomain = () => {
             inventoryData = data;
 
             if (data && currentInventoryVersion) {
-                localStorage.setItem(CACHE_KEY_INVENTORY, JSON.stringify(data));
-                localStorage.setItem(CACHE_KEY_INVENTORY_VERSION, currentInventoryVersion);
+                localStorage.setItem(cacheKey, JSON.stringify(data));
+                localStorage.setItem(versionKey, currentInventoryVersion);
             }
         }
 

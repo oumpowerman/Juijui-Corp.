@@ -5,6 +5,7 @@ import { InventoryItem, AssetCondition, AssetGroup, InventoryType } from '../typ
 import { useToast } from '../context/ToastContext';
 import { useMasterData } from './useMasterData';
 import { useUserSession } from '../context/UserSessionContext';
+import { getOrgStoragePath } from '../lib/tenantStorage';
 
 interface FetchParams {
     page: number;
@@ -46,9 +47,9 @@ export const useAssets = () => {
     // Extract Unique Tags for Autocomplete
     const allTags = useMemo(() => {
         const tagsSet = new Set<string>();
-        inventoryItems.forEach(item => {
+        inventoryItems.forEach((item: InventoryItem) => {
             if (Array.isArray(item.tags)) {
-                item.tags.forEach(t => tagsSet.add(t));
+                item.tags.forEach((t: string) => tagsSet.add(t));
             }
         });
         return Array.from(tagsSet).sort();
@@ -155,13 +156,13 @@ export const useAssets = () => {
                 // Fallback to Supabase Storage
                 if (!uploaded) {
                     const fileExt = file.name.split('.').pop();
-                    const fileName = `asset-${Date.now()}.${fileExt}`;
+                    const storagePath = getOrgStoragePath(`inventory/asset-${Date.now()}.${fileExt}`);
                     const { error: uploadError } = await supabase.storage
                         .from('avatars')
-                        .upload(`inventory/${fileName}`, file);
+                        .upload(storagePath, file);
 
                     if (uploadError) throw uploadError;
-                    const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(`inventory/${fileName}`);
+                    const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(storagePath);
                     imageUrl = urlData.publicUrl;
                     if (driveOptions?.isDriveReady) {
                         showToast('บันทึกผ่านระบบสำรอง (Supabase) เรียบร้อย', 'info');

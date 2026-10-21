@@ -42,7 +42,11 @@ export const GlobalRealtimeSync = () => {
             .channel(channelName)
             // Master Options
             .on('postgres_changes', { event: '*', schema: 'public', table: 'master_options' }, (payload) => {
-                if (isCurrentOrgEvent(payload)) queryClient.invalidateQueries({ queryKey: ['master_options'] });
+                if (isCurrentOrgEvent(payload)) {
+                    queryClient.invalidateQueries({ queryKey: ['master_options'] });
+                    queryClient.invalidateQueries({ queryKey: ['shoot_checklist_session'] });
+                    queryClient.invalidateQueries({ queryKey: ['shoot_trip_archive'] });
+                }
             })
             // Channels
             .on('postgres_changes', { event: '*', schema: 'public', table: 'channels' }, (payload) => {

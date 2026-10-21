@@ -1,11 +1,61 @@
-
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useToast } from '../context/ToastContext';
 import { format, addMonths } from 'date-fns';
 import { BackupOptions, StorageStats } from '../types';
+import { getActiveOrgIdSync, DEFAULT_ORG_ID } from '../lib/tenantStorage';
 
 const STORAGE_LIMIT = 1073741824; // 1 GB in Bytes (Quota limit example)
+const KNOWN_SUBFOLDERS = ['channels', 'inventory', 'proofs', 'finance', 'duty', 'chat', 'avatars'];
+
+/**
+ * Helper to list all files belonging to a specific organization in a bucket.
+ * - Always scans `orgs/{orgId}` and its immediate subfolders.
+ * - Only if `orgId === DEFAULT_ORG_ID`, also scans legacy root files & legacy root subfolders (excluding `orgs`).
+ */
+async function listTenantBucketFiles(
+    bucket: string,
+    orgId: string
+): Promise<{ bucket: string; name: string; size: number }[]> {
+    const collected: { bucket: string; name: string; size: number }[] = [];
+    const orgPrefix = `orgs/${orgId}`;
+
+    const scanFolder = async (folderPath: string, depth: number = 0) => {
+        const { data, error } = await supabase.storage.from(bucket).list(folderPath, { limit: 1000 });
+        if (error || !data) return;
+
+        for (const item of data) {
+            if (!item.name || item.name === '.emptyFolderPlaceholder') continue;
+            const fullPath = folderPath ? `${folderPath}/${item.name}` : item.name;
+
+            // In Supabase storage.list, folders typically have id === null or metadata === null
+            const isFolder = !item.id && !item.metadata;
+            if (isFolder) {
+                // Never allow scanning into `orgs` from root (tenant isolation guard)
+                if (!folderPath && item.name === 'orgs') continue;
+                if (depth < 2) {
+                    await scanFolder(fullPath, depth + 1);
+                }
+            } else {
+                collected.push({
+                    bucket,
+                    name: fullPath,
+                    size: item.metadata?.size || 0
+                });
+            }
+        }
+    };
+
+    // 1. Scan tenant's dedicated directory `orgs/{orgId}`
+    await scanFolder(orgPrefix, 0);
+
+    // 2. If Primary Organization, also scan legacy root files and legacy folders (excluding `orgs/`)
+    if (orgId === DEFAULT_ORG_ID) {
+        await scanFolder('', 0);
+    }
+
+    return collected;
+}
 
 export const useMaintenance = () => {
     const { showToast } = useToast();
@@ -44,21 +94,20 @@ export const useMaintenance = () => {
         limitBytes: STORAGE_LIMIT 
     });
 
-    // --- 1. STORAGE CALCULATOR ---
+    // --- 1. STORAGE CALCULATOR (TENANT-SCOPED) ---
     const fetchStorageStats = async () => {
         setIsCalculatingStorage(true);
         try {
+            const activeOrgId = getActiveOrgIdSync();
             let fileTotalBytes = 0;
             let totalFiles = 0;
 
             const buckets = ['chat-files', 'avatars', 'proofs']; 
             
             for (const bucket of buckets) {
-                const { data } = await supabase.storage.from(bucket).list('', { limit: 1000 });
-                if (data) {
-                    totalFiles += data.length;
-                    fileTotalBytes += data.reduce((acc, file) => acc + (file.metadata?.size || 0), 0);
-                }
+                const tenantFiles = await listTenantBucketFiles(bucket, activeOrgId);
+                totalFiles += tenantFiles.length;
+                fileTotalBytes += tenantFiles.reduce((acc, file) => acc + file.size, 0);
             }
 
             const { count: logRows } = await supabase.from('task_logs').select('id', { count: 'exact', head: true });
@@ -79,6 +128,18 @@ export const useMaintenance = () => {
         }
     };
 
+    // Reset state on workspace switch
+    useEffect(() => {
+        const handleWorkspaceSwitch = () => {
+            setAnalysisResult(null);
+            setBackupData(null);
+            setHasBackedUp(false);
+            fetchStorageStats();
+        };
+        window.addEventListener('org-workspace-switched', handleWorkspaceSwitch);
+        return () => window.removeEventListener('org-workspace-switched', handleWorkspaceSwitch);
+    }, []);
+
     // --- 2. BACKUP SYSTEM ---
     const prepareBackup = async (options: BackupOptions & { logs?: boolean, finance?: boolean }) => {
         setIsExporting(true);
@@ -87,6 +148,7 @@ export const useMaintenance = () => {
                 exportedAt: new Date().toISOString(),
                 meta: {
                     version: '2.0',
+                    orgId: getActiveOrgIdSync(),
                     included: Object.keys(options).filter(k => options[k as keyof typeof options])
                 },
                 data: {}
@@ -107,14 +169,12 @@ export const useMaintenance = () => {
                 promises.push(supabase.from('profiles').select('*').then(res => dataToBackup.data.profiles = res.data || []));
             }
             
-            // Added: Logs Backup support
             if (options.logs) {
                  promises.push(supabase.from('task_logs').select('*').then(res => dataToBackup.data.task_logs = res.data || []));
                  promises.push(supabase.from('game_logs').select('*').then(res => dataToBackup.data.game_logs = res.data || []));
                  promises.push(supabase.from('notifications').select('*').then(res => dataToBackup.data.notifications = res.data || []));
             }
 
-            // Always attempt to backup finance if requested (or default safety)
             if (options.finance !== false) {
                  promises.push(supabase.from('finance_transactions').select('*').then(res => dataToBackup.data.finance = res.data || []));
             }
@@ -148,30 +208,31 @@ export const useMaintenance = () => {
         }
     };
 
-    // --- 3. CLEANUP SYSTEM ---
+    // --- 3. CLEANUP SYSTEM (TENANT-ISOLATED) ---
     const scanOrphanedFiles = async () => {
         setIsAnalyzing(true);
         try {
+            const activeOrgId = getActiveOrgIdSync();
             const buckets = ['chat-files', 'avatars', 'proofs'];
             let allStorageFiles: { bucket: string; name: string; size: number }[] = [];
             
-            // 1. List all files from storage
+            // 1. List only files belonging to this organization (plus legacy root files if primary org)
             for (const bucket of buckets) {
-                const { data } = await supabase.storage.from(bucket).list('', { limit: 1000 });
-                if (data) {
-                    allStorageFiles = [
-                        ...allStorageFiles, 
-                        ...data.map(f => ({ bucket, name: f.name, size: f.metadata?.size || 0 }))
-                    ];
-                }
+                const tenantFiles = await listTenantBucketFiles(bucket, activeOrgId);
+                allStorageFiles = [...allStorageFiles, ...tenantFiles];
             }
 
-            // 2. Get all URLs from DB to compare
-            const [profiles, inventory, duties, messages] = await Promise.all([
+            // 2. Get all URLs from DB (automatically RLS-filtered to current organization) to compare
+            const [profiles, inventory, duties, messages, channels, attendanceLogs, leaveRequests, payrollSlips, financeTx] = await Promise.all([
                 supabase.from('profiles').select('avatar_url'),
                 supabase.from('inventory_items').select('image_url'),
                 supabase.from('duties').select('proof_image_url, appeal_proof_url'),
-                supabase.from('team_messages').select('content').filter('message_type', 'in', '("IMAGE","FILE")')
+                supabase.from('team_messages').select('content').filter('message_type', 'in', '("IMAGE","FILE")'),
+                supabase.from('channels').select('logo_url'),
+                supabase.from('attendance_logs').select('attachment_urls'),
+                supabase.from('leave_requests').select('attachment_urls'),
+                supabase.from('payroll_slips').select('transfer_slip_url'),
+                supabase.from('finance_transactions').select('receipt_url')
             ]);
 
             const usedUrls = new Set<string>();
@@ -181,13 +242,31 @@ export const useMaintenance = () => {
                 d.proof_image_url && usedUrls.add(d.proof_image_url);
                 d.appeal_proof_url && usedUrls.add(d.appeal_proof_url);
             });
-            messages.data?.forEach(m => usedUrls.add(m.content));
+            messages.data?.forEach(m => m.content && usedUrls.add(m.content));
+            channels.data?.forEach(c => c.logo_url && usedUrls.add(c.logo_url));
+            attendanceLogs.data?.forEach((l: any) => {
+                if (Array.isArray(l.attachment_urls)) {
+                    l.attachment_urls.forEach((u: string) => u && usedUrls.add(u));
+                }
+            });
+            leaveRequests.data?.forEach((l: any) => {
+                if (Array.isArray(l.attachment_urls)) {
+                    l.attachment_urls.forEach((u: string) => u && usedUrls.add(u));
+                }
+            });
+            payrollSlips.data?.forEach((s: any) => s.transfer_slip_url && usedUrls.add(s.transfer_slip_url));
+            financeTx.data?.forEach((f: any) => f.receipt_url && usedUrls.add(f.receipt_url));
 
-            // 3. Filter orphaned
+            const usedUrlArray = Array.from(usedUrls);
+
+            // 3. Filter orphaned files strictly within allowed scope
             const orphaned = allStorageFiles.filter(file => {
-                // Check if any used URL contains this file name
-                // This is a bit loose but safe for now
-                return ![...usedUrls].some(url => url.includes(file.name));
+                // Extra safety guard: never allow non-matching `orgs/{other}` paths
+                if (file.name.startsWith('orgs/') && !file.name.startsWith(`orgs/${activeOrgId}/`)) {
+                    return false;
+                }
+                const baseName = file.name.split('/').pop() || file.name;
+                return !usedUrlArray.some(url => url.includes(file.name) || url.includes(baseName));
             });
 
             setAnalysisResult(prev => ({
@@ -217,16 +296,24 @@ export const useMaintenance = () => {
         if (!analysisResult?.orphanedFiles) return;
         setIsCleaning(true);
         try {
+            const activeOrgId = getActiveOrgIdSync();
             const { files } = analysisResult.orphanedFiles;
             
-            // Group by bucket for efficient deletion
+            // Group by bucket for efficient deletion, with strict tenant path guard
             const grouped = files.reduce((acc, f) => {
+                if (f.name.startsWith('orgs/') && !f.name.startsWith(`orgs/${activeOrgId}/`)) {
+                    return acc;
+                }
+                if (activeOrgId !== DEFAULT_ORG_ID && !f.name.startsWith(`orgs/${activeOrgId}/`)) {
+                    return acc;
+                }
                 if (!acc[f.bucket]) acc[f.bucket] = [];
                 acc[f.bucket].push(f.name);
                 return acc;
             }, {} as Record<string, string[]>);
 
             for (const bucket in grouped) {
+                if (grouped[bucket].length === 0) continue;
                 const { error } = await supabase.storage.from(bucket).remove(grouped[bucket]);
                 if (error) console.error(`Failed to purge ${bucket}`, error);
             }

@@ -3,16 +3,26 @@ import {
     CompanyChecklist,
     CompanyChecklistNode,
     ActiveChecklistItemState,
+    ActiveChecklistCase,
     SavedChecklistRecord,
     SavedChecklistSectionSnapshot,
     SavedChecklistItemSnapshot,
     User
 } from '../../types';
 import {
+    DEFAULT_RECURRING_CASE_KEY,
+    DEFAULT_ADHOC_CASE_KEY,
+    makeScopedItemStateKey,
+    parseScopedItemStateKey
+} from './typesAndConstants';
+import {
     saveArchiveToLocalCacheSafely,
     insertArchiveRecordRowToServer,
     deleteArchiveRecordRowFromServer,
-    syncWorkspacePayloadToServer
+    syncWorkspacePayloadToServer,
+    upsertChecklistBoardToDb,
+    clearActiveCaseStatesFromDb,
+    deleteActiveCaseSessionFromDb
 } from './storageAndSerializers';
 
 interface UseSavedRecordsArchiveActionsArgs {
@@ -20,12 +30,20 @@ interface UseSavedRecordsArchiveActionsArgs {
     checklists: CompanyChecklist[];
     setChecklists: React.Dispatch<React.SetStateAction<CompanyChecklist[]>>;
     nodes: CompanyChecklistNode[];
-    activeItemStates: Record<string, ActiveChecklistItemState>;
-    setActiveItemStates: React.Dispatch<
+    rawActiveItemStates: Record<string, ActiveChecklistItemState>;
+    setRawActiveItemStates: React.Dispatch<
         React.SetStateAction<Record<string, ActiveChecklistItemState>>
     >;
     activeCaseTitles: Record<string, string>;
     setActiveCaseTitles: React.Dispatch<React.SetStateAction<Record<string, string>>>;
+    activeCasesByChecklist: Record<string, ActiveChecklistCase[]>;
+    setActiveCasesByChecklist: React.Dispatch<
+        React.SetStateAction<Record<string, ActiveChecklistCase[]>>
+    >;
+    setSelectedCaseKeyByChecklist: React.Dispatch<
+        React.SetStateAction<Record<string, string>>
+    >;
+    getActiveCaseKeyForChecklist: (checklistId: string) => string;
     savedRecords: SavedChecklistRecord[];
     setSavedRecords: React.Dispatch<React.SetStateAction<SavedChecklistRecord[]>>;
     getPositionLabel: (posKey?: string) => string;
@@ -41,10 +59,14 @@ export const useSavedRecordsArchiveActions = ({
     checklists,
     setChecklists,
     nodes,
-    activeItemStates,
-    setActiveItemStates,
+    rawActiveItemStates,
+    setRawActiveItemStates,
     activeCaseTitles,
     setActiveCaseTitles,
+    activeCasesByChecklist,
+    setActiveCasesByChecklist,
+    setSelectedCaseKeyByChecklist,
+    getActiveCaseKeyForChecklist,
     savedRecords,
     setSavedRecords,
     getPositionLabel,
@@ -62,10 +84,21 @@ export const useSavedRecordsArchiveActions = ({
             const board = checklists.find(b => b.id === checklistId);
             if (!board) return null;
 
+            const activeCaseKey = getActiveCaseKeyForChecklist(checklistId);
             const now = new Date();
             const finalCaseTitle =
                 caseTitleInput.trim() ||
                 `${board.title} (${now.toLocaleDateString('th-TH')})`;
+
+            const lookupItemState = (nodeId: string): ActiveChecklistItemState | undefined => {
+                const scopedKey = makeScopedItemStateKey(activeCaseKey, nodeId);
+                return (
+                    rawActiveItemStates[scopedKey] ||
+                    (activeCaseKey === DEFAULT_ADHOC_CASE_KEY
+                        ? rawActiveItemStates[nodeId]
+                        : undefined)
+                );
+            };
 
             const boardSections = nodes
                 .filter(
@@ -93,7 +126,7 @@ export const useSavedRecordsArchiveActions = ({
 
                     // 1. Direct Items under Section
                     directItems.forEach(item => {
-                        const st = activeItemStates[item.id];
+                        const st = lookupItemState(item.id);
                         const isChecked = !!st?.isChecked;
                         if (isChecked) totalCheckedCount += 1;
                         totalItemCount += 1;
@@ -121,7 +154,7 @@ export const useSavedRecordsArchiveActions = ({
                             .sort((a, b) => a.sortOrder - b.sortOrder);
 
                         subItems.forEach(item => {
-                            const st = activeItemStates[item.id];
+                            const st = lookupItemState(item.id);
                             const isChecked = !!st?.isChecked;
                             if (isChecked) totalCheckedCount += 1;
                             totalItemCount += 1;
@@ -169,6 +202,7 @@ export const useSavedRecordsArchiveActions = ({
                 id: `rec-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
                 checklistId: board.id,
                 checklistTitle: board.title,
+                caseKey: activeCaseKey,
                 caseTitle: finalCaseTitle,
                 submittedBy: currentUser?.id || 'user',
                 submittedByName: currentUser?.name || 'ผู้ใช้งานระบบ',
@@ -185,36 +219,101 @@ export const useSavedRecordsArchiveActions = ({
             setSavedRecords(nextSavedRecords);
             saveArchiveToLocalCacheSafely(nextSavedRecords);
 
-            // Insert ONLY the new record row to Supabase archive
+            // Insert record into `company_checklist_submissions` + `company_checklist_item_logs`
             await insertArchiveRecordRowToServer(newRecord);
 
             // Stamp lightweight lastSubmittedAt onto the board for O(1) zero-bandwidth cadence evaluation
-            const nextChecklists = checklists.map(c =>
-                c.id === checklistId
-                    ? {
-                          ...c,
-                          lastSubmittedAt: now.toISOString(),
-                          lastSubmittedByName: newRecord.submittedByName,
-                          lastCaseTitle: finalCaseTitle,
-                          lastRecordId: newRecord.id
-                      }
-                    : c
-            );
+            let updatedBoard: CompanyChecklist | null = null;
+            const nextChecklists = checklists.map(c => {
+                if (c.id === checklistId) {
+                    updatedBoard = {
+                        ...c,
+                        lastSubmittedAt: now.toISOString(),
+                        lastSubmittedByName: newRecord.submittedByName,
+                        lastCaseTitle: finalCaseTitle,
+                        lastRecordId: newRecord.id
+                    };
+                    return updatedBoard;
+                }
+                return c;
+            });
             setChecklists(nextChecklists);
+            if (updatedBoard) {
+                upsertChecklistBoardToDb(updatedBoard).catch(() => {});
+            }
 
-            let nextStates = { ...activeItemStates };
-            let nextTitles = { ...activeCaseTitles, [checklistId]: finalCaseTitle };
+            let nextStates = { ...rawActiveItemStates };
+            let nextTitles = {
+                ...activeCaseTitles,
+                [`${checklistId}::${activeCaseKey}`]: finalCaseTitle
+            };
+            let nextCasesMap = { ...activeCasesByChecklist };
 
             if (resetAfterSave) {
-                Object.keys(nextStates).forEach(nodeId => {
-                    if (nextStates[nodeId].checklistId === checklistId) {
-                        delete nextStates[nodeId];
+                Object.keys(nextStates).forEach(k => {
+                    const st = nextStates[k];
+                    const parsed = parseScopedItemStateKey(k);
+                    const stCaseKey = st.caseKey || parsed.caseKey;
+                    const isDefaultFallbackMatch =
+                        activeCaseKey === DEFAULT_ADHOC_CASE_KEY &&
+                        stCaseKey === DEFAULT_RECURRING_CASE_KEY;
+
+                    if (
+                        st.checklistId === checklistId &&
+                        (stCaseKey === activeCaseKey || isDefaultFallbackMatch)
+                    ) {
+                        delete nextStates[k];
                     }
                 });
-                nextTitles = { ...activeCaseTitles, [checklistId]: '' };
-                setActiveItemStates(nextStates);
+
+                nextTitles[`${checklistId}::${activeCaseKey}`] = '';
+                if (
+                    activeCaseKey === DEFAULT_RECURRING_CASE_KEY ||
+                    activeCaseKey === DEFAULT_ADHOC_CASE_KEY
+                ) {
+                    nextTitles[checklistId] = '';
+                }
+
+                // For ONCE checklists with multiple active cases, close the completed case tab if >1 cases exist
+                const boardCases = nextCasesMap[checklistId] || [];
+                if (board.resetCycle === 'ONCE' && boardCases.length > 1) {
+                    const remainingCases = boardCases.filter(
+                        c => c.caseKey !== activeCaseKey
+                    );
+                    nextCasesMap = {
+                        ...nextCasesMap,
+                        [checklistId]: remainingCases
+                    };
+                    setActiveCasesByChecklist(nextCasesMap);
+                    if (remainingCases[0]) {
+                        setSelectedCaseKeyByChecklist(prev => ({
+                            ...prev,
+                            [checklistId]: remainingCases[0].caseKey
+                        }));
+                    }
+                    await deleteActiveCaseSessionFromDb(checklistId, activeCaseKey);
+                } else {
+                    if (boardCases.length === 1) {
+                        nextCasesMap = {
+                            ...nextCasesMap,
+                            [checklistId]: boardCases.map(c =>
+                                c.caseKey === activeCaseKey ? { ...c, caseTitle: '' } : c
+                            )
+                        };
+                        setActiveCasesByChecklist(nextCasesMap);
+                    }
+                    await clearActiveCaseStatesFromDb(checklistId, activeCaseKey);
+                }
+
+                setRawActiveItemStates(nextStates);
                 setActiveCaseTitles(nextTitles);
             } else {
+                if (
+                    activeCaseKey === DEFAULT_RECURRING_CASE_KEY ||
+                    activeCaseKey === DEFAULT_ADHOC_CASE_KEY
+                ) {
+                    nextTitles[checklistId] = finalCaseTitle;
+                }
                 setActiveCaseTitles(nextTitles);
             }
 
@@ -222,7 +321,9 @@ export const useSavedRecordsArchiveActions = ({
                 nextChecklists,
                 nodes,
                 nextStates,
-                nextTitles
+                nextTitles,
+                true,
+                nextCasesMap
             );
             showToast(
                 `บันทึกใบตรวจเช็ค "${finalCaseTitle}" เข้าประวัติเรียบร้อย ✅`,
@@ -234,15 +335,19 @@ export const useSavedRecordsArchiveActions = ({
             checklists,
             setChecklists,
             nodes,
-            activeItemStates,
+            rawActiveItemStates,
             activeCaseTitles,
+            activeCasesByChecklist,
             currentUser,
             savedRecords,
             getPositionLabel,
             getResponsibilityLabel,
+            getActiveCaseKeyForChecklist,
             setSavedRecords,
-            setActiveItemStates,
+            setRawActiveItemStates,
             setActiveCaseTitles,
+            setActiveCasesByChecklist,
+            setSelectedCaseKeyByChecklist,
             showToast
         ]
     );
@@ -264,25 +369,33 @@ export const useSavedRecordsArchiveActions = ({
                             new Date(a.submittedAt).getTime()
                     );
                 const latestRemaining = remainingForBoard[0] || null;
-                const nextChecklists = checklists.map(c =>
-                    c.id === targetRecord.checklistId
-                        ? {
-                              ...c,
-                              lastSubmittedAt: latestRemaining
-                                  ? new Date(latestRemaining.submittedAt).toISOString()
-                                  : undefined,
-                              lastSubmittedByName: latestRemaining?.submittedByName,
-                              lastCaseTitle: latestRemaining?.caseTitle,
-                              lastRecordId: latestRemaining?.id
-                          }
-                        : c
-                );
+                let updatedBoard: CompanyChecklist | null = null;
+                const nextChecklists = checklists.map(c => {
+                    if (c.id === targetRecord.checklistId) {
+                        updatedBoard = {
+                            ...c,
+                            lastSubmittedAt: latestRemaining
+                                ? new Date(latestRemaining.submittedAt).toISOString()
+                                : undefined,
+                            lastSubmittedByName: latestRemaining?.submittedByName,
+                            lastCaseTitle: latestRemaining?.caseTitle,
+                            lastRecordId: latestRemaining?.id
+                        };
+                        return updatedBoard;
+                    }
+                    return c;
+                });
                 setChecklists(nextChecklists);
+                if (updatedBoard) {
+                    upsertChecklistBoardToDb(updatedBoard).catch(() => {});
+                }
                 await syncWorkspacePayloadToServer(
                     nextChecklists,
                     nodes,
-                    activeItemStates,
-                    activeCaseTitles
+                    rawActiveItemStates,
+                    activeCaseTitles,
+                    true,
+                    activeCasesByChecklist
                 );
             }
 
@@ -294,8 +407,9 @@ export const useSavedRecordsArchiveActions = ({
             checklists,
             setChecklists,
             nodes,
-            activeItemStates,
+            rawActiveItemStates,
             activeCaseTitles,
+            activeCasesByChecklist,
             showToast
         ]
     );

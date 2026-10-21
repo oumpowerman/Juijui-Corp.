@@ -1,4 +1,4 @@
-import { MasterOption, Channel } from '../../types';
+import { MasterOption, Channel, InventoryItem } from '../../types';
 
 export type MasterVersionKey = 'master_options_version' | 'inventory_version' | 'channels_version';
 
@@ -6,7 +6,7 @@ export interface MasterDataContextType {
     masterOptions: MasterOption[];
     annualHolidays: any[];
     calendarExceptions: any[];
-    inventoryItems: any[];
+    inventoryItems: InventoryItem[];
     channels: Channel[];
     isLoading: boolean;
     fetchMasterOptions: () => Promise<void>;

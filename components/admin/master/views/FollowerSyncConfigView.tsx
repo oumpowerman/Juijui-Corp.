@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { MasterOption } from '../../../../types';
 import { useToast } from '../../../../context/ToastContext';
 import { useChannels } from '../../../../hooks/useChannels';
+import { getActiveOrgIdSync } from '../../../../lib/tenantStorage';
 
 import { 
     FollowerSyncConfig, 
@@ -95,6 +96,8 @@ const FollowerSyncConfigView: React.FC<FollowerSyncConfigViewProps> = ({
             } catch (e) {
                 console.error('Failed to parse FOLLOWER_SYNC_CONFIG', e);
             }
+        } else {
+            setConfig(DEFAULT_FOLLOWER_SYNC_CONFIG);
         }
     }, [existingOption]);
 
@@ -124,10 +127,14 @@ const FollowerSyncConfigView: React.FC<FollowerSyncConfigViewProps> = ({
 
             // Reschedule cron in backend server
             try {
+                const activeOrgId = getActiveOrgIdSync();
                 await fetch('/api/cron/reschedule', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ config }),
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'x-org-id': activeOrgId,
+                    },
+                    body: JSON.stringify({ config, orgId: activeOrgId }),
                 });
             } catch (err) {
                 console.warn('Backend cron reschedule notification failed:', err);
@@ -154,10 +161,14 @@ const FollowerSyncConfigView: React.FC<FollowerSyncConfigViewProps> = ({
         showToast('กำลังทดสอบดึงยอดผู้ติดตามตามช่องและแพลตฟอร์มที่เลือก... ⏳', 'info');
 
         try {
+            const activeOrgId = getActiveOrgIdSync();
             const res = await fetch('/api/cron/sync-followers?source=manual', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ config }), // Pass active config
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'x-org-id': activeOrgId,
+                },
+                body: JSON.stringify({ config, orgId: activeOrgId }), // Pass active config & orgId
             });
             const data = await res.json();
             if (res.ok && data.success) {

@@ -14,12 +14,16 @@ import {
     Filter,
     Plus,
     Sparkles,
-    FileText
+    FileText,
+    Users,
+    X,
+    Radio
 } from 'lucide-react';
 import {
     CompanyChecklist,
     CompanyChecklistNode,
-    ActiveChecklistItemState
+    ActiveChecklistItemState,
+    ActiveChecklistCase
 } from '../../../types';
 import { ChecklistCadenceEvaluation } from '../utils/checklistCadenceUtils';
 import { getSectionPastelTheme } from '../utils/sectionPastelThemes';
@@ -30,6 +34,15 @@ interface ChecklistWorkspaceToolbarProps {
     sections: CompanyChecklistNode[];
     currentCaseTitle: string;
     onChangeCaseTitle: (title: string) => void;
+    activeCases?: ActiveChecklistCase[];
+    selectedCaseKey?: string;
+    onSelectCase?: (caseKey: string) => void;
+    onCreateNewCase?: () => void;
+    onDeleteCase?: (caseKey: string, caseTitle: string) => void;
+    getCaseProgress?: (
+        checklistId: string,
+        caseKey: string
+    ) => { checked: number; total: number; percent: number };
     presetProgress: {
         total: number;
         checked: number;
@@ -58,6 +71,12 @@ export const ChecklistWorkspaceToolbar: React.FC<ChecklistWorkspaceToolbarProps>
     sections,
     currentCaseTitle,
     onChangeCaseTitle,
+    activeCases = [],
+    selectedCaseKey = '',
+    onSelectCase,
+    onCreateNewCase,
+    onDeleteCase,
+    getCaseProgress,
     presetProgress,
     activeItemStates,
     getSectionItemNodes,
@@ -76,6 +95,7 @@ export const ChecklistWorkspaceToolbar: React.FC<ChecklistWorkspaceToolbarProps>
 }) => {
     const [isTrayOpen, setIsTrayOpen] = useState(false);
     const hasActiveFilters = Boolean(searchQuery.trim() || onlyMyResponsibility);
+    const isAdHocMode = activePreset.resetCycle === 'ONCE';
 
     return (
         <div className="relative overflow-hidden rounded-[24px] sm:rounded-[28px] bg-white/65 backdrop-blur-2xl border border-white/90 p-4 sm:p-5 shadow-[0_20px_50px_-14px_rgba(15,23,42,0.07),0_4px_16px_-4px_rgba(15,23,42,0.03),inset_0_1.5px_1px_rgba(255,255,255,0.95)]">
@@ -95,14 +115,14 @@ export const ChecklistWorkspaceToolbar: React.FC<ChecklistWorkspaceToolbarProps>
 
             {/* Top Bento Grid: Left Glass Card (Case / Round Info) + Right Glass Card (Progress Widget) */}
             <div className="relative z-10 grid grid-cols-1 lg:grid-cols-12 gap-3.5 sm:gap-4 items-stretch">
-                {/* Left 7 cols: iOS Glass Card for Cadence & Case Title */}
+                {/* Left 7 cols: iOS Glass Card for Cadence, Active Case Switcher & Case Title */}
                 <div className="lg:col-span-7 relative overflow-hidden rounded-[22px] bg-white/65 backdrop-blur-xl border border-white/95 p-4 sm:p-4.5 shadow-[0_8px_24px_-8px_rgba(15,23,42,0.06),0_1px_3px_rgba(15,23,42,0.02),inset_0_1px_0.5px_rgba(255,255,255,1)] flex flex-col justify-between gap-3">
                     <div
                         aria-hidden="true"
                         className="pointer-events-none absolute inset-x-5 top-0 h-px bg-gradient-to-r from-transparent via-white to-transparent"
                     />
 
-                    {/* Minimal Header + Cadence Pills */}
+                    {/* Minimal Header + Cadence & Realtime Scope Pills */}
                     <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex items-center gap-2.5 min-w-0">
                             <span className="w-8 h-8 rounded-[11px] bg-gradient-to-br from-indigo-500 to-violet-500 text-white flex items-center justify-center shrink-0 shadow-[0_4px_10px_rgba(99,102,241,0.3),inset_0_1px_0.5px_rgba(255,255,255,0.45)]">
@@ -110,7 +130,9 @@ export const ChecklistWorkspaceToolbar: React.FC<ChecklistWorkspaceToolbarProps>
                             </span>
                             <div className="min-w-0">
                                 <label className="block text-xs sm:text-sm font-bold text-slate-900 tracking-tight truncate">
-                                    ชื่อรอบการตรวจ / เคสบันทึกผล
+                                    {isAdHocMode
+                                        ? 'ชื่อเคสการตรวจ (แยกกระดานติ๊กตามเคส/รายคน)'
+                                        : 'ชื่อรอบการตรวจ / เคสบันทึกผล'}
                                 </label>
                                 {activePreset.description && (
                                     <p className="text-[11px] text-slate-500 truncate">
@@ -120,26 +142,138 @@ export const ChecklistWorkspaceToolbar: React.FC<ChecklistWorkspaceToolbarProps>
                             </div>
                         </div>
 
-                        {cadenceEvaluation && (
-                            <div className="flex flex-wrap items-center gap-1.5">
-                                <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-slate-900/[0.045] backdrop-blur-md border border-white/80 text-slate-700 text-[11px] font-semibold shadow-[inset_0_1px_1px_rgba(15,23,42,0.04)]">
-                                    {cadenceEvaluation.cadenceLabel}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                            <span
+                                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-50/90 border border-emerald-200/80 text-emerald-700 text-[11px] font-semibold"
+                                title={
+                                    isAdHocMode
+                                        ? 'ซิงก์การติ๊กแบบ Realtime เฉพาะคนที่เปิดดูเคสเดียวกัน ไม่ชนกับเคสอื่น'
+                                        : 'ซิงก์การติ๊กแบบ Realtime ร่วมกันทั้งทีมในรอบนี้'
+                                }
+                            >
+                                <Radio className="w-3 h-3 text-emerald-500 animate-pulse" />
+                                <span>
+                                    {isAdHocMode
+                                        ? 'Realtime เฉพาะเคสนี้'
+                                        : 'Realtime ร่วมกันทั้งรอบ'}
+                                </span>
+                            </span>
+
+                            {cadenceEvaluation && (
+                                <>
+                                    <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-slate-900/[0.045] backdrop-blur-md border border-white/80 text-slate-700 text-[11px] font-semibold shadow-[inset_0_1px_1px_rgba(15,23,42,0.04)]">
+                                        {cadenceEvaluation.cadenceLabel}
+                                    </span>
+
+                                    {cadenceEvaluation.isRecurring && (
+                                        <span
+                                            className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold border backdrop-blur-md shadow-2xs ${
+                                                cadenceEvaluation.isCompletedInCurrentCycle
+                                                    ? 'bg-emerald-50/90 text-emerald-700 border-emerald-200/80'
+                                                    : 'bg-amber-50/90 text-amber-800 border-amber-200/80'
+                                            }`}
+                                        >
+                                            {cadenceEvaluation.statusBadgeText}
+                                        </span>
+                                    )}
+                                </>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Ad-Hoc (ONCE) Concurrent Case Switcher Tabs (e.g. Onboarding Employee 1, 2, 3 independently) */}
+                    {isAdHocMode && onSelectCase && onCreateNewCase && (
+                        <div className="rounded-2xl bg-slate-900/[0.03] border border-slate-900/[0.06] p-2 space-y-1.5">
+                            <div className="flex items-center justify-between gap-2 px-1">
+                                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-slate-600">
+                                    <Users className="w-3.5 h-3.5 text-indigo-500" />
+                                    <span>
+                                        เคสที่กำลังเปิดตรวจพร้อมกัน ({activeCases.length} เคส)
+                                    </span>
                                 </span>
 
-                                {cadenceEvaluation.isRecurring && (
-                                    <span
-                                        className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold border backdrop-blur-md shadow-2xs ${
-                                            cadenceEvaluation.isCompletedInCurrentCycle
-                                                ? 'bg-emerald-50/90 text-emerald-700 border-emerald-200/80'
-                                                : 'bg-amber-50/90 text-amber-800 border-amber-200/80'
-                                        }`}
-                                    >
-                                        {cadenceEvaluation.statusBadgeText}
-                                    </span>
-                                )}
+                                <button
+                                    type="button"
+                                    onClick={onCreateNewCase}
+                                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-[11px] font-bold shadow-2xs transition-colors cursor-pointer"
+                                    title="เปิดเคสตรวจใหม่แยกอิสระ (เช่น Onboard น้องอีกคนพร้อมกัน)"
+                                >
+                                    <Plus className="w-3 h-3" />
+                                    <span>เปิดเคสใหม่เพิ่ม</span>
+                                </button>
                             </div>
-                        )}
-                    </div>
+
+                            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5">
+                                {activeCases.map((c, idx) => {
+                                    const isSelected = c.caseKey === selectedCaseKey;
+                                    const prog = getCaseProgress
+                                        ? getCaseProgress(activePreset.id, c.caseKey)
+                                        : null;
+                                    const displayLabel =
+                                        c.caseTitle.trim() || `เคสที่ ${idx + 1} (ยังไม่ระบุชื่อ)`;
+
+                                    return (
+                                        <div
+                                            key={c.caseKey}
+                                            className={`group/case relative inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all shrink-0 border ${
+                                                isSelected
+                                                    ? 'bg-white text-indigo-950 border-indigo-300/90 shadow-xs'
+                                                    : 'bg-white/60 hover:bg-white/90 text-slate-600 border-transparent hover:border-slate-200/80'
+                                            }`}
+                                        >
+                                            <button
+                                                type="button"
+                                                onClick={() => onSelectCase(c.caseKey)}
+                                                className="inline-flex items-center gap-1.5 cursor-pointer text-left"
+                                            >
+                                                <span
+                                                    className={`w-2 h-2 rounded-full shrink-0 ${
+                                                        isSelected
+                                                            ? 'bg-indigo-600'
+                                                            : 'bg-slate-300'
+                                                    }`}
+                                                />
+                                                <span className="truncate max-w-[160px]">
+                                                    {displayLabel}
+                                                </span>
+                                                {prog && (
+                                                    <span
+                                                        className={`px-1.5 py-0.5 rounded-md text-[10px] font-bold tabular-nums ${
+                                                            prog.checked > 0 &&
+                                                            prog.checked === prog.total
+                                                                ? 'bg-emerald-100 text-emerald-800'
+                                                                : isSelected
+                                                                  ? 'bg-indigo-50 text-indigo-700'
+                                                                  : 'bg-slate-100 text-slate-600'
+                                                        }`}
+                                                    >
+                                                        {prog.checked}/{prog.total}
+                                                    </span>
+                                                )}
+                                            </button>
+
+                                            {activeCases.length > 1 && onDeleteCase && (
+                                                <button
+                                                    type="button"
+                                                    onClick={e => {
+                                                        e.stopPropagation();
+                                                        onDeleteCase(
+                                                            c.caseKey,
+                                                            displayLabel
+                                                        );
+                                                    }}
+                                                    title="ปิดเคสนี้"
+                                                    className="p-0.5 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                                >
+                                                    <X className="w-3 h-3" />
+                                                </button>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
 
                     {/* Minimal iOS Inset Glass Input */}
                     <div className="relative">
@@ -150,7 +284,7 @@ export const ChecklistWorkspaceToolbar: React.FC<ChecklistWorkspaceToolbarProps>
                             placeholder={
                                 cadenceEvaluation?.isRecurring && cadenceEvaluation.autoCaseTitle
                                     ? cadenceEvaluation.autoCaseTitle
-                                    : `เช่น ${activePreset.defaultCasePrefix || activePreset.title} - ระบุชื่อคน / รอบวันที่ตรวจ...`
+                                    : `เช่น ${activePreset.defaultCasePrefix || activePreset.title} - ระบุชื่อคน / เคสที่ตรวจ...`
                             }
                             className="w-full px-3.5 py-2.5 text-xs sm:text-sm font-semibold text-slate-900 placeholder:text-slate-400 bg-slate-900/[0.035] hover:bg-white/80 focus:bg-white backdrop-blur-md border border-slate-900/[0.06] focus:border-indigo-400/80 rounded-2xl focus:outline-none shadow-[inset_0_1.5px_3px_rgba(15,23,42,0.05),0_1px_0_rgba(255,255,255,0.9)] transition-all"
                         />
@@ -185,7 +319,7 @@ export const ChecklistWorkspaceToolbar: React.FC<ChecklistWorkspaceToolbarProps>
                                 ความคืบหน้า ({sections.length} หมวดหมู่)
                             </span>
                             <div className="flex items-baseline gap-2 mt-0.5 tabular-nums">
-                                <span className="text-base sm:text-lg font-extrabold text-slate-900 tracking-tight">
+                                <span className="text-base sm:text-lg font-bold text-slate-900 tracking-tight">
                                     {presetProgress.checked}/{presetProgress.total} ข้อ
                                 </span>
                                 <span className="px-2 py-0.5 rounded-full bg-emerald-500/12 text-emerald-700 text-xs font-bold border border-emerald-300/50">
@@ -218,7 +352,7 @@ export const ChecklistWorkspaceToolbar: React.FC<ChecklistWorkspaceToolbarProps>
                         <motion.div
                             initial={false}
                             animate={{ width: `${presetProgress.percent}%` }}
-                            transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] }}
+                            transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] as const }}
                             className={`h-full rounded-full ${
                                 presetProgress.percent === 100
                                     ? 'bg-gradient-to-r from-emerald-400 to-teal-500'

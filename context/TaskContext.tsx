@@ -1,8 +1,8 @@
-
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Task, ReviewSession, TaskType } from '../types';
 import { addMonths, endOfMonth, format } from 'date-fns';
+import { getActiveOrgIdSync, getOrgChannelName } from '../lib/tenantStorage';
 import {
     CONTENT_SUMMARY_FIELDS,
     TASK_SUMMARY_FIELDS,
@@ -38,6 +38,7 @@ const TaskContext = createContext<TaskContextType | undefined>(undefined);
 
 export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [tasks, setTasksState] = useState<Task[]>([]);
+    const [activeOrgId, setActiveOrgId] = useState<string>(() => getActiveOrgIdSync());
     
     // Custom setTasks wrapper that enforces strictly unique task IDs
     const setTasks: React.Dispatch<React.SetStateAction<Task[]>> = useCallback((action) => {
@@ -71,10 +72,10 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const isInitialLoadRef = useRef(true);
     const [isAllLoaded, setIsAllLoaded] = useState(false);
 
-    // 🚀 FIX ISSUE 4: Local Caching to mitigate range expansion delays
+    // 🚀 FIX ISSUE 4: Local Caching scoped by activeOrgId to mitigate range expansion delays
     useEffect(() => {
         try {
-            const cached = localStorage.getItem('tasks_cache');
+            const cached = localStorage.getItem(`tasks_cache_${activeOrgId}`);
             if (cached) {
                 const parsed = JSON.parse(cached);
                 const revived = parsed.map((t: any) => ({
@@ -90,25 +91,25 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     }))
                 }));
                 setTasks(revived);
-                console.log('📦 [TaskContext] Loaded tasks from local cache');
+                console.log('📦 [TaskContext] Loaded tasks from tenant local cache');
             }
         } catch (e) {
             console.warn('⚠️ [TaskContext] Failed to load tasks cache', e);
         }
-    }, []);
+    }, [activeOrgId, setTasks]);
 
     useEffect(() => {
         if (tasks.length > 0) {
             const timeoutId = setTimeout(() => {
                 try {
-                    localStorage.setItem('tasks_cache', JSON.stringify(tasks));
+                    localStorage.setItem(`tasks_cache_${activeOrgId}`, JSON.stringify(tasks));
                 } catch (e) {
                     console.warn('⚠️ [TaskContext] Failed to save tasks cache (Quota exceeded?)', e);
                 }
             }, 1000);
             return () => clearTimeout(timeoutId);
         }
-    }, [tasks]);
+    }, [tasks, activeOrgId]);
 
     // --- Date Windowing State ---
     // Default: Load 3 months back and 3 months forward
@@ -379,9 +380,25 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         fetchTasks();
     }, [dateRange, isAllLoaded, fetchTasks]);
 
-    // --- REALTIME CONNECTION (SINGLE INSTANCE) ---
+    // Listen for workspace switch to reset tasks and reload for the new organization
     useEffect(() => {
-        // fetchTasks(); // Disable initial fetchTasks on mount - managed by useTaskManager
+        const handleWorkspaceSwitch = (e: Event) => {
+            const customEvent = e as CustomEvent<{ orgId?: string }>;
+            const nextOrgId = customEvent.detail?.orgId || getActiveOrgIdSync();
+            setActiveOrgId(nextOrgId);
+            setTasksState([]);
+            setHasFetchedInitial(false);
+            setIsAllLoaded(false);
+            isFetchingRef.current = false;
+            isInitialLoadRef.current = true;
+            fetchTasks(true);
+        };
+        window.addEventListener('org-workspace-switched', handleWorkspaceSwitch);
+        return () => window.removeEventListener('org-workspace-switched', handleWorkspaceSwitch);
+    }, [fetchTasks]);
+
+    // --- REALTIME CONNECTION (SINGLE INSTANCE PER ORG) ---
+    useEffect(() => {
         console.log('🔌 [TaskContext] Connecting to Realtime...');
 
         const handleIncrementalUpdate = (payload: any, type: 'TASK' | 'CONTENT') => {
@@ -405,21 +422,14 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 fetchSingle();
             } else if (payload.eventType === 'UPDATE') {
                 // 🚀 SMART STATE HYDRATION:
-                // Instead of always forcing an expensive network select query on update, 
-                // we first check if the task is already present in our local state. 
-                // If it is, we can directly merge the changed fields into the existing object.
-                // This eliminates the redundant API call entirely while keeping joined data intact!
                 setTasks(prev => {
                     const existingTask = prev.find(t => t.id === payload.new.id);
                     if (existingTask) {
-                        // Map only the fields that are sent in the payload.new
                         const mappedPartial = mapSupabaseToTask(payload.new, type, true);
                         
-                        // Merge payload fields with existing relations
                         const mergedTask = {
                             ...existingTask,
                             ...mappedPartial,
-                            // Ensure joined fields/relations from existingTask are explicitly preserved if they are absent in payload.new
                             reviews: existingTask.reviews && existingTask.reviews.length > 0 && (!payload.new.task_reviews) 
                                 ? existingTask.reviews 
                                 : mappedPartial.reviews,
@@ -433,24 +443,18 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
                                 : mappedPartial.analyticsStatus,
                         };
 
-                        // Keep if it is scheduled within the active date range
                         const isScheduledInRange = mergedTask.startDate && mergedTask.endDate && 
                             mergedTask.endDate >= dateRange.start && mergedTask.startDate <= dateRange.end;
                         
-                        // Strict check for Unscheduled items: only allow if isAllLoaded is true or it's DONE/APPROVED (matching initial fetch)
                         const isDoneOrApprove = mergedTask.status && (mergedTask.status.toLowerCase().includes('done') || mergedTask.status.toLowerCase().includes('approve'));
-                        const allowUnscheduled = isAllLoaded || (type === 'CONTENT' ? isDoneOrApprove : (mergedTask.showOnBoard /* Task logic */));
+                        const allowUnscheduled = isAllLoaded || (type === 'CONTENT' ? isDoneOrApprove : (mergedTask.showOnBoard));
 
-                        // Keep if (Unscheduled AND allowed) or if it is scheduled within the active date range
                         if ((mergedTask.isUnscheduled && allowUnscheduled) || (!mergedTask.isUnscheduled && isScheduledInRange)) {
                             return prev.map(t => t.id === payload.new.id ? mergedTask : t);
                         } else {
-                            // Only filter out if it is a scheduled task that has been moved out of the active date range
-                            // OR if an unscheduled task changed status (e.g. from DONE to TODO)
                             return prev.filter(t => t.id !== payload.new.id);
                         }
                     } else {
-                        // If it doesn't exist locally, we can safely pull it from the database
                         const fetchSingle = async () => {
                             const table = type === 'TASK' ? 'tasks' : 'contents';
                             const selectFields = type === 'TASK' ? TASK_FULL_SELECT_FIELDS : CONTENT_FULL_SELECT_FIELDS;
@@ -469,7 +473,6 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
                                     const isDoneOrApprove = newTask.status && (newTask.status.toLowerCase().includes('done') || newTask.status.toLowerCase().includes('approve'));
                                     const allowUnscheduled = isAllLoaded || (type === 'CONTENT' ? isDoneOrApprove : (newTask.showOnBoard));
 
-                                    // Accept if (Unscheduled AND allowed) or if scheduled within range
                                     if ((newTask.isUnscheduled && allowUnscheduled) || (!newTask.isUnscheduled && isScheduledInRange)) {
                                         return [...current, newTask];
                                     }
@@ -487,10 +490,9 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
 
         const channel = supabase
-            .channel('global-tasks-channel-main') // Unique channel for Context
+            .channel(getOrgChannelName('global-tasks-channel-main', activeOrgId))
             .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (p) => handleIncrementalUpdate(p, 'TASK'))
             .on('postgres_changes', { event: '*', schema: 'public', table: 'contents' }, (p) => handleIncrementalUpdate(p, 'CONTENT'))
-            // 🚀 SMART REVIEWS HYDRATION: Update review array directly in-memory instead of a full database query
             .on('postgres_changes', { event: '*', schema: 'public', table: 'task_reviews' }, (payload) => {
                 const eventType = payload.eventType;
                 const newRecord = payload.new as any;
@@ -534,7 +536,6 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
                         updatedReviews = updatedReviews.filter(r => r.id !== oldRecord.id);
                     }
 
-                    // Sort reviews by round
                     updatedReviews.sort((a, b) => a.round - b.round);
 
                     const updatedTask = {
@@ -545,7 +546,6 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     return prev.map(t => t.id === taskId ? updatedTask : t);
                 });
             })
-            // 🚀 SMART ANALYTICS HYDRATION: Fetch ONLY the other tiny analytics row rather than complete outer row
             .on('postgres_changes', { event: '*', schema: 'public', table: 'content_analytics' }, (payload) => {
                 const eventType = payload.eventType;
                 const newRecord = payload.new as any;
@@ -553,7 +553,6 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 const contentId = newRecord?.content_id || oldRecord?.content_id;
                 if (!contentId) return;
 
-                // Query ONLY the other analytics rows for this content to perform calculations locally
                 supabase.from('content_analytics')
                     .select('id, platform')
                     .eq('content_id', contentId)
@@ -602,7 +601,7 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
             console.log('🔌 [TaskContext] Disconnecting...');
             supabase.removeChannel(channel); 
         };
-    }, [fetchTasks, mapSupabaseToTask]); // Added mapSupabaseToTask to dependencies
+    }, [fetchTasks, mapSupabaseToTask, activeOrgId]);
 
     return (
         <TaskContext.Provider value={{

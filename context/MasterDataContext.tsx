@@ -2,10 +2,11 @@ import React, { createContext, useContext, useState, useEffect, useCallback, use
 import { supabase } from '../lib/supabase';
 import { MasterDataContextType } from './master/types';
 import { checkAndHealVersions } from './master/masterVersionSync';
-import { useMasterOptionsDomain, CACHE_KEY_VERSION } from './master/useMasterOptionsDomain';
-import { useChannelsDomain, CACHE_KEY_CHANNELS_VERSION, mapChannel } from './master/useChannelsDomain';
-import { useInventoryDomain, CACHE_KEY_INVENTORY_VERSION, mapInventoryItem } from './master/useInventoryDomain';
+import { useMasterOptionsDomain, getOptionsVersionCacheKey } from './master/useMasterOptionsDomain';
+import { useChannelsDomain, getChannelsVersionCacheKey, mapChannel } from './master/useChannelsDomain';
+import { useInventoryDomain, getInventoryVersionCacheKey, mapInventoryItem } from './master/useInventoryDomain';
 import { useCalendarMasterDomain } from './master/useCalendarMasterDomain';
+import { getActiveOrgIdSync, getOrgChannelName } from '../lib/tenantStorage';
 
 export type { MasterDataContextType };
 export { mapChannel, mapInventoryItem };
@@ -14,6 +15,7 @@ const MasterDataContext = createContext<MasterDataContextType | undefined>(undef
 
 export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [isLoading, setIsLoading] = useState(true);
+    const [activeOrgId, setActiveOrgId] = useState<string>(() => getActiveOrgIdSync());
 
     // 1. Initialize Domain Hooks
     const masterOptionsDomain = useMasterOptionsDomain();
@@ -52,9 +54,9 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         await masterOptionsDomain.seedDefaults(fetchAllMasterData);
     }, [masterOptionsDomain.seedDefaults, fetchAllMasterData]);
 
-    // 3. Centralized Realtime Listeners
+    // 3. Centralized Realtime Listeners isolated per organization
     useEffect(() => {
-        const metadataChannel = supabase.channel('system-metadata-changes')
+        const metadataChannel = supabase.channel(getOrgChannelName('system-metadata-changes', activeOrgId))
             .on('postgres_changes', { 
                 event: 'UPDATE', 
                 schema: 'public', 
@@ -62,29 +64,32 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             }, (payload) => {
                 const updatedKey = payload.new.key;
                 const remoteVersion = payload.new.last_updated_at;
+                const optVerKey = getOptionsVersionCacheKey(activeOrgId);
+                const invVerKey = getInventoryVersionCacheKey(activeOrgId);
+                const chVerKey = getChannelsVersionCacheKey(activeOrgId);
 
                 if (updatedKey === 'master_options_version') {
-                    if (localStorage.getItem(CACHE_KEY_VERSION) !== remoteVersion) {
+                    if (localStorage.getItem(optVerKey) !== remoteVersion) {
                         setTimeout(() => {
-                            if (localStorage.getItem(CACHE_KEY_VERSION) !== remoteVersion) {
+                            if (localStorage.getItem(optVerKey) !== remoteVersion) {
                                 console.log('🔄 Master Data: Options Delta missed, healing with full fetch...');
                                 fetchAllMasterData();
                             }
                         }, 2000);
                     }
                 } else if (updatedKey === 'inventory_version') {
-                    if (localStorage.getItem(CACHE_KEY_INVENTORY_VERSION) !== remoteVersion) {
+                    if (localStorage.getItem(invVerKey) !== remoteVersion) {
                         setTimeout(() => {
-                            if (localStorage.getItem(CACHE_KEY_INVENTORY_VERSION) !== remoteVersion) {
+                            if (localStorage.getItem(invVerKey) !== remoteVersion) {
                                 console.log('🔄 Master Data: Inventory Delta missed, healing with full fetch...');
                                 fetchAllMasterData();
                             }
                         }, 2000);
                     }
                 } else if (updatedKey === 'channels_version') {
-                    if (localStorage.getItem(CACHE_KEY_CHANNELS_VERSION) !== remoteVersion) {
+                    if (localStorage.getItem(chVerKey) !== remoteVersion) {
                         setTimeout(() => {
-                            if (localStorage.getItem(CACHE_KEY_CHANNELS_VERSION) !== remoteVersion) {
+                            if (localStorage.getItem(chVerKey) !== remoteVersion) {
                                 console.log('🔄 Master Data: Channels Delta missed, healing with full fetch...');
                                 fetchAllMasterData();
                             }
@@ -93,17 +98,17 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                 }
             }).subscribe();
 
-        const holidaysChannel = supabase.channel('global-annual-holidays')
+        const holidaysChannel = supabase.channel(getOrgChannelName('global-annual-holidays', activeOrgId))
             .on('postgres_changes', { event: '*', schema: 'public', table: 'annual_holidays' }, () => {
                 calendarDomain.loadCalendarData();
             }).subscribe();
 
-        const exceptionsChannel = supabase.channel('global-calendar-exceptions')
+        const exceptionsChannel = supabase.channel(getOrgChannelName('global-calendar-exceptions', activeOrgId))
             .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_exceptions' }, () => {
                 calendarDomain.loadCalendarData();
             }).subscribe();
 
-        const optionsChannel = supabase.channel('global-master-options')
+        const optionsChannel = supabase.channel(getOrgChannelName('global-master-options', activeOrgId))
             .on('postgres_changes', { event: '*', schema: 'public', table: 'master_options' }, (payload) => {
                 if (!masterOptionsDomain.isMutatingOptionsCache.current) {
                     console.log(`🔄 Master Data: Remote options ${payload.eventType} detected, syncing delta...`);
@@ -115,7 +120,7 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                 }
             }).subscribe();
 
-        const inventoryChannel = supabase.channel('global-inventory-items')
+        const inventoryChannel = supabase.channel(getOrgChannelName('global-inventory-items', activeOrgId))
             .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_items' }, (payload) => {
                 if (!inventoryDomain.isMutatingInventoryCache.current) {
                     console.log(`🔄 Master Data: Remote inventory ${payload.eventType} detected, syncing delta...`);
@@ -127,7 +132,7 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
                 }
             }).subscribe();
 
-        const channelsChannel = supabase.channel('global-channels')
+        const channelsChannel = supabase.channel(getOrgChannelName('global-channels', activeOrgId))
             .on('postgres_changes', { event: '*', schema: 'public', table: 'channels' }, (payload) => {
                 if (!channelsDomain.isMutatingChannelsCache.current) {
                     console.log(`🔄 Master Data: Remote channels ${payload.eventType} detected, syncing delta...`);
@@ -148,6 +153,7 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             supabase.removeChannel(channelsChannel);
         };
     }, [
+        activeOrgId,
         fetchAllMasterData,
         calendarDomain.loadCalendarData,
         masterOptionsDomain.updateOptionsLocalCache,
@@ -157,11 +163,14 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
     // Reload master data whenever user switches active Organization Workspace
     useEffect(() => {
-        const handleWorkspaceSwitched = () => {
+        const handleWorkspaceSwitched = (e: Event) => {
+            const customEvent = e as CustomEvent<{ orgId?: string }>;
+            const nextOrgId = customEvent.detail?.orgId || getActiveOrgIdSync();
+            setActiveOrgId(nextOrgId);
             try {
-                localStorage.removeItem(CACHE_KEY_VERSION);
-                localStorage.removeItem(CACHE_KEY_INVENTORY_VERSION);
-                localStorage.removeItem(CACHE_KEY_CHANNELS_VERSION);
+                localStorage.removeItem(getOptionsVersionCacheKey(nextOrgId));
+                localStorage.removeItem(getInventoryVersionCacheKey(nextOrgId));
+                localStorage.removeItem(getChannelsVersionCacheKey(nextOrgId));
             } catch {
                 // Ignore storage errors
             }

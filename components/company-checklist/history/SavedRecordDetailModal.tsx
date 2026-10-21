@@ -15,6 +15,7 @@ import {
     AlertCircle
 } from 'lucide-react';
 import { SavedChecklistRecord } from '../../../types';
+import { formatChecklistTimestamp } from '../utils/checklistCadenceUtils';
 
 interface SavedRecordDetailModalProps {
     record: SavedChecklistRecord | null;
@@ -162,17 +163,7 @@ export const SavedRecordDetailModal: React.FC<SavedRecordDetailModalProps> = ({
                                         <span className="inline-flex items-center gap-1 tabular-nums">
                                             <Clock className="w-3.5 h-3.5 text-slate-400" />
                                             <span>
-                                                {new Date(record.submittedAt).toLocaleString(
-                                                    'th-TH',
-                                                    {
-                                                        day: 'numeric',
-                                                        month: 'short',
-                                                        year: 'numeric',
-                                                        hour: '2-digit',
-                                                        minute: '2-digit'
-                                                    }
-                                                )}{' '}
-                                                น.
+                                                {formatChecklistTimestamp(record.submittedAt)}
                                             </span>
                                         </span>
 
@@ -394,16 +385,9 @@ export const SavedRecordDetailModal: React.FC<SavedRecordDetailModalProps> = ({
                                                                 {it.checkedAt && (
                                                                     <span className="text-emerald-700 tabular-nums">
                                                                         ·{' '}
-                                                                        {new Date(
+                                                                        {formatChecklistTimestamp(
                                                                             it.checkedAt
-                                                                        ).toLocaleTimeString(
-                                                                            'th-TH',
-                                                                            {
-                                                                                hour: '2-digit',
-                                                                                minute: '2-digit'
-                                                                            }
-                                                                        )}{' '}
-                                                                        น.
+                                                                        )}
                                                                     </span>
                                                                 )}
                                                             </div>

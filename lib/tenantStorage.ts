@@ -1,5 +1,8 @@
 import { PRIMARY_DEFAULT_ORG_ID } from './multiTenantMigrationSql';
 
+export const DEFAULT_ORG_ID = PRIMARY_DEFAULT_ORG_ID;
+export { PRIMARY_DEFAULT_ORG_ID };
+
 const ACTIVE_ORG_STORAGE_KEY = 'juijui_active_org_id';
 
 /**

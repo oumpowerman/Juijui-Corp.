@@ -452,16 +452,6 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
                     </AnimatePresence>
                 </div>
 
-                {/* --- BOTTOM AMBIENT STATUS PILL --- */}
-                <div className="pt-2 flex justify-center">
-                    <div className="inline-flex items-center gap-2.5 px-4 py-1.5 rounded-full bg-white/75 dark:bg-slate-900/60 backdrop-blur-md border border-gray-200/50 dark:border-slate-700/50 shadow-2xs text-xs font-semibold text-gray-500 dark:text-gray-400">
-                        <span className="relative flex h-2 w-2">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                        </span>
-                        <span>Duty Ambient Scene: บรรยากาศก๊วนเวรกำลังเดินปฏิบัติหน้าที่ทำความสะอาดในฉากหลัง</span>
-                    </div>
-                </div>
 
                 {/* Modals */}
                 <RandomizerModal 

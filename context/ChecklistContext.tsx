@@ -60,33 +60,10 @@ export const ChecklistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     });
 
     // 2. Presets Domain (initializes activePresetId / activePresetName)
-    // Note: We also pass shoot session handlers via ref/state below
     const [activePresetMeta, setActivePresetMeta] = useState<{
         id: string | null;
         name: string | null;
     }>({ id: null, name: null });
-
-    // Enrich activeChecklistItems with per-item checker attribution from activeShootSession
-    const [sessionAttrs, setSessionAttrs] = useState<Record<string, any>>({});
-
-    const activeChecklistItems = useMemo<ChecklistItem[]>(() => {
-        const attrs = sessionAttrs || {};
-        return rawChecklistItems.map(item => {
-            if (!item.isChecked) {
-                return item;
-            }
-            const attr = attrs[item.id] || attrs[`text::${item.text}`];
-            if (!attr) return item;
-            return {
-                ...item,
-                checkedBy: attr.checkedBy,
-                checkedByName: attr.checkedByName,
-                checkedByAvatar: attr.checkedByAvatar,
-                checkedByPosition: attr.checkedByPosition,
-                checkedAt: attr.checkedAt
-            };
-        });
-    }, [rawChecklistItems, sessionAttrs]);
 
     // 3. 3-Round Shoot Session & Historical Trip Archive Domain
     const {
@@ -111,15 +88,31 @@ export const ChecklistProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         activePresetName: activePresetMeta.name,
         rawChecklistItems,
         setRawChecklistItems,
-        activeChecklistItems,
+        activeChecklistItems: rawChecklistItems,
         masterOptions,
         currentUserProfile,
         refetchActive
     });
 
-    useEffect(() => {
-        setSessionAttrs(activeShootSession?.itemAttributions || {});
-    }, [activeShootSession?.itemAttributions]);
+    // Enrich activeChecklistItems synchronously with per-item checker attribution from activeShootSession
+    const activeChecklistItems = useMemo<ChecklistItem[]>(() => {
+        const attrs = activeShootSession?.itemAttributions || {};
+        return rawChecklistItems.map(item => {
+            if (!item.isChecked) {
+                return item;
+            }
+            const attr = attrs[item.id] || attrs[`text::${item.text}`];
+            if (!attr) return item;
+            return {
+                ...item,
+                checkedBy: attr.checkedBy,
+                checkedByName: attr.checkedByName,
+                checkedByAvatar: attr.checkedByAvatar,
+                checkedByPosition: attr.checkedByPosition,
+                checkedAt: attr.checkedAt
+            };
+        });
+    }, [rawChecklistItems, activeShootSession?.itemAttributions]);
 
     // 4. Checklist Presets Domain
     const {

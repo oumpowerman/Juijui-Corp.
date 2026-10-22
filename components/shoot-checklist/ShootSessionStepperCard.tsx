@@ -30,21 +30,21 @@ export const getRoundActiveStyles = (rk: ShootRoundKey) => {
     switch (rk) {
         case 'PACK_OUT':
             return {
-                activePill: 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200/50',
-                ctaBtn: 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-200/50',
-                bannerTint: 'from-indigo-50/70 via-white/70 to-white/60 border-white/60'
+                activePill: 'bg-indigo-600 text-white border-indigo-600 shadow-md shadow-indigo-200/60',
+                ctaBtn: 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md shadow-indigo-200/60',
+                bannerTint: 'from-indigo-50/65 via-white/65 to-white/60 border-white/80'
             };
         case 'PACK_BACK':
             return {
-                activePill: 'bg-amber-500 text-white border-amber-500 shadow-md shadow-amber-200/50',
-                ctaBtn: 'bg-amber-500 hover:bg-amber-600 text-white shadow-md shadow-amber-200/50',
-                bannerTint: 'from-amber-50/70 via-white/70 to-white/60 border-white/60'
+                activePill: 'bg-amber-500 text-white border-amber-500 shadow-md shadow-amber-200/60',
+                ctaBtn: 'bg-amber-500 hover:bg-amber-600 text-white shadow-md shadow-amber-200/60',
+                bannerTint: 'from-amber-50/65 via-white/65 to-white/60 border-white/80'
             };
         case 'RETURN_STORAGE':
             return {
-                activePill: 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-200/50',
-                ctaBtn: 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-200/50',
-                bannerTint: 'from-emerald-50/70 via-white/70 to-white/60 border-white/60'
+                activePill: 'bg-emerald-600 text-white border-emerald-600 shadow-md shadow-emerald-200/60',
+                ctaBtn: 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-200/60',
+                bannerTint: 'from-emerald-50/65 via-white/65 to-white/60 border-white/80'
             };
     }
 };
@@ -97,7 +97,7 @@ const ShootSessionStepperCard: React.FC<ShootSessionStepperCardProps> = ({
 
     return (
         <div
-            className={`bg-white/75 backdrop-blur-md rounded-2xl border ${roundStyle.bannerTint} p-4 sm:p-5 shadow-sm space-y-3.5 transition-all`}
+            className={`bg-gradient-to-br ${roundStyle.bannerTint} backdrop-blur-xl backdrop-saturate-150 rounded-2xl border p-4 sm:p-5 shadow-[0_8px_30px_rgba(15,23,42,0.06),inset_0_1px_1px_rgba(255,255,255,0.9)] ring-1 ring-slate-900/[0.04] space-y-3.5 transition-all`}
         >
             {/* Session Title Row */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
@@ -131,7 +131,7 @@ const ShootSessionStepperCard: React.FC<ShootSessionStepperCardProps> = ({
                         <button
                             type="button"
                             onClick={handleStartEditTitle}
-                            className="group flex items-center gap-2 text-left min-w-0 hover:bg-white/70 px-2 py-1 -ml-2 rounded-xl transition-colors"
+                            className="group flex items-center gap-2 text-left min-w-0 hover:bg-white/60 px-2 py-1 -ml-2 rounded-xl transition-colors"
                             title="แตะเพื่อเปลี่ยนชื่อคิวออกกอง"
                         >
                             <span className="font-bold text-gray-900 text-base sm:text-lg truncate">
@@ -144,7 +144,7 @@ const ShootSessionStepperCard: React.FC<ShootSessionStepperCardProps> = ({
 
                 <div className="flex items-center gap-2 self-end sm:self-center">
                     {activePresetName && (
-                        <span className="px-2.5 py-1 bg-white/80 backdrop-blur-xs text-indigo-700 rounded-lg text-xs font-bold border border-white/60 shadow-2xs flex items-center gap-1">
+                        <span className="px-2.5 py-1 bg-white/80 backdrop-blur-md text-indigo-700 rounded-lg text-xs font-bold border border-white/85 shadow-2xs flex items-center gap-1">
                             <Layout className="w-3 h-3" />
                             {activePresetName}
                         </span>
@@ -152,7 +152,7 @@ const ShootSessionStepperCard: React.FC<ShootSessionStepperCardProps> = ({
                     <button
                         type="button"
                         onClick={onStartNewSession}
-                        className="px-3 py-1.5 rounded-xl bg-white/80 hover:bg-white text-gray-700 hover:text-indigo-600 border border-white/70 text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 min-h-[36px]"
+                        className="px-3 py-1.5 rounded-xl bg-white/80 hover:bg-white/95 backdrop-blur-md text-gray-700 hover:text-indigo-600 border border-white/85 hover:border-indigo-200 text-xs font-bold transition-all shadow-2xs flex items-center gap-1.5 min-h-[36px]"
                         title="เริ่มคิวออกกองใหม่ (รอบที่ 1)"
                     >
                         <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
@@ -178,14 +178,14 @@ const ShootSessionStepperCard: React.FC<ShootSessionStepperCardProps> = ({
                             key={rk}
                             type="button"
                             onClick={() => onSetShootRound(rk)}
-                            className={`p-2.5 sm:p-3 rounded-xl border text-left transition-all flex flex-col justify-between min-h-[60px] backdrop-blur-xs ${
+                            className={`p-2.5 sm:p-3 rounded-xl border text-left transition-all flex flex-col justify-between min-h-[60px] backdrop-blur-md ${
                                 isCurrent
                                     ? roundStyle.activePill
                                     : completedReport
-                                      ? 'bg-emerald-50/70 text-emerald-900 border-emerald-200/80 hover:bg-emerald-50/90'
+                                      ? 'bg-emerald-50/75 text-emerald-900 border-emerald-200/80 hover:bg-emerald-50/90 shadow-2xs'
                                       : isLocked
-                                        ? 'bg-white/40 text-gray-400 border-dashed border-gray-200 cursor-not-allowed opacity-75'
-                                        : 'bg-white/70 text-gray-700 border-white/80 hover:bg-white/90 shadow-2xs'
+                                        ? 'bg-white/45 text-gray-500 border-dashed border-white/75 cursor-not-allowed'
+                                        : 'bg-white/75 text-gray-700 border-white/85 hover:border-indigo-300 hover:bg-white/90 shadow-2xs'
                             }`}
                             title={
                                 isLocked

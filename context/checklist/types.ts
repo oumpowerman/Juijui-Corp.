@@ -4,8 +4,13 @@ import {
     InventoryItem,
     ShootRoundKey,
     ShootTripRecord,
-    ActiveShootSessionState
+    ActiveShootSessionState,
+    ShootDateFilterPreset,
+    ShootTripQueryParams,
+    ShootTripPaginatedResult
 } from '../../types';
+
+export type { ShootDateFilterPreset, ShootTripQueryParams, ShootTripPaginatedResult };
 
 export const NIL_UUID = '00000000-0000-0000-0000-000000000000';
 
@@ -90,33 +95,6 @@ export const createDefaultShootSession = (
 
 export const getSessionCacheKey = (orgId: string) => `juijui_shoot_session_${orgId}`;
 export const getArchiveCacheKey = (orgId: string) => `juijui_shoot_archive_${orgId}`;
-
-export type ShootDateFilterPreset = 'ALL' | 'THIS_MONTH' | 'LAST_MONTH' | 'CUSTOM_MONTH' | 'CUSTOM_RANGE';
-
-export interface ShootTripQueryParams {
-    page: number;
-    pageSize: number;
-    searchQuery?: string;
-    statusFilter?: 'ALL' | 'IN_PROGRESS' | 'COMPLETED';
-    datePreset?: ShootDateFilterPreset;
-    customMonth?: string; // YYYY-MM
-    dateFrom?: string;    // YYYY-MM-DD
-    dateTo?: string;      // YYYY-MM-DD
-}
-
-export interface ShootTripPaginatedResult {
-    records: ShootTripRecord[];
-    totalCount: number;
-    totalPages: number;
-    page: number;
-    pageSize: number;
-    summaryCounts: {
-        all: number;
-        inProgress: number;
-        completed: number;
-    };
-    storageSource: 'SQL_TABLE' | 'MASTER_OPTIONS_FALLBACK';
-}
 
 export interface ChecklistContextType {
     activeChecklistItems: ChecklistItem[];

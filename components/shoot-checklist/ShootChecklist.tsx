@@ -249,9 +249,9 @@ const ShootChecklist: React.FC<ShootChecklistProps> = ({
         <AppBackground
             transparent={true}
             pattern="none"
-            className="px-3.5 sm:px-6 lg:px-8 py-5 sm:py-8 space-y-5 animate-in fade-in duration-500 relative z-10 min-h-[calc(100vh-64px)] w-full pb-36 sm:pb-24"
+            className="px-3.5 sm:px-6 lg:px-8 py-5 sm:py-8 relative min-h-[calc(100vh-64px)] w-full pb-56 sm:pb-64"
         >
-            {/* Interactive Production Van & Crew Packing Background Animation (Portaled Fixed Viewport) */}
+            {/* Interactive Production Van & Crew Packing Background Animation (Fixed at z-0 behind cards) */}
             <ShootPackingBackground
                 currentRound={currentRound}
                 progress={progress}
@@ -259,7 +259,7 @@ const ShootChecklist: React.FC<ShootChecklistProps> = ({
                 totalItems={totalItems}
             />
 
-            <div className="relative z-10 w-full max-w-6xl mx-auto space-y-5">
+            <div className="relative z-10 w-full max-w-6xl mx-auto space-y-5 animate-in fade-in duration-500">
                 <MentorTip moduleId="SHOOT_CHECKLIST" />
 
                 {/* Top Header & View Switcher */}
@@ -277,7 +277,7 @@ const ShootChecklist: React.FC<ShootChecklistProps> = ({
                         <button
                             type="button"
                             onClick={() => setIsInfoOpen(true)}
-                            className="p-2 bg-white/80 backdrop-blur-xs text-teal-600 hover:text-teal-700 hover:bg-white rounded-xl transition-all shadow-2xs border border-white/60 min-w-[40px] min-h-[40px] flex items-center justify-center"
+                            className="p-2 bg-white/75 backdrop-blur-xl backdrop-saturate-150 text-teal-600 hover:text-teal-700 hover:bg-white/90 rounded-xl transition-all shadow-xs border border-white/80 ring-1 ring-slate-900/[0.04] min-w-[40px] min-h-[40px] flex items-center justify-center"
                             title="คู่มือการใช้งาน"
                         >
                             <Info className="w-5 h-5" />
@@ -286,7 +286,7 @@ const ShootChecklist: React.FC<ShootChecklistProps> = ({
 
                     {/* Top Controls: Segmented Tab Switcher + Inventory Button */}
                     <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
-                        <div className="flex-1 sm:flex-none bg-white/80 backdrop-blur-md p-1 rounded-2xl border border-white/60 shadow-xs flex items-center relative">
+                        <div className="flex-1 sm:flex-none bg-white/70 backdrop-blur-xl backdrop-saturate-150 p-1 rounded-2xl border border-white/80 shadow-[0_4px_20px_rgba(15,23,42,0.05),inset_0_1px_1px_rgba(255,255,255,0.9)] ring-1 ring-slate-900/[0.04] flex items-center relative">
                             <button
                                 type="button"
                                 onClick={() => handleSwitchViewTab('ACTIVE')}
@@ -388,10 +388,10 @@ const ShootChecklist: React.FC<ShootChecklistProps> = ({
                                 {checklistPresets.map(p => (
                                     <div
                                         key={p.id}
-                                        className={`flex items-center rounded-xl border text-xs font-bold transition-all pr-1.5 pl-3.5 py-1.5 cursor-pointer min-h-[38px] backdrop-blur-xs ${
+                                        className={`flex items-center rounded-xl border text-xs font-bold transition-all pr-1.5 pl-3.5 py-1.5 cursor-pointer min-h-[38px] backdrop-blur-xl backdrop-saturate-150 ${
                                             propActivePresetId === p.id
-                                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm ring-2 ring-indigo-200/50'
-                                                : 'bg-white/75 text-gray-700 border-white/60 hover:bg-white/95 shadow-2xs'
+                                                ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm ring-2 ring-indigo-200/60'
+                                                : 'bg-white/75 text-gray-700 border-white/80 ring-1 ring-slate-900/[0.04] hover:bg-white/90 shadow-xs'
                                         }`}
                                         onClick={() => handlePresetClick(p.id)}
                                     >
@@ -411,12 +411,12 @@ const ShootChecklist: React.FC<ShootChecklistProps> = ({
                                     </div>
                                 ))}
 
-                                <div className="w-px h-6 bg-white/60 mx-1" />
+                                <div className="w-px h-6 bg-white/70 mx-1" />
 
                                 <button
                                     type="button"
                                     onClick={() => setIsPresetModalOpen(true)}
-                                    className="px-3.5 py-2 bg-white/75 backdrop-blur-xs rounded-xl text-gray-700 hover:text-indigo-600 border border-white/60 hover:bg-white/95 shadow-2xs transition-all text-xs font-bold flex items-center min-h-[38px]"
+                                    className="px-3.5 py-2 bg-white/75 backdrop-blur-xl backdrop-saturate-150 rounded-xl text-gray-700 hover:text-indigo-600 border border-white/80 ring-1 ring-slate-900/[0.04] hover:bg-white/90 shadow-xs transition-all text-xs font-bold flex items-center min-h-[38px]"
                                 >
                                     <PlusCircle className="w-3.5 h-3.5 mr-1.5" /> สร้างชุดใหม่
                                 </button>
@@ -425,7 +425,7 @@ const ShootChecklist: React.FC<ShootChecklistProps> = ({
                                     <button
                                         type="button"
                                         onClick={() => handlePresetClick('CLEAR')}
-                                        className="px-3 py-2 text-rose-600 hover:text-rose-700 bg-white/75 hover:bg-rose-50/70 backdrop-blur-xs rounded-xl border border-white/60 shadow-2xs transition-all text-xs font-bold flex items-center min-h-[38px]"
+                                        className="px-3 py-2 text-rose-600 hover:text-rose-700 bg-white/75 hover:bg-rose-50/85 backdrop-blur-xl backdrop-saturate-150 rounded-xl border border-white/80 ring-1 ring-slate-900/[0.04] shadow-xs transition-all text-xs font-bold flex items-center min-h-[38px]"
                                     >
                                         <Trash2 className="w-3.5 h-3.5 mr-1" /> ล้างกระเป๋า
                                     </button>
@@ -443,7 +443,7 @@ const ShootChecklist: React.FC<ShootChecklistProps> = ({
                         />
 
                         {/* Sticky Readiness & Submit Round Bar */}
-                        <div className="bg-white/80 backdrop-blur-md p-3.5 sm:p-4 rounded-2xl border border-white/60 shadow-sm flex flex-col sm:flex-row sm:items-center gap-3.5 sticky top-2 z-30">
+                        <div className="bg-white/70 backdrop-blur-xl backdrop-saturate-150 p-3.5 sm:p-4 rounded-2xl border border-white/80 shadow-[0_8px_30px_rgba(15,23,42,0.06),inset_0_1px_1px_rgba(255,255,255,0.9)] ring-1 ring-slate-900/[0.04] flex flex-col sm:flex-row sm:items-center gap-3.5 sticky top-2 z-30">
                             <div className="flex-1">
                                 <div className="flex justify-between items-center text-xs sm:text-sm mb-1.5">
                                     <span className="font-bold text-gray-800 flex items-center gap-1.5">
@@ -460,7 +460,7 @@ const ShootChecklist: React.FC<ShootChecklistProps> = ({
                                         {checkedItems}/{totalItems} ชิ้น ({progress}%)
                                     </span>
                                 </div>
-                                <div className="h-3 bg-white/60 backdrop-blur-xs rounded-full overflow-hidden border border-white/80 p-0.5">
+                                <div className="h-3 bg-white/60 backdrop-blur-xs rounded-full overflow-hidden border border-white/85 p-0.5">
                                     <div
                                         className={`h-full rounded-full transition-all duration-500 ease-out ${
                                             progress === 100
@@ -477,7 +477,7 @@ const ShootChecklist: React.FC<ShootChecklistProps> = ({
                                     type="button"
                                     onClick={onReset}
                                     disabled={checkedItems === 0}
-                                    className="p-2.5 text-gray-500 hover:text-indigo-600 bg-white/80 hover:bg-white backdrop-blur-xs rounded-xl transition-colors border border-white/70 shadow-2xs disabled:opacity-40 min-w-[44px] min-h-[44px] flex items-center justify-center"
+                                    className="p-2.5 text-gray-500 hover:text-indigo-600 bg-white/75 hover:bg-white/95 backdrop-blur-md rounded-xl transition-colors border border-white/85 shadow-2xs disabled:opacity-40 min-w-[44px] min-h-[44px] flex items-center justify-center"
                                     title="รีเซ็ตเครื่องหมายติ๊กในรอบนี้"
                                 >
                                     <RotateCcw className="w-4 h-4" />
@@ -501,7 +501,7 @@ const ShootChecklist: React.FC<ShootChecklistProps> = ({
                         {/* Equipment List Area */}
                         {items.length === 0 ? (
                             <div
-                                className="text-center py-20 bg-white/75 backdrop-blur-md rounded-3xl border-2 border-dashed border-white/80 shadow-2xs flex flex-col items-center justify-center cursor-pointer hover:bg-white/90 transition-colors"
+                                className="text-center py-20 bg-white/65 backdrop-blur-xl backdrop-saturate-150 rounded-3xl border border-white/80 ring-1 ring-slate-900/[0.04] shadow-[0_8px_30px_rgba(15,23,42,0.06),inset_0_1px_1px_rgba(255,255,255,0.9)] flex flex-col items-center justify-center cursor-pointer hover:bg-white/80 transition-colors"
                                 onClick={() => setIsInventoryModalOpen(true)}
                             >
                                 <PackageOpen className="w-14 h-14 text-gray-300 mb-3" />

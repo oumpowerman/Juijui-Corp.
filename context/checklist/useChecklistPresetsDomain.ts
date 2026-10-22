@@ -175,10 +175,12 @@ export const useChecklistPresetsDomain = ({
                         await updateGlobalActivePreset(presetId);
                     }
 
-                    const itemsToInsert = preset.items.map(i => ({
+                    const baseTime = Date.now();
+                    const itemsToInsert = preset.items.map((i, idx) => ({
                         text: i.text,
                         category_id: i.categoryId,
-                        is_checked: false
+                        is_checked: false,
+                        created_at: new Date(baseTime + idx * 10).toISOString()
                     }));
 
                     await Promise.all([

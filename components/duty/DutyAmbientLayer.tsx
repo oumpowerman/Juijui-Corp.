@@ -43,12 +43,7 @@ export const DutyAmbientLayer: React.FC<DutyAmbientLayerProps> = ({
             aria-hidden="true"
             className="absolute inset-0 pointer-events-none overflow-hidden select-none z-10"
         >
-            {/* 1. Ground Perspective Line & Floor Accents */}
-            <div className="absolute inset-x-0 bottom-0 h-44 bg-gradient-to-t from-black/[0.03] dark:from-white/[0.02] to-transparent" />
-            <div className="absolute inset-x-0 bottom-8 h-px bg-gradient-to-r from-transparent via-gray-300/40 dark:via-slate-700/40 to-transparent" />
-            <div className="absolute inset-x-0 top-[52%] h-px bg-gradient-to-r from-transparent via-gray-200/25 dark:via-slate-800/25 to-transparent hidden md:block" />
-
-            {/* 2. Middle-Depth Decorative Office Silhouettes */}
+            {/* 1. Seamless Office Silhouettes on Transparent Grid */}
             {/* Left Office Corner (Indoor Monstera & Water Station) */}
             <div className="absolute left-4 sm:left-12 bottom-9 opacity-45 dark:opacity-35 flex items-end gap-3 scale-90 sm:scale-100">
                 {/* Office Monstera Plant */}
@@ -245,7 +240,7 @@ export const DutyAmbientLayer: React.FC<DutyAmbientLayerProps> = ({
             <motion.div
                 initial={{ x: '15vw' }}
                 animate={{
-                    x: ['10vw', '88vw', '10vw'],
+                    x: ['10vw', '76vw', '10vw'],
                 }}
                 transition={{
                     duration: 28,

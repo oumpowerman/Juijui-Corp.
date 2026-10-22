@@ -1,5 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
-import { createPortal } from 'react-dom';
+import React, { useMemo } from 'react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import {
     Camera,
@@ -126,9 +125,9 @@ export const getRoundScenePalette = (round: ShootRoundKey, isHistory = false) =>
 };
 
 /**
- * 100% Fixed Viewport Production Background Layer
- * Portaled to document.body with `position: fixed; inset: 0; z-index: 0`
- * This guarantees it stays completely stationary on screen when scrolling the page!
+ * Fixed Viewport Production Background Layer
+ * Rendered at `position: fixed; inset: 0; z-index: 0` inside the ShootChecklist stacking context
+ * so it stays stationary when scrolling while remaining strictly behind foreground cards (`z-10`) and Sidebar (`z-50`).
  */
 const ShootPackingBackground: React.FC<ShootPackingBackgroundProps> = ({
     currentRound,
@@ -136,12 +135,6 @@ const ShootPackingBackground: React.FC<ShootPackingBackgroundProps> = ({
     activeViewTab,
     totalItems
 }) => {
-    const [mounted, setMounted] = useState(false);
-
-    useEffect(() => {
-        setMounted(true);
-    }, []);
-
     const isHistory = activeViewTab === 'HISTORY';
     const clampedProgress = Math.max(0, Math.min(100, progress));
     const isReady100 = totalItems > 0 && clampedProgress === 100 && !isHistory;
@@ -151,15 +144,10 @@ const ShootPackingBackground: React.FC<ShootPackingBackgroundProps> = ({
         [currentRound, isHistory]
     );
 
-    if (!mounted || typeof document === 'undefined') {
-        return null;
-    }
-
-    return createPortal(
+    return (
         <div
-            id="shoot-packing-fixed-portal-bg"
-            className="fixed inset-0 pointer-events-none overflow-hidden select-none"
-            style={{ zIndex: 0 }}
+            id="shoot-packing-fixed-bg"
+            className="fixed inset-0 z-0 pointer-events-none overflow-hidden select-none"
             aria-hidden="true"
         >
             <style>{`
@@ -251,7 +239,7 @@ const ShootPackingBackground: React.FC<ShootPackingBackgroundProps> = ({
                     </div>
                 ))}
 
-            {/* 7. Bottom Viewport Horizon 15-Second Looping Scene (Fixed at screen bottom, never scrolls away) */}
+            {/* 7. Bottom Viewport Horizon 15-Second Looping Scene (Fixed at screen bottom, behind cards) */}
             <div className="absolute bottom-0 inset-x-0 h-48 sm:h-60 flex items-end justify-center overflow-hidden">
                 <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white/70 via-white/30 to-transparent" />
 
@@ -263,7 +251,7 @@ const ShootPackingBackground: React.FC<ShootPackingBackgroundProps> = ({
                         animate="animate"
                         exit="exit"
                         className={`relative w-full max-w-6xl h-full flex items-end justify-between px-4 sm:px-10 pb-1 ${
-                            isHistory ? 'opacity-30' : 'opacity-75 sm:opacity-85'
+                            isHistory ? 'opacity-35' : 'opacity-85 sm:opacity-90'
                         }`}
                     >
                         {currentRound === 'PACK_OUT' && (
@@ -294,8 +282,7 @@ const ShootPackingBackground: React.FC<ShootPackingBackgroundProps> = ({
                     </motion.div>
                 </AnimatePresence>
             </div>
-        </div>,
-        document.body
+        </div>
     );
 };
 

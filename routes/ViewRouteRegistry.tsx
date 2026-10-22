@@ -1,6 +1,5 @@
 import React, { Suspense, lazy } from 'react';
 import { ViewMode, Task, Channel, TaskType, WeeklyQuest } from '../types';
-import VibrantChecklistBackground from '../components/common/VibrantChecklistBackground';
 
 // --- LAZY LOAD PAGES ---
 const Dashboard = lazy(() => import('../components/Dashboard'));
@@ -267,23 +266,21 @@ export const ViewRouteRegistry: React.FC<ViewRouteRegistryProps> = ({
             );
           case 'CHECKLIST':
             return (
-              <VibrantChecklistBackground className="pb-20">
-                <ShootChecklist
-                  items={activeChecklistItems}
-                  onToggle={handleToggleChecklist}
-                  onAdd={handleAddChecklistItem}
-                  onDelete={handleDeleteChecklistItem}
-                  onReset={handleResetChecklist}
-                  presets={checklistPresets}
-                  activePresetId={activePresetId}
-                  activePresetName={activePresetName}
-                  onLoadPreset={handleLoadPreset}
-                  onAddPreset={handleAddPreset}
-                  onDeletePreset={handleDeletePreset}
-                  onOpenSettings={() => setIsNotifSettingsOpen(true)}
-                  masterOptions={masterOptions}
-                />
-              </VibrantChecklistBackground>
+              <ShootChecklist
+                items={activeChecklistItems}
+                onToggle={handleToggleChecklist}
+                onAdd={handleAddChecklistItem}
+                onDelete={handleDeleteChecklistItem}
+                onReset={handleResetChecklist}
+                presets={checklistPresets}
+                activePresetId={activePresetId}
+                activePresetName={activePresetName}
+                onLoadPreset={handleLoadPreset}
+                onAddPreset={handleAddPreset}
+                onDeletePreset={handleDeletePreset}
+                onOpenSettings={() => setIsNotifSettingsOpen(true)}
+                masterOptions={masterOptions}
+              />
             );
           case 'CHANNELS':
           case 'MASTER_DATA':

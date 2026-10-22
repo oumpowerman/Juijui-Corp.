@@ -6,6 +6,7 @@ import { MENU_GROUPS } from './sidebar/menuConfig';
 import { getSidebarThemeStyles } from './sidebar/sidebarThemes';
 import { SidebarBrand } from './sidebar/SidebarBrand';
 import { SidebarNav } from './sidebar/SidebarNav';
+import { SidebarDutyEdgeMascot } from './sidebar/SidebarDutyEdgeMascot';
 import { SidebarUserFooter } from './sidebar/SidebarUserFooter';
 
 export { MENU_GROUPS } from './sidebar/menuConfig';
@@ -111,7 +112,14 @@ const Sidebar: React.FC<SidebarProps> = ({
         onNavigate={onNavigate}
       />
 
-      {/* 3. User Footer & Status */}
+      {/* 3. Edge Clinging Duty Mascot (active only on Duty Roster view) */}
+      <SidebarDutyEdgeMascot 
+        currentView={currentView}
+        isCollapsed={isCollapsed}
+        isDarkTheme={isDarkTheme}
+      />
+
+      {/* 4. User Footer & Status */}
       <SidebarUserFooter 
         currentUser={currentUser}
         isCollapsed={isCollapsed}

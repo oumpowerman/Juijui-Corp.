@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '../../lib/supabase';
 import {
@@ -16,6 +16,8 @@ interface UseChecklistItemsDomainParams {
     currentUserProfile: User | null;
 }
 
+const OPTIMISTIC_GUARD_TTL_MS = 1200;
+
 export const useChecklistItemsDomain = ({
     activeOrgId,
     currentUserProfile
@@ -24,6 +26,9 @@ export const useChecklistItemsDomain = ({
     const { showConfirm } = useGlobalDialog();
 
     const [rawChecklistItems, setRawChecklistItems] = useState<ChecklistItem[]>([]);
+    const pendingTogglesRef = useRef<
+        Map<string, { isChecked: boolean; inFlight: number; updatedAt: number }>
+    >(new Map());
 
     const {
         data: activeData,
@@ -35,7 +40,8 @@ export const useChecklistItemsDomain = ({
             const { data, error } = await supabase
                 .from('active_checklist_items')
                 .select('*')
-                .order('created_at', { ascending: true });
+                .order('created_at', { ascending: true })
+                .order('id', { ascending: true });
             if (error) throw error;
             return data || [];
         },
@@ -44,14 +50,49 @@ export const useChecklistItemsDomain = ({
 
     useEffect(() => {
         if (activeData) {
-            setRawChecklistItems(
-                activeData.map((i: any) => ({
+            const now = Date.now();
+            const incomingItems: ChecklistItem[] = activeData.map((i: any) => {
+                const pending = pendingTogglesRef.current.get(i.id);
+                const useOptimistic =
+                    pending &&
+                    (pending.inFlight > 0 || now - pending.updatedAt < OPTIMISTIC_GUARD_TTL_MS);
+
+                if (pending && pending.inFlight === 0 && now - pending.updatedAt >= OPTIMISTIC_GUARD_TTL_MS) {
+                    pendingTogglesRef.current.delete(i.id);
+                }
+
+                return {
                     id: i.id,
                     text: i.text,
-                    isChecked: i.is_checked,
+                    isChecked: useOptimistic ? pending.isChecked : i.is_checked,
                     categoryId: i.category_id
-                }))
-            );
+                };
+            });
+
+            setRawChecklistItems(prev => {
+                if (prev.length === 0 || prev.some(item => item.id.startsWith('temp-'))) {
+                    return incomingItems;
+                }
+                const incomingMap = new Map(incomingItems.map(item => [item.id, item]));
+                const preserved: ChecklistItem[] = [];
+                const seenIds = new Set<string>();
+
+                for (const existing of prev) {
+                    const updated = incomingMap.get(existing.id);
+                    if (updated) {
+                        preserved.push(updated);
+                        seenIds.add(existing.id);
+                    }
+                }
+
+                for (const incoming of incomingItems) {
+                    if (!seenIds.has(incoming.id)) {
+                        preserved.push(incoming);
+                    }
+                }
+
+                return preserved;
+            });
         }
     }, [activeData]);
 
@@ -64,6 +105,13 @@ export const useChecklistItemsDomain = ({
             const handleToggleChecklist = async (id: string, currentStatus: boolean) => {
                 const nextChecked = !currentStatus;
                 const targetItem = rawChecklistItems.find(item => item.id === id);
+
+                const prevPending = pendingTogglesRef.current.get(id);
+                pendingTogglesRef.current.set(id, {
+                    isChecked: nextChecked,
+                    inFlight: (prevPending?.inFlight || 0) + 1,
+                    updatedAt: Date.now()
+                });
 
                 setRawChecklistItems(prev =>
                     prev.map(item =>
@@ -116,6 +164,15 @@ export const useChecklistItemsDomain = ({
                     ]);
                 } catch (err) {
                     console.error('Toggle error', err);
+                } finally {
+                    const latestPending = pendingTogglesRef.current.get(id);
+                    if (latestPending) {
+                        pendingTogglesRef.current.set(id, {
+                            ...latestPending,
+                            inFlight: Math.max(0, latestPending.inFlight - 1),
+                            updatedAt: Date.now()
+                        });
+                    }
                 }
             };
 
@@ -146,6 +203,7 @@ export const useChecklistItemsDomain = ({
                     'ยืนยันการรีเซ็ต'
                 );
                 if (confirmed) {
+                    pendingTogglesRef.current.clear();
                     setRawChecklistItems(prev => prev.map(i => ({ ...i, isChecked: false })));
                     const nextSession: ActiveShootSessionState = {
                         ...activeShootSession,

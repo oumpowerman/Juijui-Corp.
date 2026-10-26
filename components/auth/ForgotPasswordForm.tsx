@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Mail, AlertCircle, Loader2, ArrowRight } from 'lucide-react';
+import { Mail, AlertCircle, Loader2, ArrowRight, ArrowLeft } from 'lucide-react';
 
 interface ForgotPasswordFormProps {
   email: string;
@@ -36,16 +36,17 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({
         <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
           <Mail className="w-8 h-8 text-emerald-600" />
         </div>
-        <h4 className="text-xl font-black text-slate-800 mb-2">ส่งลิงก์กู้คืนแล้ว!</h4>
+        <h4 className="text-xl font-bold text-slate-800 mb-2">ส่งลิงก์กู้คืนแล้ว!</h4>
         <p className="text-slate-500 text-sm font-medium mb-6">
           กรุณาตรวจสอบกล่องจดหมายของคุณ (รวมถึง Junk/Spam) และคลิกลิงก์เพื่อตั้งรหัสผ่านใหม่
         </p>
         <button 
           type="button"
           onClick={onBackToLogin}
-          className="text-emerald-600 font-black text-sm uppercase tracking-widest hover:underline outline-none"
+          className="inline-flex items-center justify-center gap-1.5 text-emerald-600 font-bold text-sm uppercase tracking-wider hover:underline outline-none"
         >
-          กลับไปหน้าเข้าสู่ระบบ
+          <ArrowLeft className="w-4 h-4" />
+          <span>กลับไปหน้าเข้าสู่ระบบ</span>
         </button>
       </motion.div>
     );
@@ -62,14 +63,14 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({
         <div className="w-16 h-16 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-amber-200">
           <AlertCircle className="w-8 h-8 text-amber-600" />
         </div>
-        <h4 className="text-xl font-black text-slate-800 mb-2">ตรวจสอบอีเมลให้ชัวร์ก่อนนะครับ 🔍</h4>
+        <h4 className="text-xl font-bold text-slate-800 mb-2">ตรวจสอบอีเมลให้ชัวร์ก่อนนะครับ 🔍</h4>
         <p className="text-slate-500 text-sm font-medium mb-4 leading-relaxed">
           ระบบกู้คืนรหัสผ่าน <span className="text-red-500 font-extrabold">จะไม่มีการแจ้งเตือนใด ๆ</span> หากระบุอีเมลไม่ตรงกับในฐานข้อมูล (เพื่อความปลอดภัยทางข้อมูล) กรุณาสะกดทีละตัวอักษรให้ถูกต้อง
         </p>
         
         <div className="bg-white border border-amber-200/60 rounded-2xl p-4 mb-6 shadow-sm">
           <span className="text-xs font-bold text-slate-400 block mb-1">อีเมลที่คุณระบุคือ:</span>
-          <span className="text-md font-black text-indigo-600 break-all select-all block py-1 bg-slate-50 rounded-lg border border-dashed border-slate-200">{email}</span>
+          <span className="text-md font-bold text-indigo-600 break-all select-all block py-1 bg-slate-50 rounded-lg border border-dashed border-slate-200">{email}</span>
         </div>
 
         <div className="space-y-2">
@@ -77,12 +78,12 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({
             type="button"
             disabled={isLoading}
             onClick={onSendReset}
-            className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-black rounded-xl shadow-lg shadow-amber-200 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
+            className="w-full py-4 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold rounded-xl shadow-lg shadow-amber-200 flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-50"
           >
             {isLoading ? (
               <>
                 <Loader2 className="w-5 h-5 animate-spin" />
-                <span>กำลังส่งอีмеลกู้คืน...</span>
+                <span>กำลังส่งอีเมลกู้คืน...</span>
               </>
             ) : (
               <>
@@ -133,20 +134,23 @@ export const ForgotPasswordForm: React.FC<ForgotPasswordFormProps> = ({
         <button 
           type="submit" 
           disabled={isLoading}
-          className={`w-full py-4 rounded-xl font-black text-white text-base shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 ${isLoading ? 'opacity-70 cursor-not-allowed' : ''} bg-gradient-to-r from-indigo-600 to-violet-600 shadow-indigo-200`}
+          className={`w-full py-4 rounded-xl font-bold text-white text-base shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2 ${isLoading ? 'opacity-70 cursor-not-allowed' : ''} bg-gradient-to-r from-indigo-600 to-violet-600 shadow-indigo-200`}
         >
           <span>ส่งอีเมลกู้คืนรหัสผ่าน</span>
           <ArrowRight className="w-5 h-5" />
         </button>
       </div>
 
-      <button 
-        type="button"
-        onClick={onBackToLogin}
-        className="w-full mt-4 text-center text-slate-400 font-bold text-sm hover:text-slate-600 transition-colors outline-none"
-      >
-        กลับไปหน้าเข้าสู่ระบบ
-      </button>
+      <div className="pt-2 text-center">
+        <button 
+          type="button"
+          onClick={onBackToLogin}
+          className="group inline-flex items-center justify-center gap-1.5 text-slate-400 hover:text-indigo-600 font-bold text-sm transition-colors outline-none py-1.5 px-3 rounded-lg hover:bg-slate-100/60"
+        >
+          <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
+          <span>กลับไปหน้าเข้าสู่ระบบ</span>
+        </button>
+      </div>
     </form>
   );
 };

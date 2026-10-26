@@ -15,16 +15,30 @@ router.get('/api/dashboard/stats', async (req, res) => {
         const today = new Date();
         const activeOrgId = await resolveRequestOrgId(req, userId);
 
-        // 1. Fetch configurations
-        const { data: configs, error: configError } = await serverSupabase
+        // 1. Fetch configurations (SQL-level tenant filter with fallback)
+        let configQuery = serverSupabase
             .from('dashboard_configs')
             .select('*')
             .order('sort_order', { ascending: true });
 
-        if (configError) throw configError;
+        if (activeOrgId) {
+            configQuery = configQuery.eq('org_id', activeOrgId);
+        }
 
-        // 2. Fetch contents
-        const { data: contents, error: contentError } = await serverSupabase
+        let { data: configs, error: configError } = await configQuery;
+        if (configError && activeOrgId) {
+            const fallbackConfigs = await serverSupabase
+                .from('dashboard_configs')
+                .select('*')
+                .order('sort_order', { ascending: true });
+            if (fallbackConfigs.error) throw fallbackConfigs.error;
+            configs = fallbackConfigs.data;
+        } else if (configError) {
+            throw configError;
+        }
+
+        // 2. Fetch contents with SQL-level .eq('org_id', activeOrgId)
+        let contentsQuery = serverSupabase
             .from('contents')
             .select(`
                 id, org_id, title, description, status, pillar, category, content_formats, tags,
@@ -32,7 +46,13 @@ router.get('/api/dashboard/stats', async (req, res) => {
                 target_platform, assignee_ids, idea_owner_ids, editor_ids, shoot_trip_id,
                 shoot_date, is_in_shoot_queue, is_soft_finished
             `);
-        
+
+        if (activeOrgId) {
+            contentsQuery = contentsQuery.eq('org_id', activeOrgId);
+        }
+
+        const { data: contents, error: contentError } = await contentsQuery;
+
         // Fallback if org_id column does not exist yet
         let resolvedContents = contents;
         if (contentError) {
@@ -48,14 +68,20 @@ router.get('/api/dashboard/stats', async (req, res) => {
             resolvedContents = fallbackContents;
         }
 
-        // 3. Fetch tasks
-        const { data: dbTasks, error: dbTasksError } = await serverSupabase
+        // 3. Fetch tasks with SQL-level .eq('org_id', activeOrgId)
+        let tasksQuery = serverSupabase
             .from('tasks')
             .select(`
                 id, org_id, title, status, priority, start_date, end_date, created_at, updated_at, 
                 assignee_ids, content_id, show_on_board, target_position, roadmap_id, 
                 difficulty, assignee_type, estimated_hours, scheduled_time
             `);
+
+        if (activeOrgId) {
+            tasksQuery = tasksQuery.eq('org_id', activeOrgId);
+        }
+
+        const { data: dbTasks, error: dbTasksError } = await tasksQuery;
 
         let resolvedTasks = dbTasks;
         if (dbTasksError) {
@@ -120,14 +146,14 @@ router.get('/api/dashboard/stats', async (req, res) => {
             // 2. Time Range Filter
             if (timeRange === 'ALL') return true;
             if (!t.endDate) return false;
-            
+
             const endDateObj = new Date(t.endDate);
             const isInRange = checkDateInRange(endDateObj);
-            
+
             if (isDone) {
                 return isInRange;
             } else {
-                return isInRange || isBefore(endDateObj, today); 
+                return isInRange || isBefore(endDateObj, today);
             }
         });
 
@@ -139,7 +165,7 @@ router.get('/api/dashboard/stats', async (req, res) => {
             const matchingTasks = filtered.filter((t: any) => {
                 if (filterType === 'STATUS') {
                     return statusKeys.includes(t.status || '');
-                } 
+                }
                 else if (filterType === 'FORMAT') {
                     const formats = t.contentFormats || [];
                     return statusKeys.some(key => formats.includes(key));
@@ -157,11 +183,11 @@ router.get('/api/dashboard/stats', async (req, res) => {
             const urgentCount = matchingTasks.filter((t: any) => {
                 const isDone = isTaskCompletedServer(t.status);
                 if (isDone || t.isUnscheduled || !t.endDate) return false;
-                
+
                 const endDateObj = new Date(t.endDate);
                 const isOverdue = isPast(endDateObj) && !isToday(endDateObj);
                 const isDueSoon = isToday(endDateObj) || isBefore(endDateObj, addDays(new Date(), 1));
-                
+
                 return isOverdue || isDueSoon;
             }).length;
 
@@ -176,16 +202,14 @@ router.get('/api/dashboard/stats', async (req, res) => {
                 sortOrder: config.sort_order,
                 count: matchingTasks.length,
                 urgentCount: urgentCount,
-                tasks: matchingTasks // Provide mapped task items
+                tasks: matchingTasks
             };
         });
 
-        // Calculate progress percentage and total count
         const totalFilteredTasks = filtered.length;
         const doneTasksCount = filtered.filter((t: any) => isTaskCompletedServer(t.status)).length;
         const progressPercentage = totalFilteredTasks > 0 ? Math.round((doneTasksCount / totalFilteredTasks) * 100) : 0;
 
-        // Format chart data matching CHART_COLORS_MAP on client
         const chartData = cardStats.map((stat: any) => ({
             name: stat.label,
             value: stat.count,

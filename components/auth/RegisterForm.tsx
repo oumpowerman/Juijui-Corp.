@@ -39,6 +39,10 @@ export interface RegisterFormProps {
   companies?: Company[];
   onboardingCode?: string;
   setOnboardingCode?: (val: string) => void;
+  onboardingMode?: 'JOIN_TEAM' | 'CREATE_TRIAL';
+  setOnboardingMode?: (mode: 'JOIN_TEAM' | 'CREATE_TRIAL') => void;
+  newOrgName?: string;
+  setNewOrgName?: (val: string) => void;
   
   positions: { key: string; label: string }[];
   avatarPreview: string | null;
@@ -96,6 +100,10 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
   companies = [],
   onboardingCode = '',
   setOnboardingCode,
+  onboardingMode = 'JOIN_TEAM',
+  setOnboardingMode,
+  newOrgName = '',
+  setNewOrgName,
   positions,
   avatarPreview,
   isConvertingImg,
@@ -186,7 +194,12 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
       newErrors.position = 'กรุณาเลือกตำแหน่งงานนะครับ';
     }
 
-    if (companies && companies.length > 1 && (!companyId || companyId === 'ALL')) {
+    if (
+      onboardingMode === 'JOIN_TEAM' &&
+      companies &&
+      companies.length > 1 &&
+      (!companyId || companyId === 'ALL')
+    ) {
       newErrors.companyId = 'กรุณาเลือกสังกัดบริษัทในเครือนะครับ';
     }
 
@@ -233,51 +246,111 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
   return (
     <>
       <form onSubmit={handleFormSubmit} className="space-y-4" noValidate>
-        {/* Optional Multi-Tenant Onboarding Code Card (Invite Code or Owner Claim Token) */}
+        {/* Multi-Tenant Onboarding Mode Selector: Join Team vs Start 7-Day Free Trial */}
         <div
           id="register-onboardingCode-container"
           className={`p-4 rounded-2xl border transition-all duration-300 ${
-            trimmedCode
+            onboardingMode === 'CREATE_TRIAL'
+              ? 'bg-indigo-50/70 border-indigo-200 shadow-sm'
+              : trimmedCode
               ? isClaimTokenFormat
                 ? 'bg-emerald-50/70 border-emerald-200 shadow-sm'
                 : 'bg-indigo-50/70 border-indigo-200 shadow-sm'
               : 'bg-slate-50/80 border-slate-200/80'
           }`}
         >
-          <div className="flex items-center justify-between gap-2 mb-1.5">
-            <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-              <KeyRound className={`w-4 h-4 ${trimmedCode ? (isClaimTokenFormat ? 'text-emerald-600' : 'text-indigo-600') : 'text-slate-400'}`} />
-              <span>รหัสเชิญเข้าทีม / รหัสรับมอบองค์กร (ถ้ามี)</span>
-            </label>
-            <span className="text-[11px] font-semibold text-slate-400">เว้นว่างเพื่อกรอกทีหลังได้</span>
-          </div>
+          {setOnboardingMode && (
+            <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-200/70 rounded-xl mb-3">
+              <button
+                type="button"
+                onClick={() => setOnboardingMode('JOIN_TEAM')}
+                className={`py-2 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  onboardingMode === 'JOIN_TEAM'
+                    ? 'bg-white text-slate-900 shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <KeyRound className="w-3.5 h-3.5 text-indigo-600" />
+                <span>เข้าร่วมทีมเดิม</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setOnboardingMode('CREATE_TRIAL');
+                  clearError('companyId');
+                }}
+                className={`py-2 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  onboardingMode === 'CREATE_TRIAL'
+                    ? 'bg-indigo-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>เปิดบริษัทใหม่ (ฟรี 7 วัน)</span>
+              </button>
+            </div>
+          )}
 
-          <input
-            type="text"
-            value={onboardingCode}
-            onChange={(e) => setOnboardingCode?.(e.target.value.toUpperCase())}
-            placeholder="เช่น ORG-XXXX หรือ CLAIM-XXXXXX-XXXXXX"
-            className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none font-mono text-sm font-bold text-slate-800 placeholder:font-sans placeholder:font-normal placeholder:text-slate-400 transition-all uppercase tracking-wider"
-          />
-
-          {trimmedCode ? (
-            <div className={`mt-2 flex items-center gap-2 text-xs font-bold ${isClaimTokenFormat ? 'text-emerald-700' : 'text-indigo-700'}`}>
-              {isClaimTokenFormat ? (
-                <>
-                  <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-600" />
-                  <span>รหัสรับมอบองค์กร (Owner Claim): ปลดล็อกสิทธิ์ OWNER และเข้าใช้งานทันทีหลังสมัคร</span>
-                </>
-              ) : (
-                <>
-                  <Users className="w-4 h-4 shrink-0 text-indigo-600" />
-                  <span>รหัสเชิญเข้าทีม (Invite Code): ระบบจะส่งคำขอเข้าร่วมองค์กรให้อัตโนมัติ</span>
-                </>
-              )}
+          {onboardingMode === 'CREATE_TRIAL' ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <label className="text-xs font-bold text-indigo-900 flex items-center gap-1.5">
+                  <Building2 className="w-4 h-4 text-indigo-600" />
+                  <span>ชื่อบริษัท / ชื่อช่อง / สตูดิโอที่ต้องการเปิด *</span>
+                </label>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-indigo-600 text-white">
+                  PRO Trial · 5 คน
+                </span>
+              </div>
+              <input
+                type="text"
+                value={newOrgName}
+                onChange={(e) => setNewOrgName?.(e.target.value)}
+                placeholder="เช่น บริษัท ครีเอทีฟ สตูดิโอ จำกัด"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-indigo-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none text-sm font-bold text-slate-800 placeholder:font-normal placeholder:text-slate-400 transition-all"
+              />
+              <p className="text-[11px] font-semibold text-indigo-700 leading-relaxed">
+                คุณจะได้รับสิทธิ์เจ้าขององค์กร (OWNER) พร้อมปลดล็อกฟีเจอร์แพ็กเกจ PRO ทดลองใช้งานฟรี 7 วันทันทีหลังสมัครเสร็จ
+              </p>
             </div>
           ) : (
-            <p className="mt-1.5 text-[11px] font-semibold text-slate-500">
-              หากคุณได้รับรหัสจากหัวหน้าทีมหรือลิงก์เปิดองค์กรใหม่ สามารถกรอกที่นี่ หรือข้ามไปกรอกในหน้ารออนุมัติภายหลังได้ครับ
-            </p>
+            <>
+              <div className="flex items-center justify-between gap-2 mb-1.5">
+                <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                  <KeyRound className={`w-4 h-4 ${trimmedCode ? (isClaimTokenFormat ? 'text-emerald-600' : 'text-indigo-600') : 'text-slate-400'}`} />
+                  <span>รหัสเชิญเข้าทีม / รหัสรับมอบองค์กร (ถ้ามี)</span>
+                </label>
+                <span className="text-[11px] font-semibold text-slate-400">เว้นว่างเพื่อกรอกทีหลังได้</span>
+              </div>
+
+              <input
+                type="text"
+                value={onboardingCode}
+                onChange={(e) => setOnboardingCode?.(e.target.value.toUpperCase())}
+                placeholder="เช่น ORG-XXXX หรือ CLAIM-XXXXXX-XXXXXX"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none font-mono text-sm font-bold text-slate-800 placeholder:font-sans placeholder:font-normal placeholder:text-slate-400 transition-all uppercase tracking-wider"
+              />
+
+              {trimmedCode ? (
+                <div className={`mt-2 flex items-center gap-2 text-xs font-bold ${isClaimTokenFormat ? 'text-emerald-700' : 'text-indigo-700'}`}>
+                  {isClaimTokenFormat ? (
+                    <>
+                      <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-600" />
+                      <span>รหัสรับมอบองค์กร (Owner Claim): ปลดล็อกสิทธิ์ OWNER และเข้าใช้งานทันทีหลังสมัคร</span>
+                    </>
+                  ) : (
+                    <>
+                      <Users className="w-4 h-4 shrink-0 text-indigo-600" />
+                      <span>รหัสเชิญเข้าทีม (Invite Code): ระบบจะส่งคำขอเข้าร่วมองค์กรให้อัตโนมัติ</span>
+                    </>
+                  )}
+                </div>
+              ) : (
+                <p className="mt-1.5 text-[11px] font-semibold text-slate-500">
+                  หากคุณได้รับรหัสจากหัวหน้าทีมหรือลิงก์เปิดองค์กรใหม่ สามารถกรอกที่นี่ หรือข้ามไปกรอกในหน้ารออนุมัติภายหลังได้ครับ
+                </p>
+              )}
+            </>
           )}
         </div>
 
@@ -376,8 +449,14 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
         </div>
 
         {/* Company Affiliation & Employment Type Grid */}
-        <div className={`grid ${companies.length > 1 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1'} gap-3`}>
-          {companies.length > 1 && (
+        <div
+          className={`grid ${
+            onboardingMode === 'JOIN_TEAM' && companies.length > 1
+              ? 'grid-cols-1 sm:grid-cols-2'
+              : 'grid-cols-1'
+          } gap-3`}
+        >
+          {onboardingMode === 'JOIN_TEAM' && companies.length > 1 && (
             <div id="register-companyId-container" className="space-y-1">
               <label className="text-xs font-bold text-slate-500 ml-1 uppercase flex items-center justify-between">
                 <span>สังกัดบริษัทในเครือ *</span>

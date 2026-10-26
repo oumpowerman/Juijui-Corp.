@@ -289,21 +289,68 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
             if (currentProfileRes.error) throw currentProfileRes.error;
 
             const activeData = activeProfilesRes.data || [];
-            const currentData = currentProfileRes.data || {
-                id: sessionUser.id,
-                email: sessionUser.email || '',
-                full_name:
+            let currentData = currentProfileRes.data;
+
+            if (!currentData) {
+                const rawFullName =
                     sessionUser.user_metadata?.full_name ||
                     sessionUser.user_metadata?.name ||
-                    (sessionUser.email ? sessionUser.email.split('@')[0] : 'ผู้ใช้งานใหม่'),
-                avatar_url: sessionUser.user_metadata?.avatar_url || '',
-                role: 'MEMBER',
-                position: 'Member',
-                is_approved: false,
-                is_active: true,
-                status: 'ACTIVE',
-                accepted_terms_version: 99
-            };
+                    (sessionUser.email ? sessionUser.email.split('@')[0] : 'ผู้ใช้งานใหม่');
+
+                const nameParts = String(rawFullName).trim().split(/\s+/);
+                const firstName = nameParts[0] || rawFullName;
+                const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+                const emailPrefix = sessionUser.email
+                    ? sessionUser.email.split('@')[0].toLowerCase().replace(/[^a-z0-9_.]/g, '')
+                    : 'user';
+                const autoUsername = `${emailPrefix || 'user'}_${String(sessionUser.id).slice(0, 4)}`.toLowerCase();
+
+                const newProfilePayload = {
+                    id: sessionUser.id,
+                    email: sessionUser.email || null,
+                    username: autoUsername,
+                    full_name: rawFullName,
+                    first_name: firstName,
+                    last_name: lastName,
+                    nickname: firstName,
+                    avatar_url:
+                        sessionUser.user_metadata?.avatar_url ||
+                        sessionUser.user_metadata?.picture ||
+                        null,
+                    role: 'MEMBER',
+                    position: 'Creator',
+                    is_approved: false,
+                    is_active: true,
+                    status: 'ACTIVE',
+                    work_days: [1, 2, 3, 4, 5],
+                    hp: 100,
+                    max_hp: 100,
+                    xp: 0,
+                    level: 1,
+                    available_points: 0,
+                    death_count: 0,
+                    emoji: '🚀',
+                    accepted_terms_version: 99,
+                    start_date: new Date().toISOString(),
+                };
+
+                if (sessionUser.id !== 'demo-sandbox-user-001') {
+                    const { data: createdProfile, error: upsertErr } = await supabase
+                        .from('profiles')
+                        .upsert(newProfilePayload, { onConflict: 'id' })
+                        .select('*')
+                        .maybeSingle();
+
+                    if (upsertErr) {
+                        console.warn('Auto-create OAuth profile warning:', upsertErr.message);
+                        currentData = newProfilePayload;
+                    } else {
+                        currentData = createdProfile || newProfilePayload;
+                    }
+                } else {
+                    currentData = newProfilePayload;
+                }
+            }
 
             const userMap = new Map<string, any>();
             activeData.forEach(p => userMap.set(p.id, p));

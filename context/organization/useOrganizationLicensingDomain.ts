@@ -369,9 +369,182 @@ export function useOrganizationLicensingDomain({
         showToast
     ]);
 
+    const provisionSelfServiceTrialOrganization = useCallback(async (input: {
+        name: string;
+        description?: string;
+    }) => {
+        if (!currentUserProfile?.id) {
+            return { success: false, message: 'กรุณาเข้าสู่ระบบก่อนเปิดองค์กรทดลองใช้ฟรี' };
+        }
+
+        const cleanName = (input.name || '').trim();
+        if (!cleanName) {
+            return { success: false, message: 'กรุณาระบุชื่อบริษัทหรือสตูดิโอของคุณ' };
+        }
+
+        // Enforce 1 Trial Organization per regular user account
+        const alreadyOwnsOrg =
+            !isSuperAdmin &&
+            (allPlatformOrganizations.some(o => o.ownerId === currentUserProfile.id) ||
+                myMemberships.some(m => m.role === 'OWNER'));
+
+        if (alreadyOwnsOrg) {
+            return {
+                success: false,
+                message: 'บัญชีของคุณมีองค์กรที่เป็นเจ้าของอยู่แล้ว (จำกัดสิทธิ์เปิดองค์กรทดลองใช้ฟรี 1 แห่งต่อ 1 บัญชี)'
+            };
+        }
+
+        const slugBase =
+            cleanName
+                .toLowerCase()
+                .replace(/[^a-z0-9ก-๙]+/g, '-')
+                .replace(/^-+|-+$/g, '') || `studio-${Date.now()}`;
+        const uniqueSlug = `${slugBase}-${Math.floor(1000 + Math.random() * 9000)}`;
+        const inviteCode = generateRandomInviteCode(cleanName);
+        const planTier: PlanTier = 'PRO';
+        const preset = SAAS_PLAN_PRESETS.PRO;
+        const subscriptionStatus: SubscriptionStatus = 'TRIAL';
+        const maxMembers = 5; // 7-Day Free Trial PRO tier capped at 5 members
+        const allowedModules = [...preset.defaultModules];
+        const trialExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+        try {
+            const insertPayload: Record<string, any> = {
+                name: cleanName,
+                slug: uniqueSlug,
+                description: input.description || 'องค์กรทดลองใช้งานฟรี 7 วัน (PRO Trial)',
+                color: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+                logo_url: '',
+                invite_code: inviteCode,
+                invite_enabled: true,
+                owner_id: currentUserProfile.id,
+                plan_tier: planTier,
+                subscription_status: subscriptionStatus,
+                expires_at: trialExpiresAt,
+                grace_period_days: 3,
+                max_members: maxMembers,
+                allowed_modules: allowedModules,
+                billing_email: currentUserProfile.email || null,
+                is_active: true
+            };
+
+            let { data: createdOrg, error: createErr } = await supabase
+                .from('organizations')
+                .insert([insertPayload])
+                .select('*')
+                .single();
+
+            if (createErr) {
+                const minimalPayload = {
+                    name: cleanName,
+                    slug: uniqueSlug,
+                    description: input.description || 'องค์กรทดลองใช้งานฟรี 7 วัน (PRO Trial)',
+                    color: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+                    invite_code: inviteCode,
+                    invite_enabled: true,
+                    owner_id: currentUserProfile.id,
+                    plan_tier: planTier,
+                    is_active: true
+                };
+                const retry = await supabase
+                    .from('organizations')
+                    .insert([minimalPayload])
+                    .select('*')
+                    .single();
+                if (retry.error) throw retry.error;
+                createdOrg = retry.data;
+            }
+
+            // 1. Add creator as ACTIVE OWNER in organization_members
+            await supabase
+                .from('organization_members')
+                .upsert(
+                    [
+                        {
+                            org_id: createdOrg.id,
+                            user_id: currentUserProfile.id,
+                            role: 'OWNER',
+                            status: 'ACTIVE'
+                        }
+                    ],
+                    { onConflict: 'org_id,user_id' }
+                );
+
+            // 2. Seed default master_options for the new organization
+            try {
+                await supabase.rpc('seed_organization_defaults', { target_org_id: createdOrg.id });
+            } catch {
+                // Ignore if RPC is not yet created
+            }
+
+            // 3. Approve user profile immediately and bind current_org_id
+            await supabase
+                .from('profiles')
+                .update({
+                    is_approved: true,
+                    role: 'ADMIN',
+                    current_org_id: createdOrg.id
+                })
+                .eq('id', currentUserProfile.id);
+
+            setSelectedOrgId(createdOrg.id);
+            setActiveOrgIdSync(createdOrg.id);
+
+            if (typeof window !== 'undefined') {
+                sessionStorage.removeItem('juijui_pending_onboarding_code');
+                sessionStorage.removeItem('juijui_trial_signup_intent');
+            }
+
+            const mapped = mapOrgFromDB(
+                {
+                    ...createdOrg,
+                    plan_tier: planTier,
+                    subscription_status: subscriptionStatus,
+                    expires_at: trialExpiresAt,
+                    max_members: maxMembers,
+                    allowed_modules: allowedModules
+                },
+                1
+            );
+
+            await fetchOrganizationsAndMembers();
+            await switchOrganization(createdOrg.id);
+            await fetchProfile();
+
+            showToast(
+                `เปิดองค์กร "${cleanName}" สำเร็จ! เริ่มทดลองใช้งานแพ็กเกจ PRO ฟรี 7 วัน (สูงสุด 5 คน)`,
+                'success'
+            );
+
+            return {
+                success: true,
+                org: mapped,
+                message: `เปิดองค์กร "${cleanName}" สำเร็จ! ระบบได้เปิดสิทธิ์แพ็กเกจ PRO ทดลองใช้ฟรี 7 วันให้คุณเรียบร้อยแล้ว`
+            };
+        } catch (err: any) {
+            console.error('[OrganizationContext] provisionSelfServiceTrialOrganization error:', err);
+            const msg = 'ไม่สามารถสร้างองค์กรทดลองใช้ได้: ' + (err.message || 'Unknown error');
+            showToast(msg, 'error');
+            return { success: false, message: msg };
+        }
+    }, [
+        currentUserProfile?.id,
+        currentUserProfile?.email,
+        isSuperAdmin,
+        allPlatformOrganizations,
+        myMemberships,
+        setSelectedOrgId,
+        fetchOrganizationsAndMembers,
+        switchOrganization,
+        fetchProfile,
+        showToast
+    ]);
+
     return {
         switchOrganization,
         createOrganization,
+        provisionSelfServiceTrialOrganization,
         updateOrganizationLicense,
         claimOrganizationOwnership
     };

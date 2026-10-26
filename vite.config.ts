@@ -91,6 +91,25 @@ export default defineConfig(({ mode }) => {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY || ''),
       'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.VITE_GEMINI_API_KEY || '')
     },
+    resolve: {
+      dedupe: ['react', 'react-dom', 'react/jsx-runtime', 'react/jsx-dev-runtime'],
+      alias: {
+        react: path.resolve((process as any).cwd(), 'node_modules/react'),
+        'react-dom': path.resolve((process as any).cwd(), 'node_modules/react-dom'),
+      },
+    },
+    optimizeDeps: {
+      include: [
+        'react',
+        'react-dom',
+        'react/jsx-runtime',
+        'react/jsx-dev-runtime',
+        'recharts',
+        'framer-motion',
+        '@tanstack/react-query',
+        'lucide-react',
+      ],
+    },
     server: {
       host: '0.0.0.0',
       port: 3000,

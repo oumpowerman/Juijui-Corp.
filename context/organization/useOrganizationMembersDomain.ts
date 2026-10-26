@@ -105,7 +105,7 @@ export function useOrganizationMembersDomain({
         }
     }, [currentUserProfile?.id, switchOrganization, fetchOrganizationsAndMembers, setPendingInviteCodeFromUrl, showToast]);
 
-    const approveMemberRequest = useCallback(async (memberId: string): Promise<boolean> => {
+    const approveMemberRequest = useCallback(async (memberId: string, assignedCompanyId?: string): Promise<boolean> => {
         const activeCount = currentOrgMembers.filter(m => m.status === 'ACTIVE').length;
         const maxAllowed = currentOrg.maxMembers || 100;
 
@@ -126,14 +126,18 @@ export function useOrganizationMembersDomain({
                 .eq('id', memberId);
             if (error) throw error;
 
-            // Auto-unlock the approved user's profile (is_approved = true) and set current_org_id
+            // Auto-unlock the approved user's profile (is_approved = true), set current_org_id, and optionally assign sub-company
             if (targetMember?.userId) {
+                const profileUpdates: Record<string, any> = {
+                    is_approved: true,
+                    current_org_id: currentOrg.id
+                };
+                if (assignedCompanyId) {
+                    profileUpdates.company_id = assignedCompanyId;
+                }
                 await supabase
                     .from('profiles')
-                    .update({
-                        is_approved: true,
-                        current_org_id: currentOrg.id
-                    })
+                    .update(profileUpdates)
                     .eq('id', targetMember.userId);
             }
 

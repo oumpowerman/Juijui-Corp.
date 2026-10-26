@@ -69,9 +69,21 @@ export const WorkspaceSwitchTab: React.FC<WorkspaceSwitchTabProps> = ({
                         </button>
                     </div>
                 </div>
-                <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                    ส่งรหัสหรือลิงก์นี้ให้พนักงานในบริษัทเพื่อขอเข้าทีม (ต้องได้รับการอนุมัติจาก Admin ภายใต้โควตาแพ็กเกจ)
-                </p>
+                <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200/70 dark:border-slate-700/70">
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                        ส่งรหัสหรือลิงก์นี้ให้พนักงานในบริษัทเพื่อขอเข้าทีม
+                    </p>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            closeSwitcherModal();
+                            window.dispatchEvent(new CustomEvent('open-saas-billing-modal'));
+                        }}
+                        className="px-3 py-1.5 text-xs font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl transition-colors whitespace-nowrap shrink-0"
+                    >
+                        อัปเกรด / ต่ออายุแพ็กเกจ
+                    </button>
+                </div>
             </div>
 
             {/* List of My Workspaces */}

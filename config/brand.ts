@@ -123,4 +123,45 @@ export const BRAND_CONFIG = {
   // 1 = แสดงปุ่มและประวัติการเช็คอินจุดปฏิบัติงานระหว่างวัน (ค่าเริ่มต้น)
   // 2 = ซ่อนทั้งหมด (เหมาะสำหรับบริษัทที่ไม่ต้องการให้พนักงานกดบันทึกพิกัดระหว่างวัน)
   showFieldCheckpointMode: 1,
+
+  // ---------------------------------------------------------------------------
+  // ลิงก์วิดีโอแนะนำฟีเจอร์บนการ์ดทั้ง 6 ใบในหน้า LandingPage (ส่วน Features.tsx)
+  // รองรับทั้ง:
+  //   1. ลิงก์ Google Drive (วางลิงก์แชร์ปกติได้เลย เช่น https://drive.google.com/file/d/XXXX/view?usp=sharing ระบบจะแปลงเป็น /preview ให้อัตโนมัติ)
+  //   2. ลิงก์ YouTube (วางลิงก์ปกติ เช่น https://www.youtube.com/watch?v=XXXX หรือ https://youtu.be/XXXX ระบบจะแปลงเป็น /embed ให้อัตโนมัติ)
+  //   3. ลิงก์ไฟล์วิดีโอตรง (.mp4 / .webm)
+  // ---------------------------------------------------------------------------
+  featureShowcaseVideos: {
+    'feature-1': {
+      videoUrl: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+      durationLabel: '02:15',
+      description: 'พาชมภาพรวมสตูดิโอแบบ Real-time ทั้งสถานะ Content ที่กำลังผลิต คิวกองถ่าย และยอด KPI ของทีมในหน้าเดียว',
+    },
+    'feature-2': {
+      videoUrl: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+      durationLabel: '01:50',
+      description: 'วิธีวางแผนตารางโพสต์ด้วยระบบ Drag & Drop ดูภาพรวมความถี่ของ Content แยกตามแพลตฟอร์มและช่องทางต่างๆ',
+    },
+    'feature-3': {
+      videoUrl: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+      durationLabel: '02:30',
+      description: 'ระบบมอบหมายงาน ตรวจรับงาน (Quality Gate) พร้อมแจกแต้ม XP และให้ Feedback ทีมงานโดยไม่ตกหล่นในแชทส่วนตัว',
+    },
+    'feature-4': {
+      videoUrl: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+      durationLabel: '02:05',
+      description: 'คลังเก็บเรฟไวรัล เขียนบท สคริปต์ และสตอรี่บอร์ด พร้อมแชร์ลิงก์หน้ากองถ่ายแบบไม่ต้องกลัวไฟล์ทับกัน',
+    },
+    'feature-5': {
+      videoUrl: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+      durationLabel: '01:45',
+      description: 'การจัดคิวออกกอง เช็กลิสต์อุปกรณ์การถ่ายทำ และมอบหมายเวรประจำวันให้ทีมงานพร้อมแจ้งเตือนอัตโนมัติ',
+    },
+    'feature-6': {
+      videoUrl: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ',
+      durationLabel: '02:20',
+      description: 'การบริหารจัดการหลายช่อง หลายเพจ หรือหลายแบรนด์ในเครือภายใต้บริษัทเดียวกัน แยกหมวดหมู่งานอย่างชัดเจน',
+    },
+  },
 };
+

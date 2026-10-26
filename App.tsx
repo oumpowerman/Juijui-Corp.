@@ -36,6 +36,11 @@ import { LineUserIdLinker } from './components/LineUserIdLinker';
 import { LinePendingBanner } from './components/LinePendingBanner';
 import PWAReloadPrompt from './components/PWAReloadPrompt';
 import { Loader2 } from 'lucide-react';
+import {
+  AuthPortalTransition,
+  consumeAuthPortalTransition,
+  type AuthPortalMode,
+} from './components/auth/AuthPortalTransition';
 
 const queryClient = new QueryClient({
 
@@ -214,7 +219,7 @@ function App() {
           animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
           exit={{ opacity: 0, y: 25, filter: "blur(4px)" }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="min-h-screen"
+          className="min-h-[100dvh] h-[100dvh] overflow-hidden scrollbar-hide"
         >
           <AuthPage onLoginSuccess={() => {}} onBack={() => setShowLogin(false)} />
         </motion.div>
@@ -223,10 +228,10 @@ function App() {
       content = (
         <motion.div
           key="landing"
-          initial={{ opacity: 0, y: -25, filter: "blur(4px)" }}
-          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-          exit={{ opacity: 0, y: -25, filter: "blur(4px)" }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] as const }}
         >
           <LandingPage
             onGoToLogin={() => {
@@ -290,25 +295,23 @@ function AuthenticatedAppInner({ user }: { user: any }) {
   const { currentUserProfile, isReady } = useUserSession();
   const { isReady: isOrgReady, isSuperAdmin, isInSuperAdminPortal } = useOrganization();
   const { masterOptions } = useMasterData();
+  const [portalMode, setPortalMode] = useState<AuthPortalMode | null>(() =>
+    consumeAuthPortalTransition()
+  );
 
-  if (!isReady || !isOrgReady) {
-    return (
-      <div className="flex h-screen items-center justify-center bg-slate-900 flex-col">
-        <Loader2 className="w-12 h-12 animate-spin text-indigo-500 mb-4" />
-        <p className="text-slate-300 animate-pulse font-medium">กำลังเตรียมข้อมูลระบบ...</p>
-      </div>
-    );
-  }
+  useEffect(() => {
+    const handlePortalEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<{ mode?: AuthPortalMode }>;
+      if (customEvent.detail?.mode) {
+        consumeAuthPortalTransition();
+        setPortalMode(customEvent.detail.mode);
+      }
+    };
+    window.addEventListener('juijui-auth-portal-start', handlePortalEvent);
+    return () => window.removeEventListener('juijui-auth-portal-start', handlePortalEvent);
+  }, []);
 
-  // Dedicated SaaS Control Plane for Platform Owner (Super Admin)
-  if (isSuperAdmin && isInSuperAdminPortal) {
-    return (
-      <>
-        <WorkspaceSwitcherModal />
-        <SuperAdminPortalView />
-      </>
-    );
-  }
+  const workspaceReady = isReady && isOrgReady;
 
   // Active policy gatekeeper check
   const activePolicy = masterOptions.find(o => o.type === 'SYSTEM_POLICY' && o.key === 'TERMS_OF_SERVICE');
@@ -316,36 +319,61 @@ function AuthenticatedAppInner({ user }: { user: any }) {
   const needsPolicyAcceptance = activePolicy && activePolicy.isActive && userAcceptedVersion < (activePolicy.progressValue || 1);
 
   return (
-    <NotificationProvider currentUser={currentUserProfile}>
-      {needsPolicyAcceptance && (
-        <GatekeeperOverlay activePolicy={activePolicy} userAcceptedVersion={userAcceptedVersion} />
+    <>
+      {portalMode && (
+        <AuthPortalTransition
+          mode={portalMode}
+          isWorkspaceReady={workspaceReady}
+          onComplete={() => {
+            consumeAuthPortalTransition();
+            setPortalMode(null);
+          }}
+        />
       )}
-      <WorkboxProvider currentUser={currentUserProfile}>
-        <ChecklistProvider>
-          <KPIProvider>
-            <FinanceProvider>
-              <WikiProvider>
-                <GameConfigProvider>
-                  <MeetingProvider>
-                    <TaskProvider>
-                      <ShootQueueProvider>
-                        <GlobalRealtimeSync />
-                        <LineUserIdLinker />
-                        <ScreenSessionLimiter user={user} />
-                        <WorkspaceSwitcherModal />
-                        <DemoSandboxHudBar />
-                        <SuperAdminWorkspaceBanner />
-                        <AppRouter user={user} />
-                      </ShootQueueProvider>
-                    </TaskProvider>
-                  </MeetingProvider>
-                </GameConfigProvider>
-              </WikiProvider>
-            </FinanceProvider>
-          </KPIProvider>
-        </ChecklistProvider>
-      </WorkboxProvider>
-    </NotificationProvider>
+
+      {!workspaceReady ? (
+        <div className="flex h-screen items-center justify-center bg-slate-900 flex-col">
+          <Loader2 className="w-12 h-12 animate-spin text-indigo-500 mb-4" />
+          <p className="text-slate-300 animate-pulse font-medium">กำลังเตรียมข้อมูลระบบ...</p>
+        </div>
+      ) : isSuperAdmin && isInSuperAdminPortal ? (
+        <>
+          <WorkspaceSwitcherModal />
+          <SuperAdminPortalView />
+        </>
+      ) : (
+        <NotificationProvider currentUser={currentUserProfile}>
+          {needsPolicyAcceptance && (
+            <GatekeeperOverlay activePolicy={activePolicy} userAcceptedVersion={userAcceptedVersion} />
+          )}
+          <WorkboxProvider currentUser={currentUserProfile}>
+            <ChecklistProvider>
+              <KPIProvider>
+                <FinanceProvider>
+                  <WikiProvider>
+                    <GameConfigProvider>
+                      <MeetingProvider>
+                        <TaskProvider>
+                          <ShootQueueProvider>
+                            <GlobalRealtimeSync />
+                            <LineUserIdLinker />
+                            <ScreenSessionLimiter user={user} />
+                            <WorkspaceSwitcherModal />
+                            <DemoSandboxHudBar />
+                            <SuperAdminWorkspaceBanner />
+                            <AppRouter user={user} />
+                          </ShootQueueProvider>
+                        </TaskProvider>
+                      </MeetingProvider>
+                    </GameConfigProvider>
+                  </WikiProvider>
+                </FinanceProvider>
+              </KPIProvider>
+            </ChecklistProvider>
+          </WorkboxProvider>
+        </NotificationProvider>
+      )}
+    </>
   );
 }
 

@@ -1,6 +1,11 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { Company } from '../types';
+import {
+    getActiveOrgIdSync,
+    getOrgChannelName,
+    PRIMARY_DEFAULT_ORG_ID
+} from '../lib/tenantStorage';
 
 export const DEFAULT_COMPANIES: Company[] = [
     {
@@ -38,7 +43,7 @@ export const DEFAULT_COMPANIES: Company[] = [
 export const mapCompanyFromDB = (data: any): Company => ({
     id: data.id,
     name: data.name || 'ไม่ระบุชื่อบริษัท',
-    shortName: data.short_name || data.shortName || data.code || 'JJ',
+    shortName: data.short_name || data.shortName || data.code || 'CO',
     code: data.code || '',
     description: data.description || '',
     color: data.color || 'bg-indigo-50 text-indigo-700 border-indigo-200',
@@ -64,24 +69,37 @@ export const mapCompanyToDB = (company: Partial<Company>) => {
 };
 
 export const useCompanies = () => {
-    const [companies, setCompanies] = useState<Company[]>(DEFAULT_COMPANIES);
+    const [companies, setCompanies] = useState<Company[]>([]);
     const [isLoading, setIsLoading] = useState<boolean>(true);
 
     const fetchCompanies = useCallback(async () => {
         try {
             setIsLoading(true);
-            // 1. Try fetching from companies table
+
+            // Never leak default companies to unauthenticated screens
+            const { data: sessionData } = await supabase.auth.getSession();
+            if (!sessionData?.session?.user) {
+                setCompanies([]);
+                return [];
+            }
+
+            const activeOrgId = getActiveOrgIdSync();
+            const isPrimaryOrg = activeOrgId === PRIMARY_DEFAULT_ORG_ID;
+
+            // 1. Try fetching from companies table scoped to activeOrgId
             const { data, error } = await supabase
                 .from('companies')
                 .select('*')
+                .eq('org_id', activeOrgId)
                 .order('sort_order', { ascending: true })
                 .order('created_at', { ascending: true });
 
             if (error) {
-                // If table doesn't exist yet, fallback to master_options or default
+                // Fallback to master_options scoped to activeOrgId
                 const { data: masterData } = await supabase
                     .from('master_options')
                     .select('*')
+                    .eq('org_id', activeOrgId)
                     .eq('type', 'COMPANY')
                     .order('sort_order', { ascending: true });
 
@@ -89,7 +107,7 @@ export const useCompanies = () => {
                     const mapped = masterData.map((m: any) => ({
                         id: m.id,
                         name: m.label || m.name,
-                        shortName: m.key || m.short_name || 'JJ',
+                        shortName: m.key || m.short_name || 'CO',
                         code: m.key,
                         description: m.description || '',
                         color: m.color || 'bg-indigo-50 text-indigo-700 border-indigo-200',
@@ -99,8 +117,10 @@ export const useCompanies = () => {
                     setCompanies(mapped);
                     return mapped;
                 }
-                setCompanies(DEFAULT_COMPANIES);
-                return DEFAULT_COMPANIES;
+
+                const fallbackList = isPrimaryOrg ? DEFAULT_COMPANIES : [];
+                setCompanies(fallbackList);
+                return fallbackList;
             }
 
             if (data && data.length > 0) {
@@ -108,36 +128,42 @@ export const useCompanies = () => {
                 setCompanies(mapped);
                 return mapped;
             } else {
-                // If table is empty, auto-seed default companies
-                try {
-                    const seedPayload = DEFAULT_COMPANIES.map(c => ({
-                        name: c.name,
-                        short_name: c.shortName,
-                        code: c.code,
-                        description: c.description,
-                        color: c.color,
-                        sort_order: c.sortOrder,
-                        is_active: true
-                    }));
-                    const { data: seeded, error: seedErr } = await supabase
-                        .from('companies')
-                        .insert(seedPayload)
-                        .select();
-                    if (!seedErr && seeded && seeded.length > 0) {
-                        const mapped = seeded.map(mapCompanyFromDB);
-                        setCompanies(mapped);
-                        return mapped;
+                // Only auto-seed DEFAULT_COMPANIES for the primary JuiJui organization
+                if (isPrimaryOrg) {
+                    try {
+                        const seedPayload = DEFAULT_COMPANIES.map(c => ({
+                            org_id: PRIMARY_DEFAULT_ORG_ID,
+                            name: c.name,
+                            short_name: c.shortName,
+                            code: c.code,
+                            description: c.description,
+                            color: c.color,
+                            sort_order: c.sortOrder,
+                            is_active: true
+                        }));
+                        const { data: seeded, error: seedErr } = await supabase
+                            .from('companies')
+                            .insert(seedPayload)
+                            .select();
+                        if (!seedErr && seeded && seeded.length > 0) {
+                            const mapped = seeded.map(mapCompanyFromDB);
+                            setCompanies(mapped);
+                            return mapped;
+                        }
+                    } catch (e) {
+                        console.warn('Could not auto-seed companies table:', e);
                     }
-                } catch (e) {
-                    console.warn("Could not auto-seed companies table:", e);
+                    setCompanies(DEFAULT_COMPANIES);
+                    return DEFAULT_COMPANIES;
                 }
-                setCompanies(DEFAULT_COMPANIES);
-                return DEFAULT_COMPANIES;
+
+                setCompanies([]);
+                return [];
             }
         } catch (err) {
-            console.warn("Failed to fetch companies, using default fallbacks:", err);
-            setCompanies(DEFAULT_COMPANIES);
-            return DEFAULT_COMPANIES;
+            console.warn('Failed to fetch companies:', err);
+            setCompanies([]);
+            return [];
         } finally {
             setIsLoading(false);
         }
@@ -146,9 +172,9 @@ export const useCompanies = () => {
     useEffect(() => {
         fetchCompanies();
 
-        // Setup real-time subscription for companies table
+        const activeOrgId = getActiveOrgIdSync();
         const channel = supabase
-            .channel('companies_changes')
+            .channel(getOrgChannelName('companies_changes', activeOrgId))
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'companies' },
@@ -158,8 +184,20 @@ export const useCompanies = () => {
             )
             .subscribe();
 
+        const handleWorkspaceSwitch = () => {
+            setCompanies([]);
+            fetchCompanies();
+        };
+
+        if (typeof window !== 'undefined') {
+            window.addEventListener('org-workspace-switched', handleWorkspaceSwitch);
+        }
+
         return () => {
             supabase.removeChannel(channel);
+            if (typeof window !== 'undefined') {
+                window.removeEventListener('org-workspace-switched', handleWorkspaceSwitch);
+            }
         };
     }, [fetchCompanies]);
 
@@ -174,7 +212,9 @@ export const useCompanies = () => {
 
     const addCompany = async (company: Omit<Company, 'id'>): Promise<Company | null> => {
         try {
+            const activeOrgId = getActiveOrgIdSync();
             const dbPayload = {
+                org_id: activeOrgId,
                 name: company.name,
                 short_name: company.shortName,
                 code: company.code || company.shortName,
@@ -196,6 +236,7 @@ export const useCompanies = () => {
                 const { data: masterData, error: masterErr } = await supabase
                     .from('master_options')
                     .insert({
+                        org_id: activeOrgId,
                         type: 'COMPANY',
                         key: company.shortName,
                         label: company.name,
@@ -227,7 +268,7 @@ export const useCompanies = () => {
             setCompanies(prev => [...prev.filter(c => c.id !== mapped.id), mapped]);
             return mapped;
         } catch (err) {
-            console.error("Failed to add company:", err);
+            console.error('Failed to add company:', err);
             return null;
         }
     };

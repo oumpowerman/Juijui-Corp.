@@ -91,6 +91,14 @@ export interface OrganizationContextType {
     setActiveModalTab: (tab: WorkspaceModalTab) => void;
     switchOrganization: (orgId: string) => Promise<boolean>;
     createOrganization: (input: CreateOrganizationInput) => Promise<Organization | null>;
+    provisionSelfServiceTrialOrganization: (input: {
+        name: string;
+        description?: string;
+    }) => Promise<{
+        success: boolean;
+        org?: Organization;
+        message: string;
+    }>;
     updateOrganizationLicense: (orgId: string, updates: UpdateOrganizationLicenseInput) => Promise<boolean>;
     renewOrganizationSubscription: (
         orgId: string,
@@ -117,7 +125,7 @@ export interface OrganizationContextType {
         orgName?: string;
         message: string;
     }>;
-    approveMemberRequest: (memberId: string) => Promise<boolean>;
+    approveMemberRequest: (memberId: string, assignedCompanyId?: string) => Promise<boolean>;
     rejectMemberRequest: (memberId: string) => Promise<boolean>;
     cancelPendingJoinRequest: (orgId: string) => Promise<boolean>;
     regenerateInviteCode: (orgId?: string) => Promise<string | null>;

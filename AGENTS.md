@@ -190,17 +190,38 @@ CREATE POLICY "tenant_isolation_modify_my_new_table" ON public.my_new_table
 ### 6. กฎด้าน Build & Memory (Vite Bundle Guard)
 - ห้าม Import โมดูลฝั่ง Server (`express`, `pg`, `firebase-admin`, `server/*`) เข้าไปในไฟล์ฝั่ง Frontend (`components/*`, `hooks/*`, `context/*`) เด็ดขาด เพราะจะทำให้ Vite พยายาม Bundle โมดูล Node.js จนเกิดปัญหา Memory พุ่งและ Build Timeout
 
-### 7. กฎด้าน Commercial SaaS Licensing, Module Entitlements & Billing Webhook (Phase 5)
-- **Super Admin vs Organization Admin**:
-  - `isSuperAdmin` (`profiles.is_super_admin = true`) คือเจ้าของแพลตฟอร์ม SaaS มีสิทธิ์สร้างองค์กรลูกค้าใหม่ (`provisionCustomerOrganization`), กำหนดแพ็กเกจ (`STARTER`, `PRO`, `ENTERPRISE`, `LIFETIME`), เปิด-ปิด Module รายบริษัท (`allowed_modules`) และอนุมัติบิลต่ออายุ
-  - ผู้ใช้ทั่วไปไม่สามารถกดสร้างองค์กรใหม่เองได้ (ซ่อนแท็บ `+ สร้างองค์กร` หากไม่ใช่ Super Admin)
+### 7. กฎด้าน Commercial SaaS Licensing, Self-Serve Trial & Automated Billing (Phase 5 & 6)
+- **Super Admin Backoffice vs Organization Admin**:
+  - `isSuperAdmin` (`profiles.is_super_admin = true`) คือเจ้าของแพลตฟอร์ม SaaS เมื่อล็อกอินจะเข้าสู่หน้า **Super Admin Portal (`SuperAdminPortalView.tsx`)** แยกจากหน้าแอปปกติอย่างชัดเจน และสามารถกดสลับเข้าไปตรวจสอบพื้นที่ทำงานของลูกค้าแต่ละบริษัทผ่าน `enterCustomerWorkspace(orgId)` ได้
+  - Super Admin มีสิทธิ์สร้างองค์กรลูกค้าใหม่แบบไม่จำกัด (`provisionCustomerOrganization`), กำหนดแพ็กเกจ (`STARTER`, `PRO`, `ENTERPRISE`, `LIFETIME`), เปิด-ปิด Module รายบริษัท (`allowed_modules`), ตรวจสอบสถานะ Domain/DNS/SSL (`DomainReadinessTab.tsx`) และอนุมัติบิลโอนเงิน
+- **Self-Service 7-Day Free Trial (จำกัด 1 บัญชี ต่อ 1 องค์กรทดลองฟรี)**:
+  - ผู้ใช้ใหม่ที่สมัครสมาชิกจากหน้าเว็บ (`RegisterForm.tsx` หรือ `PendingApprovalScreen.tsx`) สามารถกดเปิดองค์กรทดลองใช้ฟรี 7 วัน (`provisionSelfServiceTrialOrganization`) ได้ด้วยตัวเอง **จำกัดสิทธิ์ 1 บัญชีต่อการเป็น `owner_id` 1 องค์กร** (ได้สิทธิ์ `plan_tier = 'PRO'`, `subscription_status = 'TRIAL'`, `max_members = 5`, `expires_at = now() + 7 days` พร้อม Seed ข้อมูลตั้งต้นอัตโนมัติ)
+  - ในหน้า `WorkspaceSwitcherModal.tsx` ภายในแอป ยังคงซ่อนแท็บสร้างองค์กรไม่จำกัดสำหรับผู้ใช้ทั่วไป เพื่อป้องกันการปั๊มองค์กรฟรีซ้ำซ้อน
 - **Two-Tier Sidebar Module Filtering**:
   - การแสดงผลเมนูใน `Sidebar.tsx`, `MobileNavigation.tsx` และ `SidebarControlCenterModal.tsx` ต้องผ่านการกรอง 2 ชั้นเสมอ:
     1. **ชั้นที่ 1 (Super Admin License)**: ตรวจสอบผ่าน `isModuleAllowed(view)` จาก `useOrganization()` (`currentOrg.allowedModules`)
     2. **ชั้นที่ 2 (Org Admin Preference)**: ตรวจสอบผ่าน `SIDEBAR_CONFIG` ใน `master_options` ขององค์กรนั้นๆ
 - **Owner Onboarding Claim Flow**:
   - เมื่อ Super Admin สร้างองค์กรลูกค้าใหม่ ระบบจะสร้าง `owner_claim_token` (`/?claim_org=CLAIM-XXXX-XXXX`) เพื่อให้เจ้าของบริษัทลูกค้ากดรับสิทธิ์ `OWNER` คนแรกขององค์กร หรือผูกกับ `owner_id` โดยตรงได้
-- **Subscription Gate & Payment Webhook (`/api/billing/webhook`)**:
-  - `SubscriptionGateOverlay.tsx` จะแสดงแถบแจ้งเตือนเมื่อองค์กรเข้าสู่ช่วงผ่อนผัน (`GRACE_PERIOD`) และล็อกหน้าจอเมื่อสถานะเป็น `SUSPENDED` หรือ `EXPIRED` โดยยังอนุญาตให้กดส่งคำขอชำระเงินเพื่อต่ออายุได้
-  - การเชื่อมต่อ Payment Gateway (Stripe / Omise) ให้ยิงเข้า `POST /api/billing/webhook` พร้อมแนบ Header `x-webhook-secret` เพื่อต่ออายุ `expires_at` และบันทึกบิลลงตาราง `subscription_invoices` อัตโนมัติ
+- **Self-Serve Checkout, Subscription Gate & Payment Webhook**:
+  - `SubscriptionGateOverlay.tsx` จะแสดงแถบแจ้งเตือนเมื่อองค์กรอยู่ในสถานะ `TRIAL` (เหลือไม่เกิน 7 วัน) หรือ `GRACE_PERIOD` และล็อกหน้าจอเมื่อสถานะเป็น `SUSPENDED` หรือ `EXPIRED`
+  - ทุกส่วนของแอปสามารถสั่งเปิดหน้าต่างอัปเกรด/ต่ออายุแพ็กเกจได้ทันทีผ่านคำสั่ง `window.dispatchEvent(new CustomEvent('open-saas-billing-modal'))`
+  - รองรับการชำระเงิน 3 ช่องทางในหน้าเดียว:
+    1. **Stripe Checkout (`POST /api/billing/create-checkout-session`)**: ชำระผ่านบัตรเครดิต/เดบิต
+    2. **Omise PromptPay QR (`POST /api/billing/create-checkout-session`)**: สแกน QR Code พร้อมเพย์และต่ออายุทันที
+    3. **Manual Bank Slip Transfer (`submitPaymentRequest`)**: แนบสลิปโอนเงินเพื่อให้ Super Admin กดอนุมัติใน Backoffice
+  - การรับผลชำระเงินอัตโนมัติจาก Payment Gateway ใช้ `POST /api/billing/webhook` (ตรวจ `x-webhook-secret` หรือ `stripe-signature`) และ `POST /api/billing/complete-checkout-session` เพื่อต่ออายุ `expires_at`, เปลี่ยนสถานะเป็น `ACTIVE` และบันทึกบิลลง `subscription_invoices` ทันที
 
+### 8. กฎด้าน 10-Minute Anonymous Sandbox Demo (`DemoSandboxContext.tsx`)
+- เมื่อผู้เยี่ยมชมกดปุ่ม **"ทดลองเล่นระบบตัวอย่าง 10 นาที (ไม่ต้องสมัคร)"** จากหน้า Landing Page (`isDemoMode === true` จาก `useDemoSandbox()`):
+  - **ห้ามเขียนข้อมูลลงตารางจริงของลูกค้า** (`tasks`, `contents`, `finance`, `profiles` ฯลฯ) เด็ดขาด ให้ทำงานผ่าน State จำลองในหน่วยความจำเท่านั้น
+  - บันทึกเฉพาะสถิติการเข้าทดลองเล่นและ Conversion ลงตาราง `public.demo_trial_sessions` เพื่อแสดงรายงานสถิติในหน้า Super Admin Portal (`DemoAnalyticsTab.tsx`)
+
+---
+
+## Typography & Font Weight Standards
+
+- **Strict Weight Discipline**:
+  - **ห้ามใช้ `font-black` (`font-weight: 900`)** กับองค์ประกอบ UI ทั่วไป เช่น ปุ่มกด, ป้ายสถานะ (Badges/Pills), ตาราง, การ์ดตัวเลข, ป้ายกำกับ (Labels) หรือหัวข้อย่อย
+  - **ค่ามาตรฐานคือ `font-bold` หรือ `font-semibold`**: ใช้ `font-bold` (`700`) หรือ `font-semibold` (`600`) สำหรับข้อความเน้นย้ำ ตัวเลขสรุป และหัวข้อการ์ดเสมอ
+  - **ข้อยกเว้นเดียว**: อนุญาตให้ใช้ `font-black` ได้เฉพาะพาดหัวขนาดใหญ่พิเศษระดับ Hero Banner (`text-3xl` ขึ้นไป) เท่านั้น

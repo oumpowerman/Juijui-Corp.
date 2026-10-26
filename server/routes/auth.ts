@@ -206,4 +206,131 @@ router.post('/api/auth/update-email', async (req, res) => {
     }
 });
 
+// 7. Supabase OAuth Popup Callback Handler (for AI Studio Preview iframe & popup flow)
+router.get(['/auth/oauth-popup-callback', '/auth/oauth-popup-callback/'], (req, res) => {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
+    res.send(`
+        <!DOCTYPE html>
+        <html lang="th">
+            <head>
+                <meta charset="UTF-8" />
+                <title>กำลังตรวจสอบการเข้าสู่ระบบ...</title>
+                <style>
+                    body {
+                        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        height: 100vh;
+                        margin: 0;
+                        background: linear-gradient(135deg, #f5f3ff 0%, #fdf2f8 100%);
+                        color: #1e293b;
+                    }
+                    .card {
+                        background: rgba(255, 255, 255, 0.95);
+                        padding: 2.25rem 2rem;
+                        border-radius: 1.5rem;
+                        box-shadow: 0 20px 40px rgba(99, 102, 241, 0.12);
+                        text-align: center;
+                        max-width: 380px;
+                        border: 1px solid rgba(255, 255, 255, 0.8);
+                    }
+                    .loader {
+                        border: 3px solid #e0e7ff;
+                        border-top: 3px solid #6366f1;
+                        border-radius: 50%;
+                        width: 32px;
+                        height: 32px;
+                        animation: spin 0.9s linear infinite;
+                        margin: 0 auto 16px;
+                    }
+                    h2 { color: #4f46e5; margin: 0 0 8px; font-size: 1.25rem; font-weight: 700; }
+                    p { color: #64748b; margin: 0; font-size: 0.9rem; line-height: 1.5; }
+                    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+                </style>
+            </head>
+            <body>
+                <div class="card">
+                    <div id="status-icon" class="loader"></div>
+                    <h2 id="status-title">ยืนยันตัวตนสำเร็จ!</h2>
+                    <p id="status-desc">กำลังส่งข้อมูลกลับไปยังหน้าหลัก หน้าต่างนี้จะปิดอัตโนมัติ...</p>
+                </div>
+                <script>
+                    (function() {
+                        const hash = window.location.hash || '';
+                        const search = window.location.search || '';
+                        const hashParams = new URLSearchParams(hash.replace(/^#/, ''));
+                        const searchParams = new URLSearchParams(search.replace(/^\?/, ''));
+
+                        const error = hashParams.get('error') || searchParams.get('error');
+                        const errorDesc = hashParams.get('error_description') || searchParams.get('error_description');
+                        const errorCode = hashParams.get('error_code') || searchParams.get('error_code');
+
+                        const isCancelled = error === 'access_denied' || errorCode === '400' || 
+                            (errorDesc && errorDesc.toLowerCase().includes('cancel'));
+
+                        const titleEl = document.getElementById('status-title');
+                        const descEl = document.getElementById('status-desc');
+                        const iconEl = document.getElementById('status-icon');
+
+                        if (isCancelled) {
+                            if (titleEl) {
+                                titleEl.innerText = 'ยกเลิกการเข้าสู่ระบบ';
+                                titleEl.style.color = '#64748b';
+                            }
+                            if (descEl) descEl.innerText = 'คุณได้ยกเลิกการเชื่อมต่อ หน้าต่างนี้จะปิดอัตโนมัติ...';
+                            if (iconEl) iconEl.style.display = 'none';
+                        } else if (error) {
+                            if (titleEl) {
+                                titleEl.innerText = 'เกิดข้อผิดพลาด';
+                                titleEl.style.color = '#ef4444';
+                            }
+                            if (descEl) descEl.innerText = errorDesc ? decodeURIComponent(errorDesc.replace(/\\+/g, ' ')) : 'ไม่สามารถเข้าสู่ระบบได้ หน้าต่างนี้จะปิดอัตโนมัติ...';
+                            if (iconEl) iconEl.style.display = 'none';
+                        }
+
+                        const eventType = isCancelled 
+                            ? 'SUPABASE_OAUTH_CANCELLED' 
+                            : (error ? 'SUPABASE_OAUTH_ERROR' : 'SUPABASE_OAUTH_CALLBACK');
+
+                        const payload = {
+                            type: eventType,
+                            hash: hash,
+                            search: search,
+                            error: error || null,
+                            errorDescription: errorDesc ? decodeURIComponent(errorDesc.replace(/\\+/g, ' ')) : null,
+                            timestamp: Date.now()
+                        };
+
+                        try {
+                            localStorage.setItem('SUPABASE_OAUTH_POPUP_RESULT', JSON.stringify(payload));
+                        } catch (err) {
+                            console.warn('localStorage fallback failed:', err);
+                        }
+
+                        if (window.opener) {
+                            try {
+                                window.opener.postMessage(payload, '*');
+                            } catch (err) {
+                                console.warn('postMessage failed:', err);
+                            }
+                            setTimeout(function() {
+                                window.close();
+                            }, isCancelled || error ? 700 : 350);
+                        } else {
+                            setTimeout(function() {
+                                window.location.replace('/' + (search || '') + (hash || ''));
+                            }, isCancelled || error ? 1000 : 0);
+                        }
+                    })();
+                </script>
+            </body>
+        </html>
+    `);
+});
+
 export default router;
+

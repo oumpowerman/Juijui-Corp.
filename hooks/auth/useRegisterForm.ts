@@ -3,15 +3,26 @@ import { supabase } from '../../lib/supabase';
 import heic2any from 'heic2any';
 import { BRAND_CONFIG } from '../../config/brand';
 import { EMOJI_POOL, DEFAULT_EMOJI } from '../../constants/emojis';
-import { useCompanies } from '../useCompanies';
+import { DEFAULT_COMPANIES, mapCompanyFromDB } from '../useCompanies';
+import { Company } from '../../types';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
 import { setActiveOrgIdSync } from '../../lib/tenantStorage';
-import { PRIMARY_DEFAULT_ORG_ID } from '../../lib/multiTenantMigrationSql';
+import { PRIMARY_DEFAULT_ORG_ID, SAAS_PLAN_PRESETS } from '../../lib/multiTenantMigrationSql';
+import { generateRandomInviteCode } from '../../context/organization/types';
+import { triggerAuthPortalTransition, consumeAuthPortalTransition } from '../../components/auth/AuthPortalTransition';
 
 export interface UseRegisterFormOptions {
   onRegisterSuccess: () => void;
   onSessionLoginSuccess: () => void;
 }
+
+const DEFAULT_PUBLIC_POSITIONS: { key: string; label: string }[] = [
+  { key: 'CREATIVE', label: 'Creative' },
+  { key: 'EDITOR', label: 'Editor' },
+  { key: 'PRODUCTION', label: 'Production' },
+  { key: 'ADMIN', label: 'Admin / Co-ord' },
+  { key: 'OTHER', label: 'อื่นๆ (ใส่ตำแหน่งทีหลัง)' },
+];
 
 export function useRegisterForm({
   onRegisterSuccess,
@@ -38,10 +49,16 @@ export function useRegisterForm({
     const saved = sessionStorage.getItem('juijui_pending_onboarding_code');
     return (claim || join || saved || '').trim().toUpperCase();
   });
+  const [onboardingMode, setOnboardingMode] = useState<'JOIN_TEAM' | 'CREATE_TRIAL'>(() => {
+    if (typeof window === 'undefined') return 'JOIN_TEAM';
+    const isTrialIntent = sessionStorage.getItem('juijui_trial_signup_intent') === '1';
+    return isTrialIntent ? 'CREATE_TRIAL' : 'JOIN_TEAM';
+  });
+  const [newOrgName, setNewOrgName] = useState('');
 
-  // Master positions options & Companies
-  const { activeCompanies: companies } = useCompanies();
-  const [positions, setPositions] = useState<{ key: string; label: string }[]>([]);
+  // Scoped Companies & Master positions options for Registration
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [positions, setPositions] = useState<{ key: string; label: string }[]>(DEFAULT_PUBLIC_POSITIONS);
 
   // Emoji states
   const [takenEmojis, setTakenEmojis] = useState<string[]>([]);
@@ -60,16 +77,133 @@ export function useRegisterForm({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { showAlert } = useGlobalDialog();
 
-  // Initialize companyId default
+  // Resolve sub-companies ONLY when joining an existing team with a valid Invite Code
   useEffect(() => {
-    if (!companyId && companies.length > 0) {
-      setCompanyId(companies[0].id);
-    }
-  }, [companies, companyId]);
+    let isCancelled = false;
+
+    const resolveCompaniesForOnboardingCode = async () => {
+      // Rule 1: Creating a new 7-Day Free Trial Org -> never show sub-companies
+      if (onboardingMode === 'CREATE_TRIAL') {
+        setCompanies([]);
+        setCompanyId('');
+        return;
+      }
+
+      // Rule 2: Joining team without typing an Invite Code -> never leak DEFAULT_COMPANIES
+      const trimmedCode = onboardingCode.trim().toUpperCase();
+      if (!trimmedCode || trimmedCode.length < 4) {
+        setCompanies([]);
+        setCompanyId('');
+        return;
+      }
+
+      try {
+        let resolvedOrgId: string | null = null;
+
+        if (trimmedCode === 'JUIJUI-HQ') {
+          resolvedOrgId = PRIMARY_DEFAULT_ORG_ID;
+        } else {
+          const { data: orgRows } = await supabase
+            .from('organizations')
+            .select('id, invite_code, invite_enabled, owner_claim_token')
+            .eq('is_active', true);
+
+          if (orgRows && orgRows.length > 0) {
+            const matched = orgRows.find(
+              (o: any) =>
+                ((o.invite_code || '').toUpperCase() === trimmedCode && o.invite_enabled !== false) ||
+                (o.owner_claim_token || '').toUpperCase() === trimmedCode
+            );
+            if (matched) {
+              resolvedOrgId = matched.id;
+            }
+          }
+        }
+
+        if (isCancelled) return;
+
+        if (!resolvedOrgId) {
+          setCompanies([]);
+          setCompanyId('');
+          return;
+        }
+
+        // Load sub-companies belonging strictly to resolvedOrgId
+        const { data: companyRows, error: compErr } = await supabase
+          .from('companies')
+          .select('*')
+          .eq('org_id', resolvedOrgId)
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true });
+
+        if (isCancelled) return;
+
+        if (!compErr && companyRows && companyRows.length > 0) {
+          const mapped = companyRows.map(mapCompanyFromDB).filter(c => c.isActive !== false);
+          setCompanies(mapped);
+          setCompanyId(mapped[0]?.id || '');
+          return;
+        }
+
+        // Fallback to master_options scoped to resolvedOrgId
+        const { data: masterData } = await supabase
+          .from('master_options')
+          .select('*')
+          .eq('org_id', resolvedOrgId)
+          .eq('type', 'COMPANY')
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true });
+
+        if (isCancelled) return;
+
+        if (masterData && masterData.length > 0) {
+          const mapped: Company[] = masterData.map((m: any) => ({
+            id: m.id,
+            name: m.label || m.name,
+            shortName: m.key || m.short_name || 'CO',
+            code: m.key,
+            description: m.description || '',
+            color: m.color || 'bg-indigo-50 text-indigo-700 border-indigo-200',
+            isActive: m.is_active !== false,
+            sortOrder: m.sort_order || 0,
+          }));
+          setCompanies(mapped);
+          setCompanyId(mapped[0]?.id || '');
+          return;
+        }
+
+        // Only if the invite code explicitly resolved to JuiJui's primary org and RLS blocked unauthenticated read
+        if (resolvedOrgId === PRIMARY_DEFAULT_ORG_ID) {
+          setCompanies(DEFAULT_COMPANIES);
+          setCompanyId(DEFAULT_COMPANIES[0].id);
+        } else {
+          setCompanies([]);
+          setCompanyId('');
+        }
+      } catch {
+        if (!isCancelled) {
+          setCompanies([]);
+          setCompanyId('');
+        }
+      }
+    };
+
+    const timer = setTimeout(resolveCompaniesForOnboardingCode, 200);
+    return () => {
+      isCancelled = true;
+      clearTimeout(timer);
+    };
+  }, [onboardingMode, onboardingCode]);
 
   // Load positions
   useEffect(() => {
     const fetchPositions = async () => {
+      // In CREATE_TRIAL mode or when no invite code is entered, use standard public positions
+      if (onboardingMode === 'CREATE_TRIAL' || !onboardingCode.trim()) {
+        setPositions(DEFAULT_PUBLIC_POSITIONS);
+        return;
+      }
+
       const { data } = await supabase
         .from('master_options')
         .select('key, label')
@@ -82,19 +216,14 @@ export function useRegisterForm({
         loadedPositions = data.filter(
           (p) => !['CEO', 'HR_MANAGER', 'SENIOR_HR'].includes(p.key)
         );
+        loadedPositions.push({ key: 'OTHER', label: 'อื่นๆ (ใส่ตำแหน่งทีหลัง)' });
       } else {
-        loadedPositions = [
-          { key: 'CREATIVE', label: 'Creative' },
-          { key: 'EDITOR', label: 'Editor' },
-          { key: 'PRODUCTION', label: 'Production' },
-          { key: 'ADMIN', label: 'Admin / Co-ord' },
-        ];
+        loadedPositions = [...DEFAULT_PUBLIC_POSITIONS];
       }
-      loadedPositions.push({ key: 'OTHER', label: 'อื่นๆ (ใส่ตำแหน่งทีหลัง)' });
       setPositions(loadedPositions);
     };
     fetchPositions();
-  }, []);
+  }, [onboardingMode, onboardingCode]);
 
   // Fetch taken emojis
   const fetchTakenEmojis = async () => {
@@ -225,6 +354,8 @@ export function useRegisterForm({
       const finalAuthEmail = cleanEmail ? cleanEmail : `${cleanUsername}@juijui-app.com`;
 
       const fullNameCombined = `${firstName.trim()} ${lastName.trim()}`.trim();
+      const targetPortalMode = onboardingMode === 'CREATE_TRIAL' ? 'REGISTER_TRIAL' : 'REGISTER_JOIN';
+      triggerAuthPortalTransition(targetPortalMode);
 
       // Create new user credentials
       const { data: authData, error: authError } = await supabase.auth.signUp({
@@ -264,16 +395,60 @@ export function useRegisterForm({
       }
 
       // Upsert customized user details
-      const finalCompanyId = companyId || (companies.length > 0 ? companies[0].id : null);
+      const finalCompanyId =
+        onboardingMode === 'CREATE_TRIAL'
+          ? null
+          : companyId || (companies.length > 0 ? companies[0].id : null);
       const cleanOnboardingCode = onboardingCode.trim().toUpperCase();
 
-      // Resolve onboarding code if provided (Owner Claim Token vs Team Invite Code)
-      let resolvedMode: 'CLAIM' | 'INVITE' | 'NONE' = 'NONE';
+      // Resolve onboarding code if provided (Owner Claim Token vs Team Invite Code vs Self-Service Trial)
+      let resolvedMode: 'CLAIM' | 'INVITE' | 'TRIAL_CREATE' | 'NONE' = 'NONE';
       let matchedOrgId: string | null = null;
       let isNativeOrgDB = false;
       let matchedFallbackWorkspaceRow: any = null;
+      const cleanNewOrgName = newOrgName.trim();
 
-      if (cleanOnboardingCode) {
+      if (onboardingMode === 'CREATE_TRIAL' && cleanNewOrgName) {
+        resolvedMode = 'TRIAL_CREATE';
+        const slugBase =
+          cleanNewOrgName
+            .toLowerCase()
+            .replace(/[^a-z0-9ก-๙]+/g, '-')
+            .replace(/^-+|-+$/g, '') || `studio-${Date.now()}`;
+        const uniqueSlug = `${slugBase}-${Math.floor(1000 + Math.random() * 9000)}`;
+        const inviteCode = generateRandomInviteCode(cleanNewOrgName);
+        const trialExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+        const insertPayload: Record<string, any> = {
+          name: cleanNewOrgName,
+          slug: uniqueSlug,
+          description: 'องค์กรทดลองใช้งานฟรี 7 วัน (PRO Trial)',
+          color: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+          logo_url: '',
+          invite_code: inviteCode,
+          invite_enabled: true,
+          owner_id: userId,
+          plan_tier: 'PRO',
+          subscription_status: 'TRIAL',
+          expires_at: trialExpiresAt,
+          grace_period_days: 3,
+          max_members: 5,
+          allowed_modules: [...SAAS_PLAN_PRESETS.PRO.defaultModules],
+          billing_email: cleanEmail || null,
+          is_active: true,
+        };
+
+        const { data: createdOrg, error: createErr } = await supabase
+          .from('organizations')
+          .insert([insertPayload])
+          .select('*')
+          .single();
+
+        if (!createErr && createdOrg) {
+          isNativeOrgDB = true;
+          matchedOrgId = createdOrg.id;
+        }
+      } else if (cleanOnboardingCode) {
         const { data: orgRows, error: orgQueryErr } = await supabase
           .from('organizations')
           .select('*')
@@ -335,7 +510,8 @@ export function useRegisterForm({
         }
       }
 
-      const isOwnerClaimSuccess = resolvedMode === 'CLAIM' && Boolean(matchedOrgId);
+      const isOwnerOrTrialSuccess =
+        (resolvedMode === 'CLAIM' || resolvedMode === 'TRIAL_CREATE') && Boolean(matchedOrgId);
 
       const profilePayload: Record<string, any> = {
         id: userId,
@@ -352,8 +528,8 @@ export function useRegisterForm({
         phone_number: phone,
         bio: reason,
         company_id: finalCompanyId,
-        role: isOwnerClaimSuccess ? 'ADMIN' : 'MEMBER',
-        is_approved: isOwnerClaimSuccess ? true : false,
+        role: isOwnerOrTrialSuccess ? 'ADMIN' : 'MEMBER',
+        is_approved: isOwnerOrTrialSuccess ? true : false,
         work_days: [1, 2, 3, 4, 5],
         hp: BRAND_CONFIG.initialHpMode === 2 ? 0 : 100,
         max_hp: 100,
@@ -372,8 +548,32 @@ export function useRegisterForm({
 
       if (profileError) throw profileError;
 
-      // Process Organization Claim or Pending Invite Request
-      if (resolvedMode === 'CLAIM' && matchedOrgId) {
+      // Process Self-Service Trial Creation, Organization Claim, or Pending Invite Request
+      if (resolvedMode === 'TRIAL_CREATE' && matchedOrgId) {
+        await supabase.from('organization_members').upsert(
+          [
+            {
+              org_id: matchedOrgId,
+              user_id: userId,
+              role: 'OWNER',
+              status: 'ACTIVE',
+            },
+          ],
+          { onConflict: 'org_id,user_id' }
+        );
+
+        try {
+          await supabase.rpc('seed_organization_defaults', { target_org_id: matchedOrgId });
+        } catch {
+          // ignore if RPC not yet created
+        }
+
+        setActiveOrgIdSync(matchedOrgId);
+        if (typeof window !== 'undefined') {
+          sessionStorage.removeItem('juijui_trial_signup_intent');
+          sessionStorage.removeItem('juijui_pending_onboarding_code');
+        }
+      } else if (resolvedMode === 'CLAIM' && matchedOrgId) {
         if (isNativeOrgDB) {
           await supabase
             .from('organizations')
@@ -472,12 +672,14 @@ export function useRegisterForm({
         }
       }
 
+      triggerAuthPortalTransition(targetPortalMode);
       if (authData.session) {
         onSessionLoginSuccess();
       } else {
         onRegisterSuccess();
       }
     } catch (err: any) {
+      consumeAuthPortalTransition();
       const message = err.message || 'เกิดข้อผิดพลาดบางอย่าง โปรดลองใหม่อีกครั้งครับ';
 
       // Auto-scroll to the error field and focus
@@ -542,6 +744,10 @@ export function useRegisterForm({
     setCompanyId,
     onboardingCode,
     setOnboardingCode,
+    onboardingMode,
+    setOnboardingMode,
+    newOrgName,
+    setNewOrgName,
     companies,
     positions,
     takenEmojis,

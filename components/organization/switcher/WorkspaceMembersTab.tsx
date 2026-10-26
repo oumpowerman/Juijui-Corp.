@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useOrganization } from '../../../context/OrganizationContext';
 import { useUserSession } from '../../../context/UserSessionContext';
+import { useCompanies } from '../../../hooks/useCompanies';
 import { OrganizationMember } from '../../../types';
 
 interface WorkspaceMembersTabProps {
@@ -42,10 +43,12 @@ export const WorkspaceMembersTab: React.FC<WorkspaceMembersTabProps> = ({
     } = useOrganization();
 
     const { allUsers, fetchMissingProfiles, fetchTeamMembers } = useUserSession();
+    const { activeCompanies } = useCompanies();
 
     const [searchQuery, setSearchQuery] = useState('');
     const [categoryFilter, setCategoryFilter] = useState<MemberCategoryFilter>('ALL');
     const [isHydrating, setIsHydrating] = useState(false);
+    const [selectedCompanyByMember, setSelectedCompanyByMember] = useState<Record<string, string>>({});
 
     // Ensure all member profiles (including is_active = false or PENDING/INACTIVE) are hydrated on mount
     useEffect(() => {
@@ -248,47 +251,77 @@ export const WorkspaceMembersTab: React.FC<WorkspaceMembersTabProps> = ({
                         คำขอเข้าร่วมที่รอการอนุมัติ (<span className="font-mono tabular-nums">{pendingList.length}</span>)
                     </p>
                     <div className="space-y-2">
-                        {pendingList.map(item => (
-                            <div
-                                key={item.member.id}
-                                className="p-3.5 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 flex items-center justify-between gap-3"
-                            >
-                                <div className="flex items-center gap-3 min-w-0">
-                                    {renderAvatar(item)}
-                                    <div className="min-w-0">
-                                        <p className="text-sm font-bold text-slate-900 dark:text-white truncate">
-                                            {item.displayName}
-                                        </p>
-                                        <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
-                                            {item.displayPosition}
-                                            {item.displayEmail ? ` · ${item.displayEmail}` : ''}
-                                        </p>
+                        {pendingList.map(item => {
+                            const selectedCompId =
+                                selectedCompanyByMember[item.member.id] ||
+                                (activeCompanies.length > 0 ? activeCompanies[0].id : '');
+                            return (
+                                <div
+                                    key={item.member.id}
+                                    className="p-3.5 rounded-2xl bg-amber-50/70 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                                >
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        {renderAvatar(item)}
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-bold text-slate-900 dark:text-white truncate">
+                                                {item.displayName}
+                                            </p>
+                                            <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                                                {item.displayPosition}
+                                                {item.displayEmail ? ` · ${item.displayEmail}` : ''}
+                                            </p>
+                                        </div>
                                     </div>
+                                    {isOrgAdmin ? (
+                                        <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                                            {activeCompanies.length > 0 && (
+                                                <select
+                                                    value={selectedCompId}
+                                                    onChange={e =>
+                                                        setSelectedCompanyByMember(prev => ({
+                                                            ...prev,
+                                                            [item.member.id]: e.target.value
+                                                        }))
+                                                    }
+                                                    aria-label="เลือกสังกัดบริษัทในเครือ"
+                                                    className="px-2.5 py-1.5 text-xs font-bold text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-800 border border-amber-300 dark:border-amber-700 rounded-xl outline-none focus:border-indigo-500"
+                                                >
+                                                    {activeCompanies.map(comp => (
+                                                        <option key={comp.id} value={comp.id}>
+                                                            {comp.shortName ? `[${comp.shortName}] ` : ''}
+                                                            {comp.name}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                            )}
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    approveMemberRequest(
+                                                        item.member.id,
+                                                        selectedCompId || undefined
+                                                    )
+                                                }
+                                                className="px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors flex items-center gap-1 whitespace-nowrap"
+                                            >
+                                                <UserCheck className="w-3.5 h-3.5" /> อนุมัติ
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => rejectMemberRequest(item.member.id)}
+                                                className="px-2.5 py-1.5 text-xs font-bold text-rose-600 bg-white border border-rose-200 hover:bg-rose-50 rounded-xl transition-colors whitespace-nowrap"
+                                            >
+                                                ปฏิเสธ
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <span className="text-xs font-semibold text-amber-600 shrink-0">
+                                            รอ Admin อนุมัติ
+                                        </span>
+                                    )}
                                 </div>
-                                {isOrgAdmin ? (
-                                    <div className="flex items-center gap-1.5 shrink-0">
-                                        <button
-                                            type="button"
-                                            onClick={() => approveMemberRequest(item.member.id)}
-                                            className="px-3 py-1.5 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 rounded-xl transition-colors flex items-center gap-1 whitespace-nowrap"
-                                        >
-                                            <UserCheck className="w-3.5 h-3.5" /> อนุมัติ
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => rejectMemberRequest(item.member.id)}
-                                            className="px-2.5 py-1.5 text-xs font-bold text-rose-600 bg-white border border-rose-200 hover:bg-rose-50 rounded-xl transition-colors whitespace-nowrap"
-                                        >
-                                            ปฏิเสธ
-                                        </button>
-                                    </div>
-                                ) : (
-                                    <span className="text-xs font-semibold text-amber-600 shrink-0">
-                                        รอ Admin อนุมัติ
-                                    </span>
-                                )}
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 </div>
             )}

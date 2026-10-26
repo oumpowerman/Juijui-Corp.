@@ -19,7 +19,7 @@ export const AuthTabSwitcher: React.FC<AuthTabSwitcherProps> = ({
         <button
           type="button"
           onClick={() => onSelectMode('LOGIN')}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black transition-all duration-300 relative z-10 ${
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all duration-300 relative z-10 ${
             isLogin
               ? 'bg-white text-indigo-600 shadow-md scale-[1.02]'
               : 'text-slate-400 hover:text-slate-600'
@@ -30,9 +30,9 @@ export const AuthTabSwitcher: React.FC<AuthTabSwitcherProps> = ({
         <button
           type="button"
           onClick={() => onSelectMode('REGISTER')}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-black transition-all duration-300 relative z-10 ${
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all duration-300 relative z-10 ${
             isRegister
-              ? 'bg-white text-pink-600 shadow-md scale-[1.02]'
+              ? 'bg-gradient-to-r from-white via-rose-50/40 to-amber-50/40 text-rose-600 shadow-[0_4px_16px_rgba(244,63,94,0.14)] ring-1 ring-rose-200/60 scale-[1.02]'
               : 'text-slate-400 hover:text-slate-600'
           }`}
         >

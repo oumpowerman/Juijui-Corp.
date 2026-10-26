@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, AlertCircle, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, AlertCircle, Sparkles } from 'lucide-react';
 import ImageCropper from './ImageCropper';
 import { hasDemoIntentFlag } from '../context/DemoSandboxContext';
 
@@ -13,6 +13,7 @@ import { UpdatePasswordForm } from './auth/UpdatePasswordForm';
 import { AuthDynamicBackground } from './auth/AuthDynamicBackground';
 import { AuthTabSwitcher } from './auth/AuthTabSwitcher';
 import { RegistrationSuccessModal } from './auth/modals/RegistrationSuccessModal';
+import { AuthPortalTransition, type AuthPortalMode } from './auth/AuthPortalTransition';
 
 // Modular Auth Custom Hooks
 import { useLoginForm } from '../hooks/auth/useLoginForm';
@@ -33,10 +34,15 @@ const AuthPage: React.FC<AuthPageProps> = ({
   initialMode,
   onPasswordUpdateSuccess,
 }) => {
-  const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER' | 'FORGOT' | 'UPDATE'>(
-    initialMode || 'LOGIN'
-  );
+  const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER' | 'FORGOT' | 'UPDATE'>(() => {
+    if (initialMode) return initialMode;
+    if (typeof window !== 'undefined' && sessionStorage.getItem('juijui_trial_signup_intent') === '1') {
+      return 'REGISTER';
+    }
+    return 'LOGIN';
+  });
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [localPortalMode, setLocalPortalMode] = useState<AuthPortalMode | null>(null);
 
   // Sync mode with parameters and URL recovery hash
   useEffect(() => {
@@ -54,7 +60,11 @@ const AuthPage: React.FC<AuthPageProps> = ({
 
   // Hook 2: Register Form
   const registerForm = useRegisterForm({
-    onRegisterSuccess: () => setShowSuccessModal(true),
+    onRegisterSuccess: () => {
+      setLocalPortalMode(
+        registerForm.onboardingMode === 'CREATE_TRIAL' ? 'REGISTER_TRIAL' : 'REGISTER_JOIN'
+      );
+    },
     onSessionLoginSuccess: onLoginSuccess,
   });
 
@@ -113,11 +123,13 @@ const AuthPage: React.FC<AuthPageProps> = ({
     authMode === 'LOGIN'
       ? 'shadow-[0_45px_100px_-25px_rgba(59,130,246,0.18),0_20px_45px_-15px_rgba(0,0,0,0.05),0_0_80px_rgba(59,130,246,0.06),inset_0_1px_1px_rgba(255,255,255,0.85)]'
       : authMode === 'REGISTER'
-      ? 'shadow-[0_45px_100px_-25px_rgba(244,63,94,0.18),0_20px_45px_-15px_rgba(0,0,0,0.05),0_0_80px_rgba(244,63,94,0.06),inset_0_1px_1px_rgba(255,255,255,0.85)]'
+      ? registerForm.onboardingMode === 'CREATE_TRIAL'
+        ? 'shadow-[0_45px_100px_-25px_rgba(217,119,6,0.22),0_20px_45px_-15px_rgba(244,63,94,0.12),0_0_85px_rgba(251,191,36,0.12),inset_0_1px_1px_rgba(255,255,255,0.9)]'
+        : 'shadow-[0_45px_100px_-25px_rgba(244,63,94,0.2),0_20px_45px_-15px_rgba(168,85,247,0.1),0_0_85px_rgba(244,63,94,0.08),inset_0_1px_1px_rgba(255,255,255,0.9)]'
       : 'shadow-[0_45px_100px_-25px_rgba(168,85,247,0.18),0_20px_45px_-15px_rgba(0,0,0,0.05),0_0_80px_rgba(168,85,247,0.06),inset_0_1px_1px_rgba(255,255,255,0.85)]';
 
   return (
-    <div className="min-h-[100dvh] md:h-[100dvh] flex items-center justify-center p-4 md:p-6 font-sans relative overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden md:overflow-hidden perspective-1000">
+    <div className="h-[100dvh] min-h-[100dvh] w-full flex items-center justify-center p-0 sm:p-4 md:p-6 font-sans relative overflow-x-hidden overflow-y-auto sm:overflow-hidden scrollbar-hide perspective-1000">
       {/* Dynamic Crop Overlay */}
       {registerForm.cropImageSrc && (
         <ImageCropper
@@ -128,32 +140,57 @@ const AuthPage: React.FC<AuthPageProps> = ({
       )}
 
       {/* Premium Fluid Aura Background Component */}
-      <AuthDynamicBackground authMode={authMode} />
+      <AuthDynamicBackground
+        authMode={authMode}
+        onboardingMode={registerForm.onboardingMode}
+      />
 
       {/* Outer Glow Wrapper */}
       <motion.div
-        className={`relative w-full max-w-5xl bg-white/40 backdrop-blur-3xl rounded-[2.6rem] p-[1px] border border-white/70 transition-all duration-700 h-full max-h-[92dvh] md:h-[min(780px,88dvh)] my-auto flex flex-col md:flex-row overflow-hidden ${dynamicShadow}`}
+        className={`relative w-full max-w-5xl bg-white/40 backdrop-blur-3xl rounded-none sm:rounded-[2.6rem] p-0 sm:p-[1px] border-0 sm:border border-white/70 transition-all duration-700 h-full min-h-[100dvh] sm:min-h-0 sm:max-h-[92dvh] md:h-[min(780px,88dvh)] my-auto flex flex-col md:flex-row overflow-hidden ${dynamicShadow}`}
       >
         {onBack && (
           <button
+            type="button"
             onClick={onBack}
-            className="absolute top-6 left-6 z-50 flex items-center gap-2 text-slate-500 hover:text-slate-800 font-bold text-sm bg-white/60 backdrop-blur-md px-4 py-2 rounded-xl border border-white/75 transition-all active:scale-95 shadow-sm"
+            className="group absolute top-[max(1rem,env(safe-area-inset-top))] left-[max(1rem,env(safe-area-inset-left))] sm:top-6 sm:left-6 z-50 flex items-center gap-2 p-2 sm:pl-3 sm:pr-4.5 sm:py-2.5 rounded-full bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border border-white/80 dark:border-white/10 shadow-[0_4px_16px_rgba(0,0,0,0.06),0_1px_2px_rgba(0,0,0,0.04)] hover:shadow-[0_8px_25px_rgba(99,102,241,0.15)] hover:border-indigo-100 transition-all duration-200 active:scale-95 outline-none focus-visible:ring-2 focus-visible:ring-indigo-400 min-h-[40px]"
+            aria-label="กลับหน้าหลัก"
+            title="กลับหน้าหลัก"
           >
-            <ArrowRight className="w-4 h-4 rotate-180" /> กลับหน้าหลัก
+            <span className="w-6 h-6 rounded-full bg-slate-100/90 dark:bg-slate-800 flex items-center justify-center text-slate-500 dark:text-slate-400 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-950/60 transition-all duration-200 group-hover:-translate-x-0.5">
+              <ArrowLeft className="w-3.5 h-3.5" />
+            </span>
+            <span className="hidden sm:inline font-bold text-xs sm:text-sm text-slate-600 dark:text-slate-300 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+              กลับหน้าหลัก
+            </span>
           </button>
         )}
 
         {/* Left branding animated panel */}
-        <BrandSection authMode={authMode} />
+        <BrandSection
+          authMode={authMode}
+          onboardingMode={registerForm.onboardingMode}
+        />
 
         {/* Right input forms handler */}
-        <div className="w-full md:w-7/12 p-6 md:p-12 flex flex-col flex-1 relative overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden z-10 bg-white/75 rounded-r-[2.5rem] rounded-l-[2.5rem] md:rounded-l-none">
-          {(isLogin || isRegister) && (
-            <AuthTabSwitcher
-              authMode={authMode as 'LOGIN' | 'REGISTER'}
-              onSelectMode={(mode) => toggleMode(mode)}
-            />
-          )}
+        <div className="w-full md:w-7/12 px-5 pt-16 pb-8 sm:p-8 md:p-12 flex flex-col flex-1 relative overflow-y-auto overflow-x-hidden scrollbar-hide z-10 bg-white/95 sm:bg-white/75 rounded-none sm:rounded-r-[2.5rem] sm:rounded-l-[2.5rem] md:rounded-l-none">
+          <AnimatePresence initial={false}>
+            {(isLogin || isRegister) && (
+              <motion.div
+                key="auth-tab-switcher-wrapper"
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] as const }}
+                className="overflow-hidden shrink-0"
+              >
+                <AuthTabSwitcher
+                  authMode={authMode as 'LOGIN' | 'REGISTER'}
+                  onSelectMode={(mode) => toggleMode(mode)}
+                />
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           <div className="max-w-md mx-auto w-full flex-1 flex flex-col justify-center">
             <AnimatePresence mode="wait">
@@ -162,7 +199,7 @@ const AuthPage: React.FC<AuthPageProps> = ({
                 initial={{ opacity: 0, x: isLogin || isForgot ? -10 : 10 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: isLogin || isForgot ? 10 : -10 }}
-                transition={{ duration: 0.35, ease: 'easeOut' }}
+                transition={{ duration: 0.28, ease: [0.16, 1, 0.3, 1] as const }}
               >
                 {/* Headers */}
                 {!forgotForm.showForgotConfirm && !forgotForm.resetSent && (
@@ -176,7 +213,9 @@ const AuthPage: React.FC<AuthPageProps> = ({
                       {isLogin
                         ? 'ยินดีต้อนรับกลับ! 👋'
                         : isRegister
-                        ? 'สร้างบัญชีใหม่ ✨'
+                        ? registerForm.onboardingMode === 'CREATE_TRIAL'
+                          ? 'เปิดตัวสตูดิโอใหม่ ✨'
+                          : 'สร้างบัญชีใหม่ ✨'
                         : isForgot
                         ? 'กู้คืนรหัสผ่าน 🛡️'
                         : 'ตั้งรหัสผ่านใหม่ 🔒'}
@@ -190,7 +229,9 @@ const AuthPage: React.FC<AuthPageProps> = ({
                       {isLogin
                         ? 'กรอกข้อมูลเพื่อเข้าสู่ระบบจัดการงาน'
                         : isRegister
-                        ? 'กรอกข้อมูลตำแหน่งงานเพื่อเข้าร่วมทีม'
+                        ? registerForm.onboardingMode === 'CREATE_TRIAL'
+                          ? 'สร้างพื้นที่ทำงานระดับ PRO ฟรี 7 วัน พร้อมเริ่มงานได้ทันที'
+                          : 'กรอกข้อมูลตำแหน่งงานเพื่อเข้าร่วมทีมครีเอเตอร์ของคุณ'
                         : isForgot
                         ? 'กรอกอีเมลเพื่อรับลิงก์สำหรับเปลี่ยนรหัสผ่าน'
                         : 'กรุณากรอกรหัสผ่านใหม่ที่ต้องการใช้งาน'}
@@ -287,6 +328,10 @@ const AuthPage: React.FC<AuthPageProps> = ({
                     companies={registerForm.companies}
                     onboardingCode={registerForm.onboardingCode}
                     setOnboardingCode={registerForm.setOnboardingCode}
+                    onboardingMode={registerForm.onboardingMode}
+                    setOnboardingMode={registerForm.setOnboardingMode}
+                    newOrgName={registerForm.newOrgName}
+                    setNewOrgName={registerForm.setNewOrgName}
                     avatarPreview={registerForm.avatarPreview}
                     isConvertingImg={registerForm.isConvertingImg}
                     fileInputRef={registerForm.fileInputRef}
@@ -326,6 +371,16 @@ const AuthPage: React.FC<AuthPageProps> = ({
           </div>
         </div>
       </motion.div>
+
+      {/* 3D Crystal Prism & Aurora Portal Transition for Non-Session Registration */}
+      <AuthPortalTransition
+        mode={localPortalMode}
+        isWorkspaceReady={true}
+        onComplete={() => {
+          setLocalPortalMode(null);
+          setShowSuccessModal(true);
+        }}
+      />
 
       {/* Shared success responses modal */}
       <RegistrationSuccessModal

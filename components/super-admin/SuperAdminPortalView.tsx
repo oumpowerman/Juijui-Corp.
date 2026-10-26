@@ -19,15 +19,17 @@ import { SuperAdminTenantsDataGrid } from './SuperAdminTenantsDataGrid';
 import { BillingWebhookTab } from '../admin/master/views/multi-tenant/BillingWebhookTab';
 import { DemoTrialLogsTab } from '../admin/master/views/multi-tenant/DemoTrialLogsTab';
 import { SqlMigrationTab } from '../admin/master/views/multi-tenant/SqlMigrationTab';
+import { DomainReadinessTab } from '../admin/master/views/multi-tenant/DomainReadinessTab';
 import { ProvisionTenantModal } from '../admin/master/views/multi-tenant/ProvisionTenantModal';
 import { EditTenantLicenseModal } from '../admin/master/views/multi-tenant/EditTenantLicenseModal';
 import { OwnerHandoverModal } from '../admin/master/views/multi-tenant/OwnerHandoverModal';
 
-type PortalTab = 'TENANTS_GRID' | 'BILLING_WEBHOOK' | 'DEMO_TRIALS' | 'SQL_MIGRATION';
+type PortalTab = 'TENANTS_GRID' | 'BILLING_WEBHOOK' | 'DEMO_TRIALS' | 'SQL_MIGRATION' | 'DOMAIN_LAUNCH';
 
 export const SuperAdminPortalView: React.FC = () => {
     const {
         isSuperAdmin,
+        isNativeMultiTenantDB,
         currentOrg,
         allPlatformOrganizations,
         invoices: subscriptionInvoices,
@@ -214,6 +216,19 @@ export const SuperAdminPortalView: React.FC = () => {
                             <Database className="w-4 h-4" />
                             สคริปต์ฐานข้อมูล SQL RLS
                         </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('DOMAIN_LAUNCH')}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors flex items-center gap-2 ${
+                                activeTab === 'DOMAIN_LAUNCH'
+                                    ? 'bg-emerald-600 text-white shadow-sm'
+                                    : 'text-emerald-300 hover:text-white hover:bg-slate-800'
+                            }`}
+                        >
+                            <Sparkles className="w-4 h-4" />
+                            ความพร้อมเปิดโดเมนจริง (100% Launch)
+                        </button>
                     </div>
                 </div>
             </header>
@@ -248,6 +263,14 @@ export const SuperAdminPortalView: React.FC = () => {
                 {activeTab === 'DEMO_TRIALS' && <DemoTrialLogsTab />}
 
                 {activeTab === 'SQL_MIGRATION' && <SqlMigrationTab />}
+
+                {activeTab === 'DOMAIN_LAUNCH' && (
+                    <DomainReadinessTab
+                        isNativeMultiTenantDB={isNativeMultiTenantDB}
+                        totalOrganizationsCount={allPlatformOrganizations.length}
+                        onGoToSqlTab={() => setActiveTab('SQL_MIGRATION')}
+                    />
+                )}
             </main>
 
             {/* 3. Platform Management Modals */}

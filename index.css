@@ -1,5 +1,5 @@
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Kanit:wght@400;500;600;700&family=Prompt:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+Thai:wght@400;500;600;700;800;900&family=Anuphan:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800;900&family=Kanit:wght@400;500;600;700&family=Prompt:wght@400;500;600;700&family=Sarabun:wght@400;500;600;700&family=Chakra+Petch:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap');
 @import "react-datepicker/dist/react-datepicker.css";
 @tailwind base;
 @tailwind components;
@@ -8,6 +8,9 @@
 @layer utilities {
   .pb-safe-area {
     padding-bottom: max(env(safe-area-inset-bottom), 1.5rem) !important;
+  }
+  .font-google-sans {
+    font-family: 'Google Sans', 'Google Sans Text', 'Plus Jakarta Sans', 'Noto Sans Thai', 'Anuphan', sans-serif !important;
   }
 }
 
@@ -213,11 +216,27 @@
 
 /* Hide scrollbar utility */
 .scrollbar-hide::-webkit-scrollbar {
-    display: none;
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
 }
 .scrollbar-hide {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+}
+
+@media (max-width: 768px) {
+  .no-mobile-scrollbar::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    display: none !important;
+    width: 0 !important;
+    height: 0 !important;
+  }
+  .no-mobile-scrollbar,
+  body {
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+  }
 }
 
 /* Tiptap Editor Styles */

@@ -136,7 +136,7 @@ const PANEL_THEMES: Record<PanelThemeKey, PanelMorphConfig> = {
         'linear-gradient(135deg, rgba(255, 255, 255, 0.30), rgba(186, 230, 253, 0.16), rgba(165, 180, 252, 0.10))',
       boxBorder: 'rgba(186, 230, 253, 0.48)',
       borderRadius: 24,
-      baseRotate: -2,
+      baseRotate: 0,
       badgeBg: 'linear-gradient(135deg, #bae6fd, #a5b4fc)',
       badgeTextClass: 'text-indigo-950',
     },
@@ -223,7 +223,7 @@ const PANEL_THEMES: Record<PanelThemeKey, PanelMorphConfig> = {
         'linear-gradient(135deg, rgba(255, 255, 255, 0.30), rgba(255, 228, 230, 0.16), rgba(254, 243, 199, 0.12))',
       boxBorder: 'rgba(254, 243, 199, 0.46)',
       borderRadius: 28,
-      baseRotate: 4,
+      baseRotate: 0,
       badgeBg: 'linear-gradient(135deg, #fde68a, #fda4af)',
       badgeTextClass: 'text-rose-950',
     },
@@ -626,21 +626,19 @@ export const BrandSection: React.FC<BrandSectionProps> = ({
                 background: activeTheme.emblem.boxBg,
                 borderColor: activeTheme.emblem.boxBorder,
                 borderRadius: activeTheme.emblem.borderRadius,
-                rotate: activeTheme.emblem.baseRotate,
               }}
               transition={{
                 background: CINEMATIC_MORPH_TRANSITION,
                 borderColor: CINEMATIC_MORPH_TRANSITION,
                 borderRadius: CINEMATIC_SPRING_TRANSITION,
-                rotate: CINEMATIC_SPRING_TRANSITION,
               }}
               className="relative w-20 h-20 backdrop-blur-xl border shadow-[0_20px_40px_rgba(0,0,0,0.25),inset_0_1px_1px_rgba(255,255,255,0.65)]"
             >
-              {/* Layer 2: Continuous Sine Float */}
+              {/* Layer 2: Gentle Continuous Sine Float */}
               <motion.div
                 animate={{
-                  rotateZ: [2, 5, 2, -3, 2],
-                  y: [0, -5, 0],
+                  rotateZ: [1.5, 3.5, 1.5, -2, 1.5],
+                  y: [0, -4, 0],
                 }}
                 transition={{
                   duration: 5.5,
@@ -650,23 +648,27 @@ export const BrandSection: React.FC<BrandSectionProps> = ({
                 style={{ willChange: 'transform' }}
                 className="w-full h-full flex items-center justify-center relative"
               >
-                <AnimatePresence mode="wait">
-                  <motion.div
-                    key={panelKey}
-                    initial={{ opacity: 0, scale: 0.7, rotate: -15 }}
-                    animate={{ opacity: 1, scale: 1, rotate: 0 }}
-                    exit={{ opacity: 0, scale: 0.7, rotate: 15 }}
-                    transition={{ duration: 0.45, ease: CINEMATIC_EASE }}
-                  >
-                    {isLogin ? (
-                      <Sparkles className="w-10 h-10 text-sky-100 drop-shadow-[0_4px_12px_rgba(56,189,248,0.6)]" />
-                    ) : isTrialMode ? (
-                      <Crown className="w-10 h-10 text-amber-100 drop-shadow-[0_4px_12px_rgba(251,191,36,0.5)]" />
-                    ) : (
-                      <Lightbulb className="w-10 h-10 text-amber-100 drop-shadow-[0_4px_12px_rgba(251,191,36,0.5)]" />
-                    )}
-                  </motion.div>
-                </AnimatePresence>
+                {/* Centered Icon Container with Zero-Jitter Scale/Fade */}
+                <div className="relative w-10 h-10 flex items-center justify-center">
+                  <AnimatePresence mode="wait">
+                    <motion.div
+                      key={panelKey}
+                      initial={{ opacity: 0, scale: 0.75 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0, scale: 0.75 }}
+                      transition={{ duration: 0.35, ease: CINEMATIC_EASE }}
+                      className="absolute inset-0 flex items-center justify-center"
+                    >
+                      {isLogin ? (
+                        <Sparkles className="w-10 h-10 text-sky-100 drop-shadow-[0_4px_12px_rgba(56,189,248,0.6)]" />
+                      ) : isTrialMode ? (
+                        <Crown className="w-10 h-10 text-amber-100 drop-shadow-[0_4px_12px_rgba(251,191,36,0.5)]" />
+                      ) : (
+                        <Lightbulb className="w-10 h-10 text-amber-100 drop-shadow-[0_4px_12px_rgba(251,191,36,0.5)]" />
+                      )}
+                    </motion.div>
+                  </AnimatePresence>
+                </div>
 
                 {/* Corner Badge Accent */}
                 <motion.div
@@ -687,25 +689,40 @@ export const BrandSection: React.FC<BrandSectionProps> = ({
             </motion.div>
           </div>
 
-          {/* Brand Title */}
-          <h2
-            id="brand-title"
-            className={`text-3xl lg:text-4xl font-black mb-2 leading-tight tracking-tight bg-clip-text text-transparent drop-shadow-sm bg-gradient-to-r ${activeTheme.titleGradientClass}`}
-          >
-            {BRAND_CONFIG.name}
-          </h2>
+          {/* Brand Title with Silky Crossfade Gradient Layers (Zero Layout Shift & Zero Font Jump) */}
+          <div className="relative h-10 lg:h-12 w-full flex items-center justify-center mb-2">
+            {/* Login Mode Layer */}
+            <motion.h2
+              id="brand-title-login"
+              animate={{ opacity: isLogin ? 1 : 0 }}
+              transition={{ duration: 0.4, ease: CINEMATIC_EASE }}
+              className="text-3xl lg:text-4xl font-bold leading-tight tracking-tight bg-clip-text text-transparent drop-shadow-sm bg-gradient-to-r from-white via-sky-100 to-indigo-200 absolute select-none pointer-events-none"
+            >
+              {BRAND_CONFIG.name}
+            </motion.h2>
 
-          {/* Smoothly Morphing Subtitle */}
-          <div className="min-h-[40px] flex items-center justify-center mb-6">
+            {/* Register Mode Layer */}
+            <motion.h2
+              id="brand-title-register"
+              animate={{ opacity: isLogin ? 0 : 1 }}
+              transition={{ duration: 0.4, ease: CINEMATIC_EASE }}
+              className="text-3xl lg:text-4xl font-bold leading-tight tracking-tight bg-clip-text text-transparent drop-shadow-sm bg-gradient-to-r from-white via-amber-100 to-rose-100 absolute select-none pointer-events-none"
+            >
+              {BRAND_CONFIG.name}
+            </motion.h2>
+          </div>
+
+          {/* Smoothly Morphing Subtitle with Rigid Zero-Shift Frame */}
+          <div className="h-14 w-full max-w-[285px] relative flex items-center justify-center mb-6">
             <AnimatePresence mode="wait">
               <motion.p
                 key={panelKey}
                 id="brand-description"
-                initial={{ opacity: 0, y: 6 }}
+                initial={{ opacity: 0, y: 5 }}
                 animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -6 }}
-                transition={{ duration: 0.45, ease: CINEMATIC_EASE }}
-                className={`text-xs lg:text-sm leading-relaxed font-medium max-w-[285px] ${activeTheme.subtitleColorClass}`}
+                exit={{ opacity: 0, y: -5 }}
+                transition={{ duration: 0.35, ease: CINEMATIC_EASE }}
+                className={`text-xs lg:text-sm leading-relaxed font-medium max-w-[285px] text-center absolute inset-0 flex items-center justify-center ${activeTheme.subtitleColorClass}`}
               >
                 {activeTheme.subtitleText}
               </motion.p>
@@ -728,7 +745,7 @@ export const BrandSection: React.FC<BrandSectionProps> = ({
                   transition={CINEMATIC_SPRING_TRANSITION}
                   className="w-[94%] self-center"
                 >
-                  {/* LAYER 2 (Inner): Continuous Sine Floating & Hover Lift */}
+                  {/* LAYER 2 (Inner): Continuous Sine Floating & Hover Lift with Fixed Rigid Height */}
                   <motion.div
                     animate={{
                       y: [0, -5, 0],
@@ -753,7 +770,7 @@ export const BrandSection: React.FC<BrandSectionProps> = ({
                       },
                     }}
                     style={{ willChange: 'transform' }}
-                    className="group relative rounded-2xl p-3 bg-gradient-to-r from-white/20 via-white/12 to-white/8 backdrop-blur-xl border border-white/25 shadow-[0_14px_30px_-8px_rgba(0,0,0,0.24),inset_0_1px_1px_rgba(255,255,255,0.45)] flex items-center gap-3 text-left cursor-default"
+                    className="group relative rounded-2xl p-3 bg-gradient-to-r from-white/20 via-white/12 to-white/8 backdrop-blur-xl border border-white/25 shadow-[0_14px_30px_-8px_rgba(0,0,0,0.24),inset_0_1px_1px_rgba(255,255,255,0.45)] flex items-center gap-3 text-left cursor-default h-[62px]"
                   >
                     {/* Morphing Left Hologram / Prism Icon Box */}
                     <motion.div
@@ -764,7 +781,7 @@ export const BrandSection: React.FC<BrandSectionProps> = ({
                         borderRadius: isLogin ? 12 : 15,
                       }}
                       transition={CINEMATIC_MORPH_TRANSITION}
-                      className="w-10 h-10 border flex items-center justify-center shrink-0 shadow-inner text-white"
+                      className="w-10 h-10 border flex items-center justify-center shrink-0 shadow-inner text-white relative"
                     >
                       <AnimatePresence mode="wait">
                         <motion.div
@@ -772,22 +789,24 @@ export const BrandSection: React.FC<BrandSectionProps> = ({
                           initial={{ opacity: 0, scale: 0.7 }}
                           animate={{ opacity: 1, scale: 1 }}
                           exit={{ opacity: 0, scale: 0.7 }}
-                          transition={{ duration: 0.35, ease: CINEMATIC_EASE }}
+                          transition={{ duration: 0.3, ease: CINEMATIC_EASE }}
+                          className="absolute inset-0 flex items-center justify-center"
                         >
                           <IconComponent className="w-5 h-5" />
                         </motion.div>
                       </AnimatePresence>
                     </motion.div>
 
-                    {/* Card Text Content */}
-                    <div className="min-w-0 flex-1">
+                    {/* Card Text Content with Rigid Zero-Jitter Container */}
+                    <div className="min-w-0 flex-1 relative h-9 flex flex-col justify-center overflow-hidden">
                       <AnimatePresence mode="wait">
                         <motion.div
                           key={`${panelKey}-${card.slotId}-text`}
                           initial={{ opacity: 0, x: 6 }}
                           animate={{ opacity: 1, x: 0 }}
                           exit={{ opacity: 0, x: -6 }}
-                          transition={{ duration: 0.38, ease: CINEMATIC_EASE }}
+                          transition={{ duration: 0.32, ease: CINEMATIC_EASE }}
+                          className="absolute inset-0 flex flex-col justify-center"
                         >
                           <p className="text-xs font-bold text-white truncate tracking-wide">
                             {card.title}

@@ -144,7 +144,9 @@ const TaskModalBody: React.FC<TaskModalBodyProps> = ({
                                     task={taskData}
                                     users={users}
                                     masterOptions={masterOptions}
+                                    currentUser={currentUser}
                                     onEdit={() => setMode('EDIT')}
+                                    onSave={onSave}
                                     onDelete={onDelete ? () => onDelete(taskData.id, taskData.type) : undefined}
                                     onClose={onClose}
                                     onOpenTask={(t) => onOpenTask && onOpenTask(t, viewMode)}

@@ -239,8 +239,8 @@ const ContentDetail: React.FC<ContentDetailProps> = ({
 
             {/* --- MINIMAL FOOTER (HIDDEN IN EDIT MODE) --- */}
             {mode === 'VIEW' && (
-                <div className="px-5 sm:px-10 py-3 sm:py-6 bg-white border-t border-slate-50 flex flex-col sm:flex-row gap-4 sm:gap-6 justify-between items-center shrink-0">
-                    <div className="flex items-center gap-4 sm:gap-8 overflow-x-auto w-full sm:w-auto scrollbar-none pb-1 sm:pb-0">
+                <div className="px-4 sm:px-6 py-2.5 sm:py-3 bg-white border-t border-slate-50 flex flex-col sm:flex-row gap-3 sm:gap-4 justify-between items-center shrink-0">
+                    <div className="flex items-center gap-4 sm:gap-6 overflow-x-auto w-full sm:w-auto scrollbar-none pb-1 sm:pb-0">
                         {task.createdAt && (
                             <div className="flex flex-col shrink-0">
                                 <span className="text-[7.5px] sm:text-[9px] font-semibold text-slate-300 uppercase tracking-widest mb-0.5">Created At</span>
@@ -249,7 +249,7 @@ const ContentDetail: React.FC<ContentDetailProps> = ({
                                 </span>
                             </div>
                         )}
-                        <div className="w-px h-6 bg-slate-100 shrink-0" />
+                        <div className="w-px h-5 bg-slate-100 shrink-0" />
                         <div className="flex items-center gap-4 sm:gap-6 shrink-0">
                             <div className="flex flex-col shrink-0">
                                 <span className="text-[7.5px] sm:text-[9px] font-semibold text-slate-300 uppercase tracking-widest mb-0.5">Comments</span>
@@ -260,7 +260,7 @@ const ContentDetail: React.FC<ContentDetailProps> = ({
                     
                     <button 
                         onClick={onClose}
-                        className="w-full sm:w-auto px-6 sm:px-8 py-2.5 sm:py-3 bg-slate-50 text-slate-400 hover:text-slate-600 font-bold text-[10px] sm:text-xs uppercase tracking-widest rounded-xl sm:rounded-2xl hover:bg-slate-100 transition-all active:scale-95 text-center"
+                        className="w-full sm:w-auto px-4 sm:px-6 py-1.5 sm:py-2 bg-slate-50 text-slate-400 hover:text-slate-600 font-semibold text-[10px] sm:text-xs uppercase tracking-wider rounded-lg sm:rounded-xl hover:bg-slate-100 transition-all active:scale-95 text-center"
                     >
                         Close Window
                     </button>

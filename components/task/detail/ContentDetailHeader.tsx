@@ -132,7 +132,7 @@ const ContentDetailHeader: React.FC<ContentDetailHeaderProps> = ({
     return (
         <motion.div 
             layout
-            animate={{ height: isExpanded ? 'auto' : 46 }}
+            animate={{ height: isExpanded ? 'auto' : 40 }}
             transition={{ height: { type: 'spring', damping: 25, stiffness: 120 } }}
             className="sticky top-0 z-40 bg-white/80 backdrop-blur-2xl border-b border-slate-100/50 shadow-[0_2px_20px_-5px_rgba(0,0,0,0.03)] overflow-hidden relative"
         >
@@ -146,15 +146,15 @@ const ContentDetailHeader: React.FC<ContentDetailHeaderProps> = ({
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={() => onToggleExpand(true)}
-                        className="h-[44px] flex items-center justify-between px-6 cursor-pointer hover:bg-slate-50/50 transition-colors group absolute inset-0 z-10"
+                        className="h-[40px] flex items-center justify-between px-4 sm:px-6 cursor-pointer hover:bg-slate-50/50 transition-colors group absolute inset-0 z-10"
                     >
-                        <div className="flex items-center gap-3">
-                            <div className={`w-7 h-7 rounded-lg flex items-center justify-center border transition-all relative
+                        <div className="flex items-center gap-2.5">
+                            <div className={`w-6 h-6 rounded-md flex items-center justify-center border transition-all relative
                                 ${(isOverdue || hasPendingStats) 
                                     ? 'bg-rose-50 text-rose-500 border-rose-100/60 shadow-[0_0_12px_rgba(244,63,94,0.15)]' 
                                     : 'bg-indigo-50 text-indigo-400 border-indigo-100/40'}`}
                             >
-                                <ChevronDown className={`w-3.5 h-3.5 ${(isOverdue || hasPendingStats) ? 'animate-bounce' : ''}`} />
+                                <ChevronDown className={`w-3 h-3 ${(isOverdue || hasPendingStats) ? 'animate-bounce' : ''}`} />
                                 {(isOverdue || hasPendingStats) && (
                                     <span className="absolute -top-1 -right-1 flex h-2 w-2">
                                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -196,7 +196,7 @@ const ContentDetailHeader: React.FC<ContentDetailHeaderProps> = ({
                                     );
                                 })}
                             </div>
-                            <span className="text-[11px] font-medium text-slate-400 group-hover:text-slate-500 transition-colors">EXPAND CONTROLS</span>
+                            <span className="text-[10px] font-medium text-slate-400 group-hover:text-slate-500 transition-colors">EXPAND CONTROLS</span>
                             <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-indigo-400" />
                         </div>
                     </motion.div>
@@ -206,15 +206,15 @@ const ContentDetailHeader: React.FC<ContentDetailHeaderProps> = ({
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="px-4 sm:px-10 py-3 sm:py-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-10"
+                        className="px-4 sm:px-6 py-2 sm:py-3.5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-6"
                     >
-                        <div className="flex items-start sm:items-center gap-3 sm:gap-5 flex-1 min-w-0 w-full lg:w-auto">
+                        <div className="flex items-start sm:items-center gap-2.5 sm:gap-4 flex-1 min-w-0 w-full lg:w-auto">
                             <motion.div 
                                 onClick={() => onToggleExpand(false)}
                                 whileHover={{ rotate: -8, scale: 1.15 }}
-                                className={`w-10 h-10 sm:w-16 sm:h-16 rounded-[0.85rem] sm:rounded-2xl flex items-center justify-center shadow-[0_8px_20px_-4px_rgba(0,0,0,0.08)] bg-rose-50 text-rose-400 border border-rose-100/50 shrink-0 mt-1 sm:mt-0 cursor-pointer group`}
+                                className={`w-8 h-8 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl flex items-center justify-center shadow-[0_4px_12px_-2px_rgba(0,0,0,0.06)] bg-rose-50 text-rose-400 border border-rose-100/50 shrink-0 mt-0.5 sm:mt-0 cursor-pointer group`}
                             >
-                                <ChevronUp className="w-5 h-5 sm:w-8 sm:h-8 group-hover:scale-110 transition-transform" />
+                                <ChevronUp className="w-4 h-4 sm:w-5 sm:h-5 group-hover:scale-110 transition-transform" />
                             </motion.div>
                             <div className="flex-1 min-w-0 text-left">
                                 <div className="inline-flex items-center p-1 bg-slate-100/80 backdrop-blur-md rounded-2xl border border-slate-200/50 shadow-inner overflow-hidden select-none">
@@ -254,7 +254,7 @@ const ContentDetailHeader: React.FC<ContentDetailHeaderProps> = ({
                                                 key={tab.id}
                                                 onClick={handleTabClick}
                                                 className={`
-                                                    relative flex items-center gap-1.5 xs:gap-2 px-3 sm:px-6 py-2 sm:py-2.5 rounded-xl text-[10px] sm:text-[11px] font-medium uppercase tracking-[0.05em] sm:tracking-[0.1em] transition-all duration-300 z-10
+                                                    relative flex items-center gap-1.5 xs:gap-2 px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-medium uppercase tracking-[0.05em] sm:tracking-[0.1em] transition-all duration-300 z-10
                                                     ${isActive ? tab.color : 'text-slate-400 hover:text-slate-600'}
                                                 `}
                                                 title={tab.label}
@@ -262,45 +262,45 @@ const ContentDetailHeader: React.FC<ContentDetailHeaderProps> = ({
                                                 {isActive && (
                                                     <motion.div
                                                         layoutId="smartModeIndicator"
-                                                        className={`absolute inset-0 rounded-xl -z-10 ${tab.activeBg}`}
+                                                        className={`absolute inset-0 rounded-lg sm:rounded-xl -z-10 ${tab.activeBg}`}
                                                         transition={{ type: "spring", bounce: 0.18, duration: 0.5 }}
                                                     />
                                                 )}
                                                 
-                                                <tab.icon className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isActive && !isEdit ? 'animate-pulse' : ''}`} />
+                                                <tab.icon className={`w-3.5 h-3.5 ${isActive && !isEdit ? 'animate-pulse' : ''}`} />
                                                 
                                                 <span className="hidden xs:inline">{tab.label}</span>
                                                 <span className="inline xs:hidden">{tab.labelMobile}</span>
 
                                                 {/* Badge indicators for INSIGHT */}
                                                 {isInsight && isInsightOverdue && !isActive && (
-                                                    <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                                                    <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
                                                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                                                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-rose-500 border border-white"></span>
+                                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500 border border-white"></span>
                                                     </span>
                                                 )}
                                                 
                                                 {isInsight && insightStatus === 'COMPLETE' && (
-                                                    <div className={`ml-1 flex items-center justify-center w-4 h-4 rounded-full ${isActive ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-600'} transition-colors`} title="กรอกสถิติครบทุกแพลตฟอร์มแล้ว 🎉">
+                                                    <div className={`ml-1 flex items-center justify-center w-3.5 h-3.5 rounded-full ${isActive ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-600'} transition-colors`} title="กรอกสถิติครบทุกแพลตฟอร์มแล้ว 🎉">
                                                         <Check strokeWidth={4} className="w-2.5 h-2.5" />
                                                     </div>
                                                 )}
                                                 {isInsight && insightStatus === 'PARTIAL' && (
-                                                    <div className={`ml-1.5 px-2 py-0.5 rounded-[0.5rem] text-[10px]/[1] font-medium tracking-normal flex items-center justify-center whitespace-nowrap ${isActive ? 'bg-amber-500 text-white shadow-sm' : 'bg-amber-50 text-amber-600 border border-amber-100'} transition-all`} title="บันทึกสถิติบางส่วนแล้ว แต่ยังมีบางแพลตฟอร์มที่ยังไม่บันทึกครับ">
+                                                    <div className={`ml-1.5 px-1.5 py-0.5 rounded-[0.35rem] text-[9px]/[1] font-medium tracking-normal flex items-center justify-center whitespace-nowrap ${isActive ? 'bg-amber-500 text-white shadow-sm' : 'bg-amber-50 text-amber-600 border border-amber-100'} transition-all`} title="บันทึกสถิติบางส่วนแล้ว แต่ยังมีบางแพลตฟอร์มที่ยังไม่บันทึกครับ">
                                                         บางส่วน
                                                     </div>
                                                 )}
 
                                                 {/* Badge indicators for EDIT (Overdue) */}
                                                 {isEdit && isOverdue && (
-                                                    <span className="absolute -top-0.5 -right-0.5 flex h-2.5 w-2.5">
+                                                    <span className="absolute -top-0.5 -right-0.5 flex h-2 w-2">
                                                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                                                        <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-red-500 border border-white"></span>
+                                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500 border border-white"></span>
                                                     </span>
                                                 )}
                                                 
                                                 {isEdit && isOverdue && (
-                                                    <div className={`ml-1.5 px-2 py-0.5 rounded-[0.5rem] text-[10px]/[1] font-medium tracking-normal flex items-center justify-center whitespace-nowrap gap-0.5 ${isActive ? 'bg-red-500 text-white shadow-sm ring-1 ring-white/25 animate-pulse' : 'bg-red-50 text-red-600 border border-red-105 animate-pulse'}`} title="งานชิ้นนี้อยู่ในสถานะเกินกำหนดส่ง กรุณาอัพเดทสถานะงานครับ!">
+                                                    <div className={`ml-1.5 px-1.5 py-0.5 rounded-[0.35rem] text-[9px]/[1] font-medium tracking-normal flex items-center justify-center whitespace-nowrap gap-0.5 ${isActive ? 'bg-red-500 text-white shadow-sm ring-1 ring-white/25 animate-pulse' : 'bg-red-50 text-red-600 border border-red-105 animate-pulse'}`} title="งานชิ้นนี้อยู่ในสถานะเกินกำหนดส่ง กรุณาอัพเดทสถานะงานครับ!">
                                                         ค้างส่ง ⏰
                                                     </div>
                                                 )}
@@ -310,15 +310,15 @@ const ContentDetailHeader: React.FC<ContentDetailHeaderProps> = ({
                                 </div>
                             </div>
                         </div>
-                        <div className="flex items-center gap-2 sm:gap-4 w-full sm:w-auto shrink-0 border-t sm:border-t-0 border-slate-50 pt-3 sm:pt-0">
+                        <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto shrink-0 border-t sm:border-t-0 border-slate-50 pt-2 sm:pt-0">
                             {onDelete && (
                                 <motion.button 
                                     whileHover={{ scale: 1.1, backgroundColor: '#fff1f2', color: '#f43f5e' }}
                                     whileTap={{ scale: 0.9 }}
                                     onClick={handleDeleteClick}
-                                    className="w-10 h-10 sm:w-14 sm:h-14 flex items-center justify-center text-slate-300 bg-slate-50 sm:bg-transparent rounded-xl sm:rounded-2xl transition-all"
+                                    className="w-8 h-8 sm:w-10 sm:h-10 flex items-center justify-center text-slate-300 bg-slate-50 sm:bg-transparent rounded-lg sm:rounded-xl transition-all"
                                 >
-                                    <Trash2 className="w-4 h-4 sm:w-5 sm:h-5" />
+                                    <Trash2 className="w-4 h-4" />
                                 </motion.button>
                             )}
                         </div>

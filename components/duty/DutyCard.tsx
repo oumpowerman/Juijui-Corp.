@@ -45,13 +45,13 @@ const DutyCard: React.FC<DutyCardProps> = ({
     const dayOfWeek = getDay(dutyDate);
     const dayColor = useMemo(() => {
         const colors: Record<number, string> = {
-            0: 'from-red-50/50 to-rose-100/40 border-rose-200/60 text-rose-800 dark:text-rose-200',      // Sunday
-            1: 'from-amber-50/50 to-yellow-100/40 border-amber-200/60 text-amber-800 dark:text-amber-200', // Monday
-            2: 'from-pink-50/50 to-rose-100/40 border-pink-200/60 text-pink-800 dark:text-pink-200',    // Tuesday
-            3: 'from-emerald-50/50 to-green-100/40 border-emerald-200/60 text-emerald-800 dark:text-emerald-200', // Wednesday
-            4: 'from-orange-50/50 to-amber-100/40 border-orange-200/60 text-orange-800 dark:text-orange-200', // Thursday
-            5: 'from-sky-50/50 to-blue-100/40 border-sky-200/60 text-sky-800 dark:text-sky-200',     // Friday
-            6: 'from-violet-50/50 to-purple-100/40 border-violet-200/60 text-violet-800 dark:text-violet-200', // Saturday
+            0: 'from-rose-50/90 via-red-50/60 to-rose-100/50 border-rose-200/80 text-rose-900',      // Sunday
+            1: 'from-amber-50/90 via-yellow-50/60 to-amber-100/50 border-amber-200/80 text-amber-900', // Monday
+            2: 'from-pink-50/90 via-rose-50/60 to-pink-100/50 border-pink-200/80 text-pink-900',    // Tuesday
+            3: 'from-emerald-50/90 via-teal-50/60 to-green-100/50 border-emerald-200/80 text-emerald-900', // Wednesday
+            4: 'from-orange-50/90 via-amber-50/60 to-orange-100/50 border-orange-200/80 text-orange-900', // Thursday
+            5: 'from-sky-50/90 via-blue-50/60 to-sky-100/50 border-sky-200/80 text-sky-900',     // Friday
+            6: 'from-violet-50/90 via-purple-50/60 to-violet-100/50 border-violet-200/80 text-violet-900', // Saturday
         };
         return colors[dayOfWeek] || colors[1];
     }, [dayOfWeek]);
@@ -130,26 +130,26 @@ const DutyCard: React.FC<DutyCardProps> = ({
         }
     };
 
-    // Dynamic Semi-Glass Styles
-    let cardStyle = `bg-gradient-to-br ${dayColor} backdrop-blur-md border border-white/70 dark:border-white/10 shadow-[0_4px_16px_rgba(0,0,0,0.03),inset_0_1px_1px_rgba(255,255,255,0.8)] hover:shadow-md hover:-translate-y-0.5 hover:bg-white/65 transition-all duration-200`;
+    // Dynamic Semi-Glass Styles (Bright, clean, high-contrast pastel glassmorphism)
+    let cardStyle = `bg-white/90 bg-gradient-to-br ${dayColor} backdrop-blur-md border shadow-[0_4px_16px_rgba(0,0,0,0.03),inset_0_1px_1px_rgba(255,255,255,0.95)] hover:shadow-md hover:-translate-y-0.5 hover:bg-white transition-all duration-200`;
     let statusBadge = null;
 
     if (isAbandoned) {
-        cardStyle = 'bg-gray-200/70 dark:bg-gray-800/70 backdrop-blur-md border border-gray-300 opacity-60 grayscale cursor-not-allowed shadow-xs';
+        cardStyle = 'bg-slate-100/90 backdrop-blur-md border border-slate-200 opacity-60 grayscale cursor-not-allowed shadow-xs';
         statusBadge = <div className="absolute right-[-15px] top-[15px] rotate-45 bg-red-600 text-white text-[9px] px-6 py-1 font-bold shadow-md z-10 border-2 border-white">FAILED</div>;
     } else if (duty.isDone) {
-        cardStyle = 'bg-emerald-50/45 dark:bg-emerald-950/30 backdrop-blur-md border border-emerald-200/60 shadow-[0_2px_8px_rgba(16,185,129,0.06),inset_0_1px_1px_rgba(255,255,255,0.7)] text-emerald-900';
+        cardStyle = 'bg-white/95 bg-gradient-to-br from-emerald-50/90 to-teal-50/80 backdrop-blur-md border border-emerald-300/80 shadow-[0_2px_10px_rgba(16,185,129,0.08),inset_0_1px_1px_rgba(255,255,255,0.95)] text-emerald-900';
         if (isLateDone) {
              statusBadge = <div className="absolute right-2 top-2 text-[8px] bg-orange-100/90 text-orange-600 px-1.5 py-0.5 rounded-md border border-orange-200 font-bold shadow-2xs">LATE</div>;
         }
     } else if (isTribunal) {
-        cardStyle = 'bg-yellow-50/65 dark:bg-yellow-950/40 backdrop-blur-md border border-yellow-400 border-dashed shadow-lg ring-4 ring-yellow-400/20 animate-pulse';
+        cardStyle = 'bg-white/95 bg-gradient-to-br from-yellow-50/95 to-amber-100/80 backdrop-blur-md border-2 border-yellow-400 border-dashed shadow-lg ring-4 ring-yellow-400/20 animate-pulse text-yellow-950';
     } else if (isMissed) {
-        cardStyle = 'bg-red-50/65 dark:bg-red-950/40 backdrop-blur-md border border-red-400 border-dashed opacity-90 shadow-lg';
+        cardStyle = 'bg-white/95 bg-gradient-to-br from-red-50/95 to-rose-100/80 backdrop-blur-md border-2 border-red-400 border-dashed opacity-95 shadow-lg text-red-950';
     } else if (isGracePeriod) {
-        cardStyle = 'bg-blue-50/65 dark:bg-blue-950/40 backdrop-blur-md border border-blue-400 border-dashed animate-pulse shadow-lg';
+        cardStyle = 'bg-white/95 bg-gradient-to-br from-blue-50/95 to-sky-100/80 backdrop-blur-md border-2 border-blue-400 border-dashed animate-pulse shadow-lg text-blue-950';
     } else if (isCurrentUser) {
-        cardStyle = `bg-gradient-to-br ${dayColor} backdrop-blur-lg border border-indigo-300/80 shadow-[0_8px_24px_rgba(99,102,241,0.18),inset_0_1px_1px_rgba(255,255,255,0.9)] ring-2 ring-indigo-500/20 transform scale-[1.02] z-10`;
+        cardStyle = `bg-white/95 bg-gradient-to-br ${dayColor} backdrop-blur-lg border-2 border-indigo-400/90 shadow-[0_8px_24px_rgba(99,102,241,0.18),inset_0_1px_1px_rgba(255,255,255,0.95)] ring-2 ring-indigo-500/20 transform scale-[1.02] z-10`;
     }
 
     return (

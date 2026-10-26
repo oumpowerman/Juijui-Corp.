@@ -16,13 +16,18 @@ import { setDemoIntentFlag } from '../../context/DemoSandboxContext';
 interface LandingPageProps {
   onGoToLogin: () => void;
   onStartDemo?: () => void;
+  isZoomingOut?: boolean;
 }
 
 export type LandingView = 'HOME' | 'FEATURES' | 'PRICING' | 'FAQS' | 'UPDATES' | 'PRIVACY' | 'TERMS';
 
 const HOME_SCROLL_VIEWS: LandingView[] = ['HOME', 'FEATURES', 'PRICING', 'FAQS'];
 
-const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin, onStartDemo }) => {
+const LandingPage: React.FC<LandingPageProps> = ({
+  onGoToLogin,
+  onStartDemo,
+  isZoomingOut = false,
+}) => {
   const [currentView, setCurrentView] = useState<LandingView>('HOME');
   const [homeScrollStage, setHomeScrollStage] = useState<'HERO' | 'FEATURES' | 'PRICING' | 'FAQS'>('HERO');
   const [settings, setSettings] = useState<LandingSettings>(MOCKUP_SETTINGS);
@@ -177,7 +182,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin, onStartDemo }) =
   return (
     <div className="relative min-h-screen overflow-x-clip bg-transparent text-slate-900 font-google-sans selection:bg-purple-100 selection:text-purple-700">
       {/* Synchronized Multi-Stage Morphing & Scroll Parallax Background */}
-      <CreatorSkyBackground activeStage={effectiveBgStage} />
+      <CreatorSkyBackground activeStage={effectiveBgStage} isZoomingOut={isZoomingOut} />
 
       <AnimatePresence>
         {isContactOpen && (
@@ -188,18 +193,28 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin, onStartDemo }) =
         )}
       </AnimatePresence>
 
-      <Navbar
-        currentView={currentView}
-        activeSection={activeNavSection}
-        onNavigate={handleNavigate}
-        onLogin={() => {
-          if (typeof window !== 'undefined') {
-            sessionStorage.removeItem('juijui_trial_signup_intent');
-          }
-          onGoToLogin();
-        }}
-        onStartDemo={onStartDemo || onGoToLogin}
-      />
+      <motion.div
+        animate={
+          isZoomingOut
+            ? { opacity: 0, y: -16, scale: 1.04 }
+            : { opacity: 1, y: 0, scale: 1 }
+        }
+        transition={{ duration: 0.38, ease: [0.22, 1, 0.36, 1] as const }}
+        className="relative z-40"
+      >
+        <Navbar
+          currentView={currentView}
+          activeSection={activeNavSection}
+          onNavigate={handleNavigate}
+          onLogin={() => {
+            if (typeof window !== 'undefined') {
+              sessionStorage.removeItem('juijui_trial_signup_intent');
+            }
+            onGoToLogin();
+          }}
+          onStartDemo={onStartDemo || onGoToLogin}
+        />
+      </motion.div>
 
       <main className="relative z-10">
         {currentView === 'HOME' ? (
@@ -216,32 +231,50 @@ const LandingPage: React.FC<LandingPageProps> = ({ onGoToLogin, onStartDemo }) =
                 onStartFreeTrial={handleStartFreeTrial}
                 onSeeFeatures={() => handleNavigate('FEATURES')}
                 videoConfig={settings?.hero_video}
+                isZoomingOut={isZoomingOut}
               />
             </div>
 
-            <div id="features" ref={featuresSectionRef} className="scroll-mt-24">
-              <Features />
-            </div>
+            <motion.div
+              animate={
+                isZoomingOut
+                  ? { scale: 1.08, y: -20, opacity: 0, filter: 'blur(5px)' }
+                  : { scale: 1, y: 0, opacity: 1, filter: 'blur(0px)' }
+              }
+              transition={{ duration: 0.44, ease: [0.22, 1, 0.36, 1] as const }}
+            >
+              <div id="features" ref={featuresSectionRef} className="scroll-mt-24">
+                <Features />
+              </div>
 
-            <div id="pricing" ref={pricingSectionRef} className="scroll-mt-24">
-              <Pricing
-                onContact={() => handleNavigate('CONTACT')}
-                onStartFreeTrial={handleStartFreeTrial}
-                plans={settings.pricing}
-              />
-            </div>
+              <div id="pricing" ref={pricingSectionRef} className="scroll-mt-24">
+                <Pricing
+                  onContact={() => handleNavigate('CONTACT')}
+                  onStartFreeTrial={handleStartFreeTrial}
+                  plans={settings.pricing}
+                />
+              </div>
 
-            <div id="faqs" ref={faqsSectionRef} className="scroll-mt-24">
-              <FAQSection faqs={settings.faqs} />
-            </div>
+              <div id="faqs" ref={faqsSectionRef} className="scroll-mt-24">
+                <FAQSection faqs={settings.faqs} />
+              </div>
+            </motion.div>
           </div>
         ) : (
-          <div className="pt-24">
+          <motion.div
+            animate={
+              isZoomingOut
+                ? { scale: 1.08, y: -20, opacity: 0, filter: 'blur(5px)' }
+                : { scale: 1, y: 0, opacity: 1, filter: 'blur(0px)' }
+            }
+            transition={{ duration: 0.44, ease: [0.22, 1, 0.36, 1] as const }}
+            className="pt-24"
+          >
             {currentView === 'UPDATES' && <UpdatesSection updates={settings.updates} />}
             {(currentView === 'PRIVACY' || currentView === 'TERMS') && (
               <LegalSection type={currentView} />
             )}
-          </div>
+          </motion.div>
         )}
       </main>
 

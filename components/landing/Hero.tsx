@@ -24,6 +24,7 @@ interface HeroProps {
   onStartFreeTrial?: () => void;
   onSeeFeatures: () => void;
   videoConfig?: HeroVideo;
+  isZoomingOut?: boolean;
 }
 
 const QUICK_CREATOR_STEPS = [
@@ -68,6 +69,7 @@ const Hero: React.FC<HeroProps> = ({
   onStartFreeTrial,
   onSeeFeatures,
   videoConfig,
+  isZoomingOut = false,
 }) => {
   const { scrollY } = useScroll();
   const smoothScrollY = useSpring(scrollY, { stiffness: 90, damping: 24, mass: 0.35 });
@@ -99,14 +101,38 @@ const Hero: React.FC<HeroProps> = ({
   const embedUrl = getVideoEmbedUrl();
 
   return (
-    <section className="relative z-10 overflow-visible pt-28 pb-20 sm:pt-32 md:pt-36 md:pb-28 font-google-sans">
+    <section className="relative z-10 overflow-visible pt-28 pb-20 sm:pt-32 md:pt-36 md:pb-28 font-google-sans perspective-1000">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 text-center">
-        {/* Hero Aura Header with White Halo Shield & Bidirectional Scroll Reveal */}
-        <SectionAuraHeader
-          as="h1"
-          className="text-center mb-10"
-          titleClassName="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-slate-900 leading-[1.14] mb-6 tracking-tight max-w-5xl mx-auto"
-          subtitleClassName="max-w-2xl mx-auto text-base sm:text-lg md:text-xl text-slate-600 mb-10 font-medium leading-relaxed"
+        {/* Hero Typography & CTA Skyward Zoom Wrapper */}
+        <motion.div
+          initial={{ opacity: 0, scale: 1.06, y: -14, filter: 'blur(4px)' }}
+          animate={
+            isZoomingOut
+              ? {
+                  scale: 1.16,
+                  y: -32,
+                  opacity: 0,
+                  filter: 'blur(7px)',
+                }
+              : {
+                  scale: 1,
+                  y: 0,
+                  opacity: 1,
+                  filter: 'blur(0px)',
+                }
+          }
+          transition={{
+            duration: isZoomingOut ? 0.46 : 0.52,
+            ease: [0.22, 1, 0.36, 1] as const,
+          }}
+          style={{ willChange: 'transform, opacity, filter', transformOrigin: '50% 38%' }}
+        >
+          {/* Hero Aura Header with White Halo Shield & Bidirectional Scroll Reveal */}
+          <SectionAuraHeader
+            as="h1"
+            className="text-center mb-10"
+            titleClassName="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black text-slate-900 leading-[1.14] mb-6 tracking-tight max-w-5xl mx-auto"
+            subtitleClassName="max-w-2xl mx-auto text-base sm:text-lg md:text-xl text-slate-600 mb-10 font-medium leading-relaxed"
           badge={
             <div className="inline-flex flex-wrap items-center justify-center gap-2.5 bg-white/90 backdrop-blur-xl px-4 py-2 rounded-2xl text-xs sm:text-sm font-bold text-slate-700 mb-3 border border-purple-200/80 shadow-[0_10px_30px_-10px_rgba(139,92,246,0.24),inset_0_1px_2px_rgba(255,255,255,0.95)]">
               <span className="inline-flex items-center gap-1.5 text-rose-500">
@@ -206,7 +232,33 @@ const Hero: React.FC<HeroProps> = ({
             </button>
           </div>
         </SectionAuraHeader>
+        </motion.div>
 
+        {/* Secondary Foreground Cards & Showcase Skyward Zoom Wrapper */}
+        <motion.div
+          initial={{ opacity: 0, scale: 1.04, y: 12 }}
+          animate={
+            isZoomingOut
+              ? {
+                  scale: 1.12,
+                  y: -18,
+                  opacity: 0,
+                  filter: 'blur(5px)',
+                }
+              : {
+                  scale: 1,
+                  y: 0,
+                  opacity: 1,
+                  filter: 'blur(0px)',
+                }
+          }
+          transition={{
+            duration: isZoomingOut ? 0.44 : 0.54,
+            delay: isZoomingOut ? 0.02 : 0.04,
+            ease: [0.22, 1, 0.36, 1] as const,
+          }}
+          style={{ willChange: 'transform, opacity, filter', transformOrigin: '50% 25%' }}
+        >
         {/* 1-Second Creator Workflow Cards with Bidirectional Scroll Reveal */}
         <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-4 max-w-5xl mx-auto text-left">
           {QUICK_CREATOR_STEPS.map((item, idx) => {
@@ -293,6 +345,7 @@ const Hero: React.FC<HeroProps> = ({
             </motion.div>
           </motion.div>
         </ScrollRevealItem>
+        </motion.div>
       </div>
     </section>
   );

@@ -36,7 +36,7 @@ const TaskModalNav: React.FC<TaskModalNavProps> = ({
         <motion.div 
             layout
             animate={{ 
-                height: isNavExpanded ? 'auto' : 46,
+                height: isNavExpanded ? 'auto' : 40,
             }}
             transition={{
                 height: { type: 'spring', damping: 25, stiffness: 120 }
@@ -44,7 +44,7 @@ const TaskModalNav: React.FC<TaskModalNavProps> = ({
             className="shrink-0 bg-white border-b border-slate-50 relative overflow-hidden"
         >
             {/* INFINITE ENERGY RAIL */}
-            <div className="absolute top-0 left-0 right-0 h-[4px] overflow-hidden z-50 pointer-events-none">
+            <div className="absolute top-0 left-0 right-0 h-[3px] overflow-hidden z-50 pointer-events-none">
                 
                 {/* Soft Ambient Glow */}
                 <div className="absolute inset-0 opacity-40 blur-md">
@@ -137,27 +137,27 @@ const TaskModalNav: React.FC<TaskModalNavProps> = ({
                         exit={{ opacity: 0 }}
                         transition={{ duration: 0.3 }}
                         onClick={() => setIsNavExpanded(true)}
-                        className="h-[46px] flex items-center justify-between px-6 cursor-pointer hover:bg-slate-50/50 transition-colors group absolute inset-0 z-10"
+                        className="h-[40px] flex items-center justify-between px-4 sm:px-6 cursor-pointer hover:bg-slate-50/50 transition-colors group absolute inset-0 z-10"
                     >
-                        <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="flex items-center gap-2 sm:gap-2.5">
                             <div className={`p-1 bg-${themeColor}-50 rounded-lg group-hover:scale-110 transition-transform`}>
-                                {React.createElement(currentTheme.icon, { className: `w-4 h-4 text-${themeColor}-500` })}
+                                {React.createElement(currentTheme.icon, { className: `w-3.5 h-3.5 text-${themeColor}-500` })}
                             </div>
-                            <span className="text-xs sm:text-sm font-bold text-slate-500 uppercase tracking-widest">
+                            <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">
                                 <span className="hidden sm:inline">MENU: </span>
                                 <span className={`text-${themeColor}-600`}>{currentTheme.label}</span>
                             </span>
                         </div>
 
                         {/* PREMIUM MINI MARKERS (COLLAPSED NAVIGATION HUB) */}
-                        <div className="flex items-center gap-1 sm:gap-2 px-1.5 sm:px-3 py-0.5 sm:py-1 rounded-full bg-slate-50/60 border border-slate-100/50 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
+                        <div className="flex items-center gap-1 sm:gap-1.5 px-1.5 sm:px-2.5 py-0.5 rounded-full bg-slate-50/60 border border-slate-100/50 shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]">
                             {isContent && subTaskCount !== undefined && subTaskCount > 0 && (
                                 <motion.div 
                                     whileHover={{ scale: 1.05 }}
                                     className="flex items-center gap-1 px-1 sm:px-1.5 py-0.5 rounded-md bg-cyan-50 border border-cyan-100 text-cyan-600 shadow-[0_1px_1px_rgba(0,0,0,0.02)]" 
                                     title={`งานย่อย: ${subTaskCount} รายการ`}
                                 >
-                                    <Truck className="w-3.5 h-3.5 stroke-[2.2px]" />
+                                    <Truck className="w-3 h-3 stroke-[2.2px]" />
                                     <span className="text-[9px] sm:text-[10px] font-bold leading-none">{subTaskCount}</span>
                                 </motion.div>
                             )}
@@ -168,7 +168,7 @@ const TaskModalNav: React.FC<TaskModalNavProps> = ({
                                     className="flex items-center px-1 sm:px-1.5 py-0.5 rounded-md bg-rose-50 border border-rose-100 text-rose-500 shadow-[0_1px_1px_rgba(0,0,0,0.02)]" 
                                     title="มีบทภาพยนตร์ / สคริปต์"
                                 >
-                                    <FileText className="w-3.5 h-3.5 stroke-[2.2px]" />
+                                    <FileText className="w-3 h-3 stroke-[2.2px]" />
                                 </motion.div>
                             )}
 
@@ -178,7 +178,7 @@ const TaskModalNav: React.FC<TaskModalNavProps> = ({
                                     className="flex items-center gap-1 px-1 sm:px-1.5 py-0.5 rounded-md bg-emerald-50 border border-emerald-100 text-emerald-600 shadow-[0_1px_1px_rgba(0,0,0,0.02)]" 
                                     title={`คอมเมนต์แชท: ${commentCount} รายการ`}
                                 >
-                                    <MessageSquare className="w-3.5 h-3.5 stroke-[2.2px]" />
+                                    <MessageSquare className="w-3 h-3 stroke-[2.2px]" />
                                     <span className="text-[9px] sm:text-[10px] font-bold leading-none">{commentCount}</span>
                                 </motion.div>
                             )}
@@ -189,15 +189,15 @@ const TaskModalNav: React.FC<TaskModalNavProps> = ({
                                     className="flex items-center gap-1 px-1 sm:px-1.5 py-0.5 rounded-md bg-amber-50 border border-amber-100 text-amber-600 shadow-[0_1px_1px_rgba(0,0,0,0.02)]" 
                                     title={`ไฟล์แนบ: ${assetCount} ไฟล์`}
                                 >
-                                    <Paperclip className="w-3.5 h-3.5 stroke-[2.2px]" />
+                                    <Paperclip className="w-3 h-3 stroke-[2.2px]" />
                                     <span className="text-[9px] sm:text-[10px] font-bold leading-none">{assetCount}</span>
                                 </motion.div>
                             )}
                         </div>
 
-                        <div className="flex items-center gap-1 sm:gap-2">
-                            <span className="hidden md:inline text-[10px] font-bold text-slate-400 group-hover:text-indigo-600 transition-colors tracking-widest">TAP FOR TOOLS</span>
-                            <ChevronRight className="w-4 h-4 text-slate-200 group-hover:translate-x-1 transition-transform" />
+                        <div className="flex items-center gap-1 sm:gap-1.5">
+                            <span className="hidden md:inline text-[9px] font-bold text-slate-400 group-hover:text-indigo-600 transition-colors tracking-widest">TAP FOR TOOLS</span>
+                            <ChevronRight className="w-3.5 h-3.5 text-slate-200 group-hover:translate-x-1 transition-transform" />
                         </div>
                     </motion.div>
                 ) : (
@@ -214,20 +214,20 @@ const TaskModalNav: React.FC<TaskModalNavProps> = ({
                             initial={{ y: -10, opacity: 0 }}
                             animate={{ y: 0, opacity: 1 }}
                             transition={{ duration: 0.5, delay: 0.1 }}
-                            className="px-2 sm:px-6 pt-2 sm:pt-4 pb-1.5 sm:pb-4"
+                            className="px-2 sm:px-5 pt-1.5 sm:pt-2.5 pb-1 sm:pb-2"
                         >
-                            <div className="flex items-center justify-between mb-3 px-2">
-                                <span className="text-[12px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                            <div className="flex items-center justify-between mb-1.5 sm:mb-2 px-1">
+                                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5">
                                     <Activity className="w-3 h-3" /> Navigation Hub
                                 </span>
                                 <button 
                                     onClick={() => setIsNavExpanded(false)}
-                                    className="text-[12px] font-medium  text-indigo-400 hover:text-indigo-600 transition-colors flex items-center gap-1"
+                                    className="text-[11px] font-medium text-indigo-400 hover:text-indigo-600 transition-colors flex items-center gap-1"
                                 >
                                     HIDE MENU <ChevronDown className="w-3 h-3" />
                                 </button>
                             </div>
-                            <div className="flex bg-gray-100/80 p-1 rounded-xl sm:rounded-2xl overflow-x-auto scrollbar-none relative gap-1 snap-x snap-mandatory">
+                            <div className="flex bg-gray-100/80 p-0.5 sm:p-1 rounded-xl sm:rounded-2xl overflow-x-auto scrollbar-none relative gap-1 snap-x snap-mandatory">
                                 {[
                                     { id: 'DETAILS', label: 'ดีเทล', icon: Layout },
                                     ...(isContent ? [{ id: 'LOGISTICS', label: 'งานย่อย', icon: Truck, count: subTaskCount }] : []),
@@ -248,7 +248,7 @@ const TaskModalNav: React.FC<TaskModalNavProps> = ({
                                                 if (isMobile) setIsNavExpanded(false);
                                             }}
                                             className={`
-                                                flex-1 py-1.5 sm:py-2.5 px-3 sm:px-4 rounded-lg sm:rounded-xl text-[10px] sm:text-sm font-bold transition-all duration-300 ease-out flex items-center justify-center gap-2 whitespace-nowrap relative snap-start z-10
+                                                flex-1 py-1 sm:py-1.5 px-2.5 sm:px-3 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold transition-all duration-300 ease-out flex items-center justify-center gap-1.5 whitespace-nowrap relative snap-start z-10
                                                 ${tab.id === 'SCRIPT'
                                                     ? isActive
                                                         ? 'bg-gradient-to-r from-pink-100/90 via-purple-100/90 via-blue-100/90 via-emerald-100/90 via-yellow-100/90 to-pink-100/90 text-purple-700 shadow-[0_4px_14px_rgba(168,85,247,0.18)] border border-purple-200/50 hover:scale-[1.01]'

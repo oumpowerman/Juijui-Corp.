@@ -29,10 +29,10 @@ const ContentActionFooter: React.FC<ContentActionFooterProps> = ({
     showDelete = false
 }) => {
     return (
-        <div className="flex flex-col gap-4 sm:pt-4 sm:mt-4 bg-white relative z-20 pb-safe-area">
+        <div className="flex flex-col gap-2.5 sm:pt-2.5 sm:mt-2 bg-white relative z-20 pb-safe-area">
             
             {/* Action Row */}
-            <div className="flex items-center justify-between gap-2 sm:gap-3">
+            <div className="flex items-center justify-between gap-2 sm:gap-2.5">
                 
                 {/* Left: Danger Zone */}
                 <div className="shrink-0">
@@ -40,17 +40,17 @@ const ContentActionFooter: React.FC<ContentActionFooterProps> = ({
                         <button 
                             type="button" 
                             onClick={onDelete} 
-                            className="group flex items-center justify-center p-3 text-red-400 bg-red-50 hover:bg-red-100 hover:text-red-600 rounded-2xl transition-all active:scale-95"
+                            className="group flex items-center justify-center p-2 sm:p-2.5 text-red-400 bg-red-50 hover:bg-red-100 hover:text-red-600 rounded-xl transition-all active:scale-95"
                             title="ลบงานนี้"
                         >
-                            <Trash2 className="w-5 h-5 group-hover:scale-110 transition-transform" />
-                            <span className="hidden md:inline-block ml-2 text-xs font-medium">ลบ</span>
+                            <Trash2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                            <span className="hidden md:inline-block ml-1.5 text-xs font-medium">ลบ</span>
                         </button>
                     )}
                 </div>
 
                 {/* Right: Primary Actions */}
-                <div className="flex items-center gap-2 sm:gap-3 flex-1 justify-end">
+                <div className="flex items-center gap-2 sm:gap-2.5 flex-1 justify-end">
                     
                     {/* Send to QC Button */}
                     {showSendQC && onSendQC && (
@@ -60,25 +60,25 @@ const ContentActionFooter: React.FC<ContentActionFooterProps> = ({
                                 onClick={onSendQC}
                                 disabled={isSendingQC || !canSendQC || isReadOnly}
                                 className={`
-                                    relative overflow-hidden flex items-center justify-center gap-2 p-3 sm:px-5 sm:py-3 rounded-2xl text-sm font-bold transition-all shadow-sm active:scale-95 border-2
+                                    relative overflow-hidden flex items-center justify-center gap-1.5 p-2 sm:px-4 sm:py-2 rounded-xl text-xs sm:text-sm font-semibold transition-all shadow-sm active:scale-95 border
                                     ${(!canSendQC || isReadOnly)
                                         ? 'bg-gray-50 text-gray-400 border-gray-100 cursor-not-allowed' 
-                                        : 'bg-white text-indigo-600 border-indigo-100 hover:border-indigo-300 hover:bg-indigo-50 hover:shadow-indigo-100'
+                                        : 'bg-white text-indigo-600 border-indigo-200 hover:border-indigo-300 hover:bg-indigo-50 hover:shadow-indigo-100'
                                     }
                                 `}
                                 title="ส่งตรวจ (QC)"
                             >
                                 {isSendingQC ? (
-                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                    <Loader2 className="w-4 h-4 animate-spin" />
                                 ) : (
-                                    <Send className={`w-5 h-5 ${canSendQC && !isReadOnly ? 'group-hover/qc:-translate-y-0.5 group-hover/qc:translate-x-0.5 transition-transform' : ''}`} />
+                                    <Send className={`w-4 h-4 ${canSendQC && !isReadOnly ? 'group-hover/qc:-translate-y-0.5 group-hover/qc:translate-x-0.5 transition-transform' : ''}`} />
                                 )}
                                 <span className="hidden sm:inline-block whitespace-nowrap">ส่งตรวจ (QC)</span>
                             </button>
                             
                             {/* Disabled Tooltip */}
                             {!canSendQC && !isReadOnly && (
-                                <div className="absolute bottom-full right-0 mb-2 w-max px-3 py-1.5 bg-gray-800 text-white text-[10px] rounded-lg shadow-xl opacity-0 group-hover/qc:opacity-100 transition-opacity pointer-events-none z-50">
+                                <div className="absolute bottom-full right-0 mb-2 w-max px-2.5 py-1 bg-gray-800 text-white text-[10px] rounded-md shadow-xl opacity-0 group-hover/qc:opacity-100 transition-opacity pointer-events-none z-50">
                                     เฉพาะผู้รับผิดชอบงานเท่านั้น
                                 </div>
                             )}
@@ -86,16 +86,16 @@ const ContentActionFooter: React.FC<ContentActionFooterProps> = ({
                     )}
 
                     {/* Divider */}
-                    <div className="w-px h-8 bg-gray-200 hidden md:block"></div>
+                    <div className="w-px h-6 bg-gray-200 hidden md:block"></div>
 
                     {/* Cancel Button */}
                     <button 
                         type="button" 
                         onClick={onCancel} 
-                        className="p-3 sm:px-5 sm:py-3 text-md font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 hover:text-gray-700 rounded-2xl transition-colors active:scale-95 flex items-center justify-center"
+                        className="p-2 sm:px-4 sm:py-2 text-xs sm:text-sm font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 hover:text-gray-700 rounded-xl transition-colors active:scale-95 flex items-center justify-center"
                         title={isReadOnly ? "ปิด" : "ยกเลิก"}
                     >
-                        <X className="w-5 h-5 sm:hidden" />
+                        <X className="w-4 h-4 sm:hidden" />
                         <span className="hidden sm:inline-block">{isReadOnly ? "ปิด" : "ยกเลิก"}</span>
                     </button>
                     
@@ -105,7 +105,7 @@ const ContentActionFooter: React.FC<ContentActionFooterProps> = ({
                             type="submit" 
                             disabled={isSaving}
                             className={`
-                                group relative flex items-center justify-center gap-2 px-5 py-3 sm:px-8 sm:py-3 text-white font-medium text-md rounded-2xl shadow-xl transition-all active:scale-95 overflow-hidden flex-1 sm:flex-none
+                                group relative flex items-center justify-center gap-1.5 px-4 py-2 sm:px-6 sm:py-2 text-white font-semibold text-xs sm:text-sm rounded-xl shadow-md transition-all active:scale-95 overflow-hidden flex-1 sm:flex-none
                                 ${mode === 'CREATE' 
                                     ? 'bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 shadow-emerald-200' 
                                     : 'bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 shadow-indigo-200'
@@ -118,14 +118,14 @@ const ContentActionFooter: React.FC<ContentActionFooterProps> = ({
                             
                             {isSaving ? (
                                 <>
-                                    <Loader2 className="w-5 h-5 animate-spin" />
+                                    <Loader2 className="w-4 h-4 animate-spin" />
                                     <span>กำลังบันทึก...</span>
                                 </>
                             ) : (
                                 <>
-                                    {mode === 'CREATE' ? <Save className="w-5 h-5" /> : <CheckCircle2 className="w-5 h-5" />}
+                                    {mode === 'CREATE' ? <Save className="w-4 h-4" /> : <CheckCircle2 className="w-4 h-4" />}
                                     <span>{mode === 'CREATE' ? 'สร้างงานใหม่' : 'บันทึกแก้ไข'}</span>
-                                    {mode === 'CREATE' && <ArrowRight className="w-4 h-4 opacity-50 group-hover:translate-x-1 transition-transform" />}
+                                    {mode === 'CREATE' && <ArrowRight className="w-3.5 h-3.5 opacity-50 group-hover:translate-x-1 transition-transform" />}
                                 </>
                             )}
                         </button>

@@ -99,10 +99,10 @@ const DutyCalendarGrid: React.FC<DutyCalendarGridProps> = ({
                         className={`
                             rounded-[1.75rem] flex flex-col h-full min-h-[350px] max-h-[620px] transition-all duration-300 relative overflow-hidden group
                             ${isCurrentDay 
-                                ? 'bg-indigo-50/50 dark:bg-indigo-950/40 backdrop-blur-xl backdrop-saturate-150 border-2 border-indigo-400/80 dark:border-indigo-400/70 shadow-[0_8px_32px_0_rgba(99,102,241,0.22),inset_0_1px_2px_0_rgba(255,255,255,0.95)] z-10' 
+                                ? 'bg-indigo-50/70 backdrop-blur-xl backdrop-saturate-150 border-2 border-indigo-400/80 shadow-[0_8px_32px_0_rgba(99,102,241,0.2),inset_0_1px_2px_0_rgba(255,255,255,0.95)] z-10' 
                                 : isWeekendDay && !meta.isSpecialWork
-                                    ? 'bg-slate-50/35 dark:bg-slate-900/35 backdrop-blur-xl backdrop-saturate-150 border border-white/50 dark:border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.04),inset_0_1px_1px_0_rgba(255,255,255,0.7)] hover:border-indigo-200/80 hover:bg-white/55'
-                                    : 'bg-white/45 dark:bg-slate-900/40 backdrop-blur-xl backdrop-saturate-150 border border-white/60 dark:border-white/10 shadow-[0_8px_32px_0_rgba(31,38,135,0.07),inset_0_1px_1px_0_rgba(255,255,255,0.8)] hover:border-indigo-200/90 hover:bg-white/55 hover:shadow-[0_12px_40px_0_rgba(31,38,135,0.1),inset_0_1px_2px_0_rgba(255,255,255,0.9)]'
+                                    ? 'bg-slate-50/60 backdrop-blur-xl backdrop-saturate-150 border border-white/70 shadow-[0_8px_24px_0_rgba(0,0,0,0.04),inset_0_1px_1px_0_rgba(255,255,255,0.85)] hover:border-indigo-200 hover:bg-white/75'
+                                    : 'bg-white/70 backdrop-blur-xl backdrop-saturate-150 border border-white/80 shadow-[0_8px_24px_0_rgba(31,38,135,0.06),inset_0_1px_1px_0_rgba(255,255,255,0.9)] hover:border-indigo-300 hover:bg-white/85 hover:shadow-[0_12px_36px_0_rgba(31,38,135,0.09),inset_0_1px_2px_0_rgba(255,255,255,0.95)]'
                             }
                             ${meta.isHoliday && !meta.isSpecialWork ? 'grayscale-[0.35] opacity-90' : ''}
                         `}
@@ -119,11 +119,11 @@ const DutyCalendarGrid: React.FC<DutyCalendarGridProps> = ({
                         <div className={`
                             p-4 border-b flex flex-col items-center justify-center text-center relative transition-colors backdrop-blur-md
                             ${isCurrentDay 
-                                ? 'border-indigo-200/70 bg-white/50 dark:bg-indigo-900/30' 
-                                : 'border-white/40 dark:border-white/10 bg-white/35 dark:bg-slate-800/30'
+                                ? 'border-indigo-200/70 bg-white/60' 
+                                : 'border-slate-100/60 bg-white/50'
                             }
                         `}>
-                            <p className={`text-xs font-bold uppercase tracking-wider mb-1.5 ${isWeekendDay ? 'text-rose-500/80 dark:text-rose-400' : 'text-gray-500 dark:text-gray-400'}`}>
+                            <p className={`text-xs font-bold uppercase tracking-wider mb-1.5 ${isWeekendDay ? 'text-rose-500' : 'text-slate-500'}`}>
                                 {format(day, 'EEEE')}
                             </p>
                             
@@ -132,7 +132,7 @@ const DutyCalendarGrid: React.FC<DutyCalendarGridProps> = ({
                                     w-11 h-11 rounded-2xl flex items-center justify-center text-lg font-bold transition-transform group-hover:scale-105
                                     ${isCurrentDay 
                                         ? 'bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white shadow-[0_4px_14px_rgba(99,102,241,0.4),inset_0_1px_1px_rgba(255,255,255,0.4)]' 
-                                        : 'bg-white/85 dark:bg-slate-800/85 text-gray-800 dark:text-gray-100 border border-white/80 dark:border-slate-700/80 shadow-[0_3px_10px_rgba(0,0,0,0.05),inset_0_1px_1px_rgba(255,255,255,0.9)]'
+                                        : 'bg-white text-slate-800 border border-slate-100 shadow-[0_3px_10px_rgba(0,0,0,0.05),inset_0_1px_1px_rgba(255,255,255,0.95)]'
                                     }
                                 `}>
                                     {format(day, 'd')}
@@ -157,7 +157,7 @@ const DutyCalendarGrid: React.FC<DutyCalendarGridProps> = ({
                                         <Ban className="w-2.5 h-2.5" /> {meta.label || 'Closed'}
                                     </span>
                                 ) : isCurrentDay && (
-                                    <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Today</span>
+                                    <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest">Today</span>
                                 )}
                             </div>
                         </div>
@@ -166,7 +166,7 @@ const DutyCalendarGrid: React.FC<DutyCalendarGridProps> = ({
                         <div className="p-3 flex-1 space-y-3 relative z-10 overflow-y-auto max-h-[380px] md:max-h-[440px] scrollbar-thin scrollbar-thumb-white/40">
                             {meta.isHoliday && !meta.isSpecialWork && dayDuties.length === 0 ? (
                                 <div className="h-full flex flex-col items-center justify-center text-slate-400 p-4 text-center">
-                                    <div className="p-4 bg-white/40 dark:bg-slate-800/40 rounded-2xl mb-3 shadow-inner border border-white/50 backdrop-blur-sm">
+                                    <div className="p-4 bg-white/70 rounded-2xl mb-3 shadow-inner border border-white/80 backdrop-blur-sm">
                                         <Ban className="w-8 h-8 opacity-25" />
                                     </div>
                                     <p className="text-xs font-bold uppercase tracking-widest text-slate-400">Office Closed</p>
@@ -202,10 +202,10 @@ const DutyCalendarGrid: React.FC<DutyCalendarGridProps> = ({
 
                                     {/* Add Form Inline */}
                                     {isAddMode && isSameDay(isAddMode, day) ? (
-                                        <div className="bg-white/90 dark:bg-slate-800/90 backdrop-blur-2xl border border-indigo-300 dark:border-indigo-500/50 rounded-2xl p-3.5 shadow-[0_12px_32px_rgba(99,102,241,0.2),inset_0_1px_1px_rgba(255,255,255,0.9)] animate-in zoom-in-95 relative z-20">
+                                        <div className="bg-white/95 backdrop-blur-2xl border border-indigo-200 rounded-2xl p-3.5 shadow-xl animate-in zoom-in-95 relative z-20">
                                             <input 
                                                 autoFocus
-                                                className="w-full text-sm font-bold border-b-2 border-indigo-100 dark:border-indigo-900 pb-1 mb-2.5 outline-none focus:border-indigo-500 text-indigo-950 dark:text-indigo-100 placeholder:text-indigo-300 bg-transparent"
+                                                className="w-full text-sm font-bold border-b-2 border-indigo-100 pb-1 mb-2.5 outline-none focus:border-indigo-500 text-indigo-950 placeholder:text-indigo-300 bg-transparent"
                                                 placeholder="ทำอะไรดี?"
                                                 value={newDutyTitle}
                                                 onChange={e => setNewDutyTitle(e.target.value)}
@@ -213,7 +213,7 @@ const DutyCalendarGrid: React.FC<DutyCalendarGridProps> = ({
                                             />
                                             <div className="flex gap-2">
                                                 <select 
-                                                    className="flex-1 text-xs bg-indigo-50/80 dark:bg-slate-700/80 rounded-xl p-2 outline-none cursor-pointer font-bold text-indigo-700 dark:text-indigo-200 border border-indigo-100 dark:border-slate-600"
+                                                    className="flex-1 text-xs bg-indigo-50/80 rounded-xl p-2 outline-none cursor-pointer font-bold text-indigo-700 border border-indigo-100"
                                                     value={assigneeId}
                                                     onChange={e => setAssigneeId(e.target.value)}
                                                 >
@@ -237,7 +237,7 @@ const DutyCalendarGrid: React.FC<DutyCalendarGridProps> = ({
                                     ) : (
                                         <button 
                                             onClick={() => onStartAdd(day)}
-                                            className="w-full py-2.5 border border-dashed border-white/70 dark:border-white/20 bg-white/30 dark:bg-white/5 hover:bg-white/60 dark:hover:bg-white/10 rounded-2xl text-xs font-semibold text-gray-500 hover:text-indigo-600 hover:border-indigo-300/80 transition-all shadow-2xs backdrop-blur-sm flex items-center justify-center gap-1.5 active:scale-[0.99]"
+                                            className="w-full py-2.5 border border-dashed border-slate-200/80 bg-white/60 hover:bg-white/90 rounded-2xl text-xs font-semibold text-slate-500 hover:text-indigo-600 hover:border-indigo-300 transition-all shadow-2xs backdrop-blur-sm flex items-center justify-center gap-1.5 active:scale-[0.99]"
                                         >
                                             <Plus className="w-3.5 h-3.5" /> เพิ่มเวร
                                         </button>

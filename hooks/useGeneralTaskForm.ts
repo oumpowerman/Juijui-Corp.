@@ -113,16 +113,18 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
     }, [initialData, selectedDate, masterOptions]);
 
     // --- Handlers ---
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmit = async (e?: React.FormEvent): Promise<Task | null> => {
+        if (e) {
+            e.preventDefault();
+        }
         
         if (!title.trim()) {
             setError('อย่าลืมตั้งชื่องานนะ!');
-            return;
+            return null;
         }
         if (new Date(startDate) > new Date(endDate)) {
             setError('วันเริ่มต้องมาก่อนวันจบสิครับผม');
-            return;
+            return null;
         }
 
         // Process any uncommitted tags from the tag field before saving
@@ -188,9 +190,11 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
             };
 
             await onSave(newTask);
+            return newTask;
         } catch (err) {
             console.error(err);
             setError('เกิดข้อผิดพลาดในการบันทึก');
+            return null;
         } finally {
             setIsSaving(false);
         }

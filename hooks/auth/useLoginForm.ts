@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
-import { triggerAuthPortalTransition, consumeAuthPortalTransition } from '../../components/auth/AuthPortalTransition';
+import { stageAuthPortalTransition, triggerAuthPortalTransition, consumeAuthPortalTransition } from '../../components/auth/AuthPortalTransition';
 
 export interface UseLoginFormOptions {
   onLoginSuccess: () => void;
@@ -168,8 +168,8 @@ export function useLoginForm({ onLoginSuccess, onError }: UseLoginFormOptions) {
           : `${cleanUsername}@juijui-app.com`;
       }
 
-      // Pre-stage portal transition mode before signInWithPassword fires onAuthStateChange
-      triggerAuthPortalTransition('LOGIN');
+      // Pre-stage portal transition mode in sessionStorage before signInWithPassword fires onAuthStateChange
+      stageAuthPortalTransition('LOGIN');
 
       let { error } = await supabase.auth.signInWithPassword({
         email: loginEmail,
@@ -255,6 +255,7 @@ export function useLoginForm({ onLoginSuccess, onError }: UseLoginFormOptions) {
           setIsLoading(false);
         }, 90000);
       } else {
+        stageAuthPortalTransition('LOGIN');
         const { error } = await supabase.auth.signInWithOAuth({
           provider,
           options: {

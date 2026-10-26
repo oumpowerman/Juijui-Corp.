@@ -11,6 +11,7 @@ export type { CreatorBgStage, CreatorSkyBackgroundProps };
 
 export const CreatorSkyBackground: React.FC<CreatorSkyBackgroundProps> = ({
   activeStage = 'HERO',
+  isZoomingOut = false,
 }) => {
   const { scrollY } = useScroll();
   const smoothScrollY = useSpring(scrollY, {
@@ -38,6 +39,7 @@ export const CreatorSkyBackground: React.FC<CreatorSkyBackgroundProps> = ({
       <VolumetricCloudLayer
         activeStage={activeStage}
         smoothScrollY={smoothScrollY}
+        isZoomingOut={isZoomingOut}
       />
 
       {/* Layer 5: Stage-Specific Floating 3D Pastel Glass Icons & Cards */}

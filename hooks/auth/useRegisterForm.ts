@@ -9,7 +9,7 @@ import { useGlobalDialog } from '../../context/GlobalDialogContext';
 import { setActiveOrgIdSync } from '../../lib/tenantStorage';
 import { PRIMARY_DEFAULT_ORG_ID, SAAS_PLAN_PRESETS } from '../../lib/multiTenantMigrationSql';
 import { generateRandomInviteCode } from '../../context/organization/types';
-import { triggerAuthPortalTransition, consumeAuthPortalTransition } from '../../components/auth/AuthPortalTransition';
+import { stageAuthPortalTransition, triggerAuthPortalTransition, consumeAuthPortalTransition } from '../../components/auth/AuthPortalTransition';
 
 export interface UseRegisterFormOptions {
   onRegisterSuccess: () => void;
@@ -355,7 +355,7 @@ export function useRegisterForm({
 
       const fullNameCombined = `${firstName.trim()} ${lastName.trim()}`.trim();
       const targetPortalMode = onboardingMode === 'CREATE_TRIAL' ? 'REGISTER_TRIAL' : 'REGISTER_JOIN';
-      triggerAuthPortalTransition(targetPortalMode);
+      stageAuthPortalTransition(targetPortalMode);
 
       // Create new user credentials
       const { data: authData, error: authError } = await supabase.auth.signUp({

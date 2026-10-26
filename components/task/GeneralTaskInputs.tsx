@@ -139,11 +139,19 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
     
     // --- QC Submission Modal State & Handlers ---
     const [isQCModalOpen, setIsQCModalOpen] = useState(false);
+    const [taskForQC, setTaskForQC] = useState<Task | null>(initialData || null);
+
+    useEffect(() => {
+        if (initialData) {
+            setTaskForQC(initialData);
+        }
+    }, [initialData]);
 
     const handleConfirmQCSubmit = async (notes: string, reviewerId: string) => {
         try {
+            const targetTask = taskForQC || initialData!;
             const submissionAssetUrl = assets.length > 0 ? assets[assets.length - 1].url : undefined;
-            const updatedTask = await sendToQC(initialData!, currentUser!, notes || undefined, submissionAssetUrl, reviewerId);
+            const updatedTask = await sendToQC(targetTask, currentUser!, notes || undefined, submissionAssetUrl, reviewerId);
             
             setStatus(updatedTask.status);
             onSave(updatedTask);
@@ -268,6 +276,14 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
         setIsSendingQC(true);
 
         try {
+            // Auto-save form contents first so typed changes are safely persisted
+            const savedTask = await handleSubmit();
+            if (!savedTask) {
+                setIsSendingQC(false);
+                return;
+            }
+            setTaskForQC(savedTask);
+
             // 0. Fetch latest round from DB to prevent collisions
             const { data: reviews } = await supabase
                 .from('task_reviews')
@@ -531,7 +547,7 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
                     isOpen={isQCModalOpen}
                     onClose={() => setIsQCModalOpen(false)}
                     onSubmit={handleConfirmQCSubmit}
-                    task={initialData}
+                    task={taskForQC || initialData}
                     users={users}
                     masterOptions={masterOptions}
                     currentUser={currentUser}

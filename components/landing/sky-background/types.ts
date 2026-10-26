@@ -5,6 +5,7 @@ export type CreatorBgStage = 'HERO' | 'FEATURES' | 'PRICING' | 'FAQS' | 'UPDATES
 
 export interface CreatorSkyBackgroundProps {
   activeStage?: CreatorBgStage;
+  isZoomingOut?: boolean;
 }
 
 export type SmoothScrollMotionValue = MotionValue<number>;

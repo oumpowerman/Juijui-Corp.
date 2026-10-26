@@ -26,6 +26,7 @@ interface AuthPageProps {
   onBack?: () => void;
   initialMode?: 'LOGIN' | 'REGISTER' | 'FORGOT' | 'UPDATE';
   onPasswordUpdateSuccess?: () => void;
+  isZoomingOut?: boolean;
 }
 
 const AuthPage: React.FC<AuthPageProps> = ({
@@ -33,6 +34,7 @@ const AuthPage: React.FC<AuthPageProps> = ({
   onBack,
   initialMode,
   onPasswordUpdateSuccess,
+  isZoomingOut = false,
 }) => {
   const [authMode, setAuthMode] = useState<'LOGIN' | 'REGISTER' | 'FORGOT' | 'UPDATE'>(() => {
     if (initialMode) return initialMode;
@@ -145,9 +147,30 @@ const AuthPage: React.FC<AuthPageProps> = ({
         onboardingMode={registerForm.onboardingMode}
       />
 
-      {/* Outer Glow Wrapper */}
+      {/* Outer Glow Wrapper (Waiting behind parting clouds & smoothly emerging) */}
       <motion.div
-        className={`relative w-full max-w-5xl bg-white/40 backdrop-blur-3xl rounded-none sm:rounded-[2.6rem] p-0 sm:p-[1px] border-0 sm:border border-white/70 transition-all duration-700 h-full min-h-[100dvh] sm:min-h-0 sm:max-h-[92dvh] md:h-[min(780px,88dvh)] my-auto flex flex-col md:flex-row overflow-hidden ${dynamicShadow}`}
+        initial={{ opacity: 0, scale: 0.92, y: 14, filter: 'blur(4px)' }}
+        animate={
+          isZoomingOut
+            ? {
+                opacity: 0,
+                scale: 0.91,
+                y: 16,
+                filter: 'blur(6px)',
+              }
+            : {
+                opacity: 1,
+                scale: 1,
+                y: 0,
+                filter: 'blur(0px)',
+              }
+        }
+        transition={{
+          duration: isZoomingOut ? 0.44 : 0.56,
+          ease: [0.22, 1, 0.36, 1] as const,
+        }}
+        style={{ willChange: 'transform, opacity, filter' }}
+        className={`relative w-full max-w-5xl bg-white/40 backdrop-blur-3xl rounded-none sm:rounded-[2.6rem] p-0 sm:p-[1px] border-0 sm:border border-white/70 h-full min-h-[100dvh] sm:min-h-0 sm:max-h-[92dvh] md:h-[min(780px,88dvh)] my-auto flex flex-col md:flex-row overflow-hidden ${dynamicShadow}`}
       >
         {onBack && (
           <button

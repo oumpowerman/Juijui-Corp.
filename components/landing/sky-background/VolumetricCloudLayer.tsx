@@ -7,6 +7,7 @@ import { FluffyCloud3D } from './Sky3DIllustrations';
 interface VolumetricCloudLayerProps {
   activeStage: CreatorBgStage;
   smoothScrollY: SmoothScrollMotionValue;
+  isZoomingOut?: boolean;
 }
 
 const ParallaxCloudItem: React.FC<{
@@ -14,9 +15,12 @@ const ParallaxCloudItem: React.FC<{
   index: number;
   activeStage: CreatorBgStage;
   smoothScrollY: SmoothScrollMotionValue;
-}> = ({ cloud, index, activeStage, smoothScrollY }) => {
+  isZoomingOut?: boolean;
+}> = ({ cloud, index, activeStage, smoothScrollY, isZoomingOut = false }) => {
   const pose = cloud.poses[activeStage] || cloud.poses.HERO;
   const direction = index % 2 === 0 ? 1 : -1;
+  const convergeX = direction * -90;
+  const convergeY = index < 2 ? 45 : -45;
 
   // Bounded wave parallax: clouds visibly glide on scroll while staying inside the viewport
   const scrollParallaxY = useTransform(
@@ -40,12 +44,16 @@ const ParallaxCloudItem: React.FC<{
       <motion.div
         initial={false}
         animate={{
-          x: pose.x,
-          y: pose.y,
-          scale: pose.scale,
-          opacity: pose.opacity,
+          x: isZoomingOut ? pose.x + convergeX : pose.x,
+          y: isZoomingOut ? pose.y + convergeY : pose.y,
+          scale: isZoomingOut ? pose.scale * 1.45 : pose.scale,
+          opacity: isZoomingOut ? 1 : pose.opacity,
         }}
-        transition={MORPH_TRANSITION}
+        transition={
+          isZoomingOut
+            ? { duration: 0.46, ease: [0.22, 1, 0.36, 1] as const }
+            : MORPH_TRANSITION
+        }
         style={{ willChange: 'transform, opacity' }}
       >
         <motion.div
@@ -71,6 +79,7 @@ const ParallaxCloudItem: React.FC<{
 export const VolumetricCloudLayer: React.FC<VolumetricCloudLayerProps> = ({
   activeStage,
   smoothScrollY,
+  isZoomingOut = false,
 }) => {
   return (
     <>
@@ -81,6 +90,7 @@ export const VolumetricCloudLayer: React.FC<VolumetricCloudLayerProps> = ({
           index={index}
           activeStage={activeStage}
           smoothScrollY={smoothScrollY}
+          isZoomingOut={isZoomingOut}
         />
       ))}
     </>

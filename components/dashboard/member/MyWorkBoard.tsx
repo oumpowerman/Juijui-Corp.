@@ -7,8 +7,12 @@ import { subDays, isAfter } from 'date-fns'; // Import date helpers
 import TaskCategoryModal from '../../TaskCategoryModal';
 import DoneHistoryModal from './board/DoneHistoryModal'; // Import New Modal
 import WorkColumn from './board/WorkColumn';
+import QCSubmissionModal from '../../task/QCSubmissionModal';
 import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 import { useTaskContext } from '../../../context/TaskContext';
+import { useTasks } from '../../../hooks/useTasks';
+import { useToast } from '../../../context/ToastContext';
+import { supabase } from '../../../lib/supabase';
 
 import { motion } from 'framer-motion';
 
@@ -29,9 +33,13 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({
     tasks, masterOptions, users, currentUser, onOpenTask, onUpdateTask, onDeleteTask, isUltimate = false 
 }) => {
     const { showAlert } = useGlobalDialog();
+    const { showToast } = useToast();
+    const { handleSendToQC } = useTasks();
     const [activeModalColumn, setActiveModalColumn] = useState<ColumnType | null>(null);
     const [isDoneHistoryOpen, setIsDoneHistoryOpen] = useState(false);
     const [activeTab, setActiveTab] = useState<ColumnType>('TODO');
+    const [taskForQC, setTaskForQC] = useState<Task | null>(null);
+    const [isQCModalOpen, setIsQCModalOpen] = useState(false);
     const isAdmin = currentUser.role === 'ADMIN';
 
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -88,7 +96,7 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({
         };
     }, [tasks]);
 
-    const handleDropTask = (taskId: string, targetType: ColumnType) => {
+    const handleDropTask = async (taskId: string, targetType: ColumnType) => {
         const task = tasks.find(t => t.id === taskId);
         if (!task || !onUpdateTask) return;
 
@@ -100,14 +108,73 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({
         const currentType = getPhase(task.status as string);
         if (currentType === targetType) return;
 
+        // If dragging into WAITING column -> Trigger standard QC Submission flow
+        if (targetType === 'WAITING') {
+            const isAssigneeOrOwner = (task.assigneeIds || []).includes(currentUser.id) || isAdmin;
+            if (!isAssigneeOrOwner) {
+                showAlert('🔒 เฉพาะผู้รับผิดชอบงานหรือ Admin เท่านั้นที่สามารถส่งตรวจงานนี้ได้ครับ', 'ไม่มีสิทธิ์ส่งงาน');
+                return;
+            }
+
+            if (currentType === 'DONE') {
+                showAlert('งานชิ้นนี้อยู่ในสถานะเสร็จสมบูรณ์แล้ว ไม่จำเป็นต้องส่งตรวจซ้ำครับ', 'แจ้งเตือน');
+                return;
+            }
+
+            try {
+                const { data: reviews } = await supabase
+                    .from('task_reviews')
+                    .select('round, status')
+                    .eq('task_id', task.id)
+                    .order('round', { ascending: false });
+
+                if (reviews?.some(r => r.status === 'PENDING')) {
+                    const pendingRound = reviews.find(r => r.status === 'PENDING')?.round;
+                    await showAlert(`ตรวจพบรายการ "Draft ${pendingRound}" ที่รอการตรวจสอบอยู่แล้วในระบบ กรุณารอการตรวจสอบรอบนี้ให้เสร็จสิ้นก่อนครับ`, 'ไม่สามารถส่งงานได้');
+                    return;
+                }
+
+                setTaskForQC(task);
+                setIsQCModalOpen(true);
+            } catch (err: any) {
+                console.error("Submission check error:", err);
+                showToast(err.message || 'ตรวจสอบข้อมูลส่งตรวจไม่สำเร็จ', 'error');
+            }
+            return;
+        }
+
         let newStatus = task.status;
         if (targetType === 'TODO') newStatus = 'TODO';
         else if (targetType === 'DOING') newStatus = 'DOING';
         else if (targetType === 'DONE' && isAdmin) newStatus = 'DONE';
-        else if (targetType === 'WAITING') newStatus = task.type === 'CONTENT' ? 'FEEDBACK' : 'WAITING';
         else return;
 
         onUpdateTask({ ...task, status: newStatus });
+    };
+
+    const handleConfirmQCSubmit = async (notes: string, reviewerId: string) => {
+        if (!taskForQC || !currentUser) return;
+        try {
+            const assets = taskForQC.assets || [];
+            const submissionAssetUrl = assets.length > 0 ? assets[assets.length - 1].url : undefined;
+
+            const updatedTask = await handleSendToQC(
+                taskForQC,
+                currentUser,
+                notes || undefined,
+                submissionAssetUrl,
+                reviewerId
+            );
+
+            onUpdateTask?.(updatedTask);
+            await showAlert('ส่งงานเรียบร้อยแล้ว! 🚀 ผู้ตรวจที่คุณเลือกจะได้รับแจ้งเตือนทันที และงานจะย้ายไปที่ช่อง "รอตรวจ"', 'ส่งงานสำเร็จ');
+            setIsQCModalOpen(false);
+            setTaskForQC(null);
+        } catch (err: any) {
+            console.error("Drag to QC error:", err);
+            showToast(err.message || 'ส่งงานไม่สำเร็จ', 'error');
+            throw err;
+        }
     };
 
     const getModalData = () => {
@@ -200,8 +267,8 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({
                                 : isUltimate ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-700'
                         }`}
                     >
-                        <span className="text-[10px] font-black uppercase tracking-wider">To Do</span>
-                        <span className={`text-[10px] font-black mt-1 rounded-md px-1.5 py-0.2 ${
+                        <span className="text-[10px] font-bold uppercase tracking-wider">To Do</span>
+                        <span className={`text-[10px] font-bold mt-1 rounded-md px-1.5 py-0.2 ${
                             activeTab === 'TODO'
                                 ? isUltimate ? 'bg-indigo-400/20 text-indigo-300' : 'bg-slate-100 text-slate-700'
                                 : isUltimate ? 'bg-slate-950/40 text-slate-600' : 'bg-slate-200/60 text-slate-500'
@@ -220,8 +287,8 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({
                                 : isUltimate ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-700'
                         }`}
                     >
-                        <span className="text-[10px] font-black uppercase tracking-wider">Doing</span>
-                        <span className={`text-[10px] font-black mt-1 rounded-md px-1.5 py-0.2 ${
+                        <span className="text-[10px] font-bold uppercase tracking-wider">Doing</span>
+                        <span className={`text-[10px] font-bold mt-1 rounded-md px-1.5 py-0.2 ${
                             activeTab === 'DOING'
                                 ? isUltimate ? 'bg-purple-400/20 text-purple-300' : 'bg-indigo-100 text-indigo-800'
                                 : isUltimate ? 'bg-slate-950/40 text-slate-600' : 'bg-slate-200/60 text-slate-500'
@@ -240,8 +307,8 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({
                                 : isUltimate ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-700'
                         }`}
                     >
-                        <span className="text-[10px] font-black uppercase tracking-wider">Waiting</span>
-                        <span className={`text-[10px] font-black mt-1 rounded-md px-1.5 py-0.2 ${
+                        <span className="text-[10px] font-bold uppercase tracking-wider">Waiting</span>
+                        <span className={`text-[10px] font-bold mt-1 rounded-md px-1.5 py-0.2 ${
                             activeTab === 'WAITING'
                                 ? isUltimate ? 'bg-amber-400/20 text-amber-300' : 'bg-amber-100 text-amber-800'
                                 : isUltimate ? 'bg-slate-950/40 text-slate-600' : 'bg-slate-200/60 text-slate-500'
@@ -260,8 +327,8 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({
                                 : isUltimate ? 'text-slate-500 hover:text-slate-300' : 'text-slate-400 hover:text-slate-700'
                         }`}
                     >
-                        <span className="text-[10px] font-black uppercase tracking-wider">Done</span>
-                        <span className={`text-[10px] font-black mt-1 rounded-md px-1.5 py-0.2 ${
+                        <span className="text-[10px] font-bold uppercase tracking-wider">Done</span>
+                        <span className={`text-[10px] font-bold mt-1 rounded-md px-1.5 py-0.2 ${
                             activeTab === 'DONE'
                                 ? isUltimate ? 'bg-emerald-400/20 text-emerald-300' : 'bg-emerald-100 text-emerald-800'
                                 : isUltimate ? 'bg-slate-950/40 text-slate-600' : 'bg-slate-200/60 text-slate-500'
@@ -315,8 +382,8 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({
                             tasks={waitingTasks} 
                             users={users}
                             masterOptions={masterOptions}
-                            isDroppable={false}
-                            onDropTask={() => {}}
+                            isDroppable={true}
+                            onDropTask={handleDropTask}
                             onOpenTask={onOpenTask}
                             onDeleteTask={onDeleteTask}
                             onViewAll={() => setActiveModalColumn('WAITING')}
@@ -358,6 +425,23 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({
                 tasks={allDoneTasks}
                 onOpenTask={onOpenTask}
             />
+
+            {/* QC Submission Modal on Drag to Waiting */}
+            {taskForQC && currentUser && (
+                <QCSubmissionModal 
+                    isOpen={isQCModalOpen}
+                    onClose={() => {
+                        setIsQCModalOpen(false);
+                        setTaskForQC(null);
+                    }}
+                    onSubmit={handleConfirmQCSubmit}
+                    task={taskForQC}
+                    users={users}
+                    masterOptions={masterOptions}
+                    currentUser={currentUser}
+                    assets={taskForQC.assets || []}
+                />
+            )}
         </motion.div>
     );
 };

@@ -1,10 +1,14 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { supabase } from './lib/supabase';
 import LandingPage from './components/landing/LandingPage';
 import AuthPage from './components/AuthPage';
+import {
+  SkyCloudCurtainTransition,
+  type CloudCurtainPhase,
+  type CloudCurtainDirection,
+} from './components/landing/SkyCloudCurtainTransition';
 import AppRouter from './routes/AppRouter';
 import { BRAND_CONFIG } from './config/brand';
 import PublicScriptViewer from './components/public/PublicScriptViewer';
@@ -39,6 +43,7 @@ import { Loader2 } from 'lucide-react';
 import {
   AuthPortalTransition,
   consumeAuthPortalTransition,
+  peekAuthPortalTransition,
   type AuthPortalMode,
 } from './components/auth/AuthPortalTransition';
 
@@ -113,6 +118,61 @@ function App() {
     return BRAND_CONFIG.initialRouteMode === 2 || params.has('claim_org') || params.has('join_org');
   });
   const [isRecoveryMode, setIsRecoveryMode] = useState(false);
+  const [isWorkspaceReady, setIsWorkspaceReady] = useState(false);
+  const [portalMode, setPortalMode] = useState<AuthPortalMode | null>(() =>
+    peekAuthPortalTransition()
+  );
+
+  useEffect(() => {
+    const handlePortalEvent = (e: Event) => {
+      const customEvent = e as CustomEvent<{ mode?: AuthPortalMode }>;
+      const mode = customEvent.detail?.mode;
+      if (mode && mode !== 'REGISTER_JOIN') {
+        setPortalMode(mode);
+      }
+    };
+    window.addEventListener('juijui-auth-portal-start', handlePortalEvent);
+    return () => window.removeEventListener('juijui-auth-portal-start', handlePortalEvent);
+  }, []);
+
+  // --- SKY CLOUD CURTAIN TRANSITION STATE (LandingPage <-> AuthPage) ---
+  const [cloudPhase, setCloudPhase] = useState<CloudCurtainPhase>('IDLE');
+  const [cloudDirection, setCloudDirection] = useState<CloudCurtainDirection>('TO_AUTH');
+  const swapTimerRef = useRef<number | null>(null);
+  const endTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (swapTimerRef.current) window.clearTimeout(swapTimerRef.current);
+      if (endTimerRef.current) window.clearTimeout(endTimerRef.current);
+    };
+  }, []);
+
+  const triggerCloudRouteChange = useCallback(
+    (targetShowLogin: boolean) => {
+      if (cloudPhase !== 'IDLE') return;
+
+      const direction: CloudCurtainDirection = targetShowLogin ? 'TO_AUTH' : 'TO_LANDING';
+      setCloudDirection(direction);
+      setCloudPhase('COVERING');
+
+      // Stage 2 (480ms): Swap scene while 3D cloud curtain blankets the viewport
+      swapTimerRef.current = window.setTimeout(() => {
+        setShowLogin(targetShowLogin);
+        if (!targetShowLogin) {
+          window.scrollTo({ top: 0, behavior: 'instant' as ScrollBehavior });
+        }
+        // Stage 3: Part clouds laterally to reveal the already-mounted destination page
+        setCloudPhase('PARTING');
+      }, 480);
+
+      // Complete at 1100ms
+      endTimerRef.current = window.setTimeout(() => {
+        setCloudPhase('IDLE');
+      }, 1100);
+    },
+    [cloudPhase]
+  );
 
   // --- INITIAL AUTH CHECK ---
   useEffect(() => {
@@ -135,6 +195,10 @@ function App() {
         } else {
           // Only set standard session if we're not actively handling recovery on initial mount
           if (session && !window.location.hash.includes('type=recovery')) {
+            const pendingMode = peekAuthPortalTransition();
+            if (pendingMode && pendingMode !== 'REGISTER_JOIN') {
+              setPortalMode(pendingMode);
+            }
             setSession(session);
           }
         }
@@ -153,6 +217,7 @@ function App() {
       if (event === 'SIGNED_OUT') {
         setSession(null);
         setIsRecoveryMode(false);
+        setIsWorkspaceReady(false);
       } else if (event === 'PASSWORD_RECOVERY') {
         setIsRecoveryMode(true);
         setShowLogin(true);
@@ -160,6 +225,10 @@ function App() {
       } else if (session) {
         // If we are currently in recovery mode, don't let the authed app load yet
         if (!isRecoveryMode) {
+          const pendingMode = peekAuthPortalTransition();
+          if (pendingMode && pendingMode !== 'REGISTER_JOIN') {
+            setPortalMode(pendingMode);
+          }
           setSession(session);
         }
       }
@@ -211,52 +280,51 @@ function App() {
       </motion.div>
     );
   } else if (!session) {
-    if (showLogin) {
-      content = (
-        <motion.div
-          key="auth"
-          initial={{ opacity: 0, y: 25, filter: "blur(4px)" }}
-          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-          exit={{ opacity: 0, y: 25, filter: "blur(4px)" }}
-          transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-          className="min-h-[100dvh] h-[100dvh] overflow-hidden scrollbar-hide"
-        >
-          <AuthPage onLoginSuccess={() => {}} onBack={() => setShowLogin(false)} />
-        </motion.div>
-      );
-    } else {
-      content = (
-        <motion.div
-          key="landing"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] as const }}
-        >
+    content = (
+      <motion.div
+        key="unauthenticated-stage"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] as const }}
+      >
+        {showLogin ? (
+          <div className="min-h-[100dvh] h-[100dvh] overflow-hidden scrollbar-hide">
+            <AuthPage
+              onLoginSuccess={() => {}}
+              onBack={() => triggerCloudRouteChange(false)}
+              isZoomingOut={cloudPhase === 'COVERING' && cloudDirection === 'TO_LANDING'}
+            />
+          </div>
+        ) : (
           <LandingPage
+            isZoomingOut={cloudPhase === 'COVERING' && cloudDirection === 'TO_AUTH'}
             onGoToLogin={() => {
               setDemoIntentFlag(false);
-              setShowLogin(true);
+              triggerCloudRouteChange(true);
             }}
             onStartDemo={() => {
               setDemoIntentFlag(true);
-              setShowLogin(true);
+              triggerCloudRouteChange(true);
             }}
           />
-        </motion.div>
-      );
-    }
+        )}
+      </motion.div>
+    );
   } else {
     content = (
       <motion.div
         key="app"
-        initial={{ opacity: 0, scale: 0.99 }}
+        initial={{ opacity: 0, scale: 0.985 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.5 }}
+        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] as const }}
       >
         <QueryClientProvider client={queryClient}>
-          <AuthenticatedApp user={session.user} />
+          <AuthenticatedApp
+            user={session.user}
+            onWorkspaceReadyChange={setIsWorkspaceReady}
+          />
         </QueryClientProvider>
       </motion.div>
     );
@@ -266,14 +334,31 @@ function App() {
     <>
       <PWAReloadPrompt />
       {!session && <LinePendingBanner />}
-      <AnimatePresence mode="wait">
+      <SkyCloudCurtainTransition phase={cloudPhase} direction={cloudDirection} />
+      {portalMode && (
+        <AuthPortalTransition
+          mode={portalMode}
+          isWorkspaceReady={Boolean(session && isWorkspaceReady)}
+          onComplete={() => {
+            consumeAuthPortalTransition();
+            setPortalMode(null);
+          }}
+        />
+      )}
+      <AnimatePresence mode={portalMode ? 'sync' : 'wait'}>
         {content}
       </AnimatePresence>
     </>
   );
 }
 
-function AuthenticatedApp({ user }: { user: any }) {
+function AuthenticatedApp({
+  user,
+  onWorkspaceReadyChange,
+}: {
+  user: any;
+  onWorkspaceReadyChange: (ready: boolean) => void;
+}) {
   return (
     <GoogleDriveProvider>
       <MasterDataProvider>
@@ -281,7 +366,10 @@ function AuthenticatedApp({ user }: { user: any }) {
           <DemoSandboxProvider sessionUser={user}>
             <OrganizationProvider>
               <StorageProvider>
-                <AuthenticatedAppInner user={user} />
+                <AuthenticatedAppInner
+                  user={user}
+                  onWorkspaceReadyChange={onWorkspaceReadyChange}
+                />
               </StorageProvider>
             </OrganizationProvider>
           </DemoSandboxProvider>
@@ -291,27 +379,22 @@ function AuthenticatedApp({ user }: { user: any }) {
   );
 }
 
-function AuthenticatedAppInner({ user }: { user: any }) {
+function AuthenticatedAppInner({
+  user,
+  onWorkspaceReadyChange,
+}: {
+  user: any;
+  onWorkspaceReadyChange: (ready: boolean) => void;
+}) {
   const { currentUserProfile, isReady } = useUserSession();
   const { isReady: isOrgReady, isSuperAdmin, isInSuperAdminPortal } = useOrganization();
   const { masterOptions } = useMasterData();
-  const [portalMode, setPortalMode] = useState<AuthPortalMode | null>(() =>
-    consumeAuthPortalTransition()
-  );
-
-  useEffect(() => {
-    const handlePortalEvent = (e: Event) => {
-      const customEvent = e as CustomEvent<{ mode?: AuthPortalMode }>;
-      if (customEvent.detail?.mode) {
-        consumeAuthPortalTransition();
-        setPortalMode(customEvent.detail.mode);
-      }
-    };
-    window.addEventListener('juijui-auth-portal-start', handlePortalEvent);
-    return () => window.removeEventListener('juijui-auth-portal-start', handlePortalEvent);
-  }, []);
 
   const workspaceReady = isReady && isOrgReady;
+
+  useEffect(() => {
+    onWorkspaceReadyChange(workspaceReady);
+  }, [workspaceReady, onWorkspaceReadyChange]);
 
   // Active policy gatekeeper check
   const activePolicy = masterOptions.find(o => o.type === 'SYSTEM_POLICY' && o.key === 'TERMS_OF_SERVICE');
@@ -320,58 +403,54 @@ function AuthenticatedAppInner({ user }: { user: any }) {
 
   return (
     <>
-      {portalMode && (
-        <AuthPortalTransition
-          mode={portalMode}
-          isWorkspaceReady={workspaceReady}
-          onComplete={() => {
-            consumeAuthPortalTransition();
-            setPortalMode(null);
-          }}
-        />
-      )}
-
       {!workspaceReady ? (
-        <div className="flex h-screen items-center justify-center bg-slate-900 flex-col">
-          <Loader2 className="w-12 h-12 animate-spin text-indigo-500 mb-4" />
-          <p className="text-slate-300 animate-pulse font-medium">กำลังเตรียมข้อมูลระบบ...</p>
+        <div
+          className="flex h-screen items-center justify-center flex-col select-none"
+          style={{
+            background:
+              'radial-gradient(circle at 50% 35%, rgba(255,255,255,0.98) 0%, rgba(252,231,243,0.92) 32%, rgba(224,242,254,0.94) 68%, rgba(243,232,255,0.96) 100%)',
+          }}
+        >
+          <Loader2 className="w-10 h-10 animate-spin text-rose-400 mb-3" />
+          <p className="text-slate-600 font-bold text-sm">กำลังจัดเตรียมพื้นที่สตูดิโอของคุณ...</p>
         </div>
-      ) : isSuperAdmin && isInSuperAdminPortal ? (
+      ) : (
         <>
           <WorkspaceSwitcherModal />
-          <SuperAdminPortalView />
-        </>
-      ) : (
-        <NotificationProvider currentUser={currentUserProfile}>
-          {needsPolicyAcceptance && (
-            <GatekeeperOverlay activePolicy={activePolicy} userAcceptedVersion={userAcceptedVersion} />
+          {isSuperAdmin && isInSuperAdminPortal ? (
+            <SuperAdminPortalView />
+          ) : (
+            <NotificationProvider currentUser={currentUserProfile}>
+              {needsPolicyAcceptance && (
+                <GatekeeperOverlay activePolicy={activePolicy} userAcceptedVersion={userAcceptedVersion} />
+              )}
+              <WorkboxProvider currentUser={currentUserProfile}>
+                <ChecklistProvider>
+                  <KPIProvider>
+                    <FinanceProvider>
+                      <WikiProvider>
+                        <GameConfigProvider>
+                          <MeetingProvider>
+                            <TaskProvider>
+                              <ShootQueueProvider>
+                                <GlobalRealtimeSync />
+                                <LineUserIdLinker />
+                                <ScreenSessionLimiter user={user} />
+                                <DemoSandboxHudBar />
+                                <SuperAdminWorkspaceBanner />
+                                <AppRouter user={user} />
+                              </ShootQueueProvider>
+                            </TaskProvider>
+                          </MeetingProvider>
+                        </GameConfigProvider>
+                      </WikiProvider>
+                    </FinanceProvider>
+                  </KPIProvider>
+                </ChecklistProvider>
+              </WorkboxProvider>
+            </NotificationProvider>
           )}
-          <WorkboxProvider currentUser={currentUserProfile}>
-            <ChecklistProvider>
-              <KPIProvider>
-                <FinanceProvider>
-                  <WikiProvider>
-                    <GameConfigProvider>
-                      <MeetingProvider>
-                        <TaskProvider>
-                          <ShootQueueProvider>
-                            <GlobalRealtimeSync />
-                            <LineUserIdLinker />
-                            <ScreenSessionLimiter user={user} />
-                            <WorkspaceSwitcherModal />
-                            <DemoSandboxHudBar />
-                            <SuperAdminWorkspaceBanner />
-                            <AppRouter user={user} />
-                          </ShootQueueProvider>
-                        </TaskProvider>
-                      </MeetingProvider>
-                    </GameConfigProvider>
-                  </WikiProvider>
-                </FinanceProvider>
-              </KPIProvider>
-            </ChecklistProvider>
-          </WorkboxProvider>
-        </NotificationProvider>
+        </>
       )}
     </>
   );

@@ -84,11 +84,17 @@ const FEATURE_LIST = [
   },
 ];
 
-const Features: React.FC = () => {
+interface FeaturesProps {
+  featureVideos?: Record<string, { videoUrl: string; durationLabel?: string; description?: string }>;
+}
+
+const Features: React.FC<FeaturesProps> = ({ featureVideos }) => {
   const [selectedFeature, setSelectedFeature] = useState<FeatureVideoItem | null>(null);
 
   const enrichedFeatures: FeatureVideoItem[] = useMemo(() => {
-    const videoConfigMap = BRAND_CONFIG.featureShowcaseVideos || {};
+    const defaultMap = BRAND_CONFIG.featureShowcaseVideos || {};
+    const videoConfigMap = { ...defaultMap, ...(featureVideos || {}) };
+
     return FEATURE_LIST.map((f) => {
       const videoMeta = videoConfigMap[f.id];
       return {
@@ -98,7 +104,7 @@ const Features: React.FC = () => {
         videoDescription: videoMeta?.description || f.desc,
       };
     });
-  }, []);
+  }, [featureVideos]);
 
   return (
     <section className="relative z-10 py-20 md:py-24 font-google-sans">

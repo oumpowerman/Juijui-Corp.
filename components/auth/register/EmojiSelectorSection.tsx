@@ -22,7 +22,7 @@ export const EmojiSelectorSection: React.FC<EmojiSelectorSectionProps> = ({
       }`}
     >
       <div className="flex justify-between items-center">
-        <label className="text-xs font-black text-indigo-950 flex items-center gap-1.5 uppercase">
+        <label className="text-xs font-bold text-indigo-950 flex items-center gap-1.5 uppercase">
           <span>✨ เลือกอิโมจิประจำตัว *</span>
           <span className="text-[10px] font-medium text-indigo-400 font-sans lowercase">
             (ใช้สำหรับวิ่งบนลู่วิ่งแข่ง และสะสมแต้ม)

@@ -7,6 +7,8 @@ import { subDays, format } from 'date-fns';
 import { mapAttendanceLog } from '../hooks/attendance/shared';
 import { calculateLevel } from '../lib/gameLogic';
 import { mapCompanyFromDB } from '../hooks/useCompanies';
+import { getActiveOrgIdSync, getExplicitActiveOrgIdSync } from '../lib/tenantStorage';
+import { PRIMARY_DEFAULT_ORG_ID } from '../lib/multiTenantMigrationSql';
 
 interface UserSessionContextType {
     isReady: boolean;
@@ -352,8 +354,39 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
                 }
             }
 
+            const resolvedOrgId =
+                getExplicitActiveOrgIdSync() ||
+                currentData?.current_org_id ||
+                getActiveOrgIdSync();
+
+            // Fetch organization_members for the active organization so allUsers / activeUsers are isolated per workspace
+            let orgMemberUserIds = new Set<string>();
+            if (sessionUser?.id) orgMemberUserIds.add(sessionUser.id);
+            try {
+                const { data: orgMemberRows } = await supabase
+                    .from('organization_members')
+                    .select('user_id')
+                    .eq('org_id', resolvedOrgId)
+                    .neq('status', 'REJECTED');
+                if (orgMemberRows && orgMemberRows.length > 0) {
+                    orgMemberRows.forEach((m: any) => {
+                        if (m.user_id) orgMemberUserIds.add(m.user_id);
+                    });
+                }
+            } catch (e) {
+                console.warn('[UserSessionContext] Could not query organization_members:', e);
+            }
+
             const userMap = new Map<string, any>();
-            activeData.forEach(p => userMap.set(p.id, p));
+            activeData.forEach(p => {
+                const belongsToActiveOrg =
+                    orgMemberUserIds.has(p.id) ||
+                    p.current_org_id === resolvedOrgId ||
+                    (orgMemberUserIds.size <= 1 && resolvedOrgId === PRIMARY_DEFAULT_ORG_ID);
+                if (belongsToActiveOrg) {
+                    userMap.set(p.id, p);
+                }
+            });
             if (currentData) userMap.set(currentData.id, currentData);
 
             const mergedData = Array.from(userMap.values());
@@ -381,12 +414,24 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
                         });
                 }
                 
-                // 2. Fetch attendance and leaves based on role
+                // 2. Fetch attendance and leaves scoped strictly to resolvedOrgId
                 const isAdmin = current.role === 'ADMIN';
                 
-                let attendanceQuery = supabase.from('attendance_logs').select('*').gte('date', thirtyDaysAgo);
-                let leavesQuery = supabase.from('leave_requests').select('*').gte('end_date', sixtyDaysAgo);
-                let otQuery = supabase.from('ot_requests').select('*').gte('date', sixtyDaysAgo);
+                let attendanceQuery = supabase
+                    .from('attendance_logs')
+                    .select('*')
+                    .eq('org_id', resolvedOrgId)
+                    .gte('date', thirtyDaysAgo);
+                let leavesQuery = supabase
+                    .from('leave_requests')
+                    .select('*')
+                    .eq('org_id', resolvedOrgId)
+                    .gte('end_date', sixtyDaysAgo);
+                let otQuery = supabase
+                    .from('ot_requests')
+                    .select('*')
+                    .eq('org_id', resolvedOrgId)
+                    .gte('date', sixtyDaysAgo);
 
                 if (!isAdmin) {
                     attendanceQuery = attendanceQuery.eq('user_id', sessionUser.id);
@@ -403,9 +448,9 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
                     })
                 ]);
 
-                if (attendanceRes.data) setAttendanceLogs(attendanceRes.data.map(mapAttendanceLog));
-                if (leavesRes.data) setLeaveRequests(leavesRes.data.filter((r: any) => r.type !== 'OVERTIME').map(mapLeaveRequest));
-                if (otRes.data) setOtRequests(otRes.data.map(mapOtRequest));
+                setAttendanceLogs(attendanceRes.data ? attendanceRes.data.map(mapAttendanceLog) : []);
+                setLeaveRequests(leavesRes.data ? leavesRes.data.filter((r: any) => r.type !== 'OVERTIME').map(mapLeaveRequest) : []);
+                setOtRequests(otRes.data ? otRes.data.map(mapOtRequest) : []);
             }
 
         } catch (error) {
@@ -645,8 +690,13 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
             const today = new Date();
             const thirtyDaysAgo = format(subDays(today, 30), 'yyyy-MM-dd');
             const isAdmin = currentUserProfile.role === 'ADMIN';
+            const activeOrgId = getActiveOrgIdSync();
 
-            let query = supabase.from('attendance_logs').select('*').gte('date', thirtyDaysAgo);
+            let query = supabase
+                .from('attendance_logs')
+                .select('*')
+                .eq('org_id', activeOrgId)
+                .gte('date', thirtyDaysAgo);
             if (!isAdmin) query = query.eq('user_id', sessionUser.id);
 
             const { data, error } = await query;
@@ -663,8 +713,13 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
             const today = new Date();
             const sixtyDaysAgo = format(subDays(today, 60), 'yyyy-MM-dd');
             const isAdmin = currentUserProfile.role === 'ADMIN';
+            const activeOrgId = getActiveOrgIdSync();
 
-            let query = supabase.from('leave_requests').select('*').gte('end_date', sixtyDaysAgo);
+            let query = supabase
+                .from('leave_requests')
+                .select('*')
+                .eq('org_id', activeOrgId)
+                .gte('end_date', sixtyDaysAgo);
             if (!isAdmin) query = query.eq('user_id', sessionUser.id);
 
             const { data, error } = await query;
@@ -681,8 +736,13 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
             const today = new Date();
             const sixtyDaysAgo = format(subDays(today, 60), 'yyyy-MM-dd');
             const isAdmin = currentUserProfile.role === 'ADMIN';
+            const activeOrgId = getActiveOrgIdSync();
 
-            let query = supabase.from('ot_requests').select('*').gte('date', sixtyDaysAgo);
+            let query = supabase
+                .from('ot_requests')
+                .select('*')
+                .eq('org_id', activeOrgId)
+                .gte('date', sixtyDaysAgo);
             if (!isAdmin) query = query.eq('user_id', sessionUser.id);
 
             const { data, error } = await Promise.resolve(query).catch(err => {
@@ -699,14 +759,23 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
     // --- TEAM ACTIONS (From useTeam) ---
     const fetchTeamMembers = async () => {
         try {
-            const { data, error } = await supabase
-                .from('profiles')
-                .select('*')
-                .order('full_name', { ascending: true });
+            const activeOrgId = getActiveOrgIdSync();
+            const [profilesRes, orgMembersRes] = await Promise.all([
+                supabase.from('profiles').select('*').order('full_name', { ascending: true }),
+                supabase.from('organization_members').select('user_id').eq('org_id', activeOrgId).neq('status', 'REJECTED')
+            ]);
                 
-            if (error) throw error;
-            if (data) {
-                const mapped = data.map(mapProfileToUser);
+            if (profilesRes.error) throw profilesRes.error;
+            if (profilesRes.data) {
+                const memberIds = new Set<string>((orgMembersRes.data || []).map((m: any) => m.user_id).filter(Boolean));
+                if (sessionUser?.id) memberIds.add(sessionUser.id);
+                const filtered = profilesRes.data.filter(
+                    (p: any) =>
+                        memberIds.has(p.id) ||
+                        p.current_org_id === activeOrgId ||
+                        (memberIds.size <= 1 && activeOrgId === PRIMARY_DEFAULT_ORG_ID)
+                );
+                const mapped = filtered.map(mapProfileToUser);
                 setAllUsers(mapped);
             }
         } catch (err: any) {
@@ -833,6 +902,9 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
             }
         };
         const handleWorkspaceSwitch = () => {
+            setAttendanceLogs([]);
+            setLeaveRequests([]);
+            setOtRequests([]);
             fetchInitialData();
         };
         document.addEventListener('visibilitychange', handleVisibilityChange);

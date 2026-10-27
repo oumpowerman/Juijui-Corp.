@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { Sparkles, User, Briefcase, Mail, Phone, Lock, Quote, ArrowRight, Loader2, Building2, KeyRound, ShieldCheck, Users } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Sparkles, User, Briefcase, Mail, Phone, Lock, Quote, ArrowRight, Loader2, Building2, KeyRound, CheckCircle2, Crown, AlertTriangle, X } from 'lucide-react';
 import FormInputField from '../common/FormInputField';
 import FormTextareaField from '../common/FormTextareaField';
 import FilterDropdown from '../common/FilterDropdown';
@@ -10,6 +10,7 @@ import TermsCheckbox from './register/TermsCheckbox';
 import TermsOfServiceModal from './register/TermsOfServiceModal';
 import { supabase } from '../../lib/supabase';
 import { Company } from '../../types';
+import { OnboardingCodeVerificationStatus, VerifiedOrgInfo } from '../../hooks/auth/useRegisterForm';
 
 export interface RegisterFormProps {
   email: string;
@@ -43,6 +44,8 @@ export interface RegisterFormProps {
   setOnboardingMode?: (mode: 'JOIN_TEAM' | 'CREATE_TRIAL') => void;
   newOrgName?: string;
   setNewOrgName?: (val: string) => void;
+  codeVerificationStatus?: OnboardingCodeVerificationStatus;
+  verifiedOrgInfo?: VerifiedOrgInfo | null;
   
   positions: { key: string; label: string }[];
   avatarPreview: string | null;
@@ -57,6 +60,7 @@ export interface RegisterFormProps {
 }
 
 const FORM_FIELDS_ORDER = [
+  'onboardingCode',
   'avatarPreview',
   'firstName',
   'lastName',
@@ -104,6 +108,8 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
   setOnboardingMode,
   newOrgName = '',
   setNewOrgName,
+  codeVerificationStatus = 'IDLE',
+  verifiedOrgInfo = null,
   positions,
   avatarPreview,
   isConvertingImg,
@@ -123,12 +129,13 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
   useEffect(() => {
     const fetchPolicy = async () => {
       try {
-        const { data } = await supabase
+        const { data: rows } = await supabase
           .from('master_options')
           .select('*')
           .eq('type', 'SYSTEM_POLICY')
           .eq('key', 'TERMS_OF_SERVICE')
-          .maybeSingle();
+          .limit(1);
+        const data = rows?.[0];
         if (data) {
           setPolicyData({
             title: data.label || 'ข้อตกลงและเงื่อนไขการปฏิบัติงาน',
@@ -155,6 +162,14 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
   const handleFormSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const newErrors: Record<string, string> = {};
+
+    if (onboardingMode === 'JOIN_TEAM' && onboardingCode.trim()) {
+      if (codeVerificationStatus === 'VERIFYING') {
+        newErrors.onboardingCode = 'กำลังตรวจสอบรหัสองค์กร กรุณารอสักครู่นะครับ';
+      } else if (codeVerificationStatus === 'INVALID') {
+        newErrors.onboardingCode = 'ไม่พบรหัสเชิญนี้ในระบบ กรุณาตรวจสอบความถูกต้อง หรือลบออกหากต้องการกรอกภายหลัง';
+      }
+    }
 
     if (!avatarPreview) {
       newErrors.avatarPreview = 'กรุณาอัปโหลดรูปภาพโปรไฟล์ของคุณนะครับ';
@@ -241,7 +256,21 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
   };
 
   const trimmedCode = onboardingCode.trim().toUpperCase();
-  const isClaimTokenFormat = trimmedCode.startsWith('CLAIM-') || trimmedCode.startsWith('OWN-');
+  const isVerifiedClaim = codeVerificationStatus === 'VERIFIED' && verifiedOrgInfo?.type === 'CLAIM';
+  const isVerifiedInvite = codeVerificationStatus === 'VERIFIED' && verifiedOrgInfo?.type === 'INVITE';
+
+  const onboardingContainerStyle =
+    onboardingMode === 'CREATE_TRIAL'
+      ? 'bg-indigo-50/70 border-indigo-200 shadow-sm'
+      : codeVerificationStatus === 'VERIFIED'
+      ? isVerifiedClaim
+        ? 'bg-gradient-to-br from-emerald-50/90 via-teal-50/75 to-amber-50/60 border-emerald-300 shadow-sm ring-2 ring-emerald-100/80'
+        : 'bg-emerald-50/85 border-emerald-300 shadow-sm ring-2 ring-emerald-100/70'
+      : codeVerificationStatus === 'INVALID'
+      ? 'bg-rose-50/75 border-rose-300 shadow-sm ring-2 ring-rose-100/70'
+      : codeVerificationStatus === 'VERIFYING'
+      ? 'bg-indigo-50/55 border-indigo-200 shadow-sm'
+      : 'bg-slate-50/80 border-slate-200/80';
 
   return (
     <>
@@ -249,21 +278,16 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
         {/* Multi-Tenant Onboarding Mode Selector: Join Team vs Start 7-Day Free Trial */}
         <div
           id="register-onboardingCode-container"
-          className={`p-4 rounded-2xl border transition-all duration-300 ${
-            onboardingMode === 'CREATE_TRIAL'
-              ? 'bg-indigo-50/70 border-indigo-200 shadow-sm'
-              : trimmedCode
-              ? isClaimTokenFormat
-                ? 'bg-emerald-50/70 border-emerald-200 shadow-sm'
-                : 'bg-indigo-50/70 border-indigo-200 shadow-sm'
-              : 'bg-slate-50/80 border-slate-200/80'
-          }`}
+          className={`p-4 rounded-2xl border transition-all duration-300 ${onboardingContainerStyle}`}
         >
           {setOnboardingMode && (
             <div className="grid grid-cols-2 gap-1.5 p-1 bg-slate-200/70 rounded-xl mb-3">
               <button
                 type="button"
-                onClick={() => setOnboardingMode('JOIN_TEAM')}
+                onClick={() => {
+                  setOnboardingMode('JOIN_TEAM');
+                  clearError('onboardingCode');
+                }}
                 className={`py-2 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                   onboardingMode === 'JOIN_TEAM'
                     ? 'bg-white text-slate-900 shadow-sm'
@@ -278,6 +302,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
                 onClick={() => {
                   setOnboardingMode('CREATE_TRIAL');
                   clearError('companyId');
+                  clearError('onboardingCode');
                 }}
                 className={`py-2 px-2.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
                   onboardingMode === 'CREATE_TRIAL'
@@ -317,39 +342,176 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
             <>
               <div className="flex items-center justify-between gap-2 mb-1.5">
                 <label className="text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                  <KeyRound className={`w-4 h-4 ${trimmedCode ? (isClaimTokenFormat ? 'text-emerald-600' : 'text-indigo-600') : 'text-slate-400'}`} />
+                  <KeyRound
+                    className={`w-4 h-4 transition-colors ${
+                      codeVerificationStatus === 'VERIFIED'
+                        ? 'text-emerald-600'
+                        : codeVerificationStatus === 'INVALID'
+                        ? 'text-rose-500'
+                        : codeVerificationStatus === 'VERIFYING'
+                        ? 'text-indigo-600'
+                        : 'text-slate-400'
+                    }`}
+                  />
                   <span>รหัสเชิญเข้าทีม / รหัสรับมอบองค์กร (ถ้ามี)</span>
                 </label>
-                <span className="text-[11px] font-semibold text-slate-400">เว้นว่างเพื่อกรอกทีหลังได้</span>
+                <span className="text-[11px] font-semibold text-slate-400">
+                  เว้นว่างเพื่อกรอกทีหลังได้
+                </span>
               </div>
 
-              <input
-                type="text"
-                value={onboardingCode}
-                onChange={(e) => setOnboardingCode?.(e.target.value.toUpperCase())}
-                placeholder="เช่น ORG-XXXX หรือ CLAIM-XXXXXX-XXXXXX"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none font-mono text-sm font-bold text-slate-800 placeholder:font-sans placeholder:font-normal placeholder:text-slate-400 transition-all uppercase tracking-wider"
-              />
+              <div className="relative flex items-center">
+                <input
+                  type="text"
+                  value={onboardingCode}
+                  onChange={(e) => {
+                    setOnboardingCode?.(e.target.value.toUpperCase());
+                    clearError('onboardingCode');
+                  }}
+                  placeholder="เช่น ORG-XXXX หรือ CLAIM-XXXXXX-XXXXXX"
+                  className={`w-full pl-3.5 pr-16 py-2.5 rounded-xl bg-white border outline-none font-mono tabular-nums text-sm font-bold text-slate-800 placeholder:font-sans placeholder:font-normal placeholder:text-slate-400 transition-all uppercase tracking-wider ${
+                    codeVerificationStatus === 'VERIFIED'
+                      ? 'border-emerald-400 focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100 text-emerald-900'
+                      : codeVerificationStatus === 'INVALID' || errors.onboardingCode
+                      ? 'border-rose-300 focus:border-rose-500 focus:ring-2 focus:ring-rose-100 text-rose-900'
+                      : codeVerificationStatus === 'VERIFYING'
+                      ? 'border-indigo-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100'
+                      : 'border-slate-200 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100'
+                  }`}
+                />
 
-              {trimmedCode ? (
-                <div className={`mt-2 flex items-center gap-2 text-xs font-bold ${isClaimTokenFormat ? 'text-emerald-700' : 'text-indigo-700'}`}>
-                  {isClaimTokenFormat ? (
-                    <>
-                      <ShieldCheck className="w-4 h-4 shrink-0 text-emerald-600" />
-                      <span>รหัสรับมอบองค์กร (Owner Claim): ปลดล็อกสิทธิ์ OWNER และเข้าใช้งานทันทีหลังสมัคร</span>
-                    </>
-                  ) : (
-                    <>
-                      <Users className="w-4 h-4 shrink-0 text-indigo-600" />
-                      <span>รหัสเชิญเข้าทีม (Invite Code): ระบบจะส่งคำขอเข้าร่วมองค์กรให้อัตโนมัติ</span>
-                    </>
+                {/* Right-side status icon + quick clear button */}
+                <div className="absolute right-2.5 flex items-center gap-1">
+                  {codeVerificationStatus === 'VERIFYING' && (
+                    <Loader2 className="w-4 h-4 text-indigo-500 animate-spin" />
+                  )}
+                  {codeVerificationStatus === 'VERIFIED' && (
+                    <motion.span
+                      initial={{ scale: 0.5, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      transition={{ type: 'spring', stiffness: 360, damping: 22 }}
+                      className="flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 text-emerald-600"
+                    >
+                      {isVerifiedClaim ? (
+                        <Crown className="w-3.5 h-3.5 text-amber-600" />
+                      ) : (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                      )}
+                    </motion.span>
+                  )}
+                  {codeVerificationStatus === 'INVALID' && (
+                    <motion.span
+                      initial={{ scale: 0.5, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      className="flex items-center justify-center w-5 h-5 rounded-full bg-rose-100 text-rose-600"
+                    >
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                    </motion.span>
+                  )}
+                  {trimmedCode && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOnboardingCode?.('');
+                        clearError('onboardingCode');
+                      }}
+                      title="ล้างรหัสเชิญ"
+                      className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
                   )}
                 </div>
-              ) : (
-                <p className="mt-1.5 text-[11px] font-semibold text-slate-500">
-                  หากคุณได้รับรหัสจากหัวหน้าทีมหรือลิงก์เปิดองค์กรใหม่ สามารถกรอกที่นี่ หรือข้ามไปกรอกในหน้ารออนุมัติภายหลังได้ครับ
-                </p>
-              )}
+              </div>
+
+              {/* 4-State Animated Verification Banner */}
+              <AnimatePresence mode="wait" initial={false}>
+                {codeVerificationStatus === 'VERIFYING' ? (
+                  <motion.div
+                    key="state-verifying"
+                    initial={{ opacity: 0, y: -4 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.18, ease: 'easeOut' }}
+                    className="mt-2.5 flex items-center gap-2 text-xs font-semibold text-indigo-600"
+                  >
+                    <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+                    <span>กำลังตรวจสอบรหัสองค์กร...</span>
+                  </motion.div>
+                ) : codeVerificationStatus === 'VERIFIED' && verifiedOrgInfo ? (
+                  <motion.div
+                    key={`state-verified-${verifiedOrgInfo.id}`}
+                    initial={{ opacity: 0, scale: 0.97, y: -6 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.97, y: -6 }}
+                    transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+                    className={`mt-2.5 p-3 rounded-xl border flex items-start gap-2.5 ${
+                      isVerifiedClaim
+                        ? 'bg-white/90 border-amber-300/80 shadow-sm'
+                        : 'bg-white/90 border-emerald-200/90 shadow-sm'
+                    }`}
+                  >
+                    <div
+                      className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 ${
+                        isVerifiedClaim
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-emerald-100 text-emerald-700'
+                      }`}
+                    >
+                      {isVerifiedClaim ? (
+                        <Crown className="w-4 h-4" />
+                      ) : (
+                        <CheckCircle2 className="w-4 h-4" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p
+                        className={`text-xs font-bold leading-snug ${
+                          isVerifiedClaim ? 'text-amber-900' : 'text-emerald-900'
+                        }`}
+                      >
+                        {isVerifiedClaim
+                          ? `👑 ยืนยันรหัสเจ้าขององค์กร: ${verifiedOrgInfo.name}`
+                          : `✅ พบองค์กร: ${verifiedOrgInfo.name}`}
+                      </p>
+                      <p
+                        className={`text-[11px] font-semibold mt-0.5 leading-relaxed ${
+                          isVerifiedClaim ? 'text-emerald-700' : 'text-emerald-600'
+                        }`}
+                      >
+                        {isVerifiedClaim
+                          ? 'คุณจะได้รับสิทธิ์ OWNER ทันทีหลังสมัคร'
+                          : 'ซิงค์ตำแหน่งงานและคลังอิโมจิของทีมเรียบร้อยแล้ว'}
+                      </p>
+                    </div>
+                  </motion.div>
+                ) : codeVerificationStatus === 'INVALID' ? (
+                  <motion.div
+                    key="state-invalid"
+                    initial={{ opacity: 0, scale: 0.97, y: -6 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.97, y: -6 }}
+                    transition={{ type: 'spring', stiffness: 320, damping: 26 }}
+                    className="mt-2.5 p-2.5 rounded-xl bg-white/90 border border-rose-200 flex items-start gap-2 text-rose-600 shadow-sm"
+                  >
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 text-rose-500" />
+                    <span className="text-[11px] font-bold leading-relaxed">
+                      ไม่พบรหัสเชิญนี้ในระบบ กรุณาตรวจสอบความถูกต้อง หรือลบออกหากต้องการกรอกภายหลัง
+                    </span>
+                  </motion.div>
+                ) : (
+                  <motion.p
+                    key="state-idle"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                    className="mt-1.5 text-[11px] font-semibold text-slate-500"
+                  >
+                    หากคุณได้รับรหัสจากหัวหน้าทีมหรือลิงก์เปิดองค์กรใหม่ สามารถกรอกที่นี่ หรือข้ามไปกรอกในหน้ารออนุมัติภายหลังได้ครับ
+                  </motion.p>
+                )}
+              </AnimatePresence>
             </>
           )}
         </div>

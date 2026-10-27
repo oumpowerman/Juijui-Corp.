@@ -154,6 +154,25 @@ export const OrganizationProvider: React.FC<{ children: React.ReactNode }> = ({ 
         fetchOrganizationsAndMembers();
     }, [fetchOrganizationsAndMembers]);
 
+    // Listen for external workspace switches (e.g. FastCheckoutOnboardingModal)
+    useEffect(() => {
+        const handleExternalWorkspaceSwitch = async (e: Event) => {
+            const customEvent = e as CustomEvent<{ orgId?: string }>;
+            const nextOrgId = customEvent.detail?.orgId || getActiveOrgIdSync();
+            if (nextOrgId) {
+                setSelectedOrgId(nextOrgId);
+            }
+            if (typeof window !== 'undefined' && sessionStorage.getItem('juijui_superadmin_portal_mode') === 'WORKSPACE') {
+                setIsInSuperAdminPortalState(false);
+            }
+            await fetchProfile();
+            await fetchOrganizationsAndMembers();
+        };
+
+        window.addEventListener('org-workspace-switched', handleExternalWorkspaceSwitch);
+        return () => window.removeEventListener('org-workspace-switched', handleExternalWorkspaceSwitch);
+    }, [fetchProfile, fetchOrganizationsAndMembers]);
+
     // 3. Derived Workspace & Role State
     const currentOrg = useMemo<Organization>(() => {
         return myOrganizations.find(o => o.id === selectedOrgId) ||

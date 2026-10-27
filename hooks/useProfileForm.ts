@@ -5,6 +5,7 @@ import heic2any from 'heic2any';
 import { supabase } from '../lib/supabase';
 import { useMasterData } from './useMasterData';
 import { DEFAULT_EMOJI } from '../constants/emojis';
+import { getActiveOrgIdSync } from '../lib/tenantStorage';
 
 interface UseProfileFormProps {
   user: User;
@@ -42,10 +43,34 @@ export const useProfileForm = ({ user, onSave, onClose }: UseProfileFormProps) =
   useEffect(() => {
     const fetchTakenEmojis = async () => {
       try {
-        const { data } = await supabase.from('profiles').select('emoji');
-        if (data) {
+        const activeOrgId = getActiveOrgIdSync();
+        const { data: memberRows } = await supabase
+          .from('organization_members')
+          .select('user_id')
+          .eq('org_id', activeOrgId)
+          .neq('status', 'REJECTED');
+
+        const memberIds = (memberRows || []).map((m: any) => m.user_id).filter(Boolean);
+
+        let profileRows: any[] | null = null;
+        if (memberIds.length > 0) {
+          const { data } = await supabase
+            .from('profiles')
+            .select('id, emoji')
+            .in('id', memberIds);
+          profileRows = data;
+        } else {
+          const { data } = await supabase
+            .from('profiles')
+            .select('id, emoji')
+            .eq('current_org_id', activeOrgId);
+          profileRows = data;
+        }
+
+        if (profileRows) {
           // Exclude current user's own emoji
-          const emojis = data
+          const emojis = profileRows
+            .filter(p => p.id !== user.id)
             .map(p => p.emoji)
             .filter(Boolean)
             .filter(e => e !== user.emoji);
@@ -56,7 +81,7 @@ export const useProfileForm = ({ user, onSave, onClose }: UseProfileFormProps) =
       }
     };
     fetchTakenEmojis();
-  }, [user.emoji]);
+  }, [user.id, user.emoji]);
 
   // Image State
   const [previewUrl, setPreviewUrl] = useState(user.avatarUrl || '');

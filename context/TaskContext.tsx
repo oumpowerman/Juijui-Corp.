@@ -92,6 +92,8 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 }));
                 setTasks(revived);
                 console.log('📦 [TaskContext] Loaded tasks from tenant local cache');
+            } else {
+                setTasksState([]);
             }
         } catch (e) {
             console.warn('⚠️ [TaskContext] Failed to load tasks cache', e);
@@ -142,14 +144,18 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         twoMonthsAgo.setMonth(twoMonthsAgo.getMonth() - 2);
         const stockLimitStr = twoMonthsAgo.toISOString();
 
+        const currentOrgId = getActiveOrgIdSync();
+
         try {
             let contentsQuery = supabase
                 .from('contents')
-                .select(forceFull ? CONTENT_FULL_SELECT_FIELDS : CONTENT_SUMMARY_FIELDS);
+                .select(forceFull ? CONTENT_FULL_SELECT_FIELDS : CONTENT_SUMMARY_FIELDS)
+                .eq('org_id', currentOrgId);
             
             let tasksQuery = supabase
                 .from('tasks')
-                .select(forceFull ? TASK_FULL_SELECT_FIELDS : TASK_SUMMARY_FIELDS);
+                .select(forceFull ? TASK_FULL_SELECT_FIELDS : TASK_SUMMARY_FIELDS)
+                .eq('org_id', currentOrgId);
 
             if (!isAllLoaded) {
                 // Optimized query: (Unscheduled AND completed/approved status) OR (Scheduled within date range)
@@ -162,21 +168,25 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
             // 🚀 STAGE 1: Exclude standard DONE tasks from the main date range sweep (Massive speedup!)
             tasksQuery = tasksQuery.neq('status', 'DONE');
 
-            // 🚀 STAGE 2: Pre-fetch only the 7 latest completed tasks for each active team member
+            // 🚀 STAGE 2: Pre-fetch only the 7 latest completed tasks for each active team member in this organization
             let doneTasks: any[] = [];
             try {
-                const { data: activeUsers } = await supabase
-                    .from('profiles')
-                    .select('id')
-                    .eq('is_active', true);
+                const { data: orgMembers } = await supabase
+                    .from('organization_members')
+                    .select('user_id')
+                    .eq('org_id', currentOrgId)
+                    .eq('status', 'ACTIVE');
 
-                if (activeUsers && activeUsers.length > 0) {
-                    const userPromises = activeUsers.map(async (u) => {
+                const memberUserIds = (orgMembers || []).map((m: any) => m.user_id).filter(Boolean);
+
+                if (memberUserIds.length > 0) {
+                    const userPromises = memberUserIds.map(async (uid: string) => {
                         const { data } = await supabase
                             .from('tasks')
                             .select(forceFull ? TASK_FULL_SELECT_FIELDS : TASK_SUMMARY_FIELDS)
+                            .eq('org_id', currentOrgId)
                             .eq('status', 'DONE')
-                            .contains('assignee_ids', [u.id])
+                            .contains('assignee_ids', [uid])
                             .order('updated_at', { ascending: false })
                             .limit(7);
                         return data || [];
@@ -228,8 +238,13 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // 🚀 LATEST REQUIREMENT: Lazy/On-Demand Completed Tasks Loader
     const fetchCompletedTasks = useCallback(async (params?: { userId?: string; limit?: number; startDate?: Date; endDate?: Date }) => {
         setIsFetching(true);
+        const currentOrgId = getActiveOrgIdSync();
         try {
-            let query = supabase.from('tasks').select(TASK_SUMMARY_FIELDS).eq('status', 'DONE');
+            let query = supabase
+                .from('tasks')
+                .select(TASK_SUMMARY_FIELDS)
+                .eq('org_id', currentOrgId)
+                .eq('status', 'DONE');
 
             if (params?.userId) {
                 query = query.contains('assignee_ids', [params.userId]);
@@ -265,10 +280,12 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, [mapSupabaseToTask]);
 
     const fetchSubTasks = useCallback(async (contentId: string): Promise<Task[]> => {
+        const currentOrgId = getActiveOrgIdSync();
         try {
             const { data, error } = await supabase
                 .from('tasks')
                 .select('*')
+                .eq('org_id', currentOrgId)
                 .eq('content_id', contentId)
                 .order('created_at', { ascending: true });
 
@@ -281,10 +298,12 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, [mapSupabaseToTask]);
 
     const fetchSubTasksCount = useCallback(async (contentId: string): Promise<number> => {
+        const currentOrgId = getActiveOrgIdSync();
         try {
             const { count, error } = await supabase
                 .from('tasks')
                 .select('*', { count: 'exact', head: true })
+                .eq('org_id', currentOrgId)
                 .eq('content_id', contentId);
 
             if (error) throw error;
@@ -402,13 +421,16 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('🔌 [TaskContext] Connecting to Realtime...');
 
         const handleIncrementalUpdate = (payload: any, type: 'TASK' | 'CONTENT') => {
+            const currentOrgId = getActiveOrgIdSync();
+            if (payload.new?.org_id && payload.new.org_id !== currentOrgId) return;
+
             if (payload.eventType === 'INSERT') {
                 // For INSERT, we fetch the full record to get joins (like contents.title)
                 // But we only fetch the specific record to avoid full reload
                 const fetchSingle = async () => {
                     const table = type === 'TASK' ? 'tasks' : 'contents';
                     const selectFields = type === 'TASK' ? TASK_FULL_SELECT_FIELDS : CONTENT_FULL_SELECT_FIELDS;
-                    let query = supabase.from(table).select(selectFields).eq('id', payload.new.id).maybeSingle();
+                    let query = supabase.from(table).select(selectFields).eq('id', payload.new.id).eq('org_id', currentOrgId).maybeSingle();
                     
                     const { data } = await query;
                     if (data) {

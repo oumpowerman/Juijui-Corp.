@@ -21,6 +21,11 @@ import { useToast } from '../../context/ToastContext';
 import { SAAS_PLAN_PRESETS } from '../../lib/multiTenantMigrationSql';
 import { PlanTier } from '../../types';
 import { format } from 'date-fns';
+import {
+    getPlatformLandingConfig,
+    normalizeBillingPaymentConfig,
+    PlatformBillingPaymentConfig
+} from '../../services/landingConfigService';
 
 const modalVariants: Variants = {
     hidden: { opacity: 0, y: 24, scale: 0.98 },
@@ -87,6 +92,31 @@ export const SubscriptionGateOverlay: React.FC = () => {
     // Automated Checkout Session state
     const [activeCheckout, setActiveCheckout] = useState<CheckoutSessionState | null>(null);
     const [isCompletingCheckout, setIsCompletingCheckout] = useState(false);
+
+    // Super Admin Billing Config state
+    const [billingConfig, setBillingConfig] = useState<PlatformBillingPaymentConfig>(() =>
+        normalizeBillingPaymentConfig(null)
+    );
+
+    useEffect(() => {
+        getPlatformLandingConfig()
+            .then(cfg => {
+                if (cfg.billing_payment_config) {
+                    setBillingConfig(cfg.billing_payment_config);
+                }
+            })
+            .catch(() => {});
+
+        const handleConfigUpdated = (e: Event) => {
+            const detail = (e as CustomEvent)?.detail;
+            if (detail) {
+                setBillingConfig(normalizeBillingPaymentConfig(detail));
+            }
+        };
+        window.addEventListener('platform-billing-config-updated', handleConfigUpdated);
+        return () =>
+            window.removeEventListener('platform-billing-config-updated', handleConfigUpdated);
+    }, []);
 
     useEffect(() => {
         if (currentOrg.planTier && currentOrg.planTier !== 'LIFETIME') {
@@ -491,10 +521,13 @@ export const SubscriptionGateOverlay: React.FC = () => {
                                 Thai QR PromptPay · ยอดชำระ ฿{activeCheckout.amount.toLocaleString()}
                             </div>
 
-                            <div className="w-44 h-44 mx-auto rounded-2xl border-2 border-indigo-100 bg-slate-50 flex flex-col items-center justify-center p-3">
-                                {activeCheckout.qrImageUrl ? (
+                            <div className="w-44 h-44 mx-auto rounded-2xl border-2 border-indigo-100 bg-slate-50 flex flex-col items-center justify-center p-3 overflow-hidden">
+                                {activeCheckout.qrImageUrl || billingConfig.promptPayQrImageUrl ? (
                                     <img
-                                        src={activeCheckout.qrImageUrl}
+                                        src={
+                                            activeCheckout.qrImageUrl ||
+                                            billingConfig.promptPayQrImageUrl
+                                        }
                                         alt="PromptPay QR"
                                         className="w-full h-full object-contain"
                                     />
@@ -502,13 +535,18 @@ export const SubscriptionGateOverlay: React.FC = () => {
                                     <div className="flex flex-col items-center justify-center text-center space-y-1.5">
                                         <QrCode className="w-20 h-20 text-indigo-600" />
                                         <span className="text-[10px] font-mono font-bold text-slate-600">
-                                            {activeCheckout.promptPayNumber || 'PromptPay QR'}
+                                            {billingConfig.promptPayId ||
+                                                activeCheckout.promptPayNumber ||
+                                                'PromptPay QR'}
                                         </span>
                                         <span className="text-xs font-mono tabular-nums font-bold text-slate-900">
                                             ฿{activeCheckout.amount.toLocaleString()}
                                         </span>
                                     </div>
                                 )}
+                            </div>
+                            <div className="text-xs text-slate-600 dark:text-slate-300 font-semibold">
+                                พร้อมเพย์: {billingConfig.promptPayId} ({billingConfig.promptPayAccountName})
                             </div>
 
                             <div className="flex items-center gap-2 pt-1">
@@ -541,6 +579,19 @@ export const SubscriptionGateOverlay: React.FC = () => {
             {/* Channel 3: Manual Bank Transfer & Slip */}
             {paymentChannel === 'BANK_SLIP' && (
                 <form onSubmit={handleManualSlipSubmit} className="space-y-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
+                    <div className="p-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs space-y-0.5">
+                        <div className="font-bold text-slate-800 dark:text-white">
+                            {billingConfig.bankName} · {billingConfig.bankAccountName}
+                        </div>
+                        <div className="font-mono font-bold text-indigo-600 text-sm">
+                            {billingConfig.bankAccountNumber}
+                        </div>
+                        {billingConfig.bankBranch && (
+                            <div className="text-[11px] text-slate-500">
+                                {billingConfig.bankBranch}
+                            </div>
+                        )}
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                             <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">

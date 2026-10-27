@@ -9,7 +9,7 @@ import {
     User
 } from '../../types';
 import { SAAS_PLAN_PRESETS } from '../../lib/multiTenantMigrationSql';
-import { setActiveOrgIdSync } from '../../lib/tenantStorage';
+import { setActiveOrgIdSync, setForceActiveOrgIdSync } from '../../lib/tenantStorage';
 import {
     CreateOrganizationInput,
     UpdateOrganizationLicenseInput,
@@ -62,7 +62,7 @@ export function useOrganizationLicensingDomain({
 
         try {
             setSelectedOrgId(orgId);
-            setActiveOrgIdSync(orgId);
+            setForceActiveOrgIdSync(orgId);
 
             if (currentUserProfile?.id) {
                 await supabase
@@ -489,7 +489,7 @@ export function useOrganizationLicensingDomain({
                 .eq('id', currentUserProfile.id);
 
             setSelectedOrgId(createdOrg.id);
-            setActiveOrgIdSync(createdOrg.id);
+            setForceActiveOrgIdSync(createdOrg.id);
 
             if (typeof window !== 'undefined') {
                 sessionStorage.removeItem('juijui_pending_onboarding_code');

@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { Check, Zap, Sparkles, Building2, Crown, ShieldCheck, Users } from 'lucide-react';
+import { Check, Zap, Sparkles, Building2, Crown, ShieldCheck, Users, Cake, ArrowRight } from 'lucide-react';
 import { SAAS_PLAN_PRESETS } from '../../lib/multiTenantMigrationSql';
 import { PlanTier } from '../../types';
 import { SectionAuraHeader, ScrollRevealItem } from './ScrollRevealSection';
+
+import { PlatformPricingPlan } from '../../services/landingConfigService';
+import { FastCheckoutOrderPayload } from './FastCheckoutOnboardingModal';
 
 export interface PricingPlan {
   name: string;
@@ -15,7 +18,9 @@ export interface PricingPlan {
 interface PricingProps {
   onContact?: () => void;
   onStartFreeTrial?: (planTier?: PlanTier) => void;
-  plans?: PricingPlan[];
+  onOpenFastCheckout?: (order: FastCheckoutOrderPayload) => void;
+  onOpenCustomBuilder?: () => void;
+  plans?: (CommercialTierCard | PlatformPricingPlan)[];
 }
 
 interface CommercialTierCard {
@@ -96,8 +101,15 @@ const COMMERCIAL_TIERS: CommercialTierCard[] = [
   },
 ];
 
-const Pricing: React.FC<PricingProps> = ({ onContact, onStartFreeTrial }) => {
+const Pricing: React.FC<PricingProps> = ({
+  onContact,
+  onStartFreeTrial,
+  onOpenFastCheckout,
+  onOpenCustomBuilder,
+  plans,
+}) => {
   const [billingCycle, setBillingCycle] = useState<'MONTHLY' | 'YEARLY'>('MONTHLY');
+  const activeTiers = plans && plans.length > 0 ? plans : COMMERCIAL_TIERS;
 
   return (
     <section className="relative z-10 py-20 md:py-24 bg-transparent border-t border-white/60 font-google-sans">
@@ -128,8 +140,8 @@ const Pricing: React.FC<PricingProps> = ({ onContact, onStartFreeTrial }) => {
             </>
           }
         >
-          {/* Monthly / Yearly Switcher */}
-          <div className="mt-8 inline-flex items-center p-1.5 bg-white/90 backdrop-blur-xl rounded-2xl border border-white shadow-md shadow-indigo-500/5">
+          {/* Monthly / Yearly Switcher + | + À La Carte Custom Module Builder */}
+          <div className="mt-8 inline-flex flex-wrap items-center justify-center gap-1.5 p-1.5 bg-white/90 backdrop-blur-xl rounded-2xl border border-white shadow-md shadow-indigo-500/5">
             <button
               type="button"
               onClick={() => setBillingCycle('MONTHLY')}
@@ -161,11 +173,30 @@ const Pricing: React.FC<PricingProps> = ({ onContact, onStartFreeTrial }) => {
                 ประหยัด 2 เดือน
               </span>
             </button>
+
+            {onOpenCustomBuilder && (
+              <>
+                {/* Vertical | Divider */}
+                <span
+                  aria-hidden="true"
+                  className="hidden sm:inline-block h-6 w-px bg-slate-200 mx-1.5 select-none"
+                />
+                <button
+                  type="button"
+                  onClick={onOpenCustomBuilder}
+                  className="px-4 sm:px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-gradient-to-r from-pink-500 via-rose-500 to-amber-500 text-white shadow-md shadow-pink-500/20 hover:opacity-95 transition-all flex items-center gap-2 cursor-pointer"
+                >
+                  <Cake className="w-4 h-4" />
+                  <span>ผสมสูตรเลือกเฉพาะฟีเจอร์ (À La Carte)</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </>
+            )}
           </div>
         </SectionAuraHeader>
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 items-stretch">
-          {COMMERCIAL_TIERS.map((plan, idx) => {
+          {activeTiers.map((plan, idx) => {
             const isLifetime = plan.tier === 'LIFETIME';
             const displayPrice = isLifetime
               ? plan.yearlyPrice
@@ -245,6 +276,21 @@ const Pricing: React.FC<PricingProps> = ({ onContact, onStartFreeTrial }) => {
                 <button
                   type="button"
                   onClick={() => {
+                    if (onOpenFastCheckout) {
+                      const preset =
+                        SAAS_PLAN_PRESETS[plan.tier] || SAAS_PLAN_PRESETS.PRO;
+                      onOpenFastCheckout({
+                        source: 'PRICING',
+                        planTier: plan.tier,
+                        planTitle: `แพ็กเกจ ${plan.name}`,
+                        planSubtitle: plan.audience,
+                        billingCycle: isLifetime ? 'LIFETIME' : billingCycle,
+                        amountTHB: displayPrice,
+                        maxMembers: plan.maxMembers,
+                        allowedModules: [...preset.defaultModules],
+                      });
+                      return;
+                    }
                     if (plan.tier === 'LIFETIME' && onContact) {
                       onContact();
                       return;
@@ -260,10 +306,10 @@ const Pricing: React.FC<PricingProps> = ({ onContact, onStartFreeTrial }) => {
                   }`}
                 >
                   {plan.tier === 'PRO'
-                    ? 'เริ่มทดลองใช้ฟรี 7 วัน (แผน PRO)'
+                    ? 'เลือกแผน PRO · เปิดองค์กรทันที'
                     : plan.tier === 'LIFETIME'
-                    ? 'เปิดองค์กร / ติดต่อฝ่ายขาย'
-                    : `เริ่มใช้งานแผน ${plan.name}`}
+                    ? 'สั่งซื้อสิทธิ์ตลอดชีพ / เปิดองค์กร'
+                    : `เลือกแผน ${plan.name} · เปิดองค์กรทันที`}
                 </button>
               </ScrollRevealItem>
             );

@@ -246,7 +246,7 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose, us
                 {/* 8-bit Emoji Picker Selection */}
                 <div className="space-y-4 bg-indigo-50/20 border-2 border-indigo-100/30 p-5 rounded-3xl">
                     <div className="flex justify-between items-center">
-                        <label className="text-sm font-black text-indigo-950 flex items-center gap-1.5 uppercase">
+                        <label className="text-sm font-bold text-indigo-950 flex items-center gap-1.5 uppercase">
                             <span>👾 Personal Emoji / อิโมจิประจำตัว</span>
                             <span className="text-[11px] font-medium text-indigo-400 font-sans lowercase hidden sm:inline">(ใช้สำหรับแสดงบนสนามวิ่ง ห้ามซ้ำกัน)</span>
                         </label>
@@ -370,7 +370,7 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({ isOpen, onClose, us
                 type="submit" 
                 form="profile-form"
                 disabled={isSubmitting || isConvertingImg}
-                className="w-full py-4 bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400 hover:shadow-xl hover:shadow-indigo-300/40 text-white font-black rounded-2xl transition-all active:scale-95 flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed group relative overflow-hidden"
+                className="w-full py-4 bg-gradient-to-r from-indigo-500 to-violet-500 hover:from-indigo-400 hover:to-violet-400 hover:shadow-xl hover:shadow-indigo-300/40 text-white font-bold rounded-2xl transition-all active:scale-95 flex items-center justify-center disabled:opacity-70 disabled:cursor-not-allowed group relative overflow-hidden"
             >
                 <div className="absolute inset-0 bg-white/20 translate-y-full group-hover:translate-y-0 transition-transform duration-300 pointer-events-none"></div>
                 {isSubmitting || isConvertingImg ? (

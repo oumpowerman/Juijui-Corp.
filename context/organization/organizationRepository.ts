@@ -8,7 +8,11 @@ import {
     User
 } from '../../types';
 import { PRIMARY_DEFAULT_ORG_ID } from '../../lib/multiTenantMigrationSql';
-import { getActiveOrgIdSync, setActiveOrgIdSync } from '../../lib/tenantStorage';
+import {
+    getActiveOrgIdSync,
+    getExplicitActiveOrgIdSync,
+    setActiveOrgIdSync
+} from '../../lib/tenantStorage';
 import {
     DEFAULT_PRIMARY_ORGANIZATION,
     mapOrgFromDB,
@@ -67,18 +71,41 @@ export async function fetchNativeOrganizationsBundle(params: {
     const memberOrgIds = new Set(userMemberships.map(m => m.orgId));
     const accessibleOrgs = isSuperAdmin
         ? mappedOrgs
-        : mappedOrgs.filter(o => o.isActive && memberOrgIds.has(o.id));
-    const finalOrgs = accessibleOrgs.length > 0 ? accessibleOrgs : [mappedOrgs[0]];
+        : mappedOrgs.filter(
+              o => o.isActive && (memberOrgIds.has(o.id) || o.ownerId === currentUser.id)
+          );
+    const latestOrgFallback =
+        accessibleOrgs.length > 0
+            ? accessibleOrgs[accessibleOrgs.length - 1]
+            : mappedOrgs[mappedOrgs.length - 1] || mappedOrgs[0];
+    const finalOrgs = accessibleOrgs.length > 0 ? accessibleOrgs : [latestOrgFallback];
 
+    // Give top priority to explicitly selected/newly provisioned org in sessionStorage/localStorage
+    // so a stale currentUser.currentOrgId never overwrites a freshly created organization!
+    const explicitStorageOrgId = getExplicitActiveOrgIdSync();
     const preferredOrgId =
+        explicitStorageOrgId ||
         currentUser.currentOrgId ||
         getActiveOrgIdSync() ||
-        finalOrgs[0]?.id ||
+        latestOrgFallback?.id ||
         PRIMARY_DEFAULT_ORG_ID;
 
-    const validActiveOrg = finalOrgs.find(o => o.id === preferredOrgId) || finalOrgs[0];
+    const validActiveOrg =
+        finalOrgs.find(o => o.id === preferredOrgId) ||
+        mappedOrgs.find(o => o.id === preferredOrgId && o.ownerId === currentUser.id) ||
+        latestOrgFallback;
     const resolvedActiveOrgId = validActiveOrg?.id || PRIMARY_DEFAULT_ORG_ID;
     setActiveOrgIdSync(resolvedActiveOrgId);
+
+    // Ensure profiles.current_org_id in DB stays synchronized with the resolved active org
+    // so PostgreSQL RLS (public.get_active_org_id()) filters to the exact same organization
+    if (currentUser.id && currentUser.currentOrgId !== resolvedActiveOrgId) {
+        supabase
+            .from('profiles')
+            .update({ current_org_id: resolvedActiveOrgId })
+            .eq('id', currentUser.id)
+            .then(() => {});
+    }
 
     const activeOrgMemberRows = (allMemberRows || []).filter(
         (m: any) => m.org_id === resolvedActiveOrgId

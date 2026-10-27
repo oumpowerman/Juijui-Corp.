@@ -75,8 +75,6 @@ const Hero: React.FC<HeroProps> = ({
   const smoothScrollY = useSpring(scrollY, { stiffness: 90, damping: 24, mass: 0.35 });
 
   // Interactive scroll parallax for Hero foreground elements
-  const leftBadgeY = useTransform(smoothScrollY, (v) => Math.sin(v * 0.005) * -22);
-  const rightBadgeY = useTransform(smoothScrollY, (v) => Math.cos(v * 0.005) * 22);
   const showcaseY = useTransform(smoothScrollY, [0, 700], [0, -16]);
 
   const getVideoEmbedUrl = () => {
@@ -300,51 +298,29 @@ const Hero: React.FC<HeroProps> = ({
           })}
         </div>
 
-        {/* Interactive Motion Showcase Preview with Rainbow Glass Frame */}
-        <ScrollRevealItem index={1} direction="scale" amount={0.12}>
-          <motion.div
-            style={{ y: showcaseY }}
-            className="mt-12 sm:mt-16 relative p-2.5 sm:p-4 bg-gradient-to-b from-white/95 via-white/90 to-purple-50/75 backdrop-blur-2xl rounded-[2.2rem] shadow-[0_30px_80px_-20px_rgba(99,102,241,0.24),inset_0_1px_2px_rgba(255,255,255,1)] border border-white max-w-5xl mx-auto"
+        {/* Interactive Motion Showcase Preview with Rainbow Glass Frame (Desktop & Tablet Only) */}
+        <div className="hidden md:block">
+          <ScrollRevealItem index={1} direction="scale" amount={0.12}>
+            <motion.div
+              style={{ y: showcaseY }}
+              className="mt-12 sm:mt-16 relative p-2.5 sm:p-4 bg-gradient-to-b from-white/95 via-white/90 to-purple-50/75 backdrop-blur-2xl rounded-[2.2rem] shadow-[0_30px_80px_-20px_rgba(99,102,241,0.24),inset_0_1px_2px_rgba(255,255,255,1)] border border-white max-w-5xl mx-auto"
+            >
+              <HeroMotionShowcase onStartDemo={onStartDemo || onStart} embedUrl={embedUrl} />
+            </motion.div>
+          </ScrollRevealItem>
+        </div>
+
+        {/* Mobile-Only Clean Action Strip */}
+        <div className="md:hidden mt-6 text-center">
+          <button
+            type="button"
+            onClick={onStartDemo || onStart}
+            className="w-full py-3.5 px-5 rounded-2xl text-sm font-bold text-white bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-500 shadow-md flex items-center justify-center gap-2 active:scale-95 transition-all cursor-pointer"
           >
-            <HeroMotionShowcase onStartDemo={onStartDemo || onStart} embedUrl={embedUrl} />
-
-            {/* Left Floating 3D Creator Badge with Scroll Parallax */}
-            <motion.div
-              style={{ y: leftBadgeY }}
-              className="absolute -left-6 top-1/4 bg-white/95 backdrop-blur-xl px-4 py-3 rounded-2xl shadow-[0_18px_40px_-10px_rgba(244,63,94,0.22)] border border-rose-100 hidden lg:flex items-center gap-3 z-30 pointer-events-none"
-            >
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-rose-400 to-pink-500 text-white flex items-center justify-center shadow-sm">
-                <Heart className="w-4 h-4 fill-white" />
-              </div>
-              <div className="text-left">
-                <span className="block text-xs font-bold text-slate-800">
-                  Multi-Brand & Calendar Sync
-                </span>
-                <span className="block text-[11px] font-semibold text-rose-500">
-                  วางแผนคอนเทนต์ครบทุกช่อง
-                </span>
-              </div>
-            </motion.div>
-
-            {/* Right Floating 3D Creator Badge with Scroll Parallax */}
-            <motion.div
-              style={{ y: rightBadgeY }}
-              className="absolute -right-6 bottom-1/4 bg-white/95 backdrop-blur-xl px-4 py-3 rounded-2xl shadow-[0_18px_40px_-10px_rgba(59,130,246,0.22)] border border-sky-100 hidden lg:flex items-center gap-3 z-30 pointer-events-none"
-            >
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-sky-400 to-indigo-500 text-white flex items-center justify-center shadow-sm">
-                <ThumbsUp className="w-4 h-4 fill-white" />
-              </div>
-              <div className="text-left">
-                <span className="block text-xs font-bold text-slate-800">
-                  Isolated Studio & Gamified XP
-                </span>
-                <span className="block text-[11px] font-semibold text-indigo-600">
-                  พื้นที่ทำงานปลอดภัย · ทีมแฮปปี้
-                </span>
-              </div>
-            </motion.div>
-          </motion.div>
-        </ScrollRevealItem>
+            <Sparkles className="w-4 h-4 fill-white" />
+            <span>ทดลองเล่น Sandbox ฟรี 10 นาที</span>
+          </button>
+        </div>
         </motion.div>
       </div>
     </section>

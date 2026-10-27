@@ -23,8 +23,10 @@ import { DomainReadinessTab } from '../admin/master/views/multi-tenant/DomainRea
 import { ProvisionTenantModal } from '../admin/master/views/multi-tenant/ProvisionTenantModal';
 import { EditTenantLicenseModal } from '../admin/master/views/multi-tenant/EditTenantLicenseModal';
 import { OwnerHandoverModal } from '../admin/master/views/multi-tenant/OwnerHandoverModal';
+import { SuperAdminLandingConfigTab } from './landing-config/SuperAdminLandingConfigTab';
+import { Sliders } from 'lucide-react';
 
-type PortalTab = 'TENANTS_GRID' | 'BILLING_WEBHOOK' | 'DEMO_TRIALS' | 'SQL_MIGRATION' | 'DOMAIN_LAUNCH';
+type PortalTab = 'TENANTS_GRID' | 'BILLING_WEBHOOK' | 'DEMO_TRIALS' | 'SQL_MIGRATION' | 'DOMAIN_LAUNCH' | 'LANDING_CONFIG';
 
 export const SuperAdminPortalView: React.FC = () => {
     const {
@@ -229,6 +231,19 @@ export const SuperAdminPortalView: React.FC = () => {
                             <Sparkles className="w-4 h-4" />
                             ความพร้อมเปิดโดเมนจริง (100% Launch)
                         </button>
+
+                        <button
+                            type="button"
+                            onClick={() => setActiveTab('LANDING_CONFIG')}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors flex items-center gap-2 ${
+                                activeTab === 'LANDING_CONFIG'
+                                    ? 'bg-indigo-600 text-white shadow-sm'
+                                    : 'text-indigo-300 hover:text-white hover:bg-slate-800'
+                            }`}
+                        >
+                            <Sliders className="w-4 h-4" />
+                            จัดการราคา & สื่อ Landing Page
+                        </button>
                     </div>
                 </div>
             </header>
@@ -271,6 +286,8 @@ export const SuperAdminPortalView: React.FC = () => {
                         onGoToSqlTab={() => setActiveTab('SQL_MIGRATION')}
                     />
                 )}
+
+                {activeTab === 'LANDING_CONFIG' && <SuperAdminLandingConfigTab />}
             </main>
 
             {/* 3. Platform Management Modals */}

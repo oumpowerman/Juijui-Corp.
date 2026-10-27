@@ -92,7 +92,7 @@ const Navbar: React.FC<NavbarProps> = ({
                   key={item.view}
                   type="button"
                   onClick={() => handleNavClick(item.view)}
-                  className={`relative px-4 py-2 rounded-xl text-sm font-bold transition-colors cursor-pointer ${
+                  className={`relative px-4 py-2 rounded-xl text-sm font-bold transition-colors cursor-pointer select-none ${
                     isActive
                       ? 'text-indigo-700'
                       : 'text-slate-600 hover:text-slate-900'
@@ -105,10 +105,18 @@ const Navbar: React.FC<NavbarProps> = ({
                       className="absolute inset-0 rounded-xl bg-white border border-purple-200/80 shadow-[0_6px_18px_-4px_rgba(139,92,246,0.24),inset_0_1px_1px_rgba(255,255,255,1)]"
                     />
                   )}
-                  <span className="relative z-10 inline-flex items-center gap-1.5">
-                    {isActive && (
-                      <span className="w-1.5 h-1.5 rounded-full bg-gradient-to-r from-rose-500 to-purple-600" />
-                    )}
+                  <span className="relative z-10 inline-flex items-center">
+                    <motion.span
+                      aria-hidden="true"
+                      initial={false}
+                      animate={
+                        isActive
+                          ? { width: 6, opacity: 1, marginRight: 6 }
+                          : { width: 0, opacity: 0, marginRight: 0 }
+                      }
+                      transition={{ type: 'spring', stiffness: 360, damping: 30 }}
+                      className="h-1.5 rounded-full bg-gradient-to-r from-rose-500 to-purple-600 shrink-0 inline-block overflow-hidden pointer-events-none"
+                    />
                     <span
                       className={
                         isActive
@@ -187,9 +195,12 @@ const Navbar: React.FC<NavbarProps> = ({
                     }`}
                   >
                     <span>{item.label}</span>
-                    {isActive && (
-                      <span className="w-2 h-2 rounded-full bg-gradient-to-r from-indigo-600 to-rose-500" />
-                    )}
+                    <span
+                      aria-hidden="true"
+                      className={`w-2 h-2 rounded-full bg-gradient-to-r from-indigo-600 to-rose-500 transition-opacity duration-200 ${
+                        isActive ? 'opacity-100' : 'opacity-0'
+                      }`}
+                    />
                   </button>
                 );
               })}

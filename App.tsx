@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { supabase } from './lib/supabase';
 import LandingPage from './components/landing/LandingPage';
+import { isFastCheckoutHoldActive } from './components/landing/FastCheckoutOnboardingModal';
 import AuthPage from './components/AuthPage';
 import {
   SkyCloudCurtainTransition,
@@ -119,6 +120,9 @@ function App() {
   });
   const [isRecoveryMode, setIsRecoveryMode] = useState(false);
   const [isWorkspaceReady, setIsWorkspaceReady] = useState(false);
+  const [isFastCheckoutHolding, setIsFastCheckoutHolding] = useState<boolean>(() =>
+    isFastCheckoutHoldActive()
+  );
   const [portalMode, setPortalMode] = useState<AuthPortalMode | null>(() =>
     peekAuthPortalTransition()
   );
@@ -131,8 +135,16 @@ function App() {
         setPortalMode(mode);
       }
     };
+    const handleFastCheckoutHoldChange = (e: Event) => {
+      const customEvent = e as CustomEvent<{ hold?: boolean }>;
+      setIsFastCheckoutHolding(Boolean(customEvent.detail?.hold));
+    };
     window.addEventListener('juijui-auth-portal-start', handlePortalEvent);
-    return () => window.removeEventListener('juijui-auth-portal-start', handlePortalEvent);
+    window.addEventListener('juijui-fast-checkout-hold-change', handleFastCheckoutHoldChange);
+    return () => {
+      window.removeEventListener('juijui-auth-portal-start', handlePortalEvent);
+      window.removeEventListener('juijui-fast-checkout-hold-change', handleFastCheckoutHoldChange);
+    };
   }, []);
 
   // --- SKY CLOUD CURTAIN TRANSITION STATE (LandingPage <-> AuthPage) ---
@@ -279,7 +291,7 @@ function App() {
         />
       </motion.div>
     );
-  } else if (!session) {
+  } else if (!session || isFastCheckoutHolding) {
     content = (
       <motion.div
         key="unauthenticated-stage"

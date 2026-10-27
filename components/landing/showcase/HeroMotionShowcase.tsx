@@ -130,13 +130,6 @@ export const HeroMotionShowcase: React.FC<HeroMotionShowcaseProps> = ({
             <span className="w-3 h-3 rounded-full bg-amber-400/90" />
             <span className="w-3 h-3 rounded-full bg-emerald-500/90" />
           </div>
-          <div className="h-4 w-px bg-slate-700 hidden sm:block" />
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse" />
-            <span className="text-xs font-bold tracking-wide text-slate-200">
-              {BRAND_CONFIG.name} • Interactive Product Tour
-            </span>
-          </div>
         </div>
 
         {/* Top-Right Controls: Play/Pause, Video Switcher (if embedUrl exists), and Quick Demo Launch */}

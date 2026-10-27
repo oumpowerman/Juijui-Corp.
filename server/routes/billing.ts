@@ -26,12 +26,24 @@ async function fulfillSubscriptionRenewal(params: {
     paymentMethod: 'STRIPE' | 'OMISE' | 'BANK_TRANSFER' | 'MANUAL';
     externalChargeId?: string | null;
     note?: string;
+    customAllowedModules?: string[];
+    customMaxMembers?: number;
 }) {
-    const { orgId, planTier, billingCycle, amount, paymentMethod, externalChargeId, note } = params;
+    const {
+        orgId,
+        planTier,
+        billingCycle,
+        amount,
+        paymentMethod,
+        externalChargeId,
+        note,
+        customAllowedModules,
+        customMaxMembers
+    } = params;
 
     const { data: orgRow } = await supabase
         .from('organizations')
-        .select('id, name, expires_at, plan_tier, max_members')
+        .select('id, name, expires_at, plan_tier, max_members, allowed_modules')
         .eq('id', orgId)
         .maybeSingle();
 
@@ -63,6 +75,18 @@ async function fulfillSubscriptionRenewal(params: {
     const preset = SAAS_PLAN_PRESETS[resolvedPlan] || SAAS_PLAN_PRESETS.PRO;
     const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
 
+    const resolvedAllowedModules =
+        Array.isArray(customAllowedModules) && customAllowedModules.length > 0
+            ? customAllowedModules
+            : Array.isArray(orgRow?.allowed_modules) && orgRow.allowed_modules.length > 0
+            ? orgRow.allowed_modules
+            : [...preset.defaultModules];
+
+    const resolvedMaxMembers =
+        typeof customMaxMembers === 'number' && customMaxMembers > 0
+            ? customMaxMembers
+            : Math.max(orgRow?.max_members || 0, preset.defaultMaxMembers);
+
     // 1. Update organization subscription status, plan tier, max_members, allowed_modules & expiry
     await supabase
         .from('organizations')
@@ -70,8 +94,8 @@ async function fulfillSubscriptionRenewal(params: {
             plan_tier: resolvedPlan,
             subscription_status: 'ACTIVE',
             expires_at: nextExpiresAt,
-            max_members: Math.max(orgRow?.max_members || 0, preset.defaultMaxMembers),
-            allowed_modules: [...preset.defaultModules],
+            max_members: resolvedMaxMembers,
+            allowed_modules: resolvedAllowedModules,
             is_active: true,
             updated_at: new Date().toISOString()
         })
@@ -103,7 +127,8 @@ async function fulfillSubscriptionRenewal(params: {
         planTier: resolvedPlan,
         subscriptionStatus: 'ACTIVE',
         expiresAt: nextExpiresAt,
-        maxMembers: Math.max(orgRow?.max_members || 0, preset.defaultMaxMembers)
+        maxMembers: resolvedMaxMembers,
+        allowedModules: resolvedAllowedModules
     };
 }
 
@@ -129,6 +154,199 @@ router.get('/api/billing/webhook-info', (_req, res) => {
 });
 
 /**
+ * POST /api/billing/provision-fast-checkout-org
+ * Server-Side Admin Provisioning for Fast Checkout Modal (Step 1).
+ * Uses Service Role Key to bypass RLS & legacy COALESCE triggers, ensuring:
+ * 1. New row in `organizations` with exact allowed_modules & max_members
+ * 2. Creator enrolled as ACTIVE OWNER in `organization_members`
+ * 3. Default `master_options` seeded for the new org
+ * 4. `profiles.current_org_id` forcibly updated to the new org ID
+ */
+router.post('/api/billing/provision-fast-checkout-org', async (req, res) => {
+    try {
+        const body = req.body || {};
+        const userId: string | undefined = body.userId;
+        const userEmail: string | undefined = body.userEmail;
+        const orgName: string = String(body.orgName || '').trim();
+        const description: string = String(body.description || '').trim();
+        const planTier: PlanKey = (body.planTier in SAAS_PLAN_PRESETS ? body.planTier : 'PRO') as PlanKey;
+        const preset = SAAS_PLAN_PRESETS[planTier] || SAAS_PLAN_PRESETS.PRO;
+        const maxMembers: number = Number(body.maxMembers) > 0 ? Number(body.maxMembers) : preset.defaultMaxMembers;
+        const allowedModules: string[] =
+            Array.isArray(body.allowedModules) && body.allowedModules.length > 0
+                ? body.allowedModules
+                : [...preset.defaultModules];
+        const inviteCode: string =
+            String(body.inviteCode || '').trim() ||
+            `ORG-${Math.random().toString(36).substring(2, 6).toUpperCase()}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+        if (!userId || !orgName) {
+            return res.status(400).json({ error: 'กรุณาระบุ userId และชื่อองค์กร (orgName)' });
+        }
+
+        // 1. Ensure user's profile row exists before linking organization_members FK
+        const { data: existingProfile } = await supabase
+            .from('profiles')
+            .select('id, email, full_name')
+            .eq('id', userId)
+            .maybeSingle();
+
+        if (!existingProfile) {
+            const emailPrefix = (userEmail || 'owner')
+                .split('@')[0]
+                .toLowerCase()
+                .replace(/[^a-z0-9_.]/g, '')
+                .slice(0, 14) || 'owner';
+            const autoUsername = `${emailPrefix}_${Math.floor(100 + Math.random() * 900)}`;
+
+            await supabase.from('profiles').upsert({
+                id: userId,
+                email: userEmail || null,
+                username: autoUsername,
+                full_name: orgName,
+                first_name: orgName,
+                last_name: '',
+                nickname: orgName.slice(0, 20),
+                position: 'Founder / Owner',
+                employment_type: 'FULL_TIME',
+                start_date: new Date().toISOString(),
+                role: 'ADMIN',
+                is_approved: true,
+                is_active: true,
+                status: 'ACTIVE',
+                work_days: [1, 2, 3, 4, 5],
+                hp: 100,
+                max_hp: 100,
+                xp: 0,
+                level: 1,
+                available_points: 0,
+                death_count: 0,
+                emoji: '👑'
+            }, { onConflict: 'id' });
+        }
+
+        // 2. Insert new organization
+        const slugBase =
+            orgName
+                .toLowerCase()
+                .replace(/[^a-z0-9ก-๙]+/g, '-')
+                .replace(/^-+|-+$/g, '') || `studio-${Date.now()}`;
+        const uniqueSlug = `${slugBase}-${Math.floor(1000 + Math.random() * 9000)}`;
+        const trialExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+
+        const orgInsertPayload: Record<string, any> = {
+            name: orgName,
+            slug: uniqueSlug,
+            description: description || `แพ็กเกจ ${preset.name} (Trial 7 วัน)`,
+            color: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+            logo_url: '',
+            invite_code: inviteCode,
+            invite_enabled: true,
+            owner_id: userId,
+            plan_tier: planTier,
+            subscription_status: 'TRIAL',
+            expires_at: trialExpiresAt,
+            grace_period_days: 3,
+            max_members: maxMembers,
+            allowed_modules: allowedModules,
+            billing_email: userEmail || null,
+            is_active: true
+        };
+
+        let { data: createdOrg, error: createOrgErr } = await supabase
+            .from('organizations')
+            .insert([orgInsertPayload])
+            .select('*')
+            .single();
+
+        if (createOrgErr) {
+            const minimalPayload = {
+                name: orgName,
+                slug: uniqueSlug,
+                description: orgInsertPayload.description,
+                color: 'bg-indigo-50 text-indigo-700 border-indigo-200',
+                invite_code: inviteCode,
+                invite_enabled: true,
+                owner_id: userId,
+                plan_tier: planTier,
+                is_active: true
+            };
+            const retry = await supabase
+                .from('organizations')
+                .insert([minimalPayload])
+                .select('*')
+                .single();
+            if (retry.error) {
+                throw retry.error;
+            }
+            createdOrg = retry.data;
+        }
+
+        const newOrgId: string = createdOrg.id;
+
+        // 3. Upsert creator as ACTIVE OWNER in organization_members
+        const { error: memberErr } = await supabase
+            .from('organization_members')
+            .upsert(
+                [
+                    {
+                        org_id: newOrgId,
+                        user_id: userId,
+                        role: 'OWNER',
+                        status: 'ACTIVE'
+                    }
+                ],
+                { onConflict: 'org_id,user_id' }
+            );
+
+        if (memberErr) {
+            console.warn('[FastCheckout Provision] organization_members upsert warning:', memberErr.message);
+        }
+
+        // 4. Seed default master_options for the new organization
+        try {
+            await supabase.rpc('seed_organization_defaults', { target_org_id: newOrgId });
+        } catch (seedErr) {
+            console.warn('[FastCheckout Provision] seed_organization_defaults warning:', seedErr);
+        }
+
+        // 5. CRITICAL: Force update profiles.current_org_id AFTER organization_members trigger
+        // so COALESCE(current_org_id, NEW.org_id) never leaves the user stuck on their first org!
+        const { error: profileUpdateErr } = await supabase
+            .from('profiles')
+            .update({
+                is_approved: true,
+                role: 'ADMIN',
+                current_org_id: newOrgId
+            })
+            .eq('id', userId);
+
+        if (profileUpdateErr) {
+            // Fallback if current_org_id column is not yet present
+            await supabase
+                .from('profiles')
+                .update({
+                    is_approved: true,
+                    role: 'ADMIN'
+                })
+                .eq('id', userId);
+        }
+
+        return res.status(200).json({
+            success: true,
+            orgId: newOrgId,
+            orgName: createdOrg.name,
+            org: createdOrg
+        });
+    } catch (err: any) {
+        console.error('[Billing Provision Fast Checkout Org] Error:', err);
+        return res.status(500).json({
+            error: err.message || 'ไม่สามารถสร้างพื้นที่ทำงานองค์กรใหม่ได้'
+        });
+    }
+});
+
+/**
  * POST /api/billing/create-checkout-session
  * Creates an automated payment checkout session for Stripe (Card / PromptPay) or Omise (PromptPay QR).
  * Falls back to Interactive Instant Checkout Simulator when live keys are not configured yet.
@@ -141,6 +359,8 @@ router.post('/api/billing/create-checkout-session', async (req, res) => {
         const billingCycle: 'MONTHLY' | 'YEARLY' | 'LIFETIME' =
             body.billingCycle || body.billing_cycle || 'MONTHLY';
         const gateway: 'STRIPE' | 'OMISE' = body.gateway === 'OMISE' ? 'OMISE' : 'STRIPE';
+        const customAmountTHB = Number(body.customAmountTHB || body.amount || 0);
+        const customPlanLabel: string | undefined = body.customPlanLabel;
         const origin =
             (req.headers.origin as string) ||
             process.env.APP_URL ||
@@ -150,11 +370,13 @@ router.post('/api/billing/create-checkout-session', async (req, res) => {
             return res.status(400).json({ error: 'กรุณาระบุรหัสองค์กร (orgId)' });
         }
 
-        const amountTHB = resolvePlanPriceTHB(planTier, billingCycle);
+        const amountTHB =
+            customAmountTHB > 0 ? customAmountTHB : resolvePlanPriceTHB(planTier, billingCycle);
         const amountSatang = Math.round(amountTHB * 100);
         const preset =
             SAAS_PLAN_PRESETS[(planTier in SAAS_PLAN_PRESETS ? planTier : 'PRO') as PlanKey] ||
             SAAS_PLAN_PRESETS.PRO;
+        const resolvedPlanLabel = customPlanLabel || preset.name;
 
         // 1. Live Stripe Checkout Session (when STRIPE_SECRET_KEY is configured)
         const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
@@ -170,7 +392,7 @@ router.post('/api/billing/create-checkout-session', async (req, res) => {
             params.append('line_items[0][price_data][unit_amount]', String(amountSatang));
             params.append(
                 'line_items[0][price_data][product_data][name]',
-                `Kontent OS - แพ็กเกจ ${preset.name} (${billingCycle})`
+                `Kontent OS - ${resolvedPlanLabel} (${billingCycle})`
             );
             params.append('metadata[org_id]', orgId);
             params.append('metadata[plan_tier]', planTier);
@@ -270,7 +492,7 @@ router.post('/api/billing/create-checkout-session', async (req, res) => {
             sessionId,
             orgId,
             planTier,
-            planName: preset.name,
+            planName: resolvedPlanLabel,
             billingCycle,
             amount: amountTHB,
             currency: 'THB',
@@ -296,6 +518,12 @@ router.post('/api/billing/complete-checkout-session', async (req, res) => {
         const gateway: 'STRIPE' | 'OMISE' = body.gateway === 'OMISE' ? 'OMISE' : 'STRIPE';
         const sessionId: string =
             body.sessionId || `chg_${gateway.toLowerCase()}_${Date.now()}`;
+        const customAllowedModules: string[] | undefined = Array.isArray(body.customAllowedModules)
+            ? body.customAllowedModules
+            : undefined;
+        const customMaxMembers: number | undefined =
+            typeof body.customMaxMembers === 'number' ? body.customMaxMembers : undefined;
+        const customNote: string | undefined = body.customNote;
 
         if (!orgId) {
             return res.status(400).json({ error: 'Missing orgId' });
@@ -309,7 +537,11 @@ router.post('/api/billing/complete-checkout-session', async (req, res) => {
             amount,
             paymentMethod: gateway,
             externalChargeId: sessionId,
-            note: `ชำระเงินอัตโนมัติสำเร็จผ่าน ${gateway === 'OMISE' ? 'Omise PromptPay QR' : 'Stripe Checkout'} (${sessionId})`
+            customAllowedModules,
+            customMaxMembers,
+            note:
+                customNote ||
+                `ชำระเงินอัตโนมัติสำเร็จผ่าน ${gateway === 'OMISE' ? 'Omise PromptPay QR' : 'Stripe Checkout'} (${sessionId})`
         });
 
         return res.status(200).json({

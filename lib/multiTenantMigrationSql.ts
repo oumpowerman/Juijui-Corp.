@@ -7,8 +7,10 @@ export interface SaaSPlanPreset {
     monthlyPriceTHB: number;
     yearlyPriceTHB: number;
     defaultMaxMembers: number;
+    maxMembers: number;
     badgeColor: string;
     defaultModules: string[];
+    allowedModules: string[] | null;
 }
 
 export const ALL_SIDEBAR_MODULE_KEYS: readonly string[] = [
@@ -48,8 +50,22 @@ export const SAAS_PLAN_PRESETS: Record<'STARTER' | 'PRO' | 'ENTERPRISE' | 'LIFET
         monthlyPriceTHB: 1990,
         yearlyPriceTHB: 19900,
         defaultMaxMembers: 10,
+        maxMembers: 10,
         badgeColor: 'bg-sky-50 text-sky-700 border-sky-200',
         defaultModules: [
+            'DASHBOARD',
+            'CALENDAR',
+            'CHAT',
+            'WEEKLY',
+            'TEAM',
+            'ContentStock',
+            'CHECKLIST',
+            'COMPANY_CHECKLIST',
+            'CHANNELS',
+            'WIKI',
+            'SYSTEM_GUIDE'
+        ],
+        allowedModules: [
             'DASHBOARD',
             'CALENDAR',
             'CHAT',
@@ -70,8 +86,33 @@ export const SAAS_PLAN_PRESETS: Record<'STARTER' | 'PRO' | 'ENTERPRISE' | 'LIFET
         monthlyPriceTHB: 4990,
         yearlyPriceTHB: 49900,
         defaultMaxMembers: 30,
+        maxMembers: 30,
         badgeColor: 'bg-indigo-50 text-indigo-700 border-indigo-200',
         defaultModules: [
+            'DASHBOARD',
+            'CALENDAR',
+            'CHAT',
+            'WEEKLY',
+            'DUTY',
+            'MEETINGS',
+            'GOALS',
+            'TEAM',
+            'ContentStock',
+            'SCRIPT_HUB',
+            'CHECKLIST',
+            'COMPANY_CHECKLIST',
+            'CHANNELS',
+            'QUALITY_GATE',
+            'ANALYTICS',
+            'ATTENDANCE',
+            'LEADERBOARD',
+            'ASSETS',
+            'WIKI',
+            'FEEDBACK',
+            'MASTER_DATA',
+            'SYSTEM_GUIDE'
+        ],
+        allowedModules: [
             'DASHBOARD',
             'CALENDAR',
             'CHAT',
@@ -103,8 +144,10 @@ export const SAAS_PLAN_PRESETS: Record<'STARTER' | 'PRO' | 'ENTERPRISE' | 'LIFET
         monthlyPriceTHB: 9900,
         yearlyPriceTHB: 99000,
         defaultMaxMembers: 100,
+        maxMembers: 100,
         badgeColor: 'bg-violet-50 text-violet-700 border-violet-200',
-        defaultModules: [...ALL_SIDEBAR_MODULE_KEYS]
+        defaultModules: [...ALL_SIDEBAR_MODULE_KEYS],
+        allowedModules: null
     },
     LIFETIME: {
         tier: 'LIFETIME',
@@ -113,8 +156,10 @@ export const SAAS_PLAN_PRESETS: Record<'STARTER' | 'PRO' | 'ENTERPRISE' | 'LIFET
         monthlyPriceTHB: 0,
         yearlyPriceTHB: 149000,
         defaultMaxMembers: 500,
+        maxMembers: 500,
         badgeColor: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-        defaultModules: [...ALL_SIDEBAR_MODULE_KEYS]
+        defaultModules: [...ALL_SIDEBAR_MODULE_KEYS],
+        allowedModules: null
     }
 };
 
@@ -320,7 +365,7 @@ BEGIN
     IF NEW.status = 'ACTIVE' AND (TG_OP = 'INSERT' OR OLD.status IS DISTINCT FROM 'ACTIVE') THEN
         UPDATE public.profiles
         SET is_approved = true,
-            current_org_id = COALESCE(current_org_id, NEW.org_id),
+            current_org_id = CASE WHEN NEW.role = 'OWNER' THEN NEW.org_id ELSE COALESCE(current_org_id, NEW.org_id) END,
             role = CASE WHEN NEW.role IN ('OWNER', 'ADMIN') THEN 'ADMIN' ELSE role END
         WHERE id = NEW.user_id;
     END IF;
@@ -501,11 +546,11 @@ BEGIN
         RETURN v_org_id;
     END IF;
 
-    -- 2. Fallback to the first ACTIVE organization membership for this user
+    -- 2. Fallback to the latest ACTIVE organization membership for this user
     SELECT om.org_id INTO v_org_id
     FROM public.organization_members om
     WHERE om.user_id = v_uid AND om.status = 'ACTIVE'
-    ORDER BY om.joined_at ASC
+    ORDER BY om.joined_at DESC
     LIMIT 1;
 
     RETURN v_org_id;

@@ -4,20 +4,52 @@ export const DEFAULT_ORG_ID = PRIMARY_DEFAULT_ORG_ID;
 export { PRIMARY_DEFAULT_ORG_ID };
 
 const ACTIVE_ORG_STORAGE_KEY = 'juijui_active_org_id';
+const FORCE_ACTIVE_ORG_SESSION_KEY = 'juijui_force_active_org_id';
+
+/**
+ * Returns the explicitly selected/provisioned org ID from sessionStorage or localStorage
+ * without falling back to PRIMARY_DEFAULT_ORG_ID when unset.
+ */
+export const getExplicitActiveOrgIdSync = (): string | null => {
+    try {
+        if (typeof window !== 'undefined') {
+            return (
+                sessionStorage.getItem(FORCE_ACTIVE_ORG_SESSION_KEY) ||
+                localStorage.getItem(ACTIVE_ORG_STORAGE_KEY) ||
+                null
+            );
+        }
+    } catch {
+        // Ignore storage errors
+    }
+    return null;
+};
 
 /**
  * Retrieves the currently active organization ID from localStorage fallback
  * when outside React tree (e.g. utility functions).
  */
 export const getActiveOrgIdSync = (): string => {
+    return getExplicitActiveOrgIdSync() || PRIMARY_DEFAULT_ORG_ID;
+};
+
+/**
+ * Persists a newly provisioned or explicitly switched organization ID in sessionStorage
+ * so it takes top priority over any stale profile.current_org_id during app initialization.
+ */
+export const setForceActiveOrgIdSync = (orgId: string | null | undefined): void => {
     try {
         if (typeof window !== 'undefined') {
-            return localStorage.getItem(ACTIVE_ORG_STORAGE_KEY) || PRIMARY_DEFAULT_ORG_ID;
+            if (orgId) {
+                sessionStorage.setItem(FORCE_ACTIVE_ORG_SESSION_KEY, orgId);
+                localStorage.setItem(ACTIVE_ORG_STORAGE_KEY, orgId);
+            } else {
+                sessionStorage.removeItem(FORCE_ACTIVE_ORG_SESSION_KEY);
+            }
         }
     } catch {
         // Ignore storage errors
     }
-    return PRIMARY_DEFAULT_ORG_ID;
 };
 
 /**

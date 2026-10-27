@@ -119,8 +119,8 @@ const computeClientStats = (
     });
 
     const cardStats = (allConfigs || []).map(config => {
-        const statusKeys: string[] = config.status_keys || [];
-        const filterType = config.filter_type || 'STATUS';
+        const statusKeys: string[] = config.statusKeys || config.status_keys || [];
+        const filterType = config.filterType || config.filter_type || 'STATUS';
 
         const matchingTasks = filtered.filter(t => {
             if (filterType === 'STATUS') {
@@ -152,10 +152,10 @@ const computeClientStats = (
             key: config.key,
             label: config.label,
             icon: config.icon,
-            colorTheme: config.color_theme,
+            colorTheme: config.colorTheme || config.color_theme,
             statusKeys,
             filterType,
-            sortOrder: config.sort_order,
+            sortOrder: config.sortOrder ?? config.sort_order,
             count: matchingTasks.length,
             urgentCount,
             tasks: matchingTasks
@@ -190,19 +190,31 @@ export const useDashboardStats = (tasks: Task[], currentUser: User) => {
     const [customDays, setCustomDays] = useState<number>(7);
     const [viewScope, setViewScope] = useState<ViewScope>(currentUser.role === 'ADMIN' ? 'ALL' : 'ME');
 
-    // Server-aggregated Stats State
+    // Server-aggregated Stats State (initialized synchronously with client fallback to prevent height collapse on mount)
     const [stats, setStats] = useState<{
         cardStats: any[];
         chartData: any[];
         totalFilteredTasks: number;
         progressPercentage: number;
-    }>({
-        cardStats: [],
-        chartData: [],
-        totalFilteredTasks: 0,
-        progressPercentage: 0
+    }>(() => {
+        if (configs && configs.length > 0) {
+            return computeClientStats(
+                tasks,
+                configs,
+                'LAST_30',
+                7,
+                currentUser.role === 'ADMIN' ? 'ALL' : 'ME',
+                currentUser?.id || ''
+            );
+        }
+        return {
+            cardStats: [],
+            chartData: [],
+            totalFilteredTasks: 0,
+            progressPercentage: 0
+        };
     });
-    const [statsLoading, setStatsLoading] = useState<boolean>(true);
+    const [statsLoading, setStatsLoading] = useState<boolean>(() => !(configs && configs.length > 0));
 
     // Attendance Stats
     const [attendanceToday, setAttendanceToday] = useState<AttendanceStat>({ present: 0, late: 0, leave: 0, absent: 0, totalUsers: 0 });
@@ -277,7 +289,14 @@ export const useDashboardStats = (tasks: Task[], currentUser: User) => {
     // --- Server-side Stats Aggregate Fetching Effect with Robust Client Fallback ---
     useEffect(() => {
         let active = true;
-        setStatsLoading(true);
+
+        if (configs && configs.length > 0) {
+            const immediate = computeClientStats(tasks, configs, timeRange, customDays, viewScope, currentUser?.id || '');
+            setStats(immediate);
+            setStatsLoading(false);
+        } else {
+            setStatsLoading(true);
+        }
 
         const fetchStats = async () => {
             try {
@@ -293,9 +312,9 @@ export const useDashboardStats = (tasks: Task[], currentUser: User) => {
                 const contentType = res.headers.get('content-type');
                 if (contentType && contentType.includes('application/json')) {
                     const json = await res.json();
-                    if (json.success && active) {
+                    if (json.success && active && Array.isArray(json.cardStats) && json.cardStats.length > 0) {
                         setStats({
-                            cardStats: json.cardStats || [],
+                            cardStats: json.cardStats,
                             chartData: json.chartData || [],
                             totalFilteredTasks: json.totalFilteredTasks || 0,
                             progressPercentage: json.progressPercentage || 0
@@ -306,7 +325,7 @@ export const useDashboardStats = (tasks: Task[], currentUser: User) => {
                 throw new Error('Invalid JSON response');
             } catch (err) {
                 // Fallback seamlessly to client-side computation using tasks & configs
-                if (active && tasks && tasks.length > 0) {
+                if (active && configs && configs.length > 0) {
                     const fallback = computeClientStats(tasks, configs, timeRange, customDays, viewScope, currentUser?.id || '');
                     setStats(fallback);
                 }

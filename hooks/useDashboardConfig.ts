@@ -1,15 +1,17 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { DashboardConfig } from '../types';
 import { useToast } from '../context/ToastContext';
 
+let cachedDashboardConfigs: DashboardConfig[] | null = null;
+
 export const useDashboardConfig = () => {
-    const [configs, setConfigs] = useState<DashboardConfig[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const [configs, setConfigs] = useState<DashboardConfig[]>(() => cachedDashboardConfigs || []);
+    const [isLoading, setIsLoading] = useState<boolean>(() => !cachedDashboardConfigs);
     const { showToast } = useToast();
 
-    const fetchConfigs = async () => {
+    const fetchConfigs = useCallback(async () => {
         try {
             const { data, error } = await supabase
                 .from('dashboard_configs')
@@ -19,7 +21,7 @@ export const useDashboardConfig = () => {
             if (error) throw error;
 
             if (data) {
-                setConfigs(data.map((c: any) => ({
+                const mapped: DashboardConfig[] = data.map((c: any) => ({
                     id: c.id,
                     key: c.key,
                     label: c.label,
@@ -28,14 +30,16 @@ export const useDashboardConfig = () => {
                     statusKeys: c.status_keys || [],
                     filterType: c.filter_type || 'STATUS', // Default to STATUS
                     sortOrder: c.sort_order
-                })));
+                }));
+                cachedDashboardConfigs = mapped;
+                setConfigs(mapped);
             }
         } catch (err) {
             console.error('Fetch dashboard config failed', err);
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
     const updateConfig = async (id: string, updates: Partial<DashboardConfig>) => {
         try {
@@ -52,7 +56,11 @@ export const useDashboardConfig = () => {
 
             if (error) throw error;
 
-            setConfigs(prev => prev.map(c => c.id === id ? { ...c, ...updates } : c));
+            setConfigs(prev => {
+                const next = prev.map(c => c.id === id ? { ...c, ...updates } : c);
+                cachedDashboardConfigs = next;
+                return next;
+            });
             showToast('บันทึกการตั้งค่าแล้ว ✅', 'success');
         } catch (err: any) {
             showToast('บันทึกไม่สำเร็จ: ' + err.message, 'error');
@@ -61,7 +69,19 @@ export const useDashboardConfig = () => {
 
     useEffect(() => {
         fetchConfigs();
-    }, []);
+
+        const handleWorkspaceSwitch = () => {
+            cachedDashboardConfigs = null;
+            setConfigs([]);
+            setIsLoading(true);
+            fetchConfigs();
+        };
+
+        window.addEventListener('org-workspace-switched', handleWorkspaceSwitch);
+        return () => {
+            window.removeEventListener('org-workspace-switched', handleWorkspaceSwitch);
+        };
+    }, [fetchConfigs]);
 
     return {
         configs,

@@ -1,5 +1,7 @@
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { motion, useIsPresent } from 'framer-motion';
 import { PenTool, Eraser, FileText, Edit3, Type, Search, Coffee, Paperclip, Lamp, StickyNote, CheckCircle2, Target, Rocket, Zap, TrendingUp, Trophy, Activity, Sparkles } from 'lucide-react';
 import SeasonRain from './backgrounds/SeasonRain';
 import SeasonSnow from './backgrounds/SeasonSnow';
@@ -113,15 +115,30 @@ const AppBackground: React.FC<AppBackgroundProps> = ({
     }, [pattern]);
 
     // Use state for decorative elements to ensure they are generated once per mount
-    const [elements, setElements] = React.useState<any[]>([]);
-    const [scribbles, setScribbles] = React.useState<any[]>([]);
+    const [elements, setElements] = useState<any[]>([]);
+    const [scribbles, setScribbles] = useState<any[]>([]);
+    const [portalTarget, setPortalTarget] = useState<HTMLElement | null>(() => {
+        if (typeof document !== 'undefined') {
+            return document.getElementById('app-shell-bg-portal');
+        }
+        return null;
+    });
 
-    React.useEffect(() => {
+    useEffect(() => {
+        if (typeof document !== 'undefined') {
+            const el = document.getElementById('app-shell-bg-portal');
+            if (el !== portalTarget) {
+                setPortalTarget(el);
+            }
+        }
+    }, [portalTarget]);
+
+    useEffect(() => {
         window.dispatchEvent(new CustomEvent('app-background-changed', { detail: { theme } }));
         (window as any).__activeBackgroundTheme = theme;
     }, [theme]);
 
-    React.useEffect(() => {
+    useEffect(() => {
         if (theme !== 'script' && theme !== 'inspector' && theme !== 'productivity' && theme !== 'rainbow') {
             setElements([]);
             setScribbles([]);
@@ -204,8 +221,16 @@ const AppBackground: React.FC<AppBackgroundProps> = ({
         }
     }, [theme]);
 
-    return (
-        <div className={`relative w-auto min-h-full flex flex-col overflow-x-hidden max-w-full ${className}`}>
+    const isPresent = useIsPresent();
+
+    const backgroundLayers = (
+        <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: isPresent ? 1 : 0 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: 'easeInOut' }}
+            className="fixed inset-0 pointer-events-none z-0 overflow-hidden"
+        >
             {/* Background Layer */}
             {transparent ? null : customBgUrl ? (
                 <div 
@@ -287,10 +312,22 @@ const AppBackground: React.FC<AppBackgroundProps> = ({
                     ))}
                 </div>
             )}
+        </motion.div>
+    );
 
-            <div className="relative flex-1 flex flex-col min-h-0">
+    return (
+        <div className={`relative w-auto min-h-full flex flex-col overflow-x-hidden max-w-full ${className}`}>
+            {portalTarget ? createPortal(backgroundLayers, portalTarget) : backgroundLayers}
+
+            <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: isPresent ? 1 : 0, y: isPresent ? 0 : -10 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] as const }}
+                className="relative z-10 flex-1 flex flex-col min-h-0"
+            >
                 {children}
-            </div>
+            </motion.div>
         </div>
     );
 };

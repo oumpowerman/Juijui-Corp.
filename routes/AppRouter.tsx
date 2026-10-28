@@ -29,9 +29,7 @@ import { usePWAShareReceiver } from './hooks/usePWAShareReceiver';
 import { PWAShareTargetModal } from '../components/nexus/PWAShareTargetModal';
 import ChatAssistant from '../components/ChatAssistant';
 import { WarpGateOverlay } from '../components/dashboard/member/ultimate/WarpGateOverlay';
-
-// --- LAZY LOAD ULTIMATE SCREEN ---
-const UltimateWorkroomView = lazy(() => import('../components/dashboard/member/UltimateWorkroomView'));
+import UltimateWorkroomView from '../components/dashboard/member/UltimateWorkroomView';
 
 // Loading Fallback
 const PageLoader = () => (
@@ -60,9 +58,10 @@ const PageLoader = () => (
 
 interface AppRouterProps {
     user: any; // Session User from Supabase Auth
+    onManagerReadyChange?: (ready: boolean) => void;
 }
 
-const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
+const AppRouterInner: React.FC<AppRouterProps> = ({ user, onManagerReadyChange }) => {
   const navigate = useNavigate();
   const { showToast } = useToast();
 
@@ -120,6 +119,10 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
     quests, handleAddQuest, handleDeleteQuest, updateManualProgress, updateQuest,
     fetchTaskById
   } = useTaskManager(user, currentUserProfile, fetchProfile, updateProfile);
+
+  React.useEffect(() => {
+    onManagerReadyChange?.(!isManagerLoading);
+  }, [isManagerLoading, onManagerReadyChange]);
 
   // --- HOOK 5: ROUTE & URL NAVIGATION ---
   const {
@@ -424,8 +427,8 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user }) => {
   );
 };
 
-const AppRouter: React.FC<{ user: any }> = ({ user }) => {
-  return <AppRouterInner user={user} />;
+const AppRouter: React.FC<AppRouterProps> = ({ user, onManagerReadyChange }) => {
+  return <AppRouterInner user={user} onManagerReadyChange={onManagerReadyChange} />;
 };
 
 export default AppRouter;

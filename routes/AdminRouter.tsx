@@ -3,11 +3,12 @@ import React, { Suspense, lazy } from 'react';
 import { ViewMode, User, Task, Channel, MasterOption } from '../types';
 import { Loader2 } from 'lucide-react';
 import AppBackground from '../components/common/AppBackground';
+import { lazyWithRetry } from '../lib/lazyWithRetry';
 
-const ChannelManager = lazy(() => import('../components/ChannelManager'));
-const MasterDataManager = lazy(() => import('../components/MasterDataManager'));
-const SystemLogicGuide = lazy(() => import('../components/admin/SystemLogicGuide'));
-const AssetRegistryView = lazy(() => import('../components/assets/AssetRegistryView'));
+const ChannelManager = lazyWithRetry(() => import('../components/ChannelManager'), 'ChannelManager');
+const MasterDataManager = lazyWithRetry(() => import('../components/MasterDataManager'), 'MasterDataManager');
+const SystemLogicGuide = lazyWithRetry(() => import('../components/admin/SystemLogicGuide'), 'SystemLogicGuide');
+const AssetRegistryView = lazyWithRetry(() => import('../components/assets/AssetRegistryView'), 'AssetRegistryView');
 
 const PageLoader = () => (
   <div className="flex-1 w-full flex flex-col items-center justify-center text-indigo-300 min-h-[400px]">

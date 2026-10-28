@@ -18,7 +18,7 @@ export const useTaskManager = (
     fetchProfile: () => Promise<User | null>,
     updateProfile: (updates: Partial<User>, avatarFile?: File) => Promise<boolean>
 ) => {
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => !currentUserProfile);
 
   // 1. Auth Hook - REMOVED redundant call
   // const { currentUserProfile, fetchProfile, updateProfile } = useAuth(sessionUser);
@@ -55,13 +55,14 @@ export const useTaskManager = (
   // --- Initialize Logic (Orchestrator) ---
   useEffect(() => {
     const init = async () => {
-      // Only set loading if we don't have profile yet to prevent flicker on refocus
-      if (!currentUserProfile) setIsLoading(true);
-      
-      const profile = await fetchProfile();
-      
-      if (profile && profile.isApproved) {
-         await fetchMasterOptions();
+      if (!currentUserProfile) {
+        setIsLoading(true);
+      }
+
+      const profile = currentUserProfile || (await fetchProfile());
+
+      if (profile && profile.isApproved && masterOptions.length === 0) {
+        await fetchMasterOptions();
       }
       setIsLoading(false);
     };

@@ -31,15 +31,27 @@ const PastMeetingsDrillDown: React.FC<PastMeetingsDrillDownProps> = ({ isOpen, o
             {isOpen && (
                 <div 
                     id="past-meetings-drilldown-modal"
-                    className="fixed inset-0 z-[11000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-3 sm:p-4 overflow-y-auto"
-                    onClick={onClose}
+                    className="fixed inset-0 z-[11000] flex items-center justify-center p-3 sm:p-4 overflow-y-auto"
                 >
+                    {/* Backdrop */}
+                    <motion.div
+                        key="past-meetings-backdrop"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.2, ease: 'easeOut' }}
+                        onClick={onClose}
+                        className="fixed inset-0 bg-black/60 backdrop-blur-sm cursor-pointer"
+                    />
+
+                    {/* Modal Window */}
                     <motion.div 
+                        key="past-meetings-window"
                         initial={{ opacity: 0, scale: 0.95, y: 12 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 12 }}
                         transition={{ type: "spring", stiffness: 320, damping: 26 }}
-                        className="bg-white w-full max-w-lg sm:max-w-xl rounded-2xl sm:rounded-3xl shadow-2xl border-2 sm:border-4 border-white ring-1 ring-gray-100 overflow-hidden flex flex-col h-[480px] sm:h-[520px] max-h-[85vh] my-auto"
+                        className="bg-white w-full max-w-lg sm:max-w-xl rounded-2xl sm:rounded-3xl shadow-2xl border-2 sm:border-4 border-white ring-1 ring-gray-100 overflow-hidden flex flex-col h-[480px] sm:h-[520px] max-h-[85vh] my-auto relative z-10"
                         onClick={e => e.stopPropagation()}
                     >
                         <div className="p-4 sm:p-5 border-b border-gray-100 flex justify-between items-center bg-white shrink-0">

@@ -254,8 +254,6 @@ export const useMasterOptionsDomain = () => {
 
     const seedDefaults = useCallback(async (onReload: () => Promise<void>): Promise<void> => {
         try {
-            showToast('กำลังตรวจสอบฐานข้อมูล... กรุณารอสักครู่', 'info');
-            
             const { data: existingData, error: fetchError } = await supabase
                 .from('master_options')
                 .select('id, type, key, description');

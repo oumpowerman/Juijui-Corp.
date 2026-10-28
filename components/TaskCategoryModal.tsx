@@ -65,26 +65,30 @@ const TaskCategoryModal: React.FC<TaskCategoryModalProps> = ({
   const modalContent = (
     <AnimatePresence>
       {isOpen && (
-        <div 
-          className="fixed inset-0 z-[9000] flex items-center justify-center p-4 overflow-hidden perspective-1000"
+        <motion.div 
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.2 }}
+          className="fixed inset-0 z-[9000] flex items-center justify-center p-4 overflow-hidden font-sans"
         >
           {/* Animated Backdrop */}
           <motion.div
-            initial={{ opacity: 0, backdropFilter: "blur(0px)" }}
-            animate={{ opacity: 1, backdropFilter: "blur(8px)" }}
-            exit={{ opacity: 0, backdropFilter: "blur(0px)" }}
-            transition={{ duration: 0.3 }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.2, ease: 'easeInOut' }}
             className="absolute inset-0 bg-orange-900/20 backdrop-blur-md"
             onClick={onClose}
           />
 
           {/* Animated Modal Card */}
           <motion.div 
-            initial={{ opacity: 0, scale: 0.8, y: 40, rotateX: 10 }}
-            animate={{ opacity: 1, scale: 1, y: 0, rotateX: 0 }}
-            exit={{ opacity: 0, scale: 0.8, y: -40, rotateX: -10 }}
-            transition={{ type: 'spring', damping: 20, stiffness: 300, mass: 0.8 }}
-            className={`bg-white/80 backdrop-blur-xl w-full ${viewMode === 'board' ? 'max-w-6xl' : 'max-w-2xl'} rounded-[1.75rem] sm:rounded-[2.5rem] shadow-[0_30px_60px_-15px_rgba(251,146,60,0.3)] overflow-hidden flex flex-col border border-white/60 z-10 transition-all duration-300 ${tasks.length > 0 ? 'h-[85vh]' : 'max-h-[85vh]'}`}
+            initial={{ opacity: 0, scale: 0.94, y: 16 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.94, y: 16 }}
+            transition={{ type: 'spring', damping: 25, stiffness: 380, mass: 0.8 }}
+            className={`bg-white/80 backdrop-blur-xl w-full ${viewMode === 'board' ? 'max-w-6xl' : 'max-w-2xl'} rounded-[1.75rem] sm:rounded-[2.5rem] shadow-[0_30px_60px_-15px_rgba(251,146,60,0.3)] overflow-hidden flex flex-col border border-white/60 z-10 ${tasks.length > 0 ? 'h-[85vh]' : 'max-h-[85vh]'}`}
             onClick={e => e.stopPropagation()}
           >
             {/* Header */}
@@ -258,7 +262,7 @@ const TaskCategoryModal: React.FC<TaskCategoryModalProps> = ({
                 </div>
             )}
           </motion.div>
-        </div>
+        </motion.div>
       )}
     </AnimatePresence>
   );

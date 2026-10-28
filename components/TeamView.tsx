@@ -344,31 +344,7 @@ const TeamView: React.FC<TeamViewProps> = ({
                     onEditTask={onEditTask}
                 />
 
-                {/* Shop & History Sections */}
-                {isShopOpen && (
-                    <div className="animate-in slide-in-from-top-4 fade-in">
-                        <RewardShop 
-                            rewards={rewards} 
-                            userPoints={currentUser?.availablePoints || 0}
-                            userRedemptions={userRedemptions}
-                            onRedeem={redeemReward}
-                            onUseReward={useReward}
-                            onClose={() => setIsShopOpen(false)}
-                            onOpenHistory={() => { setIsHistoryOpen(true); fetchAllRedemptions(); }}
-                        />
-                    </div>
-                )}
 
-                {isHistoryOpen && (
-                    <div className="animate-in slide-in-from-top-4 fade-in">
-                        <RewardHistory 
-                            redemptions={allRedemptions.filter(r => isAdmin || r.userId === currentUser?.id)} 
-                            onClose={() => setIsHistoryOpen(false)} 
-                            isAdmin={isAdmin}
-                            onUpdateStatus={adminUpdateRedemption}
-                        />
-                    </div>
-                )}
 
                 {/* Pending Approvals */}
                 {isAdmin && pendingMembers.length > 0 && (
@@ -583,6 +559,27 @@ const TeamView: React.FC<TeamViewProps> = ({
             />
         )}
 
+        {/* REWARD SHOP MODAL */}
+        <RewardShop 
+            isOpen={isShopOpen}
+            rewards={rewards} 
+            userPoints={currentUser?.availablePoints || 0}
+            userRedemptions={userRedemptions}
+            onRedeem={redeemReward}
+            onUseReward={useReward}
+            onClose={() => setIsShopOpen(false)}
+            onOpenHistory={() => { setIsHistoryOpen(true); fetchAllRedemptions(); }}
+        />
+
+        {/* REWARD HISTORY MODAL */}
+        <RewardHistory 
+            isOpen={isHistoryOpen}
+            redemptions={allRedemptions.filter(r => isAdmin || r.userId === currentUser?.id)} 
+            onClose={() => setIsHistoryOpen(false)} 
+            isAdmin={isAdmin}
+            onUpdateStatus={adminUpdateRedemption}
+        />
+
         {/* RANDOMIZER MODAL */}
         <RandomizerModal 
             isOpen={isRandomizerOpen}
@@ -593,13 +590,11 @@ const TeamView: React.FC<TeamViewProps> = ({
 
         {/* TRIBUNAL REPORT MODAL */}
         <React.Suspense fallback={null}>
-          {isReportModalOpen && (
-            <TribunalReportModal 
-              isOpen={isReportModalOpen}
-              onClose={() => setIsReportModalOpen(false)}
-              currentUser={currentUser}
-            />
-          )}
+          <TribunalReportModal 
+            isOpen={isReportModalOpen}
+            onClose={() => setIsReportModalOpen(false)}
+            currentUser={currentUser}
+          />
         </React.Suspense>
       </div>
     </AppBackground>

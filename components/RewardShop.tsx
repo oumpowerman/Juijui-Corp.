@@ -8,6 +8,7 @@ import { format } from 'date-fns';
 import th from 'date-fns/locale/th';
 
 interface RewardShopProps {
+    isOpen?: boolean;
     rewards: Reward[];
     userPoints: number;
     userRedemptions: Redemption[];
@@ -18,6 +19,7 @@ interface RewardShopProps {
 }
 
 const RewardShop: React.FC<RewardShopProps> = ({ 
+    isOpen = true,
     rewards, 
     userPoints, 
     userRedemptions,
@@ -32,23 +34,32 @@ const RewardShop: React.FC<RewardShopProps> = ({
 
     const modalContent = (
         <AnimatePresence>
-            <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 font-sans">
-                {/* Backdrop */}
+            {isOpen && (
                 <motion.div 
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    onClick={onClose}
-                    className="absolute inset-0 bg-black/70 backdrop-blur-md"
-                />
-
-                {/* Main Container */}
-                <motion.div 
-                    initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                    className="bg-white w-full max-w-5xl h-[85vh] rounded-[2.5rem] shadow-2xl overflow-hidden relative flex flex-col z-10 border-4 border-purple-50"
+                    transition={{ duration: 0.22 }}
+                    className="fixed inset-0 z-[1000] flex items-center justify-center p-4 font-sans"
                 >
+                    {/* Backdrop */}
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.22, ease: 'easeInOut' }}
+                        onClick={onClose}
+                        className="absolute inset-0 bg-black/70 backdrop-blur-md cursor-default"
+                    />
+
+                    {/* Main Container */}
+                    <motion.div 
+                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                        className="bg-white w-full max-w-5xl h-[85vh] rounded-[2.5rem] shadow-2xl overflow-hidden relative flex flex-col z-10 border-4 border-purple-50"
+                    >
                     
                     {/* Header */}
                     <div className="bg-purple-600 p-6 text-white relative overflow-hidden shrink-0">
@@ -258,9 +269,10 @@ const RewardShop: React.FC<RewardShopProps> = ({
                         </AnimatePresence>
                     </div>
                 </motion.div>
-            </div>
-        </AnimatePresence>
-    );
+            </motion.div>
+        )}
+    </AnimatePresence>
+);
 
     return createPortal(modalContent, document.body);
 };

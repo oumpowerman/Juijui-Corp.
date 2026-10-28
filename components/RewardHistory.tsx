@@ -1,19 +1,21 @@
 
 import React from 'react';
 import { createPortal } from 'react-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Redemption } from '../types';
 import { X, History, User, CheckCircle2, Clock, Ban, AlertCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import th from 'date-fns/locale/th';
 
 interface RewardHistoryProps {
+    isOpen?: boolean;
     redemptions: (Redemption & { user?: any })[];
     onClose: () => void;
     isAdmin: boolean;
     onUpdateStatus?: (id: string, status: 'APPROVED' | 'REJECTED') => void;
 }
 
-const RewardHistory: React.FC<RewardHistoryProps> = ({ redemptions, onClose, isAdmin, onUpdateStatus }) => {
+const RewardHistory: React.FC<RewardHistoryProps> = ({ isOpen = true, redemptions, onClose, isAdmin, onUpdateStatus }) => {
     const getStatusInfo = (status: string) => {
         switch (status) {
             case 'APPROVED':
@@ -30,8 +32,33 @@ const RewardHistory: React.FC<RewardHistoryProps> = ({ redemptions, onClose, isA
     };
 
     const modalContent = (
-        <div className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="bg-white w-full max-w-3xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 border-b-8 border-purple-100">
+        <AnimatePresence>
+            {isOpen && (
+                <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.22 }}
+                    className="fixed inset-0 z-[10000] flex items-center justify-center p-4 font-sans"
+                >
+                    {/* Backdrop */}
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.22, ease: 'easeInOut' }}
+                        onClick={onClose}
+                        className="absolute inset-0 bg-black/60 backdrop-blur-sm cursor-default"
+                    />
+
+                    {/* Main Container */}
+                    <motion.div 
+                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                        className="bg-white w-full max-w-3xl rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col max-h-[85vh] border-b-8 border-purple-100 relative z-10"
+                    >
                 <div className="px-8 py-6 border-b border-gray-100 flex justify-between items-center bg-white">
                     <div>
                         <h3 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
@@ -123,8 +150,10 @@ const RewardHistory: React.FC<RewardHistoryProps> = ({ redemptions, onClose, isA
                         })
                     )}
                 </div>
-            </div>
-        </div>
+            </motion.div>
+        </motion.div>
+    )}
+</AnimatePresence>
     );
 
     if (typeof document === 'undefined') return null;

@@ -100,16 +100,29 @@ if (!rootElement) {
 }
 
 // --- SERVICE WORKER REGISTRATION (PWA & Push Notifications) ---
-if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost')) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then(reg => {
-        console.log('[PWA] Service Worker registered with scope:', reg.scope);
-      })
-      .catch(err => {
-        console.warn('[PWA] Service Worker registration failed:', err);
-      });
-  });
+if ('serviceWorker' in navigator) {
+  if (import.meta.env.DEV) {
+    // In dev environment, unregister any existing service worker to prevent intercepting on-demand Vite modules
+    navigator.serviceWorker.getRegistrations().then(registrations => {
+      for (const reg of registrations) {
+        reg.unregister().then(unregistered => {
+          if (unregistered) {
+            console.log('[Dev] Unregistered stale service worker:', reg.scope);
+          }
+        });
+      }
+    });
+  } else if (window.location.protocol === 'https:' || window.location.hostname === 'localhost') {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js')
+        .then(reg => {
+          console.log('[PWA] Service Worker registered with scope:', reg.scope);
+        })
+        .catch(err => {
+          console.warn('[PWA] Service Worker registration failed:', err);
+        });
+    });
+  }
 }
 
 const root = ReactDOM.createRoot(rootElement);

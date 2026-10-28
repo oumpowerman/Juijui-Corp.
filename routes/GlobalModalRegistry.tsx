@@ -8,11 +8,12 @@ import ResurrectionModal from '../components/gamification/ResurrectionModal';
 import NotificationPopover from '../components/NotificationPopover';
 import { NotificationDetailModal } from '../components/notification/NotificationDetailModal';
 import TaskModalSkeleton from '../components/task/TaskModalSkeleton';
+import { lazyWithRetry } from '../lib/lazyWithRetry';
 
 // --- LAZY LOAD MODALS ---
-const TaskModal = lazy(() => import('../components/TaskModal'));
-const ProfileEditModal = lazy(() => import('../components/ProfileEditModal'));
-const NotificationSettingsModal = lazy(() => import('../components/NotificationSettingsModal'));
+const TaskModal = lazyWithRetry(() => import('../components/TaskModal'), 'TaskModal');
+const ProfileEditModal = lazyWithRetry(() => import('../components/ProfileEditModal'), 'ProfileEditModal');
+const NotificationSettingsModal = lazyWithRetry(() => import('../components/NotificationSettingsModal'), 'NotificationSettingsModal');
 
 interface GlobalModalRegistryProps {
   // Lock Notification States

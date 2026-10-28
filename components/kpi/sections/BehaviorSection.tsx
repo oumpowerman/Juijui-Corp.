@@ -256,19 +256,20 @@ const BehaviorSection: React.FC<BehaviorSectionProps> = ({
                 <div className="flex gap-3 w-full sm:w-auto">
                     {isSelfEval ? (
                         <motion.button 
-                            whileHover={{ scale: 1.05 }}
+                            whileHover={{ scale: 1.05 }} 
                             whileTap={{ scale: 0.95 }}
+                            transition={{ type: 'spring', stiffness: 400, damping: 25 }}
                             onClick={() => onSaveSelf && onSaveSelf(selfReflectionPride, selfReflectionImprovement)} 
-                            className="flex-1 sm:flex-none px-10 py-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl text-sm font-bold shadow-xl shadow-indigo-900/50 transition-all uppercase tracking-widest"
+                            className="flex-1 sm:flex-none px-10 py-4 bg-indigo-600 hover:bg-indigo-500 rounded-2xl text-sm font-bold shadow-xl shadow-indigo-900/50 transition-colors duration-200 uppercase tracking-widest"
                         >
                             บันทึกผลประเมินตนเอง
                         </motion.button>
                     ) : isAdmin && (
                         <>
-                            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={() => onSave('DRAFT')} className="flex-1 sm:flex-none px-6 py-4 bg-gray-800 hover:bg-gray-700 rounded-2xl text-sm font-bold transition-all uppercase tracking-widest border border-gray-700">Save Draft</motion.button>
-                            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={async () => { if(await showConfirm('ยืนยันผลประเมิน?')) onSave('FINAL'); }} className="flex-1 sm:flex-none px-8 py-4 bg-pink-600 hover:bg-pink-500 rounded-2xl text-sm font-bold shadow-xl shadow-pink-900/50 transition-all uppercase tracking-widest">Approve Result</motion.button>
+                            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }} onClick={() => onSave('DRAFT')} className="flex-1 sm:flex-none px-6 py-4 bg-gray-800 hover:bg-gray-700 rounded-2xl text-sm font-bold transition-colors duration-200 uppercase tracking-widest border border-gray-700">Save Draft</motion.button>
+                            <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }} onClick={async () => { if(await showConfirm('ยืนยันผลประเมิน?')) onSave('FINAL'); }} className="flex-1 sm:flex-none px-8 py-4 bg-pink-600 hover:bg-pink-500 rounded-2xl text-sm font-bold shadow-xl shadow-pink-900/50 transition-colors duration-200 uppercase tracking-widest">Approve Result</motion.button>
                             {currentStatus === 'FINAL' && canPay && (
-                                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} onClick={async () => { if(await showConfirm('ยืนยันการจ่ายโบนัส?')) onSave('PAID'); }} className="flex-1 sm:flex-none px-8 py-4 bg-emerald-600 hover:bg-emerald-500 rounded-2xl text-sm font-bold shadow-xl shadow-emerald-900/50 transition-all uppercase tracking-widest">Pay Bonus</motion.button>
+                                <motion.button whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }} transition={{ type: 'spring', stiffness: 400, damping: 25 }} onClick={async () => { if(await showConfirm('ยืนยันการจ่ายโบนัส?')) onSave('PAID'); }} className="flex-1 sm:flex-none px-8 py-4 bg-emerald-600 hover:bg-emerald-500 rounded-2xl text-sm font-bold shadow-xl shadow-emerald-900/50 transition-colors duration-200 uppercase tracking-widest">Pay Bonus</motion.button>
                             )}
                         </>
                     )}

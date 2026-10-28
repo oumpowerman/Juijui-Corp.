@@ -20,7 +20,23 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  // Network-first strategy for HTML/Root to avoid hash mismatch
+  const url = event.request.url;
+
+  // Never intercept non-GET requests, Vite dev server, TypeScript/JSX files, or API endpoints
+  if (
+    event.request.method !== 'GET' ||
+    url.includes('/api/') ||
+    url.includes('.tsx') ||
+    url.includes('.ts') ||
+    url.includes('/@vite/') ||
+    url.includes('/@fs/') ||
+    url.includes('/node_modules/') ||
+    url.includes('?v=')
+  ) {
+    return;
+  }
+
+  // Network-first strategy for navigation to avoid stale HTML
   if (event.request.mode === 'navigate') {
     event.respondWith(
       fetch(event.request).catch(() => caches.match(event.request))
@@ -33,6 +49,7 @@ self.addEventListener('fetch', (event) => {
       .then((response) => {
         return response || fetch(event.request);
       })
+      .catch(() => fetch(event.request))
   );
 });
 

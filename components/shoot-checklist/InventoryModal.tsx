@@ -1,9 +1,10 @@
 
-import React, { useState, useRef, useMemo, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { Plus, X, Search, Box, Trash2, Edit2, Info, Check, CheckCircle2, Image as ImageIcon, LayoutGrid, List as ListIcon, Filter } from 'lucide-react';
+import React, { useState, useRef, useMemo } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Plus, X, Search, Box, Trash2, Edit2, Info, Check, Image as ImageIcon, LayoutGrid, List as ListIcon, Filter } from 'lucide-react';
 import { InventoryItem, MasterOption, AssetGroup } from '../../types';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
+import BaseModal from '../common/BaseModal';
 
 interface InventoryModalProps {
     isOpen: boolean;
@@ -50,41 +51,7 @@ const InventoryModal: React.FC<InventoryModalProps> = ({
     // Mobile Layout State
     const [showMobileForm, setShowMobileForm] = useState(false);
     
-    // Layout Calculation State
-    const [modalStyle, setModalStyle] = useState<React.CSSProperties>({});
-    
     const fileInputRef = useRef<HTMLInputElement>(null);
-
-    // --- Dynamic Layout Logic ---
-    useEffect(() => {
-        if (!isOpen) return;
-
-        const updatePosition = () => {
-            // Always use full screen overlay for consistency and to ensure it covers everything
-            setModalStyle({
-                position: 'fixed',
-                inset: 0,
-                zIndex: 9999, // High z-index to cover everything including sidebar
-                padding: window.innerWidth >= 1024 ? '2rem' : 0
-            });
-        };
-
-        // Initial update
-        updatePosition();
-
-        // Listen to window resize
-        window.addEventListener('resize', updatePosition);
-        
-        // Listen to main element size changes (e.g. sidebar collapse transition)
-        const mainEl = document.querySelector('main');
-        const observer = new ResizeObserver(updatePosition);
-        if (mainEl) observer.observe(mainEl);
-
-        return () => {
-            window.removeEventListener('resize', updatePosition);
-            observer.disconnect();
-        };
-    }, [isOpen]);
 
     // --- Helpers ---
     const findParentL1 = (l2Key: string) => {
@@ -177,15 +144,15 @@ const InventoryModal: React.FC<InventoryModalProps> = ({
         setIsEditingMode(true);
     };
 
-    if (!isOpen) return null;
-
-    // Use CreatePortal to render at body level for better Z-Index management vs Sidebar
-    return createPortal(
-        <div 
-            style={modalStyle} 
-            className="flex items-center justify-center bg-black/70 backdrop-blur-sm animate-in fade-in transition-all duration-300 ease-out"
+    return (
+        <BaseModal
+            isOpen={isOpen}
+            onClose={onClose}
+            containerClassName="p-0 md:p-6 lg:p-8"
+            backdropClassName="bg-black/70 backdrop-blur-sm"
+            windowClassName="bg-white w-full h-full md:h-[90vh] md:w-[95%] max-w-[1600px] rounded-none md:rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row border-none md:border border-gray-200 relative"
+            zIndex={9999}
         >
-            <div className="bg-white w-full h-full md:h-[90%] md:w-[95%] rounded-none md:rounded-3xl shadow-2xl overflow-hidden flex flex-col md:flex-row animate-in zoom-in-95 border-none md:border border-gray-200 relative">
                 
                 {/* LEFT: Add Form (Responsive: Sidebar on Desktop, Overlay on Mobile) */}
                 <div className={`
@@ -453,77 +420,93 @@ const InventoryModal: React.FC<InventoryModalProps> = ({
                 </div>
 
                 {/* DETAIL POPUP */}
-                {viewingItem && (
-                    <div className="absolute inset-0 bg-white/90 backdrop-blur-md z-[120] flex items-center justify-center p-4 animate-in fade-in" onClick={() => setViewingItem(null)}>
-                        <div className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col max-h-full animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
-                            <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
-                                <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2">{isEditingMode ? <Edit2 className="w-5 h-5 text-indigo-600"/> : <Info className="w-5 h-5 text-indigo-600"/>}{isEditingMode ? 'แก้ไขข้อมูล' : 'รายละเอียดอุปกรณ์'}</h3>
-                                <button onClick={() => setViewingItem(null)} className="p-2 hover:bg-gray-200 rounded-full text-gray-500"><X className="w-5 h-5" /></button>
-                            </div>
-                            <div className="p-6 overflow-y-auto flex-1">
-                                {isEditingMode ? (
-                                    <div className="space-y-4">
-                                        <div className="flex justify-center mb-4">
-                                            <div className="w-32 h-32 bg-gray-100 rounded-2xl border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer relative" onClick={() => fileInputRef.current?.click()}>
-                                                {invImagePreview ? <img src={invImagePreview} className="w-full h-full object-cover rounded-xl" /> : <ImageIcon className="w-8 h-8 text-gray-300" />}
+                <AnimatePresence>
+                    {viewingItem && (
+                        <motion.div
+                            key="inventory-detail-backdrop"
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.2, ease: 'easeOut' }}
+                            className="absolute inset-0 bg-white/90 backdrop-blur-md z-[120] flex items-center justify-center p-4"
+                            onClick={() => setViewingItem(null)}
+                        >
+                            <motion.div
+                                key="inventory-detail-window"
+                                initial={{ opacity: 0, scale: 0.95, y: 12 }}
+                                animate={{ opacity: 1, scale: 1, y: 0 }}
+                                exit={{ opacity: 0, scale: 0.95, y: 12 }}
+                                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] as const }}
+                                className="bg-white w-full max-w-2xl rounded-3xl shadow-2xl border border-gray-200 overflow-hidden flex flex-col max-h-full"
+                                onClick={e => e.stopPropagation()}
+                            >
+                                <div className="px-6 py-4 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                                    <h3 className="font-bold text-lg text-gray-800 flex items-center gap-2">{isEditingMode ? <Edit2 className="w-5 h-5 text-indigo-600"/> : <Info className="w-5 h-5 text-indigo-600"/>}{isEditingMode ? 'แก้ไขข้อมูล' : 'รายละเอียดอุปกรณ์'}</h3>
+                                    <button onClick={() => setViewingItem(null)} className="p-2 hover:bg-gray-200 rounded-full text-gray-500"><X className="w-5 h-5" /></button>
+                                </div>
+                                <div className="p-6 overflow-y-auto flex-1">
+                                    {isEditingMode ? (
+                                        <div className="space-y-4">
+                                            <div className="flex justify-center mb-4">
+                                                <div className="w-32 h-32 bg-gray-100 rounded-2xl border-2 border-dashed border-gray-300 flex items-center justify-center cursor-pointer relative" onClick={() => fileInputRef.current?.click()}>
+                                                    {invImagePreview ? <img src={invImagePreview} className="w-full h-full object-cover rounded-xl" /> : <ImageIcon className="w-8 h-8 text-gray-300" />}
+                                                </div>
+                                            </div>
+                                            <input type="text" className="w-full p-3 border rounded-xl font-bold" value={invName} onChange={e => setInvName(e.target.value)} placeholder="ชื่ออุปกรณ์" />
+                                            <textarea className="w-full p-3 border rounded-xl text-sm h-24 resize-none" value={invDesc} onChange={e => setInvDesc(e.target.value)} placeholder="รายละเอียด..." />
+                                            <select className="w-full p-3 border rounded-xl text-sm font-bold bg-white" value={invL2} onChange={e => setInvL2(e.target.value)}>{subCats.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}</select>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col md:flex-row gap-6">
+                                            <div className="w-full md:w-1/2 aspect-square bg-gray-50 rounded-2xl border border-gray-100 flex items-center justify-center overflow-hidden">{viewingItem.imageUrl ? <img src={viewingItem.imageUrl} className="w-full h-full object-cover" /> : <Box className="w-20 h-20 text-gray-200" />}</div>
+                                            <div className="flex-1 space-y-4">
+                                                <div><h2 className="text-2xl font-bold text-gray-800 leading-tight">{viewingItem.name}</h2><span className="inline-block mt-2 px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold border border-indigo-100">{subCats.find(s => s.key === viewingItem.categoryId)?.label || viewingItem.categoryId}</span></div>
+                                                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100"><h4 className="text-xs font-bold text-gray-400 uppercase mb-2">รายละเอียด (Details)</h4><p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{viewingItem.description || "ไม่มีรายละเอียดเพิ่มเติม"}</p></div>
                                             </div>
                                         </div>
-                                        <input type="text" className="w-full p-3 border rounded-xl font-bold" value={invName} onChange={e => setInvName(e.target.value)} placeholder="ชื่ออุปกรณ์" />
-                                        <textarea className="w-full p-3 border rounded-xl text-sm h-24 resize-none" value={invDesc} onChange={e => setInvDesc(e.target.value)} placeholder="รายละเอียด..." />
-                                        <select className="w-full p-3 border rounded-xl text-sm font-bold bg-white" value={invL2} onChange={e => setInvL2(e.target.value)}>{subCats.map(c => <option key={c.key} value={c.key}>{c.label}</option>)}</select>
-                                    </div>
-                                ) : (
-                                    <div className="flex flex-col md:flex-row gap-6">
-                                        <div className="w-full md:w-1/2 aspect-square bg-gray-50 rounded-2xl border border-gray-100 flex items-center justify-center overflow-hidden">{viewingItem.imageUrl ? <img src={viewingItem.imageUrl} className="w-full h-full object-cover" /> : <Box className="w-20 h-20 text-gray-200" />}</div>
-                                        <div className="flex-1 space-y-4">
-                                            <div><h2 className="text-2xl font-black text-gray-800 leading-tight">{viewingItem.name}</h2><span className="inline-block mt-2 px-3 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-bold border border-indigo-100">{subCats.find(s => s.key === viewingItem.categoryId)?.label || viewingItem.categoryId}</span></div>
-                                            <div className="bg-gray-50 p-4 rounded-xl border border-gray-100"><h4 className="text-xs font-bold text-gray-400 uppercase mb-2">รายละเอียด (Details)</h4><p className="text-sm text-gray-600 leading-relaxed whitespace-pre-wrap">{viewingItem.description || "ไม่มีรายละเอียดเพิ่มเติม"}</p></div>
-                                        </div>
-                                    </div>
-                                )}
-                            </div>
-                            <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
-                                {isEditingMode ? (
-                                    <div className="flex gap-3 w-full"><button onClick={() => setIsEditingMode(false)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-200 rounded-xl transition-colors">ยกเลิก</button><button onClick={handleSave} disabled={isSubmitting} className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg hover:bg-indigo-700 transition-all flex justify-center">{isSubmitting ? 'บันทึก...' : 'บันทึกการแก้ไข'}</button></div>
-                                ) : (
-                                    <>
-                                        <div className="flex gap-2">
-                                            <button onClick={handleEditClick} className="p-2.5 text-gray-500 hover:text-indigo-600 hover:bg-white rounded-xl border border-transparent hover:border-gray-200 transition-all"><Edit2 className="w-5 h-5" /></button>
-                                            <button onClick={async () => { if(await showConfirm('ลบออกจากคลังถาวร?')) { onDeleteItem(viewingItem.id); setViewingItem(null); } }} className="p-2.5 text-gray-500 hover:text-red-600 hover:bg-white rounded-xl border border-transparent hover:border-red-100 transition-all"><Trash2 className="w-5 h-5" /></button>
-                                        </div>
-                                        {(() => {
-                                            const checklistItem = currentChecklistItems.find(ci => ci.text.toLowerCase() === viewingItem.name.toLowerCase());
-                                            return checklistItem ? (
-                                                <button 
-                                                    onClick={async () => { 
-                                                        if(await showConfirm(`ต้องการนำ "${viewingItem.name}" ออกจากกระเป๋าใช่หรือไม่?`, 'ยืนยันการนำออก')) { 
-                                                            if(onRemove) onRemove(checklistItem.id); 
-                                                            setViewingItem(null); 
-                                                        } 
-                                                    }} 
-                                                    className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-lg shadow-red-200 transition-all active:scale-95 flex items-center"
-                                                >
-                                                    <Trash2 className="w-5 h-5 mr-2" /> นำออกจากกระเป๋า
-                                                </button>
-                                            ) : (
-                                                <button 
-                                                    onClick={() => { onAdd(viewingItem.name, viewingItem.categoryId); setViewingItem(null); onClose(); }} 
-                                                    className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg shadow-green-200 transition-all active:scale-95 flex items-center"
-                                                >
-                                                    <Check className="w-5 h-5 mr-2" /> เลือกใส่กระเป๋า
-                                                </button>
-                                            );
-                                        })()}
-                                    </>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                )}
+                                    )}
+                                </div>
+                                <div className="p-4 bg-gray-50 border-t border-gray-100 flex justify-between items-center">
+                                    {isEditingMode ? (
+                                        <div className="flex gap-3 w-full"><button onClick={() => setIsEditingMode(false)} className="flex-1 py-3 text-gray-500 font-bold hover:bg-gray-200 rounded-xl transition-colors">ยกเลิก</button><button onClick={handleSave} disabled={isSubmitting} className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl shadow-lg hover:bg-indigo-700 transition-all flex justify-center">{isSubmitting ? 'บันทึก...' : 'บันทึกการแก้ไข'}</button></div>
+                                    ) : (
+                                        <>
+                                            <div className="flex gap-2">
+                                                <button onClick={handleEditClick} className="p-2.5 text-gray-500 hover:text-indigo-600 hover:bg-white rounded-xl border border-transparent hover:border-gray-200 transition-all"><Edit2 className="w-5 h-5" /></button>
+                                                <button onClick={async () => { if(await showConfirm('ลบออกจากคลังถาวร?')) { onDeleteItem(viewingItem.id); setViewingItem(null); } }} className="p-2.5 text-gray-500 hover:text-red-600 hover:bg-white rounded-xl border border-transparent hover:border-red-100 transition-all"><Trash2 className="w-5 h-5" /></button>
+                                            </div>
+                                            {(() => {
+                                                const checklistItem = currentChecklistItems.find(ci => ci.text.toLowerCase() === viewingItem.name.toLowerCase());
+                                                return checklistItem ? (
+                                                    <button 
+                                                        onClick={async () => { 
+                                                            if(await showConfirm(`ต้องการนำ "${viewingItem.name}" ออกจากกระเป๋าใช่หรือไม่?`, 'ยืนยันการนำออก')) { 
+                                                                if(onRemove) onRemove(checklistItem.id); 
+                                                                setViewingItem(null); 
+                                                            } 
+                                                        }} 
+                                                        className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl shadow-lg shadow-red-200 transition-all active:scale-95 flex items-center"
+                                                    >
+                                                        <Trash2 className="w-5 h-5 mr-2" /> นำออกจากกระเป๋า
+                                                    </button>
+                                                ) : (
+                                                    <button 
+                                                        onClick={() => { onAdd(viewingItem.name, viewingItem.categoryId); setViewingItem(null); onClose(); }} 
+                                                        className="px-6 py-3 bg-green-600 hover:bg-green-700 text-white font-bold rounded-xl shadow-lg shadow-green-200 transition-all active:scale-95 flex items-center"
+                                                    >
+                                                        <Check className="w-5 h-5 mr-2" /> เลือกใส่กระเป๋า
+                                                    </button>
+                                                );
+                                            })()}
+                                        </>
+                                    )}
+                                </div>
+                            </motion.div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
 
-            </div>
-        </div>,
-        document.body
+        </BaseModal>
     );
 };
 

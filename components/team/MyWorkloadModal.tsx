@@ -118,28 +118,35 @@ const MyWorkloadModal: React.FC<MyWorkloadModalProps> = ({
     const overdueCount = myActiveTasks.filter(t => !t.isUnscheduled && isPast(new Date(t.endDate)) && !isToday(new Date(t.endDate))).length;
     const todayCount = myActiveTasks.filter(t => !t.isUnscheduled && isToday(new Date(t.endDate))).length;
 
-    if (!isOpen) return null;
-
     const modalContent = (
-        <AnimatePresence mode="wait">
-            <div className="fixed inset-0 z-[1000] flex items-center justify-center p-0 md:p-4 font-sans">
-                {/* Backdrop */}
+        <AnimatePresence>
+            {isOpen && (
                 <motion.div 
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     exit={{ opacity: 0 }}
-                    onClick={onClose}
-                    className="absolute inset-0 bg-black/70 backdrop-blur-md"
-                />
-
-                {/* Main Container */}
-                <motion.div 
-                    initial={{ opacity: 0, scale: 0.95, y: 20 }}
-                    animate={{ opacity: 1, scale: 1, y: 0 }}
-                    exit={{ opacity: 0, scale: 0.95, y: 20 }}
-                    className="bg-white w-full md:max-w-5xl h-full md:h-[90vh] rounded-none md:rounded-[2.5rem] shadow-2xl overflow-hidden relative flex flex-col z-10 border-0 md:border-4 border-indigo-50"
+                    transition={{ duration: 0.22 }}
+                    className="fixed inset-0 z-[1000] flex items-center justify-center p-0 md:p-4 font-sans"
                 >
-                    {/* Header */}
+                    {/* Backdrop */}
+                    <motion.div 
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        transition={{ duration: 0.22, ease: 'easeInOut' }}
+                        onClick={onClose}
+                        className="absolute inset-0 bg-black/70 backdrop-blur-md"
+                    />
+
+                    {/* Main Container */}
+                    <motion.div 
+                        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+                        className="bg-white w-full md:max-w-5xl h-full md:h-[90vh] rounded-none md:rounded-[2.5rem] shadow-2xl overflow-hidden relative flex flex-col z-10 border-0 md:border-4 border-indigo-50"
+                    >
+                        {/* Header */}
                     <WorkloadHeader 
                         currentUser={currentUser}
                         totalHours={totalHours}
@@ -186,9 +193,10 @@ const MyWorkloadModal: React.FC<MyWorkloadModalProps> = ({
                         )}
                     </div>
                 </motion.div>
-            </div>
-        </AnimatePresence>
-    );
+            </motion.div>
+        )}
+    </AnimatePresence>
+);
 
     return createPortal(modalContent, document.body);
 };

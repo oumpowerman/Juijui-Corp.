@@ -401,21 +401,25 @@ function AuthenticatedAppInner({
   const { currentUserProfile, isReady } = useUserSession();
   const { isReady: isOrgReady, isSuperAdmin, isInSuperAdminPortal } = useOrganization();
   const { masterOptions } = useMasterData();
+  const [isManagerReady, setIsManagerReady] = useState(false);
 
-  const workspaceReady = isReady && isOrgReady;
+  const coreWorkspaceReady = isReady && isOrgReady;
+  const portalWorkspaceReady = coreWorkspaceReady && (isInSuperAdminPortal || isManagerReady);
 
   useEffect(() => {
-    onWorkspaceReadyChange(workspaceReady);
-  }, [workspaceReady, onWorkspaceReadyChange]);
+    onWorkspaceReadyChange(portalWorkspaceReady);
+  }, [portalWorkspaceReady, onWorkspaceReadyChange]);
 
   // Active policy gatekeeper check
   const activePolicy = masterOptions.find(o => o.type === 'SYSTEM_POLICY' && o.key === 'TERMS_OF_SERVICE');
   const userAcceptedVersion = currentUserProfile?.acceptedTermsVersion || 0;
   const needsPolicyAcceptance = activePolicy && activePolicy.isActive && userAcceptedVersion < (activePolicy.progressValue || 1);
 
+  const hasActivePortalTransition = Boolean(peekAuthPortalTransition());
+
   return (
     <>
-      {!workspaceReady ? (
+      {!coreWorkspaceReady ? (
         <div
           className="flex h-screen items-center justify-center flex-col select-none"
           style={{
@@ -423,8 +427,12 @@ function AuthenticatedAppInner({
               'radial-gradient(circle at 50% 35%, rgba(255,255,255,0.98) 0%, rgba(252,231,243,0.92) 32%, rgba(224,242,254,0.94) 68%, rgba(243,232,255,0.96) 100%)',
           }}
         >
-          <Loader2 className="w-10 h-10 animate-spin text-rose-400 mb-3" />
-          <p className="text-slate-600 font-bold text-sm">กำลังจัดเตรียมพื้นที่สตูดิโอของคุณ...</p>
+          {!hasActivePortalTransition && (
+            <>
+              <Loader2 className="w-10 h-10 animate-spin text-rose-400 mb-3" />
+              <p className="text-slate-600 font-bold text-sm">กำลังจัดเตรียมพื้นที่สตูดิโอของคุณ...</p>
+            </>
+          )}
         </div>
       ) : (
         <>
@@ -450,7 +458,7 @@ function AuthenticatedAppInner({
                                 <ScreenSessionLimiter user={user} />
                                 <DemoSandboxHudBar />
                                 <SuperAdminWorkspaceBanner />
-                                <AppRouter user={user} />
+                                <AppRouter user={user} onManagerReadyChange={setIsManagerReady} />
                               </ShootQueueProvider>
                             </TaskProvider>
                           </MeetingProvider>

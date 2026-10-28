@@ -1,33 +1,81 @@
 import React, { Suspense, lazy } from 'react';
 import { ViewMode, Task, Channel, TaskType, WeeklyQuest } from '../types';
+import { lazyWithRetry } from '../lib/lazyWithRetry';
+import Dashboard from '../components/Dashboard';
+import UltimateWorkroomView from '../components/dashboard/member/UltimateWorkroomView';
 
-// --- LAZY LOAD PAGES ---
-const Dashboard = lazy(() => import('../components/Dashboard'));
-const CalendarView = lazy(() => import('../components/CalendarView'));
-const TeamView = lazy(() => import('../components/TeamView'));
-const TeamChat = lazy(() => import('../components/TeamChat'));
-const ScriptHubView = lazy(() => import('../components/script/ScriptHubView'));
-const MeetingView = lazy(() => import('../components/MeetingView'));
-const DutyView = lazy(() => import('../components/DutyView'));
-const QualityGateView = lazy(() => import('../components/QualityGateView'));
-const KPIView = lazy(() => import('../components/KPIView'));
-const FeedbackView = lazy(() => import('../components/feedback/FeedbackView'));
-const ContentStock = lazy(() => import('../components/content-stock/ContentStock'));
-const ShootChecklist = lazy(() => import('../components/shoot-checklist/ShootChecklist'));
-const CompanyChecklistView = lazy(() => import('../components/company-checklist/CompanyChecklistView'));
-const WeeklyQuestBoard = lazy(() => import('../components/WeeklyQuestBoard'));
-const GoalView = lazy(() => import('../components/GoalView'));
-const WikiView = lazy(() => import('../components/WikiView'));
-const LeaderboardView = lazy(() => import('../components/LeaderboardView'));
-const NexusHub = lazy(() => import('../components/nexus/NexusHub'));
-const RoadmapView = lazy(() => import('../components/roadmap/RoadmapView'));
-const ContentAnalyticsView = lazy(() => import('../components/analytics/ContentAnalyticsView'));
-const UltimateWorkroomView = lazy(() => import('../components/dashboard/member/UltimateWorkroomView'));
+// --- LAZY LOAD SECONDARY PAGES WITH AUTO-RETRY ---
+const CalendarView = lazyWithRetry(() => import('../components/CalendarView'), 'CalendarView');
+const TeamView = lazyWithRetry(() => import('../components/TeamView'), 'TeamView');
+const TeamChat = lazyWithRetry(() => import('../components/TeamChat'), 'TeamChat');
+const ScriptHubView = lazyWithRetry(() => import('../components/script/ScriptHubView'), 'ScriptHubView');
+const MeetingView = lazyWithRetry(() => import('../components/MeetingView'), 'MeetingView');
+const DutyView = lazyWithRetry(() => import('../components/DutyView'), 'DutyView');
+const QualityGateView = lazyWithRetry(() => import('../components/QualityGateView'), 'QualityGateView');
+const KPIView = lazyWithRetry(() => import('../components/KPIView'), 'KPIView');
+const FeedbackView = lazyWithRetry(() => import('../components/feedback/FeedbackView'), 'FeedbackView');
+const ContentStock = lazyWithRetry(() => import('../components/content-stock/ContentStock'), 'ContentStock');
+const ShootChecklist = lazyWithRetry(() => import('../components/shoot-checklist/ShootChecklist'), 'ShootChecklist');
+const CompanyChecklistView = lazyWithRetry(() => import('../components/company-checklist/CompanyChecklistView'), 'CompanyChecklistView');
+const WeeklyQuestBoard = lazyWithRetry(() => import('../components/WeeklyQuestBoard'), 'WeeklyQuestBoard');
+const GoalView = lazyWithRetry(() => import('../components/GoalView'), 'GoalView');
+const WikiView = lazyWithRetry(() => import('../components/WikiView'), 'WikiView');
+const LeaderboardView = lazyWithRetry(() => import('../components/LeaderboardView'), 'LeaderboardView');
+const NexusHub = lazyWithRetry(() => import('../components/nexus/NexusHub'), 'NexusHub');
+const RoadmapView = lazyWithRetry(() => import('../components/roadmap/RoadmapView'), 'RoadmapView');
+const ContentAnalyticsView = lazyWithRetry(() => import('../components/analytics/ContentAnalyticsView'), 'ContentAnalyticsView');
 
-// --- NEW MODULE BRIDGES (Lazy Loaded) ---
-const AttendanceRouter = lazy(() => import('./AttendanceRouter'));
-const FinanceRouter = lazy(() => import('./FinanceRouter'));
-const AdminRouter = lazy(() => import('./AdminRouter'));
+// --- NEW MODULE BRIDGES (Lazy Loaded with Auto-Retry) ---
+const AttendanceRouter = lazyWithRetry(() => import('./AttendanceRouter'), 'AttendanceRouter');
+const FinanceRouter = lazyWithRetry(() => import('./FinanceRouter'), 'FinanceRouter');
+const AdminRouter = lazyWithRetry(() => import('./AdminRouter'), 'AdminRouter');
+
+interface RouteErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class RouteErrorBoundary extends React.Component<{ currentView: string; children: React.ReactNode }, RouteErrorBoundaryState> {
+  state: RouteErrorBoundaryState = { hasError: false, error: null };
+
+  static getDerivedStateFromError(error: Error): RouteErrorBoundaryState {
+    return { hasError: true, error };
+  }
+
+  componentDidUpdate(prevProps: { currentView: string }) {
+    if (prevProps.currentView !== this.props.currentView && this.state.hasError) {
+      this.setState({ hasError: false, error: null });
+    }
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex flex-col items-center justify-center p-12 min-h-[400px] text-center space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-slate-800 flex items-center justify-center text-2xl shadow-inner">
+            🔄
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-gray-800 dark:text-gray-200">กำลังเชื่อมต่อข้อมูลโมดูล...</h3>
+            <p className="text-xs text-gray-500 dark:text-gray-400 max-w-sm">
+              ระบบกำลังเชื่อมต่อหรืออัปเดตไฟล์โมดูล กรุณากดปุ่มด้านล่างเพื่อโหลดใหม่อีกครั้ง
+            </p>
+          </div>
+          <button
+            onClick={() => {
+              this.setState({ hasError: false, error: null });
+              window.location.reload();
+            }}
+            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-md transition-all active:scale-95"
+          >
+            โหลดหน้านี้ใหม่
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 interface ViewRouteRegistryProps {
   currentView: ViewMode;
@@ -164,8 +212,9 @@ export const ViewRouteRegistry: React.FC<ViewRouteRegistryProps> = ({
   checkAndExpandRange,
 }) => {
   return (
-    <Suspense fallback={<PageLoader />}>
-      {(() => {
+    <RouteErrorBoundary currentView={currentView}>
+      <Suspense fallback={<PageLoader />}>
+        {(() => {
         switch (currentView) {
           case 'DASHBOARD':
             return (
@@ -427,7 +476,8 @@ export const ViewRouteRegistry: React.FC<ViewRouteRegistryProps> = ({
             return <div className="p-10 text-center text-gray-500">เร็วๆ นี้... (Coming Soon)</div>;
         }
       })()}
-    </Suspense>
+      </Suspense>
+    </RouteErrorBoundary>
   );
 };
  

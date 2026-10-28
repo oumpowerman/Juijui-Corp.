@@ -79,7 +79,7 @@ const StatCardsGrid: React.FC<StatCardsGridProps> = ({ stats, loading, currentTh
                         whileTap={{ scale: 0.95 }}
                         onClick={() => onCardClick(`${stat.label} (${timeRangeLabel})`, stat.tasks, colorKey)}
                         className={`
-                            relative overflow-hidden group cursor-pointer transition-all duration-300
+                            relative overflow-hidden group cursor-pointer transition-colors duration-200
                             p-6 rounded-[2.5rem] flex flex-col justify-between h-44
                             glass-card
                             ${hasUrgent ? 'ring-4 ring-red-500/10 border-red-200/50' : ''}

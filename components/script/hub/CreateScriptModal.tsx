@@ -1,11 +1,11 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Sparkles, Plus, Wand2, Loader2, PlayCircle, Users, LayoutTemplate, Tag, Hash, Check, ChevronDown, AlignLeft, Type, Search } from 'lucide-react';
 import { Channel, MasterOption, ScriptType, User } from '../../../types';
 import SmartTagInput from './SmartTagInput';
 import { ScriptHubMode } from './ScriptModeSwitcher';
+import BaseModal from '../../common/BaseModal';
 
 interface CreateScriptModalProps {
     isOpen: boolean;
@@ -86,8 +86,6 @@ const CreateScriptModal: React.FC<CreateScriptModalProps> = ({
         };
     }, []);
 
-    if (!isOpen) return null;
-
     const scriptCategories = masterOptions
         .filter(o => o.type === 'SCRIPT_CATEGORY' && o.isActive)
         .sort((a,b) => a.sortOrder - b.sortOrder);
@@ -126,26 +124,14 @@ const CreateScriptModal: React.FC<CreateScriptModalProps> = ({
         onClose();
     };
 
-    const modalContent = (
-        <AnimatePresence>
-            {isOpen && (
-                <div className="fixed inset-0 z-[11000] flex items-center justify-center p-4 font-sans">
-                    {/* Backdrop */}
-                    <motion.div 
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        onClick={onClose}
-                        className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm"
-                    />
-
-                    <motion.div 
-                        initial={{ scale: 0.9, opacity: 0, y: 20 }}
-                        animate={{ scale: 1, opacity: 1, y: 0 }}
-                        exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                        transition={{ type: "spring", damping: 25, stiffness: 300 }}
-                        className="bg-white w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden border-[6px] border-white ring-1 ring-purple-100 flex flex-col max-h-[90vh] relative z-10"
-                    >
+    return (
+        <BaseModal
+            isOpen={isOpen}
+            onClose={onClose}
+            windowClassName="bg-white w-full max-w-xl rounded-[2.5rem] shadow-2xl overflow-hidden border-[6px] border-white ring-1 ring-purple-100 flex flex-col max-h-[90vh]"
+            backdropClassName="bg-stone-900/40 backdrop-blur-sm"
+            zIndex={11000}
+        >
                         
                         {/* Header */}
                         <div className="bg-gradient-to-r from-pink-400 via-purple-400 to-blue-400 p-8 text-white relative shrink-0 overflow-hidden">
@@ -503,13 +489,8 @@ const CreateScriptModal: React.FC<CreateScriptModalProps> = ({
                                 {isSubmitting ? <Loader2 className="w-5 h-5 animate-spin" /> : <><Sparkles className="w-5 h-5 fill-yellow-200 text-yellow-200" /> สร้างสคริปต์</>}
                             </motion.button>
                         </div>
-                    </motion.div>
-                </div>
-            )}
-        </AnimatePresence>
+        </BaseModal>
     );
-
-    return createPortal(modalContent, document.body);
 };
 
 export default CreateScriptModal;

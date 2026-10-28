@@ -326,23 +326,27 @@ const UnifiedFilterModal: React.FC<UnifiedFilterModalProps> = ({
                             </AnimatePresence>
                         </div>
 
-                        {/* Floating Micro Toast for Pin Feedback */}
+                        {/* Center Floating Toast for Pin Feedback */}
                         <AnimatePresence>
                             {pinToast && (
-                                <motion.div
-                                    initial={{ opacity: 0, y: 14, scale: 0.95 }}
-                                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                                    transition={{ duration: 0.2 }}
-                                    className={`absolute bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-2xl shadow-xl border text-xs font-bold flex items-center gap-2 pointer-events-none select-none backdrop-blur-md ${
-                                        pinToast.isPin
-                                            ? 'bg-amber-500 text-white border-amber-400 shadow-amber-500/20'
-                                            : 'bg-stone-800 text-stone-100 border-stone-700 shadow-stone-900/30'
-                                    }`}
-                                >
-                                    <Pin className={`w-3.5 h-3.5 ${pinToast.isPin ? 'fill-white rotate-12' : 'text-stone-400'}`} />
-                                    <span>{pinToast.message}</span>
-                                </motion.div>
+                                <div className="absolute inset-0 pointer-events-none z-50 flex items-center justify-center p-4">
+                                    <motion.div
+                                        initial={{ opacity: 0, scale: 0.65, y: 10 }}
+                                        animate={{ opacity: 1, scale: 1, y: 0 }}
+                                        exit={{ opacity: 0, scale: 0.88, y: -8 }}
+                                        transition={{ type: 'spring', stiffness: 420, damping: 26, mass: 0.8 }}
+                                        className={`px-5 py-2.5 rounded-2xl shadow-2xl border text-xs font-bold flex items-center gap-2.5 select-none backdrop-blur-md ${
+                                            pinToast.isPin
+                                                ? 'bg-amber-500/95 text-white border-amber-300 shadow-amber-500/30 ring-4 ring-amber-400/20'
+                                                : 'bg-stone-900/95 text-stone-100 border-stone-700 shadow-stone-950/40 ring-4 ring-stone-800/20'
+                                        }`}
+                                    >
+                                        <div className={`p-1 rounded-lg ${pinToast.isPin ? 'bg-amber-600/60' : 'bg-stone-800'}`}>
+                                            <Pin className={`w-3.5 h-3.5 ${pinToast.isPin ? 'fill-white rotate-12' : 'text-stone-400'}`} />
+                                        </div>
+                                        <span>{pinToast.message}</span>
+                                    </motion.div>
+                                </div>
                             )}
                         </AnimatePresence>
 

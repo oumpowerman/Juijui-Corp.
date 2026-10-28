@@ -85,8 +85,9 @@ const TaskCategoryItem: React.FC<TaskCategoryItemProps> = ({
               animate="visible"
               whileHover={{ scale: 1.02, y: -2 }}
               whileTap={{ scale: 0.98 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 400 }}
               onClick={() => onClick(task)}
-              className="bg-white p-3 rounded-2xl border border-orange-100 shadow-sm hover:shadow-md hover:border-orange-400 cursor-pointer transition-all group relative overflow-hidden flex items-center gap-3"
+              className="bg-white p-3 rounded-2xl border border-orange-100 shadow-sm hover:shadow-md hover:border-orange-400 cursor-pointer transition-[border-color,box-shadow] duration-200 group relative overflow-hidden flex items-center gap-3"
           >
               {/* Hover Bar - Orange Theme */}
               <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-orange-400 to-amber-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>
@@ -134,8 +135,9 @@ const TaskCategoryItem: React.FC<TaskCategoryItemProps> = ({
         animate="visible"
         whileHover={{ scale: 1.02, y: -4 }}
         whileTap={{ scale: 0.98 }}
+        transition={{ type: 'spring', damping: 25, stiffness: 400 }}
         onClick={() => onClick(task)}
-        className="bg-white p-5 rounded-3xl border border-orange-100 shadow-sm hover:shadow-xl hover:border-orange-400 cursor-pointer transition-all group relative overflow-hidden flex flex-col gap-3"
+        className="bg-white p-5 rounded-3xl border border-orange-100 shadow-sm hover:shadow-xl hover:border-orange-400 cursor-pointer transition-[border-color,box-shadow] duration-200 group relative overflow-hidden flex flex-col gap-3"
     >
         {/* Hover Bar - Orange Theme */}
         <div className="absolute left-0 top-0 bottom-0 w-1.5 bg-gradient-to-b from-orange-400 to-amber-500 opacity-0 group-hover:opacity-100 transition-opacity"></div>

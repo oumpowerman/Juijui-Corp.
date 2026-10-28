@@ -103,14 +103,20 @@ const WorkloadModal: React.FC<WorkloadModalProps> = ({ isOpen, onClose, tasks, u
     return createPortal(
         <AnimatePresence>
             {isOpen && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/60 backdrop-blur-md p-4 font-sans">
-                    
+                <motion.div 
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.22 }}
+                    className="fixed inset-0 z-[200] flex items-center justify-center p-4 font-sans"
+                >
                     {/* Background Overlay click to close */}
                     <motion.div 
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
-                        className="absolute inset-0 cursor-default" 
+                        transition={{ duration: 0.22, ease: 'easeInOut' }}
+                        className="absolute inset-0 bg-slate-900/60 backdrop-blur-md cursor-default" 
                         onClick={onClose}
                     />
 
@@ -119,7 +125,7 @@ const WorkloadModal: React.FC<WorkloadModalProps> = ({ isOpen, onClose, tasks, u
                         initial={{ opacity: 0, scale: 0.95, y: 15 }}
                         animate={{ opacity: 1, scale: 1, y: 0 }}
                         exit={{ opacity: 0, scale: 0.95, y: 15 }}
-                        transition={{ duration: 0.25 }}
+                        transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
                         className="bg-white w-full max-w-4xl h-[90vh] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col border border-slate-150 relative z-10"
                     >
                         {/* 1. Header (Thai ranges) */}
@@ -183,8 +189,7 @@ const WorkloadModal: React.FC<WorkloadModalProps> = ({ isOpen, onClose, tasks, u
                             />
                         )}
                     </AnimatePresence>
-
-                </div>
+                </motion.div>
             )}
         </AnimatePresence>,
         document.body

@@ -5,6 +5,7 @@ import PendingApprovalScreen from '../../components/PendingApprovalScreen';
 import InactiveScreen from '../../components/InactiveScreen';
 import DeathScreen from '../../components/gamification/DeathScreen';
 import { MissingProfileScreen } from '../../components/auth/MissingProfileScreen';
+import { peekAuthPortalTransition } from '../../components/auth/AuthPortalTransition';
 import { User } from '../../types';
 import { useDemoSandbox } from '../../context/DemoSandboxContext';
 
@@ -22,8 +23,12 @@ export const AccountStatusGuard: React.FC<AccountStatusGuardProps> = ({
   children,
 }) => {
   const { isDemoMode } = useDemoSandbox();
+  const hasActivePortalTransition = Boolean(peekAuthPortalTransition());
 
   if (isManagerLoading) {
+    if (hasActivePortalTransition) {
+      return <div className="flex h-screen items-center justify-center bg-transparent" />;
+    }
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50 flex-col">
         <Loader2 className="w-12 h-12 animate-spin text-indigo-600 mb-4" />

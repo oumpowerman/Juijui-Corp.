@@ -562,28 +562,30 @@ const ScriptHubView: React.FC<ScriptHubViewProps> = ({ currentUser, users, initi
                             </AnimatePresence>
                         </div>
 
-                        <CreateScriptModal 
-                            isOpen={isCreateModalOpen}
-                            onClose={() => setIsCreateModalOpen(false)}
-                            onSubmit={handleCreateSubmit}
-                            channels={channels}
-                            masterOptions={masterOptions}
-                            users={users}
-                            currentUser={currentUser}
-                            mode={mode}
-                        />
-
-                        {/* INFO MODAL */}
-                        <InfoModal 
-                            isOpen={isInfoOpen}
-                            onClose={() => setIsInfoOpen(false)}
-                            title="คู่มือ Script Hub"
-                        >
-                            <ScriptGuide />
-                        </InfoModal>
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* Root Level Modals - Keeps modals mounted for smooth exit transitions */}
+            <CreateScriptModal 
+                isOpen={isCreateModalOpen}
+                onClose={() => setIsCreateModalOpen(false)}
+                onSubmit={handleCreateSubmit}
+                channels={channels}
+                masterOptions={masterOptions}
+                users={users}
+                currentUser={currentUser}
+                mode={mode}
+            />
+
+            {/* INFO MODAL */}
+            <InfoModal 
+                isOpen={isInfoOpen}
+                onClose={() => setIsInfoOpen(false)}
+                title="คู่มือ Script Hub"
+            >
+                <ScriptGuide />
+            </InfoModal>
         </AppBackground>
     );
 };

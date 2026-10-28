@@ -327,7 +327,35 @@ const LandingPage: React.FC<LandingPageProps> = ({
   const effectiveZoomOut = isZoomingOut || sweetCurtainPhase === 'COVERING';
 
   return (
-    <div className="relative min-h-screen overflow-x-clip bg-transparent text-slate-900 font-google-sans selection:bg-purple-100 selection:text-purple-700">
+    <div className="relative min-h-screen w-full overflow-x-clip bg-transparent text-slate-900 font-google-sans selection:bg-purple-100 selection:text-purple-700 scrollbar-hide touch-pan-y landing-mobile-no-scroll">
+      {/* Mobile-only Scrollbar Elimination with Full Native Touch Scroll Preservation */}
+      <style>{`
+        @media (max-width: 640px) {
+          html, body {
+            scrollbar-width: none !important;
+            -ms-overflow-style: none !important;
+            -webkit-overflow-scrolling: touch !important;
+            touch-action: pan-y !important;
+          }
+          html::-webkit-scrollbar, body::-webkit-scrollbar {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+          }
+          .landing-mobile-no-scroll,
+          .landing-mobile-no-scroll * {
+            scrollbar-width: none !important;
+            -ms-overflow-style: none !important;
+          }
+          .landing-mobile-no-scroll::-webkit-scrollbar,
+          .landing-mobile-no-scroll *::-webkit-scrollbar {
+            display: none !important;
+            width: 0 !important;
+            height: 0 !important;
+          }
+        }
+      `}</style>
+
       {/* Hybrid 3D Cotton Candy Cloud Curtain & Falling Sweet Dessert Cascade Transition */}
       <SweetWarpCurtainTransition
         phase={sweetCurtainPhase}

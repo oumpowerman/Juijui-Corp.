@@ -28,6 +28,7 @@ interface CalendarSecondaryHeaderProps {
     onManageFilters: () => void;
     onOpenCosmicFilter: () => void;
     activeFiltersCount?: number;
+    onDeleteChip?: (id: string) => void;
     
     // Filters logic (TASK Mode)
     tasks?: Task[];
@@ -65,6 +66,7 @@ const CalendarSecondaryHeader: React.FC<CalendarSecondaryHeaderProps> = ({
     currentUser,
     activeChipIds, toggleChip, onClearAll, customChips, channels, users = [], onManageFilters, onOpenCosmicFilter,
     activeFiltersCount = 0,
+    onDeleteChip,
     tasks = [],
     taskAssigneeScope = 'ONLY_ME',
     onTaskAssigneeScopeChange,
@@ -183,73 +185,91 @@ const CalendarSecondaryHeader: React.FC<CalendarSecondaryHeaderProps> = ({
                                                             const displayName = user.nickname || user.name.split(' ')[0];
 
                                                             return (
-                                                                <button
-                                                                    key={user.id}
-                                                                    onClick={() => {
-                                                                        if (onTaskAssigneeScopeChange) {
-                                                                            if (isSelected && taskAssigneeScope !== 'ALL') {
-                                                                                onTaskAssigneeScopeChange('ALL');
-                                                                            } else {
-                                                                                onTaskAssigneeScopeChange(isCurrent ? 'ONLY_ME' : user.id);
+                                                                <div key={user.id} className="relative group/userchip shrink-0">
+                                                                    <button
+                                                                        onClick={() => {
+                                                                            if (onTaskAssigneeScopeChange) {
+                                                                                if (isSelected && taskAssigneeScope !== 'ALL') {
+                                                                                    onTaskAssigneeScopeChange('ALL');
+                                                                                } else {
+                                                                                    onTaskAssigneeScopeChange(isCurrent ? 'ONLY_ME' : user.id);
+                                                                                }
                                                                             }
-                                                                        }
-                                                                    }}
-                                                                    className={`
-                                                                        group pl-1.5 pr-3 py-1 rounded-full text-[10px] font-black transition-all duration-200 whitespace-nowrap shrink-0 flex items-center gap-2 active:scale-95 border
-                                                                        ${isSelected
-                                                                            ? 'bg-white shadow-md ring-2 ring-offset-1 ring-indigo-500/80 border-indigo-300 text-indigo-900'
-                                                                            : 'bg-white/80 hover:bg-white text-stone-600 border-stone-200 hover:border-stone-300 shadow-2xs'}
-                                                                    `}
-                                                                    title={`${user.name} (${user.position || 'สมาชิกทีม'})`}
-                                                                >
-                                                                    {/* Avatar Icon / Image */}
-                                                                    <div className="relative shrink-0">
-                                                                        {user.avatarUrl ? (
-                                                                            <img
-                                                                                src={user.avatarUrl}
-                                                                                alt={user.name}
-                                                                                className="w-7 h-7 rounded-full object-cover border-2 shadow-2xs"
-                                                                                style={{ borderColor: userTheme.borderHex }}
-                                                                            />
-                                                                        ) : (
-                                                                            <div
-                                                                                className="w-7 h-7 rounded-full flex items-center justify-center font-bold text-[9px] shadow-2xs border-2"
-                                                                                style={{
-                                                                                    backgroundColor: userTheme.bgHex,
-                                                                                    color: userTheme.textHex,
-                                                                                    borderColor: userTheme.borderHex
-                                                                                }}
-                                                                            >
-                                                                                {displayName.slice(0, 2).toUpperCase()}
-                                                                            </div>
-                                                                        )}
+                                                                        }}
+                                                                        className={`
+                                                                            group pl-1.5 pr-3 py-1 rounded-full text-[10px] font-black transition-all duration-200 whitespace-nowrap flex items-center gap-2 active:scale-95 border
+                                                                            ${isSelected
+                                                                                ? 'bg-white shadow-md ring-2 ring-offset-1 ring-indigo-500/80 border-indigo-300 text-indigo-900'
+                                                                                : 'bg-white/80 hover:bg-white text-stone-600 border-stone-200 hover:border-stone-300 shadow-2xs'}
+                                                                        `}
+                                                                        title={`${user.name} (${user.position || 'สมาชิกทีม'})`}
+                                                                    >
+                                                                        {/* Avatar Icon / Image */}
+                                                                        <div className="relative shrink-0">
+                                                                            {user.avatarUrl ? (
+                                                                                <img
+                                                                                    src={user.avatarUrl}
+                                                                                    alt={user.name}
+                                                                                    className="w-7 h-7 rounded-full object-cover border-2 shadow-2xs"
+                                                                                    style={{ borderColor: userTheme.borderHex }}
+                                                                                />
+                                                                            ) : (
+                                                                                <div
+                                                                                    className="w-7 h-7 rounded-full flex items-center justify-center font-bold text-[9px] shadow-2xs border-2"
+                                                                                    style={{
+                                                                                        backgroundColor: userTheme.bgHex,
+                                                                                        color: userTheme.textHex,
+                                                                                        borderColor: userTheme.borderHex
+                                                                                    }}
+                                                                                >
+                                                                                    {displayName.slice(0, 2).toUpperCase()}
+                                                                                </div>
+                                                                            )}
 
-                                                                        {/* Selected check ring indicator */}
-                                                                        {isSelected && (
-                                                                            <div className="absolute -top-1 -right-1 bg-indigo-600 text-white rounded-full p-0.5 shadow-2xs border border-white">
-                                                                                <Check className="w-2 h-2 stroke-[4px]" />
-                                                                            </div>
-                                                                        )}
-                                                                    </div>
+                                                                            {/* Selected check ring indicator */}
+                                                                            {isSelected && (
+                                                                                <div className="absolute -top-1 -right-1 bg-indigo-600 text-white rounded-full p-0.5 shadow-2xs border border-white">
+                                                                                    <Check className="w-2 h-2 stroke-[4px]" />
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
 
-                                                                    <span className="truncate max-w-[90px]">
-                                                                        {displayName}
-                                                                        {isCurrent && <span className="ml-1 opacity-60 text-[9px] font-normal">(ฉัน)</span>}
-                                                                    </span>
-
-                                                                    {/* Task Count Mini Badge */}
-                                                                    {pendingCount > 0 && (
-                                                                        <span 
-                                                                            className={`text-[9px] font-black px-1.5 py-0.2 rounded-full transition-colors ${
-                                                                                isSelected 
-                                                                                    ? 'bg-indigo-600 text-white' 
-                                                                                    : 'bg-stone-100 text-stone-600 group-hover:bg-indigo-50 group-hover:text-indigo-600'
-                                                                            }`}
-                                                                        >
-                                                                            {pendingCount}
+                                                                        <span className="truncate max-w-[90px]">
+                                                                            {displayName}
+                                                                            {isCurrent && <span className="ml-1 opacity-60 text-[9px] font-normal">(ฉัน)</span>}
                                                                         </span>
+
+                                                                        {/* Task Count Mini Badge */}
+                                                                        {pendingCount > 0 && (
+                                                                            <span 
+                                                                                className={`text-[9px] font-black px-1.5 py-0.2 rounded-full transition-colors ${
+                                                                                    isSelected 
+                                                                                        ? 'bg-indigo-600 text-white' 
+                                                                                        : 'bg-stone-100 text-stone-600 group-hover:bg-indigo-50 group-hover:text-indigo-600'
+                                                                                }`}
+                                                                            >
+                                                                                {pendingCount}
+                                                                            </span>
+                                                                        )}
+                                                                    </button>
+
+                                                                    {/* Quick Unpin Action */}
+                                                                    {onDeleteChip && (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                const chip = pinnedAssigneeChips.find(c => c.value === user.id);
+                                                                                if (chip) onDeleteChip(chip.id);
+                                                                            }}
+                                                                            className="absolute -top-1 -right-1 z-20 w-4 h-4 rounded-full bg-stone-800 hover:bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover/userchip:opacity-100 transition-opacity duration-150 shadow-sm cursor-pointer"
+                                                                            title={`ถอนการปักหมุด ${displayName}`}
+                                                                            aria-label={`ถอนการปักหมุด ${displayName}`}
+                                                                        >
+                                                                            <X className="w-2.5 h-2.5 stroke-[3]" />
+                                                                        </button>
                                                                     )}
-                                                                </button>
+                                                                </div>
                                                             );
                                                         })}
 
@@ -335,63 +355,80 @@ const CalendarSecondaryHeader: React.FC<CalendarSecondaryHeaderProps> = ({
                                                                 : `bg-white ${theme.text} border-gray-200 hover:border-${theme.id}-200 hover:-translate-y-0.5`)));
 
                                                 return (
-                                                    <button
-                                                        key={chip.id}
-                                                        onClick={() => toggleChip(chip.id)}
-                                                        className={`
-                                                            ${isLogoChip ? 'p-1' : 'px-4 py-2'} rounded-full text-[10px] font-black transition-all whitespace-nowrap shrink-0 flex items-center gap-2 active:scale-95
-                                                            ${baseClasses}
-                                                            ${!isLogoChip ? 'shadow-sm border' : ''}
-                                                            relative
-                                                        `}
-                                                        style={isHexColor ? {
-                                                            backgroundColor: isActive ? resolvedColor : '#fafaf9',
-                                                            color: isActive ? '#ffffff' : resolvedColor,
-                                                            borderColor: isActive ? 'transparent' : `${resolvedColor}40`,
-                                                            boxShadow: isActive 
-                                                                ? `0 4px 14px ${resolvedColor}40, inset 0 1px 0 rgba(255, 255, 255, 0.2)` 
-                                                                : '0 1px 2px rgba(0, 0, 0, 0.02)',
-                                                        } : undefined}
-                                                    >
-                                                        {isExclude && <Ban className="w-3 h-3 stroke-[3px]" />}
-                                                        {channelLogo ? (
-                                                            <div className="relative">
-                                                                <img 
-                                                                    src={channelLogo} 
-                                                                    alt={chip.label} 
-                                                                    className={`w-9 h-9 rounded-full object-cover transition-all duration-500 ${isActive ? (isAssignee ? 'scale-110 shadow-[0_0_12px_rgba(99,102,241,0.4)]' : 'scale-110') : 'hover:scale-105'}`}
-                                                                    style={{ 
-                                                                        filter: isActive 
-                                                                            ? `drop-shadow(0 0 6px ${isAssignee ? '#6366f1' : chColor})`
-                                                                            : 'none',
-                                                                        border: isActive ? `2px solid ${chColor}` : 'none'
-                                                                    }}
-                                                                    title={chip.label} 
-                                                                />
-                                                                {isActive && !isExclude && (
-                                                                    <div 
-                                                                        className="absolute -top-1 -right-1 bg-white rounded-full p-0.5 shadow-sm border border-gray-100"
-                                                                        style={{ color: chColor }}
-                                                                    >
-                                                                        <Check className="w-2.5 h-2.5 stroke-[4px]" />
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        ) : (
-                                                            <span className="flex items-center gap-1.5">
-                                                                {isHexColor && (
-                                                                    <span 
-                                                                        className="w-1.5 h-1.5 rounded-full transition-all duration-300"
+                                                    <div key={chip.id} className="relative group/customchip shrink-0">
+                                                        <button
+                                                            onClick={() => toggleChip(chip.id)}
+                                                            className={`
+                                                                ${isLogoChip ? 'p-1' : 'px-4 py-2'} rounded-full text-[10px] font-black transition-all whitespace-nowrap shrink-0 flex items-center gap-2 active:scale-95
+                                                                ${baseClasses}
+                                                                ${!isLogoChip ? 'shadow-sm border' : ''}
+                                                                relative
+                                                            `}
+                                                            style={isHexColor ? {
+                                                                backgroundColor: isActive ? resolvedColor : '#fafaf9',
+                                                                color: isActive ? '#ffffff' : resolvedColor,
+                                                                borderColor: isActive ? 'transparent' : `${resolvedColor}40`,
+                                                                boxShadow: isActive 
+                                                                    ? `0 4px 14px ${resolvedColor}40, inset 0 1px 0 rgba(255, 255, 255, 0.2)` 
+                                                                    : '0 1px 2px rgba(0, 0, 0, 0.02)',
+                                                            } : undefined}
+                                                        >
+                                                            {isExclude && <Ban className="w-3 h-3 stroke-[3px]" />}
+                                                            {channelLogo ? (
+                                                                <div className="relative">
+                                                                    <img 
+                                                                        src={channelLogo} 
+                                                                        alt={chip.label} 
+                                                                        className={`w-9 h-9 rounded-full object-cover transition-all duration-500 ${isActive ? (isAssignee ? 'scale-110 shadow-[0_0_12px_rgba(99,102,241,0.4)]' : 'scale-110') : 'hover:scale-105'}`}
                                                                         style={{ 
-                                                                            backgroundColor: isActive ? '#ffffff' : resolvedColor,
-                                                                            opacity: isActive ? 1 : 0.7 
-                                                                        }} 
+                                                                            filter: isActive 
+                                                                                ? `drop-shadow(0 0 6px ${isAssignee ? '#6366f1' : chColor})`
+                                                                                : 'none',
+                                                                            border: isActive ? `2px solid ${chColor}` : 'none'
+                                                                        }}
+                                                                        title={chip.label} 
                                                                     />
-                                                                )}
-                                                                {chip.label.toUpperCase()}
-                                                            </span>
+                                                                    {isActive && !isExclude && (
+                                                                        <div 
+                                                                            className="absolute -top-1 -right-1 bg-white rounded-full p-0.5 shadow-sm border border-gray-100"
+                                                                            style={{ color: chColor }}
+                                                                        >
+                                                                            <Check className="w-2.5 h-2.5 stroke-[4px]" />
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                <span className="flex items-center gap-1.5">
+                                                                    {isHexColor && (
+                                                                        <span 
+                                                                            className="w-1.5 h-1.5 rounded-full transition-all duration-300"
+                                                                            style={{ 
+                                                                                backgroundColor: isActive ? '#ffffff' : resolvedColor,
+                                                                                opacity: isActive ? 1 : 0.7 
+                                                                            }} 
+                                                                        />
+                                                                    )}
+                                                                    {chip.label.toUpperCase()}
+                                                                </span>
+                                                            )}
+                                                        </button>
+
+                                                        {/* Quick Unpin Action */}
+                                                        {onDeleteChip && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    onDeleteChip(chip.id);
+                                                                }}
+                                                                className="absolute -top-1 -right-1 z-20 w-4 h-4 rounded-full bg-stone-800 hover:bg-rose-500 text-white flex items-center justify-center opacity-0 group-hover/customchip:opacity-100 transition-opacity duration-150 shadow-sm cursor-pointer"
+                                                                title={`ถอนการปักหมุด ${chip.label}`}
+                                                                aria-label={`ถอนการปักหมุด ${chip.label}`}
+                                                            >
+                                                                <X className="w-2.5 h-2.5 stroke-[3]" />
+                                                            </button>
                                                         )}
-                                                    </button>
+                                                    </div>
                                                 );
                                             })}
                                         </>

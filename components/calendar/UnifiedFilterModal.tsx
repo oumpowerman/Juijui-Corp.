@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSearchParams } from 'react-router-dom';
-import { X, SlidersHorizontal } from 'lucide-react';
+import { X, SlidersHorizontal, Pin } from 'lucide-react';
 import { Channel, ChipConfig, User } from '../../types';
 import { MasterOption } from '../../types/task';
 
@@ -74,6 +74,27 @@ const UnifiedFilterModal: React.FC<UnifiedFilterModalProps> = ({
     const [tempFormats, setTempFormats] = useState<string[]>([]);
     const [tempStatuses, setTempStatuses] = useState<string[]>([]);
     const [tempAssigneeIds, setTempAssigneeIds] = useState<string[]>([]);
+
+    // Pinning Feedback Toast State
+    const [pinToast, setPinToast] = useState<{ message: string; isPin: boolean } | null>(null);
+    const toastTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const handleNotifyPin = (label: string, isPin: boolean) => {
+        if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+        setPinToast({
+            message: isPin ? `ปักหมุด "${label}" ลงแถบด่วนแล้ว` : `ถอนการปักหมุด "${label}" เรียบร้อยแล้ว`,
+            isPin
+        });
+        toastTimerRef.current = setTimeout(() => {
+            setPinToast(null);
+        }, 2200);
+    };
+
+    useEffect(() => {
+        return () => {
+            if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+        };
+    }, []);
 
     // Sync state when modal opens
     useEffect(() => {
@@ -240,6 +261,7 @@ const UnifiedFilterModal: React.FC<UnifiedFilterModalProps> = ({
                             handleSelectAllCurrent={handleSelectAllCurrent}
                             handleClearAllCurrent={handleClearAllCurrent}
                             viewMode={viewMode}
+                            customChips={customChips}
                         />
 
                         {/* Filter Options Area */}
@@ -256,6 +278,7 @@ const UnifiedFilterModal: React.FC<UnifiedFilterModalProps> = ({
                                         customChips={customChips}
                                         onSaveChip={onSaveChip}
                                         onDeleteChip={onDeleteChip}
+                                        onNotifyPin={handleNotifyPin}
                                     />
                                 )}
 
@@ -269,6 +292,7 @@ const UnifiedFilterModal: React.FC<UnifiedFilterModalProps> = ({
                                         customChips={customChips}
                                         onSaveChip={onSaveChip}
                                         onDeleteChip={onDeleteChip}
+                                        onNotifyPin={handleNotifyPin}
                                     />
                                 )}
 
@@ -282,6 +306,7 @@ const UnifiedFilterModal: React.FC<UnifiedFilterModalProps> = ({
                                         customChips={customChips}
                                         onSaveChip={onSaveChip}
                                         onDeleteChip={onDeleteChip}
+                                        onNotifyPin={handleNotifyPin}
                                     />
                                 )}
 
@@ -295,10 +320,31 @@ const UnifiedFilterModal: React.FC<UnifiedFilterModalProps> = ({
                                         customChips={customChips}
                                         onSaveChip={onSaveChip}
                                         onDeleteChip={onDeleteChip}
+                                        onNotifyPin={handleNotifyPin}
                                     />
                                 )}
                             </AnimatePresence>
                         </div>
+
+                        {/* Floating Micro Toast for Pin Feedback */}
+                        <AnimatePresence>
+                            {pinToast && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 14, scale: 0.95 }}
+                                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                                    exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                                    transition={{ duration: 0.2 }}
+                                    className={`absolute bottom-20 left-1/2 -translate-x-1/2 z-50 px-4 py-2 rounded-2xl shadow-xl border text-xs font-bold flex items-center gap-2 pointer-events-none select-none backdrop-blur-md ${
+                                        pinToast.isPin
+                                            ? 'bg-amber-500 text-white border-amber-400 shadow-amber-500/20'
+                                            : 'bg-stone-800 text-stone-100 border-stone-700 shadow-stone-900/30'
+                                    }`}
+                                >
+                                    <Pin className={`w-3.5 h-3.5 ${pinToast.isPin ? 'fill-white rotate-12' : 'text-stone-400'}`} />
+                                    <span>{pinToast.message}</span>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
 
                         {/* Footer Controls */}
                         <FilterFooter

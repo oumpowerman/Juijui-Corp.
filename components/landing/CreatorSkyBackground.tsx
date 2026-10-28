@@ -26,7 +26,7 @@ export const CreatorSkyBackground: React.FC<CreatorSkyBackgroundProps> = ({
   return (
     <div
       aria-hidden="true"
-      className="fixed inset-0 w-screen h-screen overflow-hidden pointer-events-none select-none z-0"
+      className="fixed inset-0 w-full max-w-full h-full overflow-hidden pointer-events-none select-none z-0"
     >
       {/* Layer 1–3: Sky Wash, Shifting Pastel Aura Orbs & Continuous Morphing Rainbow Ribbons */}
       <RainbowAuraLayer

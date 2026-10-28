@@ -12,6 +12,7 @@ interface AssigneeFilterGridProps {
     customChips?: ChipConfig[];
     onSaveChip?: (chip: ChipConfig) => void;
     onDeleteChip?: (id: string) => void;
+    onNotifyPin?: (label: string, isPin: boolean) => void;
 }
 
 const AssigneeFilterGrid: React.FC<AssigneeFilterGridProps> = ({
@@ -21,7 +22,8 @@ const AssigneeFilterGrid: React.FC<AssigneeFilterGridProps> = ({
     taskCountsByUser = {},
     customChips = [],
     onSaveChip,
-    onDeleteChip
+    onDeleteChip,
+    onNotifyPin
 }) => {
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -166,31 +168,36 @@ const AssigneeFilterGrid: React.FC<AssigneeFilterGridProps> = ({
                                 {/* Pin Button */}
                                 {onSaveChip && onDeleteChip && (
                                     <button
+                                        type="button"
                                         onClick={(e) => {
                                             e.stopPropagation();
                                             const existing = customChips.find(c => c.type === 'ASSIGNEE' && c.value === user.id);
+                                            const userLabel = user.nickname || user.name.split(' ')[0];
                                             if (existing) {
                                                 onDeleteChip(existing.id);
+                                                onNotifyPin?.(userLabel, false);
                                             } else {
                                                 onSaveChip({
                                                     id: `chip_usr_${user.id}`,
-                                                    label: user.nickname || user.name.split(' ')[0],
+                                                    label: userLabel,
                                                     type: 'ASSIGNEE',
                                                     value: user.id,
                                                     colorTheme: userTheme.accentHex,
                                                     scope: 'TASK',
                                                     mode: 'INCLUDE'
                                                 });
+                                                onNotifyPin?.(userLabel, true);
                                             }
                                         }}
-                                        className={`p-1.5 rounded-xl border transition-all active:scale-90 ${
+                                        className={`p-1.5 rounded-xl border transition-all duration-200 active:scale-75 hover:scale-110 cursor-pointer ${
                                             isPinned 
-                                                ? 'bg-amber-50 border-amber-300 text-amber-500 shadow-2xs ring-1 ring-amber-300/40' 
-                                                : 'bg-white border-stone-200 text-stone-300 hover:text-stone-600 hover:bg-stone-50 hover:border-stone-300'
+                                                ? 'bg-amber-100 border-amber-300 text-amber-600 shadow-sm ring-2 ring-amber-400/20' 
+                                                : 'bg-white border-stone-200 text-stone-400 hover:text-amber-500 hover:bg-amber-50 hover:border-amber-200'
                                         }`}
                                         title={isPinned ? 'ถอนการปักหมุดแถบด่วน' : 'ปักหมุดสมาชิกที่แถบด่วน (Pin to Bar)'}
+                                        aria-label={isPinned ? `ถอนการปักหมุด ${user.name}` : `ปักหมุด ${user.name} ลงแถบด่วน`}
                                     >
-                                        <Pin className={`w-3.5 h-3.5 ${isPinned ? 'fill-current' : ''}`} />
+                                        <Pin className={`w-3.5 h-3.5 transition-transform ${isPinned ? 'rotate-12 fill-amber-500' : ''}`} />
                                     </button>
                                 )}
                             </div>

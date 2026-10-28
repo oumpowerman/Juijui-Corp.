@@ -1,5 +1,6 @@
 import React from 'react';
-import { Radio, Clapperboard, Activity, Users } from 'lucide-react';
+import { Radio, Clapperboard, Activity, Users, Pin } from 'lucide-react';
+import { ChipConfig } from '../../../types';
 
 export type TabType = 'CHANNELS' | 'FORMATS' | 'STATUSES' | 'ASSIGNEES';
 
@@ -13,6 +14,7 @@ interface FilterTabHeaderProps {
     handleSelectAllCurrent: () => void;
     handleClearAllCurrent: () => void;
     viewMode?: 'CONTENT' | 'TASK' | 'PLAN';
+    customChips?: ChipConfig[];
 }
 
 const FilterTabHeader: React.FC<FilterTabHeaderProps> = ({
@@ -24,8 +26,15 @@ const FilterTabHeader: React.FC<FilterTabHeaderProps> = ({
     tempAssigneesCount = 0,
     handleSelectAllCurrent,
     handleClearAllCurrent,
-    viewMode = 'CONTENT'
+    viewMode = 'CONTENT',
+    customChips = []
 }) => {
+    // Pinned count per tab
+    const pinnedAssignees = customChips.filter(c => c.type === 'ASSIGNEE').length;
+    const pinnedChannels = customChips.filter(c => c.type === 'CHANNEL').length;
+    const pinnedFormats = customChips.filter(c => c.type === 'FORMAT').length;
+    const pinnedStatuses = customChips.filter(c => c.type === 'STATUS').length;
+
     return (
         <div className="px-6 py-4 border-b border-stone-200 bg-stone-50/50 flex flex-wrap gap-3 items-center justify-between">
             <div className="flex gap-1.5 bg-stone-100 p-1 rounded-2xl border border-stone-200/60 shadow-inner">
@@ -39,9 +48,17 @@ const FilterTabHeader: React.FC<FilterTabHeaderProps> = ({
                     }`}
                 >
                     <Users className="w-3.5 h-3.5" />
-                    สมาชิกผู้รับผิดชอบ
+                    <span>สมาชิก</span>
+                    {pinnedAssignees > 0 && (
+                        <span className={`inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
+                            activeTab === 'ASSIGNEES' ? 'bg-amber-400 text-stone-900' : 'bg-amber-100 text-amber-800'
+                        }`} title={`ปักหมุดแล้ว ${pinnedAssignees} คน`}>
+                            <Pin className="w-2.5 h-2.5 fill-current" />
+                            {pinnedAssignees}
+                        </span>
+                    )}
                     {tempAssigneesCount > 0 && (
-                        <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded-full font-bold transition-colors ${
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold transition-colors ${
                             activeTab === 'ASSIGNEES' ? 'bg-indigo-700 text-white' : 'bg-stone-200 text-stone-700'
                         }`}>
                             {tempAssigneesCount}
@@ -59,9 +76,17 @@ const FilterTabHeader: React.FC<FilterTabHeaderProps> = ({
                     }`}
                 >
                     <Radio className="w-3.5 h-3.5" />
-                    ช่อง/รายการ
+                    <span>ช่อง/รายการ</span>
+                    {pinnedChannels > 0 && (
+                        <span className={`inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
+                            activeTab === 'CHANNELS' ? 'bg-amber-400 text-stone-900' : 'bg-amber-100 text-amber-800'
+                        }`} title={`ปักหมุดแล้ว ${pinnedChannels} ช่อง`}>
+                            <Pin className="w-2.5 h-2.5 fill-current" />
+                            {pinnedChannels}
+                        </span>
+                    )}
                     {tempChannelIdsCount > 0 && (
-                        <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded-full font-bold transition-colors ${
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold transition-colors ${
                             activeTab === 'CHANNELS' ? 'bg-stone-600 text-stone-100' : 'bg-stone-200 text-stone-700'
                         }`}>
                             {tempChannelIdsCount}
@@ -79,9 +104,17 @@ const FilterTabHeader: React.FC<FilterTabHeaderProps> = ({
                     }`}
                 >
                     <Clapperboard className="w-3.5 h-3.5" />
-                    รูปแบบเนื้อหา
+                    <span>รูปแบบ</span>
+                    {pinnedFormats > 0 && (
+                        <span className={`inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
+                            activeTab === 'FORMATS' ? 'bg-amber-400 text-stone-900' : 'bg-amber-100 text-amber-800'
+                        }`} title={`ปักหมุดแล้ว ${pinnedFormats} รูปแบบ`}>
+                            <Pin className="w-2.5 h-2.5 fill-current" />
+                            {pinnedFormats}
+                        </span>
+                    )}
                     {tempFormatsCount > 0 && (
-                        <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded-full font-bold transition-colors ${
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold transition-colors ${
                             activeTab === 'FORMATS' ? 'bg-stone-600 text-stone-100' : 'bg-stone-200 text-stone-700'
                         }`}>
                             {tempFormatsCount}
@@ -99,9 +132,17 @@ const FilterTabHeader: React.FC<FilterTabHeaderProps> = ({
                     }`}
                 >
                     <Activity className="w-3.5 h-3.5" />
-                    สถานะ
+                    <span>สถานะ</span>
+                    {pinnedStatuses > 0 && (
+                        <span className={`inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded-full font-bold ${
+                            activeTab === 'STATUSES' ? 'bg-amber-400 text-stone-900' : 'bg-amber-100 text-amber-800'
+                        }`} title={`ปักหมุดแล้ว ${pinnedStatuses} สถานะ`}>
+                            <Pin className="w-2.5 h-2.5 fill-current" />
+                            {pinnedStatuses}
+                        </span>
+                    )}
                     {tempStatusesCount > 0 && (
-                        <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded-full font-bold transition-colors ${
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold transition-colors ${
                             activeTab === 'STATUSES' ? 'bg-stone-600 text-stone-100' : 'bg-stone-200 text-stone-700'
                         }`}>
                             {tempStatusesCount}

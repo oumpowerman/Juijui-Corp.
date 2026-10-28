@@ -11,6 +11,7 @@ interface StatusFilterGridProps {
     customChips?: ChipConfig[];
     onSaveChip?: (chip: ChipConfig) => void;
     onDeleteChip?: (id: string) => void;
+    onNotifyPin?: (label: string, isPin: boolean) => void;
 }
 
 const StatusFilterGrid: React.FC<StatusFilterGridProps> = ({
@@ -19,7 +20,8 @@ const StatusFilterGrid: React.FC<StatusFilterGridProps> = ({
     toggleStatus,
     customChips = [],
     onSaveChip,
-    onDeleteChip
+    onDeleteChip,
+    onNotifyPin
 }) => {
     if (statusOptions.length === 0) {
         return (
@@ -86,11 +88,13 @@ const StatusFilterGrid: React.FC<StatusFilterGridProps> = ({
                             {/* Pin Button */}
                             {onSaveChip && onDeleteChip && (
                                 <button
+                                    type="button"
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         const existing = customChips.find(c => c.type === 'STATUS' && c.value === option.key);
                                         if (existing) {
                                             onDeleteChip(existing.id);
+                                            onNotifyPin?.(option.label, false);
                                         } else {
                                             onSaveChip({
                                                 id: `chip_sts_${option.key}`,
@@ -101,16 +105,18 @@ const StatusFilterGrid: React.FC<StatusFilterGridProps> = ({
                                                 scope: 'CONTENT',
                                                 mode: 'INCLUDE'
                                             });
+                                            onNotifyPin?.(option.label, true);
                                         }
                                     }}
-                                    className={`absolute bottom-0 right-0 p-1.5 rounded-lg border transition-all ${
+                                    className={`absolute bottom-0 right-0 p-1.5 rounded-lg border transition-all duration-200 active:scale-75 hover:scale-110 cursor-pointer ${
                                         isPinned 
-                                            ? 'bg-amber-50 border-amber-200 text-amber-500 shadow-sm' 
-                                            : 'bg-white border-stone-200 text-stone-400 hover:text-stone-600 hover:bg-stone-50 hover:border-stone-300'
+                                            ? 'bg-amber-100 border-amber-300 text-amber-600 shadow-sm ring-2 ring-amber-400/20' 
+                                            : 'bg-white border-stone-200 text-stone-400 hover:text-amber-500 hover:bg-amber-50 hover:border-amber-200'
                                     }`}
                                     title={isPinned ? 'ถอนการปักหมุดแถบด่วน' : 'ปักหมุดลงแถบด่วน'}
+                                    aria-label={isPinned ? `ถอนการปักหมุด ${option.label}` : `ปักหมุด ${option.label} ลงแถบด่วน`}
                                 >
-                                    <Pin className="w-3 h-3" />
+                                    <Pin className={`w-3 h-3 transition-transform ${isPinned ? 'rotate-12 fill-amber-500' : ''}`} />
                                 </button>
                             )}
                         </div>

@@ -204,6 +204,15 @@ const Pricing: React.FC<PricingProps> = ({
               ? plan.yearlyPrice
               : plan.monthlyPrice;
 
+            const shortTierLabel =
+              plan.tier === 'STARTER'
+                ? 'Starter'
+                : plan.tier === 'PRO'
+                ? 'PRO'
+                : plan.tier === 'ENTERPRISE'
+                ? 'Enterprise'
+                : plan.name;
+
             return (
               <ScrollRevealItem
                 key={plan.tier}
@@ -215,21 +224,10 @@ const Pricing: React.FC<PricingProps> = ({
                     : 'border-white/95 shadow-lg shadow-indigo-500/5 hover:border-indigo-200 hover:shadow-xl'
                 }`}
               >
-                {plan.badge && (
+                {/* Top Row: Icon on Left, Badge on Top-Right (Fixed 44px height across all cards) */}
+                <div className="flex items-start justify-between gap-2 mb-4 h-11">
                   <div
-                    className={`self-start mb-4 px-3 py-1 rounded-lg text-xs font-bold ${
-                      plan.recommended
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-amber-100 text-amber-900'
-                    }`}
-                  >
-                    {plan.badge}
-                  </div>
-                )}
-
-                <div className="mb-6">
-                  <div
-                    className={`w-11 h-11 rounded-2xl flex items-center justify-center mb-3.5 ${
+                    className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
                       plan.recommended ? 'bg-indigo-50' : 'bg-slate-50/90'
                     }`}
                   >
@@ -238,30 +236,52 @@ const Pricing: React.FC<PricingProps> = ({
                     {plan.tier === 'ENTERPRISE' && <Building2 className="w-5 h-5 text-purple-600" />}
                     {plan.tier === 'LIFETIME' && <Crown className="w-5 h-5 text-amber-500" />}
                   </div>
-                  <h3 className="text-xl font-bold text-slate-900">{plan.name}</h3>
-                  <p className="text-slate-500 text-xs mt-1 leading-relaxed">{plan.audience}</p>
+
+                  {plan.badge && (
+                    <span
+                      className={`px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap shrink-0 ${
+                        plan.recommended
+                          ? 'bg-indigo-600 text-white shadow-sm shadow-indigo-200'
+                          : 'bg-amber-100 text-amber-900'
+                      }`}
+                    >
+                      {plan.badge}
+                    </span>
+                  )}
                 </div>
 
-                <div className="mb-6 pb-6 border-b border-slate-100/90">
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-3xl font-bold font-google-sans tabular-nums text-slate-900">
+                {/* Plan Title & Subtitle (Uniform height so price rows align horizontally) */}
+                <div className="mb-5">
+                  <h3 className="text-xl font-bold text-slate-900 tracking-tight leading-snug">
+                    {plan.name}
+                  </h3>
+                  <p className="text-slate-500 text-xs mt-1.5 leading-relaxed min-h-[2.25rem] line-clamp-2">
+                    {plan.audience}
+                  </p>
+                </div>
+
+                {/* Price & Member Capacity Block */}
+                <div className="mb-6 py-5 border-y border-slate-100/90">
+                  <div className="flex items-baseline gap-1.5">
+                    <span className="text-3xl font-bold font-google-sans tabular-nums text-slate-900 tracking-tight">
                       ฿{displayPrice.toLocaleString()}
                     </span>
-                    <span className="text-slate-400 font-bold text-xs">
+                    <span className="text-slate-400 font-bold text-xs whitespace-nowrap">
                       / {isLifetime ? 'ตลอดชีพ' : billingCycle === 'YEARLY' ? 'ปี' : 'เดือน'}
                     </span>
                   </div>
-                  <div className="mt-2 inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 font-google-sans tabular-nums">
-                    <Users className="w-3.5 h-3.5" />
+                  <div className="mt-2.5 inline-flex items-center gap-1.5 text-xs font-semibold text-indigo-600 font-google-sans tabular-nums">
+                    <Users className="w-3.5 h-3.5 shrink-0" />
                     <span>รองรับสูงสุด {plan.maxMembers} บัญชีผู้ใช้</span>
                   </div>
                 </div>
 
-                <ul className="space-y-3 mb-8 flex-1">
+                {/* Feature List (Balanced row spacing and alignment) */}
+                <ul className="space-y-3.5 mb-8 flex-1">
                   {plan.features.map((feature, fIdx) => (
                     <li
                       key={fIdx}
-                      className="flex items-start gap-2.5 text-slate-600 text-xs font-medium leading-relaxed"
+                      className="flex items-start gap-2.5 text-slate-600 text-xs font-medium leading-relaxed min-h-[2.25rem]"
                     >
                       <Check
                         className={`w-4 h-4 shrink-0 mt-0.5 ${
@@ -273,6 +293,7 @@ const Pricing: React.FC<PricingProps> = ({
                   ))}
                 </ul>
 
+                {/* Uniform Single-Line CTA Button */}
                 <button
                   type="button"
                   onClick={() => {
@@ -299,17 +320,15 @@ const Pricing: React.FC<PricingProps> = ({
                       onStartFreeTrial(plan.tier);
                     }
                   }}
-                  className={`w-full py-3.5 px-4 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                  className={`mt-auto w-full h-12 px-4 rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center whitespace-nowrap ${
                     plan.recommended
                       ? 'bg-indigo-600 text-white shadow-md shadow-indigo-200 hover:bg-indigo-700'
                       : 'bg-slate-900 text-white hover:bg-slate-800'
                   }`}
                 >
-                  {plan.tier === 'PRO'
-                    ? 'เลือกแผน PRO · เปิดองค์กรทันที'
-                    : plan.tier === 'LIFETIME'
-                    ? 'สั่งซื้อสิทธิ์ตลอดชีพ / เปิดองค์กร'
-                    : `เลือกแผน ${plan.name} · เปิดองค์กรทันที`}
+                  {plan.tier === 'LIFETIME'
+                    ? 'สั่งซื้อสิทธิ์ตลอดชีพ · เปิดองค์กร'
+                    : `เลือกแผน ${shortTierLabel} · เปิดองค์กรทันที`}
                 </button>
               </ScrollRevealItem>
             );

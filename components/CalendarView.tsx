@@ -303,6 +303,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
               filters.clearChannelFilter();
             }}
             customChips={customChips || []}
+            onDeleteChip={deleteChip}
             channels={channels}
             onManageFilters={() => filters.setIsCosmicFilterOpen(true)}
             onOpenCosmicFilter={() => filters.setIsCosmicFilterOpen(true)}

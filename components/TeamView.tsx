@@ -402,26 +402,26 @@ const TeamView: React.FC<TeamViewProps> = ({
                 )}
 
                 {/* --- CONTROLS ROW: Date & Toolbar --- */}
-                <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4 relative z-[150] bg-white/80 backdrop-blur-xl py-3 px-4 rounded-3xl border border-white/40 shadow-lg">
+                <div className="flex flex-col xl:flex-row justify-between items-stretch xl:items-center gap-2.5 sm:gap-3 relative z-[150] bg-white/80 backdrop-blur-xl py-2 sm:py-2.5 px-3 sm:px-4 rounded-3xl border border-white/40 shadow-lg max-w-full overflow-x-auto lg:overflow-visible no-scrollbar">
                   
                   {/* Date Navigator */}
-                  <div className="flex items-center bg-white p-1.5 rounded-2xl border border-gray-200 shadow-sm w-fit shrink-0 mx-auto xl:mx-0">
-                          <button onClick={prevWeek} className="p-2 hover:bg-gray-100 rounded-xl text-gray-500 transition-colors"><ChevronLeft className="w-5 h-5" /></button>
-                          <div className="flex flex-col items-center px-4 min-w-[140px]">
-                              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider">{isSameWeek(currentDate, new Date(), { weekStartsOn: 1 }) ? 'สัปดาห์นี้' : 'ช่วงวันที่'}</span>
-                              <span className="text-sm font-black text-indigo-600">{format(start, 'd MMM')} - {format(end, 'd MMM')}</span>
+                  <div className="flex items-center bg-white p-1 sm:p-1.5 rounded-2xl border border-gray-200 shadow-sm w-fit shrink-0 mx-auto xl:mx-0">
+                          <button onClick={prevWeek} className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-xl text-gray-500 transition-colors"><ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5" /></button>
+                          <div className="flex flex-col items-center px-3 sm:px-4 min-w-[125px] sm:min-w-[140px]">
+                              <span className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-wider">{isSameWeek(currentDate, new Date(), { weekStartsOn: 1 }) ? 'สัปดาห์นี้' : 'ช่วงวันที่'}</span>
+                              <span className="text-xs sm:text-sm font-black text-indigo-600">{format(start, 'd MMM')} - {format(end, 'd MMM')}</span>
                           </div>
-                          <button onClick={nextWeek} className="p-2 hover:bg-gray-100 rounded-xl text-gray-500 transition-colors"><ChevronRight className="w-5 h-5" /></button>
+                          <button onClick={nextWeek} className="p-1.5 sm:p-2 hover:bg-gray-100 rounded-xl text-gray-500 transition-colors"><ChevronRight className="w-4 h-4 sm:w-5 sm:h-5" /></button>
                           {!isSameWeek(currentDate, new Date(), { weekStartsOn: 1 }) && (
                               <div className="border-l border-gray-200 pl-1 ml-1">
-                                  <button onClick={goToToday} className="px-3 py-1.5 text-xs font-bold bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors ml-1">Today</button>
+                                  <button onClick={goToToday} className="px-2.5 py-1 text-xs font-bold bg-indigo-50 text-indigo-600 rounded-lg hover:bg-indigo-100 transition-colors ml-1">Today</button>
                               </div>
                           )}
                   </div>
                   
                   {/* View Controls & Filter Toolbar */}
-                  <div className="flex flex-col md:flex-row flex-wrap xl:flex-nowrap gap-3 w-full xl:w-auto items-center">
-                       <div className="flex-1 w-full md:w-auto overflow-visible no-scrollbar">
+                  <div className="flex flex-col md:flex-row flex-wrap xl:flex-nowrap gap-2 sm:gap-2.5 w-full xl:w-auto items-center min-w-0">
+                       <div className="flex-1 w-full md:w-auto overflow-visible min-w-0">
                            <TeamToolbar 
                               viewScope={viewScope} setViewScope={setViewScope}
                               searchQuery={searchQuery} setSearchQuery={setSearchQuery}
@@ -431,23 +431,26 @@ const TeamView: React.FC<TeamViewProps> = ({
                            />
                        </div>
                        
-                       {/* My Tasks Button */}
-                       <div className="flex gap-2 w-full md:w-auto shrink-0">
+                       {/* My Tasks & Work History Buttons */}
+                       <div className="flex gap-2 w-full md:w-auto shrink-0 justify-end">
                             <button 
                                 onClick={() => setIsWorkloadModalOpen(true)}
-                                className="flex-1 md:flex-none flex items-center gap-2 px-4 py-3 rounded-2xl text-xs font-bold transition-all bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-100 shadow-sm justify-center min-w-fit"
+                                className="flex-1 md:flex-none flex items-center gap-1.5 px-3 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl text-xs font-bold transition-all bg-indigo-50 text-indigo-600 hover:bg-indigo-100 border border-indigo-100 shadow-sm justify-center min-w-fit active:scale-95 whitespace-nowrap"
+                                title="My Tasks (งานของฉัน)"
                             >
-                                <ClipboardList className="w-4 h-4" />
-                                <span className="hidden sm:inline">My Tasks</span>
+                                <ClipboardList className="w-4 h-4 shrink-0" />
+                                <span className="hidden 2xl:inline">My Tasks</span>
+                                <span className="2xl:hidden hidden sm:inline">Tasks</span>
                             </button>
 
                             <button 
                                 onClick={() => setIsWorkHistoryOpen(true)}
-                                className="flex-1 md:flex-none flex items-center gap-2 px-4 py-3 rounded-2xl text-xs font-bold transition-all bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200 shadow-sm justify-center group min-w-fit"
+                                className="flex-1 md:flex-none flex items-center gap-1.5 px-3 py-2 sm:py-2.5 rounded-xl sm:rounded-2xl text-xs font-bold transition-all bg-slate-100 text-slate-600 hover:bg-slate-200 border border-slate-200 shadow-sm justify-center group min-w-fit active:scale-95 whitespace-nowrap"
+                                title="Work History (ประวัติการทำงาน)"
                             >
-                                <HistoryIcon className="w-4 h-4 group-hover:rotate-[-45deg] transition-transform" />
-                                <span className="hidden xl:inline">Work History</span>
-                                <span className="xl:hidden hidden sm:inline">History</span>
+                                <HistoryIcon className="w-4 h-4 shrink-0 group-hover:rotate-[-45deg] transition-transform" />
+                                <span className="hidden 2xl:inline">Work History</span>
+                                <span className="2xl:hidden hidden sm:inline">History</span>
                             </button>
                        </div>
                   </div>
@@ -477,9 +480,9 @@ const TeamView: React.FC<TeamViewProps> = ({
 
                 {/* --- DESKTOP VIEW: GANG TABLE --- */}
                 <div className="hidden md:block bg-white rounded-3xl shadow-sm border border-gray-200 overflow-visible">
-                  {/* Table Header - Sticky */}
-                  <div className="grid grid-cols-8 border-b border-gray-200 bg-gray-50 rounded-t-3xl sticky top-0 z-50">
-                     <div className="col-span-1 py-4 px-4 text-xs font-black text-gray-400 uppercase tracking-wider">สมาชิก ({pagination.totalItems})</div>
+                  {/* Table Header - Non-sticky (scrolls with content) */}
+                  <div className="grid grid-cols-8 border-b border-gray-200 bg-gray-50 rounded-t-3xl relative z-10">
+                     <div className="col-span-1 py-4 px-4 text-xs font-black text-gray-400 uppercase tracking-wider border-[#0053ff]">สมาชิก ({pagination.totalItems})</div>
                      {weekDays.map(day => (
                          <div key={day.toString()} className={`col-span-1 py-3 text-center border-l border-gray-100 ${isToday(day) ? 'bg-indigo-50/50' : ''}`}>
                              <p className="text-xs text-gray-400 uppercase font-semibold">{format(day, 'EEE')}</p>

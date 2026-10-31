@@ -84,8 +84,8 @@ export const SidebarUserFooter: React.FC<SidebarUserFooterProps> = ({
           className={`
             w-full flex items-center justify-center gap-2 font-bold transition-all uppercase tracking-[0.2em]
             ${isCollapsed 
-              ? 'mt-4 py-3 text-red-300 hover:text-red-500' 
-              : `mt-4 py-3 text-[10px] ${isDarkTheme ? 'text-slate-600 hover:text-red-400 hover:bg-red-500/10' : 'text-slate-400 hover:text-red-500 hover:bg-red-50'} rounded-xl`
+              ? 'mt-4 py-3 text-rose-500 hover:text-rose-600 hover:bg-rose-500/10 rounded-2xl' 
+              : `mt-4 py-3 text-[10px] ${isDarkTheme ? 'text-slate-600 hover:text-red-400 hover:bg-red-500/10' : 'text-slate-500 hover:text-red-500 hover:bg-red-50'} rounded-xl`
             }
           `}
           title={isCollapsed ? 'ลงชื่อออก' : ''}

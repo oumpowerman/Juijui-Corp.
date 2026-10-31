@@ -20,6 +20,7 @@ interface ChannelStatsCardsProps {
   lastGlobalSyncInfo?: FollowerSyncLastRunInfo | null;
   latestChannelSyncAt?: string | null;
   onManageGroups: () => void;
+  canManage?: boolean;
 }
 
 export const ChannelStatsCards: React.FC<ChannelStatsCardsProps> = ({
@@ -37,6 +38,7 @@ export const ChannelStatsCards: React.FC<ChannelStatsCardsProps> = ({
   lastGlobalSyncInfo,
   latestChannelSyncAt,
   onManageGroups,
+  canManage = true,
 }) => {
   const effectiveLastSyncAt = lastGlobalSyncInfo?.last_sync_at || latestChannelSyncAt;
   const isAutoCron = lastGlobalSyncInfo?.triggered_by === 'cron';
@@ -44,22 +46,30 @@ export const ChannelStatsCards: React.FC<ChannelStatsCardsProps> = ({
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
       {/* Card 1: Channel Groups / Sections */}
       <div 
-        onClick={onManageGroups}
-        className="p-5 bg-gradient-to-br from-white/95 via-indigo-50/35 to-white/85 backdrop-blur-md rounded-2xl border border-white/80 border-b-[3px] border-b-indigo-100/80 ring-1 ring-slate-100/60 shadow-[0_8px_25px_rgba(0,0,0,0.03)] hover:shadow-[0_14px_30px_rgba(99,102,241,0.08)] hover:translate-y-[-2px] hover:border-b-indigo-200 transition-all duration-200 cursor-pointer group select-none flex flex-col justify-between"
-        title="คลิกเพื่อจัดการกลุ่มรายการและลากช่องเข้าหมวดหมู่"
+        onClick={canManage ? onManageGroups : undefined}
+        className={`p-5 bg-gradient-to-br from-white/95 via-indigo-50/35 to-white/85 backdrop-blur-md rounded-2xl border border-white/80 border-b-[3px] border-b-indigo-100/80 ring-1 ring-slate-100/60 shadow-[0_8px_25px_rgba(0,0,0,0.03)] transition-all duration-200 select-none flex flex-col justify-between ${
+          canManage
+            ? 'hover:shadow-[0_14px_30px_rgba(99,102,241,0.08)] hover:translate-y-[-2px] hover:border-b-indigo-200 cursor-pointer group'
+            : 'cursor-default'
+        }`}
+        title={canManage ? "คลิกเพื่อจัดการกลุ่มรายการและลากช่องเข้าหมวดหมู่" : "กลุ่มรายการ (Sections)"}
       >
         <div className="flex items-center justify-between mb-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-b from-indigo-50 to-indigo-100/80 border border-white border-b-2 border-b-indigo-200/80 shadow-md shadow-indigo-100/80 flex items-center justify-center text-indigo-600 group-hover:scale-105 group-hover:shadow-indigo-200 transition-all">
+          <div className={`w-10 h-10 rounded-xl bg-gradient-to-b from-indigo-50 to-indigo-100/80 border border-white border-b-2 border-b-indigo-200/80 shadow-md shadow-indigo-100/80 flex items-center justify-center text-indigo-600 transition-all ${
+            canManage ? 'group-hover:scale-105 group-hover:shadow-indigo-200' : ''
+          }`}>
             <FolderKanban className="w-5 h-5" />
           </div>
-          <span className="text-[11px] font-bold text-indigo-600 group-hover:underline flex items-center gap-1 bg-white/80 px-2.5 py-1 rounded-lg border border-indigo-100/60 shadow-2xs">
-            จัดการ <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
-          </span>
+          {canManage && (
+            <span className="text-[11px] font-bold text-indigo-600 group-hover:underline flex items-center gap-1 bg-white/80 px-2.5 py-1 rounded-lg border border-indigo-100/60 shadow-2xs">
+              จัดการ <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+            </span>
+          )}
         </div>
         <div>
           <p className="text-xs font-bold text-slate-500">กลุ่มรายการ (Sections)</p>
           <div className="flex items-baseline gap-2 mt-1 flex-wrap">
-            <p className="text-2xl font-black text-slate-800 tracking-tight">{groupsCount}</p>
+            <p className="text-2xl font-bold text-slate-800 tracking-tight">{groupsCount}</p>
             <span className="text-xs font-semibold text-slate-400">กลุ่ม</span>
             <span className="text-[11px] font-semibold text-indigo-600/80 ml-auto truncate bg-indigo-50/70 px-2.5 py-0.5 rounded-md border border-indigo-100/50">
               {groupsCount === 0 ? 'ยังไม่สร้างกลุ่ม' : `${categorizedCount} จัดกลุ่มแล้ว`}

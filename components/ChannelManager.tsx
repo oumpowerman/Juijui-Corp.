@@ -37,12 +37,14 @@ interface ChannelManagerProps {
 
 const ChannelManager: React.FC<ChannelManagerProps> = ({ 
   channels, 
+  currentUser,
   onAdd, 
   onEdit, 
   onDelete, 
   onOpenSettings 
 }) => {
   const { showToast } = useToast();
+  const canManage = currentUser?.role === 'ADMIN';
 
   // Local Channels State (for instant UI update on sync/mutate)
   const [localChannels, setLocalChannels] = useState<Channel[]>(channels);
@@ -326,6 +328,7 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
           onOpenGroupModal={() => setIsGroupModalOpen(true)}
           onCreateChannel={handleCreateChannel}
           onOpenSettings={onOpenSettings}
+          canManage={canManage}
         />
 
         {/* 2. Overview Statistics Cards */}
@@ -345,6 +348,7 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
             lastGlobalSyncInfo={lastGlobalSyncInfo}
             latestChannelSyncAt={latestChannelSyncAt}
             onManageGroups={() => setIsGroupModalOpen(true)}
+            canManage={canManage}
           />
         )}
 
@@ -359,6 +363,7 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
           onOpenManageModal={() => setIsGroupModalOpen(true)}
           searchQuery={searchQuery}
           onSearchChange={setSearchQuery}
+          canManage={canManage}
         />
 
         {/* 4. Section Channels Grid */}
@@ -374,6 +379,7 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
           onOpenGroupModal={() => setIsGroupModalOpen(true)}
           onSyncFollowers={handleSyncSingleChannel}
           syncingChannelIdMap={syncingChannelIdMap}
+          canManage={canManage}
         />
 
         {/* 5. Modals */}
@@ -429,7 +435,7 @@ const ChannelManager: React.FC<ChannelManagerProps> = ({
           isOpen={isSingleSyncModalOpen}
           result={singleSyncResult}
           onClose={closeSingleSyncModal}
-          onOpenEditChannel={handleOpenEditChannelFromModal}
+          onOpenEditChannel={canManage ? handleOpenEditChannelFromModal : undefined}
           onUpdateFollowerCount={handleQuickUpdateFollowerCount}
         />
       </div>

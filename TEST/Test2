@@ -1,0 +1,513 @@
+/**
+ * ============================================================================
+ * ไฟล์ที่ 2: 2_Webhook_Router.gs (Smart Architecture V.3)
+ * หน้าที่: รับ Event จาก LINE Webhook, สแกนเดือนและโปรเจคแบบ 2 จังหวะ,
+ *         ถามเรต % อัตโนมัติเมื่อมีหลายบล็อกซ้ำกัน และจัดการแนบรูปเข้า Google Drive
+ * ============================================================================
+ */
+
+function doGet(e) {
+  return HtmlService.createHtmlOutput('OK');
+}
+
+function doPost(e) {
+  try {
+    if (!e || !e.postData || !e.postData.contents) {
+      return HtmlService.createHtmlOutput('OK');
+    }
+
+    const payload = JSON.parse(e.postData.contents);
+    const events = payload.events || [];
+
+    if (events.length === 0) {
+      return HtmlService.createHtmlOutput('OK');
+    }
+
+    for (let i = 0; i < events.length; i++) {
+      handleLineEvent(events[i]);
+    }
+
+    return HtmlService.createHtmlOutput('OK');
+  } catch (err) {
+    console.error('Webhook Error:', err);
+    return HtmlService.createHtmlOutput('OK');
+  }
+}
+
+function handleLineEvent(event) {
+  if (event.type !== 'message') return;
+
+  const replyToken = event.replyToken;
+  const sourceId = event.source.groupId || event.source.roomId || event.source.userId;
+  const userId = event.source.userId || sourceId;
+
+  // บันทึก DEFAULT_LINE_USER_ID อัตโนมัติเมื่อทักแชทครั้งแรก
+  const props = PropertiesService.getScriptProperties();
+  if (!props.getProperty('DEFAULT_LINE_USER_ID') && sourceId) {
+    props.setProperty('DEFAULT_LINE_USER_ID', sourceId);
+  }
+
+  if (event.message.type === 'text') {
+    const userText = (event.message.text || '').trim();
+    handleTextMessage(replyToken, userId, userText);
+  } else if (event.message.type === 'image') {
+    const messageId = event.message.id;
+    handleImageMessage(replyToken, userId, messageId);
+  }
+}
+
+/**
+ * จัดการข้อความคำสั่งทั้งหมดที่ส่งเข้ามาใน LINE
+ */
+function handleTextMessage(replyToken, userId, text) {
+  // 1. คำสั่งเรียกดูการ์ดรายงานสรุป Flex Message
+  if (/^(สรุปป้าง|กระเป๋าป้าง|ยอดป้าง)/i.test(text)) {
+    const monthInfo = extractMonthFromText(text) || getLatestExistingMonthInfo();
+    replyLine(replyToken, [buildPangSummaryFlex(monthInfo)]);
+    return;
+  }
+
+  if (/^(สรุปบริษัท|สรุปงบ|งบบริษัท)/i.test(text)) {
+    replyLine(replyToken, [buildCompanySummaryFlex()]);
+    return;
+  }
+
+  if (/^(เช็คประจำ|ค่าใช้จ่ายประจำ|routine)/i.test(text)) {
+    replyLine(replyToken, [buildRoutineStatusFlex()]);
+    return;
+  }
+
+  if (/^ขึ้นเดือนใหม่/i.test(text)) {
+    const targetMonth = extractMonthFromText(text);
+    const resultMsg = createNewMonthTab(targetMonth ? targetMonth.num : null);
+    replyLine(replyToken, [{ type: 'text', text: resultMsg }]);
+    return;
+  }
+
+  if (/^(วิธีใช้|คำสั่ง|help|เมนู|คู่มือ|ขอคู่มือ|ช่วยเหลือ|สอนใช้)/i.test(text)) {
+    replyLine(replyToken, [buildHelpFlex()]);
+    return;
+  }
+
+  // 2. คำสั่งยกเลิกหรือข้ามการแนบรูป
+  if (text === 'ยกเลิก') {
+    clearUserState(userId, 'DRAFT_TX');
+    clearUserState(userId, 'PENDING_SLIP');
+    clearUserState(userId, 'PRE_IMAGE_MSG');
+    replyLine(replyToken, [{ type: 'text', text: '❌ ยกเลิกรายการที่ค้างอยู่เรียบร้อยแล้วครับ เริ่มพิมพ์คำสั่งใหม่ได้เลยครับ' }]);
+    return;
+  }
+
+  if (text === 'ข้ามการแนบรูป') {
+    clearUserState(userId, 'PENDING_SLIP');
+    replyLine(replyToken, [{ type: 'text', text: '👌 บันทึกข้อมูลเรียบร้อย (ไม่แนบรูปเพิ่ม) ครับ' }]);
+    return;
+  }
+
+  // NEW: คำสั่งยืนยันการบันทึก หลังจากแสดงการ์ดรอยืนยัน
+  if (text === 'ยืนยัน' || text === 'ยืนยันการบันทึก') {
+    const draft = getUserState(userId, 'DRAFT_TX');
+    if (draft && draft.itemName && draft.amount > 0 && draft.targetType !== 'UNKNOWN_PROJECT' && draft.targetType !== 'AMBIGUOUS_PROJECT') {
+      clearUserState(userId, 'DRAFT_TX');
+      executeAndReplyTransaction(replyToken, userId, draft);
+      return;
+    } else {
+      replyLine(replyToken, [{ type: 'text', text: '❌ ไม่มีรายการที่รอการยืนยัน หรือข้อมูลยังไม่ครบครับ' }]);
+      return;
+    }
+  }
+
+  // NEW: คำสั่งเปลี่ยนโปรเจค (กรณีอยู่ในสถานะรอยืนยัน)
+  if (text === 'เปลี่ยนโปรเจค') {
+    const draft = getUserState(userId, 'DRAFT_TX');
+    if (draft) {
+      draft.targetType = 'UNKNOWN_PROJECT';
+      draft.projectKeyword = '';
+      saveUserState(userId, 'DRAFT_TX', draft, CONFIG.DRAFT_CONVERSATION_TTL_SECONDS);
+      return evaluateAndProceedWithTransaction(replyToken, userId, draft);
+    }
+  }
+
+  // 3. คำสั่งแก้ไขข้อมูลของรายการที่เพิ่งบันทึกไปล่าสุด (เช่น "แก้ราคาเป็น 650", "แก้วันที่เป็น 14", "แก้รายการเป็น ค่าพร็อพ")
+  const liveEditResult = tryHandleLiveEditOnPendingSlip(replyToken, userId, text);
+  if (liveEditResult) {
+    return;
+  }
+
+  // 4. คำสั่งเปลี่ยนโฟลเดอร์ของรายการล่าสุดที่รอแนบรูป
+  const folderChangeMatch = text.match(/^(?:\/โฟลเดอร์:|โฟลเดอร์\s*[:=]?)\s*(.+)$/i);
+  if (folderChangeMatch) {
+    const customFolder = folderChangeMatch[1].trim();
+    const pendingData = getUserState(userId, 'PENDING_SLIP');
+    if (pendingData) {
+      pendingData.subFolder = sanitizeFolderName(customFolder);
+      saveUserState(userId, 'PENDING_SLIP', pendingData, CONFIG.PENDING_SLIP_TTL_SECONDS);
+      replyLine(replyToken, [{
+        type: 'text',
+        text: `📁 เปลี่ยนโฟลเดอร์เก็บรูปของรายการ "${pendingData.itemName}" (${formatNumber(pendingData.amount)} บ.) เป็น:\n👉 ปี 2026 / ${pendingData.monthFolder} / ${pendingData.subFolder}\n\n📸 ส่งรูปสลิปเข้ามาได้เลยครับ!`
+      }]);
+      return;
+    }
+  }
+
+  // 5. คำสั่งปุ่มลัด "หัก Fix Cost 10%" หลังจากลงรายรับโปรเจค
+  if (text === 'หัก Fix Cost 10%') {
+    const pending = getUserState(userId, 'PENDING_SLIP');
+    if (pending && pending.targetType === 'PROJECT' && pending.txType === 'INCOME') {
+      try {
+        const fixCostAmount = Math.round(pending.amount * 0.10 * 100) / 100;
+        const fixResult = recordProjectTransaction({
+          monthInfo: pending.monthInfo,
+          projectKeyword: pending.projectName,
+          txType: 'EXPENSE',
+          itemName: '- Fix Cost 10%',
+          amount: fixCostAmount,
+          note: `หัก 10% จาก ${pending.itemName}`,
+          dateStr: pending.dateStr
+        });
+        replyLine(replyToken, [{
+          type: 'text',
+          text: `✅ หัก "- Fix Cost 10%" จำนวน ${formatNumber(fixCostAmount)} บาท ในโปรเจค ${fixResult.projectHeader} (ช่องรายจ่าย ${columnToLetter(fixResult.amountCol)}${fixResult.row}) เรียบร้อยแล้วครับ!\n💰 คงเหลือล่าสุด: ${formatNumber(fixResult.newBalance)} บาท`
+        }]);
+      } catch (err) {
+        replyLine(replyToken, [{ type: 'text', text: `❌ ไม่สามารถหัก Fix Cost ได้: ${err.message}` }]);
+      }
+      return;
+    }
+  }
+
+  // 6. กรณีผู้ใช้กดปุ่ม Quick Reply "เลือกโปรเจค:..." (รองรับทั้งตอนมี Draft ค้างอยู่ และตอนกดเลือกหลังส่งรูปสลิป)
+  const selectProjMatch = text.match(/^เลือกโปรเจค:(.+)$/);
+  let draft = getUserState(userId, 'DRAFT_TX');
+
+  if (selectProjMatch) {
+    const selectedKey = selectProjMatch[1].trim();
+    if (!draft) {
+      const activeMonth = getLatestExistingMonthInfo();
+      draft = {
+        targetType: 'PROJECT',
+        projectKeyword: '',
+        candidateProjects: [],
+        txType: 'EXPENSE',
+        itemName: '',
+        amount: 0,
+        note: '',
+        customFolder: '',
+        dateStr: resolveTransactionDateStr('', activeMonth, null),
+        hasExplicitDate: false,
+        monthInfo: activeMonth
+      };
+    }
+
+    draft.projectKeyword = selectedKey;
+    draft.candidateProjects = [];
+    if (selectedKey === 'กระเป๋าป้าง') {
+      draft.targetType = 'PANG_WALLET';
+    } else if (selectedKey === 'Diary Routine') {
+      draft.targetType = 'DIARY_ROUTINE';
+    } else {
+      draft.targetType = 'PROJECT';
+    }
+
+    return evaluateAndProceedWithTransaction(replyToken, userId, draft);
+  }
+
+  // 7. ระบบคุยต่อเนื่องหลายบริบท (Multi-Turn Conversational Context):
+  //    หากมีรายการค้างอยู่ (DRAFT_TX) จะนำข้อความใหม่ไป "ประกอบร่าง (Merge)" กับข้อมูลที่คุยค้างไว้
+  //    รองรับการบอกเพิ่มหรือเปลี่ยน เดือน, โปรเจค, เรต %, ชื่อรายการ, ราคา, และวันที่ ได้ทุกบริบท!
+  if (draft) {
+    const mergedDraft = mergeDraftWithFollowUpAI(draft, text);
+    return evaluateAndProceedWithTransaction(replyToken, userId, mergedDraft);
+  }
+
+  // 8. กรณีเริ่มคำสั่งใหม่: สแกนเดือนเป้าหมาย -> ดึงโปรเจคจริงของเดือนนั้น -> วิเคราะห์ด้วย Gemini 3.5 Flash
+  const detectedMonthInfo = extractMonthFromText(text) || getLatestExistingMonthInfo();
+  const availableBlocks = getProjectBlocksInfoForAI(detectedMonthInfo.tab);
+  const parsed = parseExpenseCommandWithAI(text, detectedMonthInfo, availableBlocks);
+
+  if (parsed && parsed.targetType === 'HELP') {
+    replyLine(replyToken, [buildHelpFlex()]);
+    return;
+  }
+
+  return evaluateAndProceedWithTransaction(replyToken, userId, parsed);
+}
+
+/**
+ * ตรวจสอบความครบถ้วนขององค์ประกอบทั้ง 5 (เดือน, โปรเจค/เรต%, ชื่อรายการ, ราคา, วันที่)
+ * หากขาดส่วนไหนจะจำบริบทเดิมไว้ทั้งหมด แล้วถามเฉพาะส่วนที่ขาดอย่างเป็นธรรมชาติ
+ */
+function evaluateAndProceedWithTransaction(replyToken, userId, parsed) {
+  const monthTab = parsed.monthInfo ? parsed.monthInfo.tab : getLatestExistingMonthInfo().tab;
+  const availableBlocks = getProjectBlocksInfoForAI(monthTab);
+  const txTypeWord = parsed.txType === 'INCOME' ? 'รายรับ (+)' : 'รายจ่าย (-)';
+
+  // เมื่อเริ่มเข้าสู่โหมดคุยถาม-ตอบรายการใหม่ ให้ล้างสถานะรอรับสลิปของรายการเก่าออก เพื่อไม่ให้สลิปใหม่ไปทับรายการเก่า
+  clearUserState(userId, 'PENDING_SLIP');
+
+  // 1. กรณีโปรเจคในเดือนนั้นมีหลายบล็อก/หลายเรต % (เช่น Drama 20% vs 25%, เรียงเรื่อง 1 vs 2, หรือ จุ๊ยจุ๊ย Review vs Adsense)
+  if (parsed.targetType === 'AMBIGUOUS_PROJECT' && parsed.candidateProjects && parsed.candidateProjects.length > 1) {
+    saveUserState(userId, 'DRAFT_TX', parsed, CONFIG.DRAFT_CONVERSATION_TTL_SECONDS);
+    const itemDesc = parsed.itemName ? `\nรายการ: **${parsed.itemName}**` : '';
+    const amountDesc = parsed.amount > 0 ? ` (${txTypeWord} ${formatNumber(parsed.amount)} บ.)` : '';
+    replyLine(replyToken, [{
+      type: 'text',
+      text: `🧐 ในแท็บ **${monthTab}** มีโปรเจคที่ตรงกันอยู่ **${parsed.candidateProjects.length} บล็อก** ครับ${itemDesc}${amountDesc}\nวันที่: **${parsed.dateStr}**\n\n👉 คุณต้องการลงบล็อกไหน กดปุ่มเลือกหรือพิมพ์บอกเรต % ได้เลยครับ:`,
+      quickReply: { items: buildAmbiguousProjectQuickReplyItems(parsed.candidateProjects) }
+    }]);
+    return;
+  }
+
+  // 2. กรณียังไม่ทราบโปรเจค/หมวดหมู่ (UNKNOWN_PROJECT)
+  if (parsed.targetType === 'UNKNOWN_PROJECT') {
+    saveUserState(userId, 'DRAFT_TX', parsed, CONFIG.DRAFT_CONVERSATION_TTL_SECONDS);
+    const availableProjects = availableBlocks.map(b => b.displayName);
+    const summaryParts = [];
+    if (parsed.itemName) summaryParts.push(`รายการ "${parsed.itemName}"`);
+    if (parsed.amount > 0) summaryParts.push(`ราคา **${formatNumber(parsed.amount)} บาท**`);
+    summaryParts.push(`วันที่ ${parsed.dateStr}`);
+
+    replyLine(replyToken, [{
+      type: 'text',
+      text: `📌 บันทึกข้อมูลเบื้องต้น (${summaryParts.join(' • ')}) ไว้แล้วครับ\n\n👉 กรุณากดเลือก **โปรเจค/หมวดหมู่** ของแท็บ **${monthTab}** ด้านล่าง หรือพิมพ์ชื่อโปรเจคตอบกลับมาได้เลยครับ 👇`,
+      quickReply: { items: buildProjectQuickReplyItems(availableProjects) }
+    }]);
+    return;
+  }
+
+  // 3. กรณียังไม่มี "ชื่อรายการ" (เช่น พิมพ์แค่ "ไลฟ์สตรีม 500" หรือเพิ่งกดปุ่มเลือกโปรเจค)
+  if (!parsed.itemName || parsed.itemName === 'รายการทั่วไป') {
+    saveUserState(userId, 'DRAFT_TX', parsed, CONFIG.DRAFT_CONVERSATION_TTL_SECONDS);
+    const projLabel = parsed.projectKeyword || 'หมวดที่เลือก';
+    if (parsed.amount > 0) {
+      replyLine(replyToken, [{
+        type: 'text',
+        text: `📝 จำข้อมูลโปรเจค **${projLabel}** (${monthTab}) ยอด **${formatNumber(parsed.amount)} บาท** (วันที่ ${parsed.dateStr}) ไว้แล้วครับ\n\n👉 รายการนี้เป็นค่าอะไรครับ? (เช่น \`ค่าพร็อพ\`, \`ค่าตัดต่อ\`, \`ค่าสปอนเซอร์\`)`
+      }]);
+    } else {
+      replyLine(replyToken, [{
+        type: 'text',
+        text: `📌 เลือกหมวด **${projLabel}** (${monthTab} • วันที่ ${parsed.dateStr}) แล้วครับ\n\n👉 กรุณาพิมพ์ **"ชื่อรายการ และ ราคา"** (เช่น \`ค่าพร็อพ 500\` หรือ \`ค่าตัดต่อ 1500 วันที่ 14\`) ได้เลยครับ:`
+      }]);
+    }
+    return;
+  }
+
+  // 4. กรณียังไม่มี "ราคา/จำนวนเงิน" (ยกเว้น Diary Routine ที่ดึงยอดประจำจากชีตได้)
+  if ((!parsed.amount || parsed.amount <= 0) && parsed.targetType !== 'DIARY_ROUTINE') {
+    saveUserState(userId, 'DRAFT_TX', parsed, CONFIG.DRAFT_CONVERSATION_TTL_SECONDS);
+    const projLabel = parsed.projectKeyword || 'หมวดที่เลือก';
+    replyLine(replyToken, [{
+      type: 'text',
+      text: `💰 จำรายการ "${parsed.itemName}"\nหมวด **${projLabel}**\n(${monthTab} • วันที่ ${parsed.dateStr}) ไว้แล้วครับ\n\n👉 กรุณาพิมพ์ ราคา/จำนวนเงิน\n(เช่น \`500\` หรือจะระบุวันที่/เดือนเพิ่มด้วย เช่น \`500 วันที่ 14\` ก็ได้ครับ):`
+    }]);
+    return;
+  }
+
+  // 5. ข้อมูลครบถ้วนสมบูรณ์ทั้ง 5 องค์ประกอบ -> แสดงการ์ดรอยืนยัน (ยังไม่บันทึกลงชีต)
+  saveUserState(userId, 'DRAFT_TX', parsed, CONFIG.DRAFT_CONVERSATION_TTL_SECONDS);
+  replyLine(replyToken, [buildConfirmTransactionFlex(parsed)]);
+}
+
+/**
+ * รองรับการสั่งแก้ไขรายการล่าสุดที่เพิ่งบันทึกลงชีตไปแล้ว (เช่น "แก้ราคาเป็น 650", "แก้วันที่เป็น 14", "แก้รายการเป็น ค่าพร็อพ")
+ */
+function tryHandleLiveEditOnPendingSlip(replyToken, userId, text) {
+  const pending = getUserState(userId, 'PENDING_SLIP');
+  if (!pending) return false;
+
+  const clean = text.trim();
+  const editPriceMatch = clean.match(/^(?:แก้ราคา|เปลี่ยนราคา|แก้ยอด|เปลี่ยนยอด)(?:เป็น)?\s*(\d+(?:,\d{3})*(?:\.\d{1,2})?)/i);
+  const editDateMatch = clean.match(/^(?:แก้วันที่|เปลี่ยนวันที่)(?:เป็น)?\s*(.+)$/i);
+  const editItemMatch = clean.match(/^(?:แก้รายการ|เปลี่ยนรายการ|แก้ชื่อรายการ|เปลี่ยนชื่อ)(?:เป็น)?\s*(.+)$/i);
+  const editNoteMatch = clean.match(/^(?:แก้หมายเหตุ|เพิ่มหมายเหตุ|หมายเหตุ)(?:เป็น|:)?\s*(.+)$/i);
+
+  if (!editPriceMatch && !editDateMatch && !editItemMatch && !editNoteMatch) {
+    return false;
+  }
+
+  try {
+    const updateSpec = {};
+    if (editPriceMatch) {
+      updateSpec.newAmount = parseFloat(editPriceMatch[1].replace(/,/g, ''));
+    }
+    if (editDateMatch) {
+      updateSpec.newDateStr = resolveTransactionDateStr(editDateMatch[1], pending.monthInfo, editDateMatch[1]);
+    }
+    if (editItemMatch) {
+      updateSpec.newItemName = editItemMatch[1].trim();
+    }
+    if (editNoteMatch) {
+      updateSpec.newNote = editNoteMatch[1].trim();
+    }
+
+    const updatedInfo = updateExistingTransactionInSheet(pending, updateSpec);
+    saveUserState(userId, 'PENDING_SLIP', updatedInfo.pendingState, CONFIG.PENDING_SLIP_TTL_SECONDS);
+
+    replyLine(replyToken, [{
+      type: 'text',
+      text: `✏️ **อัปเดตแก้ไขรายการล่าสุดเรียบร้อยแล้วครับ!**\n• แท็บ: ${updatedInfo.pendingState.sheetName} (แถวที่ ${updatedInfo.pendingState.row})\n• โปรเจค: ${updatedInfo.pendingState.projectName}\n• รายการ: ${updatedInfo.pendingState.itemName}\n• ราคา: ${formatNumber(updatedInfo.pendingState.amount)} บาท\n• วันที่: ${updatedInfo.pendingState.dateStr}\n\n📸 หากต้องการแนบรูปสลิป ส่งรูปตามมาได้เลยครับ!`
+    }]);
+    return true;
+  } catch (err) {
+    replyLine(replyToken, [{ type: 'text', text: `❌ แก้ไขรายการไม่สำเร็จ: ${err.message}` }]);
+    return true;
+  }
+}
+
+/**
+ * บันทึกข้อมูลลงชีตและส่งการ์ด Flex Message พร้อมเปิดโหมดรอรับรูปสลิป
+ */
+function executeAndReplyTransaction(replyToken, userId, parsed) {
+  let recordResult;
+
+  try {
+    if (parsed.targetType === 'PANG_WALLET') {
+      recordResult = recordPangWalletTransaction(parsed);
+    } else if (parsed.targetType === 'DIARY_ROUTINE') {
+      recordResult = recordDiaryRoutineTransaction(parsed);
+    } else if (parsed.targetType === 'OFFICE_ITEM') {
+      recordResult = recordOfficeItemTransaction(parsed);
+    } else {
+      recordResult = recordProjectTransaction(parsed);
+    }
+  } catch (err) {
+    replyLine(replyToken, [{
+      type: 'text',
+      text: `❌ เกิดข้อผิดพลาดในการบันทึกข้อมูลลงแท็บ ${parsed.monthInfo.tab}: ${err.message}`
+    }]);
+    return;
+  }
+
+  const pendingSlipState = {
+    sheetName: recordResult.sheetName,
+    row: recordResult.row,
+    amountCol: recordResult.amountCol,
+    amount: recordResult.amount,
+    itemName: recordResult.itemName,
+    projectName: recordResult.projectHeader,
+    targetType: parsed.targetType,
+    txType: parsed.txType,
+    dateStr: recordResult.dateStr,
+    monthInfo: parsed.monthInfo,
+    monthFolder: parsed.monthInfo.folder,
+    subFolder: parsed.customFolder ? sanitizeFolderName(parsed.customFolder) : sanitizeFolderName(recordResult.projectHeader)
+  };
+
+  // เช็กว่าผู้ใช้ส่งรูปสลิปนำมาก่อนพิมพ์ข้อความหรือไม่
+  const preUploadedImageId = getUserState(userId, 'PRE_IMAGE_MSG');
+  if (preUploadedImageId) {
+    clearUserState(userId, 'PRE_IMAGE_MSG');
+    try {
+      const attachResult = processSlipImageAndLinkToPrice(preUploadedImageId, pendingSlipState);
+      saveUserState(userId, 'PENDING_SLIP', pendingSlipState, CONFIG.PENDING_SLIP_TTL_SECONDS);
+      const flex = buildTransactionSuccessFlex(recordResult, pendingSlipState, attachResult);
+      replyLine(replyToken, [flex]);
+      return;
+    } catch (imgErr) {
+      console.error('Pre-image attach error:', imgErr);
+    }
+  }
+
+  // เปิดโหมดรอรับรูปสลิปเพื่อนำมาผูกกับตัวเลขราคา (จำไว้ใน ScriptCache + Properties 30 นาที)
+  saveUserState(userId, 'PENDING_SLIP', pendingSlipState, CONFIG.PENDING_SLIP_TTL_SECONDS);
+  const flex = buildTransactionSuccessFlex(recordResult, pendingSlipState, null);
+  replyLine(replyToken, [flex]);
+}
+
+/**
+ * จัดการเมื่อผู้ใช้ส่งรูปภาพสลิปเข้ามาใน LINE
+ */
+function handleImageMessage(replyToken, userId, messageId) {
+  const activeDraft = getUserState(userId, 'DRAFT_TX');
+  const pendingSlipState = getUserState(userId, 'PENDING_SLIP');
+
+  // กรณีไม่มี Draft ค้างอยู่ แต่มีรายการที่เพิ่งบันทึกเสร็จและรอแนบรูปสลิป (PENDING_SLIP)
+  if (!activeDraft && pendingSlipState) {
+    try {
+      const attachResult = processSlipImageAndLinkToPrice(messageId, pendingSlipState);
+      saveUserState(userId, 'PENDING_SLIP', pendingSlipState, CONFIG.PENDING_SLIP_TTL_SECONDS);
+      const flex = buildSlipAttachedFlex(pendingSlipState, attachResult);
+      replyLine(replyToken, [flex]);
+    } catch (err) {
+      replyLine(replyToken, [{
+        type: 'text',
+        text: `❌ ไม่สามารถบันทึกรูปลง Google Drive ได้ครับ\nสาเหตุ: ${err.message}\n\n💡 วิธีเช็ก: ตรวจสอบว่าอีเมลที่ใช้รัน Apps Script มีสิทธิ์ "แก้ไข (Editor)" ในโฟลเดอร์ "ปี 2026" แล้วหรือยังครับ`
+      }]);
+    }
+    return;
+  }
+
+  // กรณีมี Draft ที่กำลังคุยค้างอยู่ หรือส่งรูปมาก่อนพิมพ์คำสั่ง -> เก็บ messageId ไว้ผูกเมื่อคุยครบ 5 องค์ประกอบ
+  saveUserState(userId, 'PRE_IMAGE_MSG', messageId, 900);
+
+  if (activeDraft) {
+    replyLine(replyToken, [{
+      type: 'text',
+      text: `📸 รับรูปสลิปสำหรับรายการที่กำลังคุยค้างไว้เรียบร้อยแล้วครับ!\n👉 กรุณาพิมพ์ข้อมูลที่เหลือต่อได้เลย พอบันทึกลงชีตเสร็จ ระบบจะนำรูปนี้ไปผูกไว้ที่ **ตัวเลขราคา** ให้อัตโนมัติครับ`
+    }]);
+    return;
+  }
+
+  const activeMonth = getLatestExistingMonthInfo();
+  const availableProjects = getProjectNamesInSheet(activeMonth.tab);
+
+  replyLine(replyToken, [{
+    type: 'text',
+    text: `📸 รับรูปสลิปไว้เรียบร้อยแล้วครับ!\n\nกรุณาพิมพ์ **"โปรเจค รายการ และ ราคา"** (เช่น \`ไลฟ์สตรีม ค่าพร็อพ 500\` หรือระบุเดือนย้อนหลัง เช่น \`ก.ย. ดราม่า 30 ค่าตัดต่อ 1500\`)\nระบบจะบันทึกข้อมูลและนำลิงก์รูปนี้ไปผูกไว้ที่ **ตัวเลขราคา** ให้อัตโนมัติครับ 👇`,
+    quickReply: { items: buildProjectQuickReplyItems(availableProjects) }
+  }]);
+}
+
+/**
+ * ฟังก์ชันส่งข้อความตอบกลับ (Reply) และส่งแจ้งเตือน (Push) ผ่าน LINE Messaging API
+ */
+function replyLine(replyToken, messages) {
+  const creds = getCredentials();
+  if (!creds.LINE_CHANNEL_ACCESS_TOKEN) return;
+
+  UrlFetchApp.fetch('https://api.line.me/v2/bot/message/reply', {
+    method: 'post',
+    contentType: 'application/json',
+    headers: { Authorization: 'Bearer ' + creds.LINE_CHANNEL_ACCESS_TOKEN },
+    payload: JSON.stringify({ replyToken: replyToken, messages: messages }),
+    muteHttpExceptions: true
+  });
+}
+
+function pushLine(to, messages) {
+  const creds = getCredentials();
+  if (!creds.LINE_CHANNEL_ACCESS_TOKEN) return;
+
+  UrlFetchApp.fetch('https://api.line.me/v2/bot/message/push', {
+    method: 'post',
+    contentType: 'application/json',
+    headers: { Authorization: 'Bearer ' + creds.LINE_CHANNEL_ACCESS_TOKEN },
+    payload: JSON.stringify({ to: to, messages: messages }),
+    muteHttpExceptions: true
+  });
+}
+
+function fetchLineImageBlob(messageId) {
+  const creds = getCredentials();
+  if (!creds.LINE_CHANNEL_ACCESS_TOKEN) {
+    throw new Error('ยังไม่ได้ตั้งค่า LINE_CHANNEL_ACCESS_TOKEN');
+  }
+  const url = `https://api-data.line.me/v2/bot/message/${messageId}/content`;
+  const response = UrlFetchApp.fetch(url, {
+    method: 'get',
+    headers: { Authorization: 'Bearer ' + creds.LINE_CHANNEL_ACCESS_TOKEN },
+    muteHttpExceptions: true
+  });
+
+  const code = response.getResponseCode();
+  if (code !== 200) {
+    throw new Error(`ดึงรูปจาก LINE ไม่สำเร็จ (HTTP ${code})`);
+  }
+
+  const blob = response.getBlob();
+  if (!blob || blob.getBytes().length === 0) {
+    throw new Error('ไฟล์รูปภาพที่ได้รับจาก LINE ว่างเปล่า');
+  }
+  return blob;
+}

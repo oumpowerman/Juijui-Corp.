@@ -15,6 +15,7 @@ interface FloatingArcFanViewProps {
   onSyncFollowers?: (channelId: string, channelName?: string) => void;
   syncingChannelIdMap?: Record<string, boolean>;
   onClose: () => void;
+  canManage?: boolean;
 }
 
 export const FloatingArcFanView: React.FC<FloatingArcFanViewProps> = ({
@@ -28,6 +29,7 @@ export const FloatingArcFanView: React.FC<FloatingArcFanViewProps> = ({
   onSyncFollowers,
   syncingChannelIdMap = {},
   onClose,
+  canManage = true,
 }) => {
   const total = channels.length;
 
@@ -132,6 +134,7 @@ export const FloatingArcFanView: React.FC<FloatingArcFanViewProps> = ({
                   isSyncingFollowers={Boolean(syncingChannelIdMap[channel.id])}
                   glow={glow}
                   bgClass={bgClass}
+                  canManage={canManage}
                 />
               </div>
             </motion.div>

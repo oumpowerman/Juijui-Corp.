@@ -1,11 +1,41 @@
 
 import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { Task, Channel, User, MasterOption } from '../../../types';
-import { AlertTriangle, Wrench, ArrowRight, CheckCircle2, Clock, List, Flame, Siren, Megaphone, Sparkles, Star } from 'lucide-react';
+import { AlertTriangle, Wrench, ArrowRight, CheckCircle2, Clock, List, Flame, Siren, Megaphone, Sparkles, Star, PanelLeftClose } from 'lucide-react';
 import { isPast, isToday, addDays, isBefore, differenceInCalendarDays, startOfDay } from 'date-fns';
 import TaskCategoryModal from '../../TaskCategoryModal';
 import { isTaskCompleted, STATUS_LABELS } from '../../../constants';
+
+const focusSlideVariants: Variants = {
+    initial: {
+        opacity: 0,
+        x: -48,
+        scale: 0.96,
+    },
+    animate: {
+        opacity: 1,
+        x: 0,
+        scale: 1,
+        transition: {
+            type: 'spring',
+            stiffness: 260,
+            damping: 28,
+            mass: 0.9,
+        },
+    },
+    exit: {
+        opacity: 0,
+        x: -48,
+        scale: 0.96,
+        transition: {
+            type: 'spring',
+            stiffness: 260,
+            damping: 28,
+            mass: 0.9,
+        },
+    },
+};
 
 // --- Card Component (Mission Alert Style) ---
 interface CardItemProps {
@@ -154,9 +184,10 @@ interface FocusZoneProps {
     users: User[];
     masterOptions: MasterOption[]; // Add Prop
     onOpenTask: (task: Task) => void;
+    onToggleCollapse?: () => void;
 }
 
-const FocusZone: React.FC<FocusZoneProps> = ({ tasks, channels, users, masterOptions, onOpenTask }) => {
+const FocusZone: React.FC<FocusZoneProps> = ({ tasks, channels, users, masterOptions, onOpenTask, onToggleCollapse }) => {
     // กำหนดวันที่ปัจจุบันโดยล้างเวลาออกตั้งแต่ต้นทาง
     const today = startOfDay(new Date());
     
@@ -208,7 +239,31 @@ const FocusZone: React.FC<FocusZoneProps> = ({ tasks, channels, users, masterOpt
     // SCENARIO 1: No urgent/revise tasks in the system at all (Render full-cover Ambient/Soothing Zen view)
     if (hasNoTasksAtAll) {
         return (
-            <div className="bg-gradient-to-tr from-emerald-50/90 via-sky-50/90 to-teal-50/80 rounded-[2.5rem] p-8 text-center shadow-xl border-4 border-white flex flex-col items-center justify-center h-full min-h-[350px] relative overflow-hidden">
+            <motion.div 
+                variants={focusSlideVariants}
+                initial="initial"
+                animate="animate"
+                exit="exit"
+                className="bg-gradient-to-tr from-emerald-50/90 via-sky-50/90 to-teal-50/80 rounded-[2.5rem] p-7 md:p-8 text-center shadow-xl border-4 border-white flex flex-col items-center justify-between h-full min-h-[420px] relative overflow-hidden"
+            >
+                {/* Header with collapse button */}
+                <div className="w-full flex items-center justify-between relative z-20">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-white/70 px-3 py-1 rounded-full border border-emerald-100 shadow-2xs">
+                        FOCUS ZONE
+                    </span>
+                    {onToggleCollapse && (
+                        <button
+                            type="button"
+                            onClick={onToggleCollapse}
+                            className="p-1.5 px-2.5 rounded-xl bg-white/80 hover:bg-white text-emerald-800 border border-emerald-100 shadow-xs transition-all hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+                            title="พับซ่อน Focus Zone เพื่อขยายกระดานงานเต็มจอ"
+                        >
+                            <PanelLeftClose className="w-3.5 h-3.5 text-emerald-600" />
+                            <span className="text-[11px]">พับเก็บ</span>
+                        </button>
+                    )}
+                </div>
+
                 {/* Decorative Breathing Sparkles */}
                 <motion.div 
                     animate={{ 
@@ -218,7 +273,7 @@ const FocusZone: React.FC<FocusZoneProps> = ({ tasks, channels, users, masterOpt
                         opacity: [0.3, 0.65, 0.3]
                     }}
                     transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
-                    className="absolute top-10 left-10 text-emerald-400/80 pointer-events-none"
+                    className="absolute top-12 left-10 text-emerald-400/80 pointer-events-none"
                 >
                     <Sparkles className="w-8 h-8" />
                 </motion.div>
@@ -268,7 +323,7 @@ const FocusZone: React.FC<FocusZoneProps> = ({ tasks, channels, users, masterOpt
                         scale: { type: "spring", stiffness: 180, damping: 12 },
                         rotate: { duration: 5, repeat: Infinity, ease: "easeInOut" }
                     }}
-                    className="relative mb-6"
+                    className="relative my-4"
                 >
                     <div className="absolute inset-0 bg-emerald-400 blur-2xl opacity-20 rounded-full animate-pulse"></div>
                     <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-lg relative z-10 border-4 border-emerald-50">
@@ -286,31 +341,55 @@ const FocusZone: React.FC<FocusZoneProps> = ({ tasks, channels, users, masterOpt
                     </h2>
                     <p className="text-emerald-700/80 text-sm font-medium max-w-[220px] mx-auto leading-relaxed">
                         ไม่มีงานด่วนหรือแก้ไขให้กวนใจ<br/>
-                        <span className="text-emerald-500 font-black">พักผ่อนให้เต็มที่เลยนะ! 🌈</span>
+                        <span className="text-emerald-600 font-bold">พักผ่อนให้เต็มที่เลยนะ! 🌈</span>
                     </p>
                 </motion.div>
-            </div>
+
+                <div className="w-full pt-2 relative z-10 text-center">
+                    <span className="text-[11px] text-emerald-600/80 font-medium">ไม่มีภารกิจเร่งด่วนในขณะนี้ ✨</span>
+                </div>
+            </motion.div>
         );
     }
 
     // BASE LAYOUT: Show tabs and layout because there are some tasks somewhere, even if the current tab is empty
     return (
-        <div className="bg-gradient-to-br from-rose-50/80 to-orange-50/80 backdrop-blur-md rounded-[2.5rem] border-4 border-white shadow-xl shadow-orange-100/50 p-5 h-full flex flex-col gap-5 relative overflow-hidden">
+        <motion.div 
+            variants={focusSlideVariants}
+            initial="initial"
+            animate="animate"
+            exit="exit"
+            className="bg-gradient-to-br from-rose-50/80 to-orange-50/80 backdrop-blur-md rounded-[2.5rem] border-4 border-white shadow-xl shadow-orange-100/50 p-6 h-full min-h-[420px] flex flex-col gap-4 relative overflow-hidden"
+        >
             
             {/* Background Blob */}
             <div className="absolute top-0 right-0 w-40 h-40 bg-white opacity-20 rounded-full blur-3xl pointer-events-none -mr-10 -mt-10"></div>
 
             {/* Title & Tabs */}
-            <div className="flex flex-col gap-4 relative z-10 px-1">
-                <h3 className="text-[24px] font-bold text-slate-700 flex items-center">
-                    <div className="p-2 bg-white rounded-xl shadow-sm mr-3 text-red-500 animate-pulse">
-                         <Siren className="w-5 h-5" />
-                    </div>
-                    <div className="flex flex-col">
-                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest leading-none">EMERGENCY</span>
-                        <span>งานเข้า! (Mission)</span>
-                    </div>
-                </h3>
+            <div className="flex flex-col gap-3 relative z-10 px-1">
+                <div className="flex items-center justify-between">
+                    <h3 className="text-[22px] font-bold text-slate-700 flex items-center">
+                        <div className="p-2 bg-white rounded-xl shadow-sm mr-2.5 text-red-500 animate-pulse">
+                             <Siren className="w-4 h-4" />
+                        </div>
+                        <div className="flex flex-col">
+                            <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest leading-none">EMERGENCY</span>
+                            <span>งานเข้า! (Mission)</span>
+                        </div>
+                    </h3>
+
+                    {onToggleCollapse && (
+                        <button
+                            type="button"
+                            onClick={onToggleCollapse}
+                            className="p-1.5 px-2.5 rounded-xl bg-white/80 hover:bg-white text-slate-600 border border-white/80 shadow-xs transition-all hover:scale-105 active:scale-95 cursor-pointer flex items-center gap-1.5 text-xs font-bold"
+                            title="พับซ่อน Focus Zone เพื่อขยายกระดานงานเต็มจอ"
+                        >
+                            <PanelLeftClose className="w-3.5 h-3.5 text-slate-500" />
+                            <span className="text-[11px]">พับเก็บ</span>
+                        </button>
+                    )}
+                </div>
 
                 {/* Modern Sliding Tab Switch */}
                 <div className="relative flex bg-white/40 p-1.5 rounded-2xl border border-white/60 backdrop-blur-sm">
@@ -327,24 +406,25 @@ const FocusZone: React.FC<FocusZoneProps> = ({ tasks, channels, users, masterOpt
                     {/* Tab Buttons */}
                     <button 
                         onClick={() => setActiveTab('ALL')}
-                        className={`relative z-10 flex-1 py-2 text-[11px] font-black rounded-xl transition-colors flex items-center justify-center gap-1.5 ${activeTab === 'ALL' ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
+                        className={`relative z-10 flex-1 py-2 text-[11px] font-bold rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'ALL' ? 'text-indigo-600' : 'text-slate-500 hover:text-slate-700'}`}
                     >
                         <List className="w-3.5 h-3.5" /> ทั้งหมด
                     </button>
                     <button 
                         onClick={() => setActiveTab('TASK')}
-                        className={`relative z-10 flex-1 py-2 text-[11px] font-black rounded-xl transition-colors flex items-center justify-center gap-1.5 ${activeTab === 'TASK' ? 'text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+                        className={`relative z-10 flex-1 py-2 text-[11px] font-bold rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'TASK' ? 'text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
                     >
                         <CheckCircle2 className="w-3.5 h-3.5" /> ทั่วไป
                     </button>
                     <button 
                         onClick={() => setActiveTab('CONTENT')}
-                        className={`relative z-10 flex-1 py-2 text-[11px] font-black rounded-xl transition-colors flex items-center justify-center gap-1.5 ${activeTab === 'CONTENT' ? 'text-purple-600' : 'text-slate-500 hover:text-slate-700'}`}
+                        className={`relative z-10 flex-1 py-2 text-[11px] font-bold rounded-xl transition-colors flex items-center justify-center gap-1.5 cursor-pointer ${activeTab === 'CONTENT' ? 'text-purple-600' : 'text-slate-500 hover:text-slate-700'}`}
                     >
                         <Megaphone className="w-3.5 h-3.5" /> คอนเทนต์
                     </button>
                 </div>
             </div>
+
 
             <div className="flex flex-col gap-4 relative z-10 overflow-y-auto pr-1 flex-1">
                 {/* SCENARIO 2: No tasks for the *currently selected tab*, but some tasks exist in other tabs */}
@@ -437,7 +517,7 @@ const FocusZone: React.FC<FocusZoneProps> = ({ tasks, channels, users, masterOpt
                 onEditTask={onOpenTask}
                 colorTheme={viewAllType === 'REVISE' ? 'red' : 'orange'}
             />
-        </div>
+        </motion.div>
     );
 };
 

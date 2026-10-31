@@ -19,6 +19,7 @@ interface ChannelGroupFilterBarProps {
   onOpenManageModal: () => void;
   searchQuery?: string;
   onSearchChange?: (query: string) => void;
+  canManage?: boolean;
 }
 
 export const ChannelGroupFilterBar: React.FC<ChannelGroupFilterBarProps> = ({
@@ -31,6 +32,7 @@ export const ChannelGroupFilterBar: React.FC<ChannelGroupFilterBarProps> = ({
   onOpenManageModal,
   searchQuery = '',
   onSearchChange,
+  canManage = true,
 }) => {
   return (
     <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
@@ -126,7 +128,7 @@ export const ChannelGroupFilterBar: React.FC<ChannelGroupFilterBarProps> = ({
           </div>
         )}
 
-        {groups.length > 0 && (
+        {canManage && groups.length > 0 && (
           <button
             type="button"
             onClick={onOpenManageModal}

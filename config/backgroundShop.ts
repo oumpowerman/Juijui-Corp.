@@ -31,8 +31,8 @@ export const BACKGROUND_SHOP_CONFIG: BackgroundConfig[] = [
     },
     {
         id: 'bg-season-snow',
-        name: '❄️ ดินแดนพาร์ติเคิลหิมะ (Snowy Holiday)',
-        description: 'เติมหิมะโปรยปรายแสนโรแมนติก พร้อมโทนสีฟ้าครามผ่อนคลายสบายตา',
+        name: '❄️ คาร์นิวัลหิมะหรรษา (Winter Carnival & Santa)',
+        description: 'เทศกาลหิมะกลางวันแสนสดใส มีศึกปาบอลหิมะ ลานไอซ์สเก็ต ซานตาคลอสขี่กวางเรนเดียร์ และประกายแดด Diamond Dust',
         price: 2500,
         rarity: 'RARE',
         theme: 'season-snow',
@@ -40,8 +40,8 @@ export const BACKGROUND_SHOP_CONFIG: BackgroundConfig[] = [
     },
     {
         id: 'bg-season-rain',
-        name: '🌧️ หยาดน้ำผึ้งวารี (Rainy Cozy)',
-        description: 'ธีมฝนพรำเย็นใจในเฉดสีเดสก์ท็อปมืดอบอุ่น ตกแต่งด้วยสายฝนผ่านผิวจอก๊าซสว่างไสว',
+        name: '🌦️ หยาดฝนประกายรุ้ง (Sunshower Rainbow)',
+        description: 'บรรยากาศฝนตกแดดออกแสนสดใส พร้อมสายรุ้งพาสเทล แสงแดดอุ่น และทุ่งหญ้าคาเฟ่แสนอบอุ่น',
         price: 2000,
         rarity: 'RARE',
         theme: 'season-rain',

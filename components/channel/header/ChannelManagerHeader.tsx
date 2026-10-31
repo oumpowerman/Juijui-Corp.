@@ -15,6 +15,7 @@ interface ChannelManagerHeaderProps {
   onOpenGroupModal: () => void;
   onCreateChannel: () => void;
   onOpenSettings: () => void;
+  canManage?: boolean;
 }
 
 export const ChannelManagerHeader: React.FC<ChannelManagerHeaderProps> = ({
@@ -26,6 +27,7 @@ export const ChannelManagerHeader: React.FC<ChannelManagerHeaderProps> = ({
   onOpenGroupModal,
   onCreateChannel,
   onOpenSettings,
+  canManage = true,
 }) => {
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
 
@@ -93,7 +95,9 @@ export const ChannelManagerHeader: React.FC<ChannelManagerHeaderProps> = ({
             <p className={`text-sm leading-relaxed ${
               socialTheme === 'midnight-studio' ? 'text-slate-400' : 'text-slate-500'
             }`}>
-              สร้างและแบ่งกลุ่ม "รายการ" หรือ "แบรนด์" เพื่อติดตามยอดผู้ติดตามรวมและสถิติรายหมวดหมู่
+              {canManage 
+                ? 'สร้างและแบ่งกลุ่ม "รายการ" หรือ "แบรนด์" เพื่อติดตามยอดผู้ติดตามรวมและสถิติรายหมวดหมู่'
+                : 'ดูข้อมูลและติดตามยอดผู้ติดตาม ลิงก์โซเชียลมีเดีย และคู่มือประจำรายการในสังกัด'}
             </p>
 
             {/* Compact iOS Ranking Toggle under title */}
@@ -179,40 +183,44 @@ export const ChannelManagerHeader: React.FC<ChannelManagerHeaderProps> = ({
             )}
           </div>
 
-          {/* Manage Channel Groups Button */}
-          <button
-            type="button"
-            onClick={onOpenGroupModal}
-            className={`flex items-center px-4 py-2.5 font-bold text-sm rounded-xl border border-b-[3px] shadow-2xs hover:shadow-xs transition-all active:translate-y-[2px] active:border-b-[1px] cursor-pointer ${
-              socialTheme === 'midnight-studio'
-                ? 'bg-slate-800/90 hover:bg-slate-700/90 text-slate-200 border-slate-700 border-b-slate-900'
-                : 'bg-gradient-to-b from-white to-slate-50 hover:to-slate-100 text-slate-700 border-slate-200/90 border-b-slate-300/90'
-            }`}
-          >
-            <FolderKanban className="w-4 h-4 mr-2 text-indigo-500" />
-            จัดการกลุ่ม ({groups.length})
-          </button>
+          {/* Manage Channel Groups Button (Admin only) */}
+          {canManage && (
+            <button
+              type="button"
+              onClick={onOpenGroupModal}
+              className={`flex items-center px-4 py-2.5 font-bold text-sm rounded-xl border border-b-[3px] shadow-2xs hover:shadow-xs transition-all active:translate-y-[2px] active:border-b-[1px] cursor-pointer ${
+                socialTheme === 'midnight-studio'
+                  ? 'bg-slate-800/90 hover:bg-slate-700/90 text-slate-200 border-slate-700 border-b-slate-900'
+                  : 'bg-gradient-to-b from-white to-slate-50 hover:to-slate-100 text-slate-700 border-slate-200/90 border-b-slate-300/90'
+              }`}
+            >
+              <FolderKanban className="w-4 h-4 mr-2 text-indigo-500" />
+              จัดการกลุ่ม ({groups.length})
+            </button>
+          )}
 
-          {/* Create Channel Button - Aesthetic Pastel Style like CalendarHeader */}
-          <button 
-            type="button"
-            onClick={onCreateChannel}
-            className={`relative overflow-hidden group h-10 sm:h-10.5 px-4 sm:px-5 rounded-2xl active:scale-95 flex items-center justify-center shrink-0 border-2 transition-all duration-300 backdrop-blur-md cursor-pointer ${
-              socialTheme === 'midnight-studio'
-                ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40 hover:bg-indigo-500/30 hover:border-indigo-400/60 shadow-[0_4px_20px_-2px_rgba(99,102,241,0.25)]'
-                : 'bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-700 border-indigo-300/60 hover:border-indigo-400/80 shadow-[0_4px_16px_-2px_rgba(99,102,241,0.18)]'
-            }`}
-            title="เพิ่มและลงทะเบียนช่องรายการใหม่"
-          >
-            <div className="relative z-10 flex items-center justify-center gap-1.5 sm:gap-2">
-              <Plus className={`w-4 h-4 sm:w-4.5 sm:h-4.5 shrink-0 stroke-[3px] transition-transform duration-500 group-hover:rotate-90 ${
-                socialTheme === 'midnight-studio' ? 'text-indigo-400' : 'text-indigo-600'
-              }`} />
-              <span className="text-xs sm:text-sm font-bold tracking-tight whitespace-nowrap select-none">
-                สร้างรายการใหม่
-              </span>
-            </div>
-          </button>
+          {/* Create Channel Button - Aesthetic Pastel Style (Admin only) */}
+          {canManage && (
+            <button 
+              type="button"
+              onClick={onCreateChannel}
+              className={`relative overflow-hidden group h-10 sm:h-10.5 px-4 sm:px-5 rounded-2xl active:scale-95 flex items-center justify-center shrink-0 border-2 transition-all duration-300 backdrop-blur-md cursor-pointer ${
+                socialTheme === 'midnight-studio'
+                  ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40 hover:bg-indigo-500/30 hover:border-indigo-400/60 shadow-[0_4px_20px_-2px_rgba(99,102,241,0.25)]'
+                  : 'bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-700 border-indigo-300/60 hover:border-indigo-400/80 shadow-[0_4px_16px_-2px_rgba(99,102,241,0.18)]'
+              }`}
+              title="เพิ่มและลงทะเบียนช่องรายการใหม่"
+            >
+              <div className="relative z-10 flex items-center justify-center gap-1.5 sm:gap-2">
+                <Plus className={`w-4 h-4 sm:w-4.5 sm:h-4.5 shrink-0 stroke-[3px] transition-transform duration-500 group-hover:rotate-90 ${
+                  socialTheme === 'midnight-studio' ? 'text-indigo-400' : 'text-indigo-600'
+                }`} />
+                <span className="text-xs sm:text-sm font-bold tracking-tight whitespace-nowrap select-none">
+                  สร้างรายการใหม่
+                </span>
+              </div>
+            </button>
+          )}
           
           {/* Notification Button */}
           <NotificationBellBtn 

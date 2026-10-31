@@ -30,6 +30,7 @@ interface ChannelSectionListProps {
   onOpenGroupModal: () => void;
   onSyncFollowers?: (channelId: string, channelName?: string) => void;
   syncingChannelIdMap?: Record<string, boolean>;
+  canManage?: boolean;
 }
 
 export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
@@ -44,6 +45,7 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
   onOpenGroupModal,
   onSyncFollowers,
   syncingChannelIdMap = {},
+  canManage = true,
 }) => {
   // Compute Rank Map and Tooltip Titles based on selected Ranking Mode ('global' or 'group')
   // Exclude non-active channels (PAUSED, ARCHIVED, PLANNING) so only ACTIVE channels receive ranks
@@ -210,6 +212,7 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
               isSyncingFollowers={Boolean(syncingChannelIdMap[channel.id])}
               glow={glow}
               bgClass={bgClass}
+              canManage={canManage}
             />
           );
         })}
@@ -226,6 +229,7 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
             onDeleteChannel={onDeleteChannel}
             onSyncFollowers={onSyncFollowers}
             syncingChannelIdMap={syncingChannelIdMap}
+            canManage={canManage}
           />
         ) : planningChannels.length === 1 ? (
           (() => {
@@ -250,6 +254,7 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
                 isSyncingFollowers={Boolean(syncingChannelIdMap[channel.id])}
                 glow={glow}
                 bgClass={bgClass}
+                canManage={canManage}
               />
             );
           })()
@@ -267,6 +272,7 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
             onDeleteChannel={onDeleteChannel}
             onSyncFollowers={onSyncFollowers}
             syncingChannelIdMap={syncingChannelIdMap}
+            canManage={canManage}
           />
         ) : inactiveChannels.length === 1 ? (
           (() => {
@@ -291,6 +297,7 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
                 isSyncingFollowers={Boolean(syncingChannelIdMap[channel.id])}
                 glow={glow}
                 bgClass={bgClass}
+                canManage={canManage}
               />
             );
           })()
@@ -305,39 +312,43 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
         <LayoutTemplate className="w-12 h-12 mx-auto mb-3 opacity-20" />
         <p className="text-base font-bold text-slate-700">ยังไม่มีรายการในระบบ</p>
         <p className="text-xs text-slate-400 mt-1">
-          กด "สร้างรายการใหม่" ด้านบนเพื่อเริ่มเพิ่มแบรนด์หรือช่องรายการของคุณ
+          {canManage 
+            ? 'กด "สร้างรายการใหม่" ด้านบนเพื่อเริ่มเพิ่มแบรนด์หรือช่องรายการของคุณ' 
+            : 'ยังไม่มีข้อมูลช่องรายการในสังกัดที่ลงทะเบียนไว้'}
         </p>
       </div>
     );
   }
 
-  // CASE A: No Groups Created Yet (0 Groups) - Display clean grid with an invitation banner
+  // CASE A: No Groups Created Yet (0 Groups) - Display clean grid with an invitation banner for admins
   if (groups.length === 0) {
     return (
       <div className="space-y-4">
-        <div className="p-5 bg-gradient-to-r from-white via-indigo-50/40 to-purple-50/30 backdrop-blur-md rounded-2xl border border-indigo-100/90 border-b-[3px] border-b-indigo-200/80 shadow-[0_8px_20px_rgba(99,102,241,0.04)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-b from-indigo-50 to-indigo-100/80 border border-white border-b-2 border-b-indigo-200/80 shadow-md shadow-indigo-100/80 flex items-center justify-center text-indigo-600 shrink-0">
-              <FolderPlus className="w-5 h-5" />
+        {canManage && (
+          <div className="p-5 bg-gradient-to-r from-white via-indigo-50/40 to-purple-50/30 backdrop-blur-md rounded-2xl border border-indigo-100/90 border-b-[3px] border-b-indigo-200/80 shadow-[0_8px_20px_rgba(99,102,241,0.04)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3.5">
+              <div className="w-11 h-11 rounded-xl bg-gradient-to-b from-indigo-50 to-indigo-100/80 border border-white border-b-2 border-b-indigo-200/80 shadow-md shadow-indigo-100/80 flex items-center justify-center text-indigo-600 shrink-0">
+                <FolderPlus className="w-5 h-5" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-indigo-950">
+                  ต้องการจัดหมวดหมู่ช่องรายการเป็น Section หรือไม่?
+                </p>
+                <p className="text-xs text-indigo-700/70 mt-0.5">
+                  คุณสามารถสร้างกลุ่ม เช่น <strong>"Lifestyle"</strong>, <strong>"Entertainment"</strong> แล้วลากช่องรายการจัดเป็นกลุ่มได้ทันที
+                </p>
+              </div>
             </div>
-            <div>
-              <p className="text-sm font-bold text-indigo-950">
-                ต้องการจัดหมวดหมู่ช่องรายการเป็น Section หรือไม่?
-              </p>
-              <p className="text-xs text-indigo-700/70 mt-0.5">
-                คุณสามารถสร้างกลุ่ม เช่น <strong>"Lifestyle"</strong>, <strong>"Entertainment"</strong> แล้วลากช่องรายการจัดเป็นกลุ่มได้ทันที
-              </p>
-            </div>
+            <button
+              type="button"
+              onClick={onOpenGroupModal}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-b from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white text-xs font-bold rounded-xl border border-indigo-500 border-b-[3px] border-b-indigo-700/80 shadow-md shadow-indigo-200/80 transition-all active:translate-y-[2px] active:border-b-[1px] cursor-pointer shrink-0"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              สร้างกลุ่มแรก (เช่น Lifestyle)
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={onOpenGroupModal}
-            className="inline-flex items-center gap-1.5 px-4 py-2.5 bg-gradient-to-b from-indigo-500 to-indigo-600 hover:from-indigo-600 hover:to-indigo-700 text-white text-xs font-bold rounded-xl border border-indigo-500 border-b-[3px] border-b-indigo-700/80 shadow-md shadow-indigo-200/80 transition-all active:translate-y-[2px] active:border-b-[1px] cursor-pointer shrink-0"
-          >
-            <Plus className="w-3.5 h-3.5" />
-            สร้างกลุ่มแรก (เช่น Lifestyle)
-          </button>
-        </div>
+        )}
 
         {renderChannelGrid(channels, null)}
       </div>
@@ -437,29 +448,39 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
                   )}
                 </div>
 
-                <button
-                  type="button"
-                  onClick={onOpenGroupModal}
-                  className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer bg-white px-2.5 py-1 rounded-lg border border-indigo-100/80 shadow-2xs"
-                >
-                  จัดการกลุ่ม
-                </button>
+                {canManage && (
+                  <button
+                    type="button"
+                    onClick={onOpenGroupModal}
+                    className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline cursor-pointer bg-white px-2.5 py-1 rounded-lg border border-indigo-100/80 shadow-2xs"
+                  >
+                    จัดการกลุ่ม
+                  </button>
+                )}
               </div>
             </div>
 
             {/* Section Channels Grid */}
             {groupChannels.length === 0 ? (
-              <div 
-                onClick={onOpenGroupModal}
-                className="p-8 text-center bg-slate-50/50 hover:bg-indigo-50/30 rounded-2xl border-2 border-dashed border-slate-200 hover:border-indigo-300 transition-all cursor-pointer group"
-              >
-                <p className="text-xs font-bold text-slate-500 group-hover:text-indigo-700">
-                  ยังไม่มีรายการในกลุ่ม "{group.name}"
-                </p>
-                <p className="text-[11px] text-slate-400 mt-0.5">
-                  คลิกเพื่อเปิดกล่องจัดการ แล้วลากช่องรายการเข้ามาในกลุ่มนี้
-                </p>
-              </div>
+              canManage ? (
+                <div 
+                  onClick={onOpenGroupModal}
+                  className="p-8 text-center bg-slate-50/50 hover:bg-indigo-50/30 rounded-2xl border-2 border-dashed border-slate-200 hover:border-indigo-300 transition-all cursor-pointer group"
+                >
+                  <p className="text-xs font-bold text-slate-500 group-hover:text-indigo-700">
+                    ยังไม่มีรายการในกลุ่ม "{group.name}"
+                  </p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    คลิกเพื่อเปิดกล่องจัดการ แล้วลากช่องรายการเข้ามาในกลุ่มนี้
+                  </p>
+                </div>
+              ) : (
+                <div className="p-8 text-center bg-slate-50/50 rounded-2xl border-2 border-dashed border-slate-200">
+                  <p className="text-xs font-bold text-slate-500">
+                    ยังไม่มีรายการในกลุ่ม "{group.name}"
+                  </p>
+                </div>
+              )
             ) : (
               renderChannelGrid(groupChannels, group)
             )}
@@ -480,14 +501,16 @@ export const ChannelSectionList: React.FC<ChannelSectionListProps> = ({
               </span>
             </div>
 
-            <button
-              type="button"
-              onClick={onOpenGroupModal}
-              className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1 cursor-pointer"
-            >
-              <span>ลากจัดกลุ่มที่นี่</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
+            {canManage && (
+              <button
+                type="button"
+                onClick={onOpenGroupModal}
+                className="text-xs font-bold text-indigo-600 hover:text-indigo-800 hover:underline flex items-center gap-1 cursor-pointer"
+              >
+                <span>ลากจัดกลุ่มที่นี่</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            )}
           </div>
 
           {renderChannelGrid(sectionData.ungrouped, null)}

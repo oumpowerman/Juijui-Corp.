@@ -2,7 +2,18 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Task, MasterOption, User } from '../../../types';
 import { isTaskCompleted, isTaskTodo } from '../../../constants';
-import { Layers } from 'lucide-react';
+import { 
+    Layers, 
+    Maximize2, 
+    Minimize2, 
+    PanelLeftOpen, 
+    Flame, 
+    Siren, 
+    AlertCircle, 
+    Sparkles, 
+    Skull,
+    AlertTriangle 
+} from 'lucide-react';
 import { subDays, isAfter } from 'date-fns'; // Import date helpers
 import TaskCategoryModal from '../../TaskCategoryModal';
 import DoneHistoryModal from './board/DoneHistoryModal'; // Import New Modal
@@ -14,7 +25,42 @@ import { useTasks } from '../../../hooks/useTasks';
 import { useToast } from '../../../context/ToastContext';
 import { supabase } from '../../../lib/supabase';
 
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
+
+const focusBtnSlideVariants: Variants = {
+    initial: {
+        opacity: 0,
+        x: -28,
+        scale: 0.92,
+    },
+    animate: {
+        opacity: 1,
+        x: 0,
+        scale: 1,
+        transition: {
+            type: 'spring',
+            stiffness: 280,
+            damping: 26,
+        },
+    },
+    exit: {
+        opacity: 0,
+        x: -28,
+        scale: 0.92,
+        transition: {
+            type: 'spring',
+            stiffness: 280,
+            damping: 26,
+        },
+    },
+};
+
+export interface UrgencyStats {
+    urgentCount: number;
+    overdueCount: number;
+    totalScore: number;
+    tier: 1 | 2 | 3 | 4 | 5;
+}
 
 interface MyWorkBoardProps {
     tasks: Task[];
@@ -25,12 +71,27 @@ interface MyWorkBoardProps {
     onUpdateTask?: (task: Task) => void;
     onDeleteTask?: (taskId: string) => void;
     isUltimate?: boolean;
+    isExpanded?: boolean;
+    onToggleExpand?: () => void;
+    urgentCount?: number;
+    urgencyStats?: UrgencyStats;
 }
 
 type ColumnType = 'TODO' | 'DOING' | 'WAITING' | 'DONE';
 
 const MyWorkBoard: React.FC<MyWorkBoardProps> = ({ 
-    tasks, masterOptions, users, currentUser, onOpenTask, onUpdateTask, onDeleteTask, isUltimate = false 
+    tasks, 
+    masterOptions, 
+    users, 
+    currentUser, 
+    onOpenTask, 
+    onUpdateTask, 
+    onDeleteTask, 
+    isUltimate = false,
+    isExpanded = false,
+    onToggleExpand,
+    urgentCount = 0,
+    urgencyStats
 }) => {
     const { showAlert } = useGlobalDialog();
     const { showToast } = useToast();
@@ -192,7 +253,7 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({
         <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className={`min-h-0 flex flex-col rounded-[2.5rem] border shadow-2xl overflow-hidden relative group transition-all duration-300 ${
+            className={`min-h-0 flex flex-col rounded-[2.5rem] border shadow-2xl overflow-hidden relative group transition-colors duration-300 ${
                 isUltimate 
                     ? 'h-full bg-[#0a0c16]/30 backdrop-blur-xl border-indigo-500/20 text-white' 
                     : 'h-full bg-white/40 backdrop-blur-xl border-white/60 text-slate-800'
@@ -236,16 +297,200 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({
                     </div>
                     
                     <div className="flex items-center gap-2">
+                        <AnimatePresence mode="popLayout" initial={false}>
+                            {onToggleExpand && isExpanded && (
+                                <motion.div
+                                    key="open-focus-zone-tab"
+                                    variants={focusBtnSlideVariants}
+                                    initial="initial"
+                                    animate="animate"
+                                    exit="exit"
+                                >
+                                    {(() => {
+                                        const totalScore = urgencyStats?.totalScore ?? (urgentCount || 0);
+                                        const tier: 1 | 2 | 3 | 4 | 5 = urgencyStats?.tier ?? (
+                                            totalScore >= 13 ? 5 :
+                                            totalScore >= 9 ? 4 :
+                                            totalScore >= 6 ? 3 :
+                                            totalScore >= 3 ? 2 : 1
+                                        );
+
+                                        if (totalScore === 0) {
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    onClick={onToggleExpand}
+                                                    className={`flex items-center gap-1.5 px-3 py-1.5 md:px-3.5 md:py-2 rounded-xl md:rounded-2xl transition-all hover:scale-102 active:scale-95 cursor-pointer text-xs font-bold shadow-xs border ${
+                                                        isUltimate 
+                                                            ? 'bg-slate-800/80 text-slate-300 border-slate-700 hover:bg-slate-700/80 hover:text-white' 
+                                                            : 'bg-white/90 text-slate-700 border-slate-200/90 hover:bg-slate-50 hover:text-indigo-600'
+                                                    }`}
+                                                    title="เปิด Focus Zone (ไม่มีภารกิจเร่งด่วน)"
+                                                >
+                                                    <PanelLeftOpen className="w-3.5 h-3.5 text-slate-500" />
+                                                    <span className="hidden sm:inline">เปิด Focus Zone</span>
+                                                    <span className="px-1.5 py-0.2 bg-emerald-100 text-emerald-700 text-[10px] rounded-full font-bold">
+                                                        ว่าง
+                                                    </span>
+                                                </button>
+                                            );
+                                        }
+
+                                        // Tier 1: 1 - 2 items (Calm Sky Blue)
+                                        if (tier === 1) {
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    onClick={onToggleExpand}
+                                                    className={`flex items-center gap-1.5 px-3 py-1.5 md:px-3.5 md:py-2 rounded-xl md:rounded-2xl transition-all hover:scale-102 active:scale-95 cursor-pointer text-xs font-bold shadow-xs border ${
+                                                        isUltimate 
+                                                            ? 'bg-sky-950/40 text-sky-200 border-sky-800 hover:bg-sky-900/50' 
+                                                            : 'bg-sky-50 text-sky-900 border-sky-200/90 hover:bg-sky-100'
+                                                    }`}
+                                                    title={`Tier 1: มีงานด่วน/เกินกำหนด ${totalScore} ชิ้น (จัดการได้สบายๆ)`}
+                                                >
+                                                    <Sparkles className="w-3.5 h-3.5 text-sky-600 dark:text-sky-400" />
+                                                    <span className="hidden sm:inline">เปิด Focus Zone</span>
+                                                    <span className="flex items-center gap-1 px-1.5 py-0.2 rounded-full bg-sky-500 text-white text-[10px] font-bold shadow-xs">
+                                                        {totalScore}
+                                                    </span>
+                                                </button>
+                                            );
+                                        }
+
+                                        // Tier 2: 3 - 5 items (Amber Attention)
+                                        if (tier === 2) {
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    onClick={onToggleExpand}
+                                                    className={`flex items-center gap-1.5 px-3 py-1.5 md:px-3.5 md:py-2 rounded-xl md:rounded-2xl transition-all hover:scale-102 active:scale-95 cursor-pointer text-xs font-bold shadow-xs border ${
+                                                        isUltimate 
+                                                            ? 'bg-amber-950/50 text-amber-200 border-amber-800 hover:bg-amber-900/60' 
+                                                            : 'bg-amber-50 text-amber-900 border-amber-300 hover:bg-amber-100'
+                                                    }`}
+                                                    title={`Tier 2: งานเริ่มสะสม ${totalScore} ชิ้น (ควรเริ่มจัดสรรเวลา)`}
+                                                >
+                                                    <AlertCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                                                    <span className="hidden sm:inline">เปิด Focus Zone</span>
+                                                    <span className="flex items-center gap-1 px-2 py-0.2 rounded-full bg-amber-500 text-white text-[10px] font-bold shadow-xs">
+                                                        <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                                                        {totalScore}
+                                                    </span>
+                                                </button>
+                                            );
+                                        }
+
+                                        // Tier 3: 6 - 8 items (Orange Fire Alert)
+                                        if (tier === 3) {
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    onClick={onToggleExpand}
+                                                    className={`flex items-center gap-1.5 px-3 py-1.5 md:px-3.5 md:py-2 rounded-xl md:rounded-2xl transition-all hover:scale-102 active:scale-95 cursor-pointer text-xs font-bold shadow-xs border ${
+                                                        isUltimate 
+                                                            ? 'bg-orange-950/50 text-orange-200 border-orange-700 hover:bg-orange-900/60' 
+                                                            : 'bg-orange-50 text-orange-950 border-orange-300/90 hover:bg-orange-100'
+                                                    }`}
+                                                    title={`Tier 3: งานด่วนสะสม ${totalScore} ชิ้น (เร่งสะสางด่วน)`}
+                                                >
+                                                    <Flame className="w-3.5 h-3.5 text-orange-600 animate-pulse" />
+                                                    <span className="hidden sm:inline">เปิด Focus Zone</span>
+                                                    <span className="flex items-center gap-1 px-2 py-0.2 rounded-full bg-orange-500 text-white text-[10px] font-bold shadow-sm ring-1 ring-orange-300">
+                                                        <Flame className="w-2.5 h-2.5" />
+                                                        {totalScore} ด่วน
+                                                    </span>
+                                                </button>
+                                            );
+                                        }
+
+                                        // Tier 4: 9 - 12 items (Rose/Crimson Siren Alert)
+                                        if (tier === 4) {
+                                            return (
+                                                <button
+                                                    type="button"
+                                                    onClick={onToggleExpand}
+                                                    className={`flex items-center gap-1.5 px-3 py-1.5 md:px-3.5 md:py-2 rounded-xl md:rounded-2xl transition-all hover:scale-102 active:scale-95 cursor-pointer text-xs font-bold shadow-sm border ${
+                                                        isUltimate 
+                                                            ? 'bg-rose-950/60 text-rose-200 border-rose-700 hover:bg-rose-900/70 shadow-rose-950/50' 
+                                                            : 'bg-rose-50 text-rose-950 border-rose-400 hover:bg-rose-100 shadow-rose-200/50'
+                                                    }`}
+                                                    title={`Tier 4: งานวิกฤติรุมเร้า ${totalScore} ชิ้น (ต้องเคลียร์ทันที!)`}
+                                                >
+                                                    <Siren className="w-3.5 h-3.5 text-rose-600 animate-bounce" />
+                                                    <span className="hidden sm:inline">เปิด Focus Zone</span>
+                                                    <span className="flex items-center gap-1.5 px-2.5 py-0.2 rounded-full bg-rose-600 text-white text-[10px] font-bold shadow-md shadow-rose-500/40 ring-2 ring-rose-200 animate-pulse">
+                                                        <Siren className="w-2.5 h-2.5" />
+                                                        {totalScore} วิกฤติ!
+                                                    </span>
+                                                </button>
+                                            );
+                                        }
+
+                                        // Tier 5: 13+ items (Nightmare Hellfire / Catastrophic Urgency)
+                                        return (
+                                            <button
+                                                type="button"
+                                                onClick={onToggleExpand}
+                                                className={`flex items-center gap-1.5 px-3 py-1.5 md:px-3.5 md:py-2 rounded-xl md:rounded-2xl transition-all hover:scale-105 active:scale-95 cursor-pointer text-xs font-bold shadow-md border-2 ${
+                                                    isUltimate 
+                                                        ? 'bg-gradient-to-r from-red-950/80 via-rose-950/80 to-purple-950/80 text-rose-100 border-red-500 hover:border-red-400 shadow-red-900/60' 
+                                                        : 'bg-gradient-to-r from-red-500/20 via-rose-500/25 to-purple-500/20 text-rose-950 border-red-500 hover:border-red-600 shadow-red-500/30'
+                                                }`}
+                                                title={`Tier 5: ภาวะฉุกเฉินสูงสุด ${totalScore} ชิ้น (ละเลยไม่ได้เด็ดขาด!)`}
+                                            >
+                                                <span className="relative flex h-3.5 w-3.5 items-center justify-center">
+                                                    <Flame className="w-3.5 h-3.5 text-red-600 animate-pulse" />
+                                                    <span className="animate-ping absolute -top-0.5 -right-0.5 inline-flex h-2 w-2 rounded-full bg-red-400 opacity-75"></span>
+                                                </span>
+                                                <span className="hidden sm:inline">เปิด Focus Zone</span>
+                                                <span className="flex items-center gap-1.5 px-2.5 py-0.2 rounded-full bg-gradient-to-r from-red-600 via-rose-600 to-purple-600 text-white text-[10px] font-bold shadow-lg shadow-red-500/50 ring-2 ring-red-300 animate-bounce">
+                                                    <Flame className="w-2.5 h-2.5 text-amber-200" />
+                                                    {totalScore} ฉุกเฉินขั้นสุด!
+                                                </span>
+                                            </button>
+                                        );
+                                    })()}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
                         <div className={`px-2.5 py-1.5 md:px-4 md:py-2 rounded-xl md:rounded-2xl shadow-sm border ${
                             isUltimate 
                                 ? 'bg-slate-900/60 border-indigo-500/20' 
                                 : 'bg-white/80 border-slate-100'
                         }`}>
                             <span className={`text-[10px] md:text-xs font-bold uppercase tracking-wider ${isUltimate ? 'text-slate-400' : 'text-slate-500'}`}>Total: </span>
-                            <span className={`text-xs md:text-sm font-black ${isUltimate ? 'text-indigo-300' : 'text-indigo-600'}`}>
+                            <span className={`text-xs md:text-sm font-bold ${isUltimate ? 'text-indigo-300' : 'text-indigo-600'}`}>
                                 {todoTasks.length + doingTasks.length + waitingTasks.length + doneTasks.length}
                             </span>
                         </div>
+
+                        <AnimatePresence mode="popLayout" initial={false}>
+                            {onToggleExpand && !isExpanded && (
+                                <motion.div
+                                    key="expand-workboard-btn"
+                                    variants={focusBtnSlideVariants}
+                                    initial="initial"
+                                    animate="animate"
+                                    exit="exit"
+                                >
+                                    <button
+                                        type="button"
+                                        onClick={onToggleExpand}
+                                        className={`flex items-center gap-1.5 px-2.5 py-1.5 md:px-3.5 md:py-2 rounded-xl md:rounded-2xl transition-all hover:scale-102 active:scale-95 cursor-pointer text-xs font-bold shadow-xs border group ${
+                                            isUltimate 
+                                                ? 'bg-slate-900/70 text-slate-300 border-indigo-500/20 hover:text-white hover:bg-slate-800' 
+                                                : 'bg-white/80 text-slate-600 border-slate-200/80 hover:text-indigo-600 hover:bg-white'
+                                        }`}
+                                        title="ขยายกระดานเต็มหน้าจอ (Full Width)"
+                                    >
+                                        <Maximize2 className="w-3.5 h-3.5 text-slate-400 group-hover:text-indigo-600" />
+                                        <span className="hidden md:inline">ขยายเต็มจอ</span>
+                                    </button>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
                 </div>
             </div>

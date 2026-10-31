@@ -14,6 +14,7 @@ interface FloatingCarouselViewProps {
   onSyncFollowers?: (channelId: string, channelName?: string) => void;
   syncingChannelIdMap?: Record<string, boolean>;
   onClose: () => void;
+  canManage?: boolean;
 }
 
 export const FloatingCarouselView: React.FC<FloatingCarouselViewProps> = ({
@@ -25,6 +26,7 @@ export const FloatingCarouselView: React.FC<FloatingCarouselViewProps> = ({
   onSyncFollowers,
   syncingChannelIdMap = {},
   onClose,
+  canManage = true,
 }) => {
   const [activeIndex, setActiveIndex] = useState(0);
   const total = channels.length;
@@ -193,6 +195,7 @@ export const FloatingCarouselView: React.FC<FloatingCarouselViewProps> = ({
                   isSyncingFollowers={Boolean(syncingChannelIdMap[channel.id])}
                   glow={glow}
                   bgClass={bgClass}
+                  canManage={canManage}
                 />
               </div>
             </motion.div>

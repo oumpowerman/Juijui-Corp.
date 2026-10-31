@@ -69,7 +69,7 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
             ) : (
               <div className="w-full flex justify-center py-2 text-slate-200 relative group/icon">
                 {/* Divider when collapsed */}
-                <div className="w-10 h-px bg-slate-100/30"></div>
+                <div className="w-10 h-px bg-slate-400/25 dark:bg-white/10"></div>
                 
                 {/* Tooltip for Group Name */}
                 <div className="absolute left-full ml-2 bg-slate-800 text-white text-xs px-2 py-1 rounded opacity-0 group-hover/icon:opacity-100 pointer-events-none whitespace-nowrap z-50">

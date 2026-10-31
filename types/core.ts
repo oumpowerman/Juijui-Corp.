@@ -162,5 +162,11 @@ export interface User {
     
     // PWA App Version Tracking
     appVersion?: string;
+
+    // User Preferences & Settings (JSONB)
+    settings?: {
+        workboard_expanded?: boolean;
+        [key: string]: any;
+    } | null;
 }
 

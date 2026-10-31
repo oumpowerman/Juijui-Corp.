@@ -17,6 +17,7 @@ interface ChannelDeckStackProps {
   onDeleteChannel: (id: string, name: string) => void;
   onSyncFollowers?: (channelId: string, channelName?: string) => void;
   syncingChannelIdMap?: Record<string, boolean>;
+  canManage?: boolean;
 }
 
 export const ChannelDeckStack: React.FC<ChannelDeckStackProps> = ({
@@ -28,6 +29,7 @@ export const ChannelDeckStack: React.FC<ChannelDeckStackProps> = ({
   onDeleteChannel,
   onSyncFollowers,
   syncingChannelIdMap = {},
+  canManage = true,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [isHoveredAnchor, setIsHoveredAnchor] = useState(false);
@@ -308,6 +310,7 @@ export const ChannelDeckStack: React.FC<ChannelDeckStackProps> = ({
                       onSyncFollowers={onSyncFollowers}
                       syncingChannelIdMap={syncingChannelIdMap}
                       onClose={handleClose}
+                      canManage={canManage}
                     />
                   ) : (
                     <FloatingArcFanView
@@ -321,6 +324,7 @@ export const ChannelDeckStack: React.FC<ChannelDeckStackProps> = ({
                       onSyncFollowers={onSyncFollowers}
                       syncingChannelIdMap={syncingChannelIdMap}
                       onClose={handleClose}
+                      canManage={canManage}
                     />
                   )}
                 </div>

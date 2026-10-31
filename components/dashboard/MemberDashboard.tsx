@@ -1,8 +1,18 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { User, Task, Channel, MasterOption, WorkStatus, ViewMode, Duty, AppNotification } from '../../types';
+
+const WORKSPACE_SPRING = {
+    type: 'spring' as const,
+    stiffness: 260,
+    damping: 28,
+    mass: 0.9,
+};
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
+import { isTaskCompleted } from '../../constants';
+import { differenceInCalendarDays, startOfDay } from 'date-fns';
 
 // dnd-kit
 import {
@@ -104,6 +114,66 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
         return saved ? JSON.parse(saved) : ['attendance', 'duty', 'focus_zone', 'work_board', 'quest', 'goal', 'hall_of_fame', 'tribunal_bulletin'];
     });
 
+    // WorkBoard Full-Width Expansion State (Persistent in DB profiles.settings & LocalStorage)
+    const [isWorkBoardExpanded, setIsWorkBoardExpanded] = useState<boolean>(() => {
+        if (currentUser?.settings?.workboard_expanded !== undefined) {
+            return Boolean(currentUser.settings.workboard_expanded);
+        }
+        const saved = localStorage.getItem(`member_workboard_expanded_${currentUser.id}`);
+        return saved === 'true';
+    });
+
+    // Synchronize if profile settings are refreshed
+    useEffect(() => {
+        if (currentUser?.settings?.workboard_expanded !== undefined) {
+            setIsWorkBoardExpanded(Boolean(currentUser.settings.workboard_expanded));
+        }
+    }, [currentUser?.settings?.workboard_expanded]);
+
+    // Track XL breakpoint (1280px+) for horizontal vs vertical coordinated slide physics
+    const [isXlViewport, setIsXlViewport] = useState<boolean>(() => {
+        if (typeof window === 'undefined') return true;
+        return window.matchMedia('(min-width: 1280px)').matches;
+    });
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const mql = window.matchMedia('(min-width: 1280px)');
+        const onChange = (e: MediaQueryListEvent) => setIsXlViewport(e.matches);
+        mql.addEventListener('change', onChange);
+        return () => mql.removeEventListener('change', onChange);
+    }, []);
+
+    const handleToggleWorkBoardExpand = async () => {
+        const next = !isWorkBoardExpanded;
+        // 1. Optimistic UI update
+        setIsWorkBoardExpanded(next);
+        // 2. LocalStorage fast cache fallback
+        localStorage.setItem(`member_workboard_expanded_${currentUser.id}`, String(next));
+
+        // 3. Persist to DB profiles table under settings JSONB
+        try {
+            const currentSettings = (currentUser.settings && typeof currentUser.settings === 'object')
+                ? currentUser.settings
+                : {};
+            const updatedSettings = {
+                ...currentSettings,
+                workboard_expanded: next,
+            };
+
+            const { error } = await supabase
+                .from('profiles')
+                .update({ settings: updatedSettings })
+                .eq('id', currentUser.id);
+
+            if (error) {
+                console.warn('Could not persist workboard_expanded to profiles.settings:', error.message);
+            }
+        } catch (err: any) {
+            console.warn('DB settings sync error:', err);
+        }
+    };
+
     const sensors = useSensors(
         useSensor(PointerSensor, {
             activationConstraint: {
@@ -130,13 +200,13 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
     };
 
     const WIDGET_CONFIG: Record<WidgetId, { span: string; hFull?: boolean }> = {
-        attendance: { span: 'xl:col-span-8', hFull: false },
+        attendance: { span: 'xl:col-span-8', hFull: true },
         duty: { span: 'xl:col-span-4', hFull: true },
         quest: { span: 'xl:col-span-4', hFull: true },
         goal: { span: 'xl:col-span-4', hFull: true },
         hall_of_fame: { span: 'xl:col-span-4', hFull: true },
         focus_zone: { span: 'xl:col-span-4', hFull: true },
-        work_board: { span: 'xl:col-span-8', hFull: true },
+        work_board: { span: isWorkBoardExpanded ? 'xl:col-span-12' : 'xl:col-span-8', hFull: true },
         tribunal_bulletin: { span: 'xl:col-span-4', hFull: true },
     };
 
@@ -229,6 +299,62 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
         }
     };
 
+    // Calculate Urgent + Overdue Tasks Count for 5-Tier Alert Badge (100% synced with FocusZone criteria)
+    const urgencyStats = useMemo(() => {
+        const today = startOfDay(new Date());
+
+        let urgentCount = 0;
+        let overdueCount = 0;
+
+        myTasks.forEach(t => {
+            if (t.isUnscheduled) return;
+            const s = (t.status || '').toString();
+            if (isTaskCompleted(s)) return;
+
+            const isReviseStatus =
+                s === 'FEEDBACK' ||
+                s === 'WAITING' ||
+                s === 'REVISE' ||
+                s.includes('EDIT_DRAFT');
+
+            if (isReviseStatus) {
+                urgentCount++;
+                return;
+            }
+
+            if (!t.endDate) {
+                if (t.priority === 'URGENT') urgentCount++;
+                return;
+            }
+
+            const taskDate = startOfDay(new Date(t.endDate));
+            const diff = differenceInCalendarDays(taskDate, today);
+            const isOverdue = diff < 0;
+            const isDueSoon = diff >= 0 && diff <= 2;
+
+            if (isOverdue) {
+                overdueCount++;
+            } else if (isDueSoon || t.priority === 'URGENT') {
+                urgentCount++;
+            }
+        });
+
+        const totalScore = urgentCount + overdueCount;
+        let tier: 1 | 2 | 3 | 4 | 5 = 1;
+        if (totalScore >= 13) tier = 5;
+        else if (totalScore >= 9) tier = 4;
+        else if (totalScore >= 6) tier = 3;
+        else if (totalScore >= 3) tier = 2;
+        else tier = 1;
+
+        return {
+            urgentCount,
+            overdueCount,
+            totalScore,
+            tier,
+        };
+    }, [myTasks]);
+
     const renderWidget = (id: WidgetId) => {
         switch (id) {
             case 'attendance':
@@ -282,6 +408,7 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                         users={users}
                         masterOptions={masterOptions}
                         onOpenTask={onEditTask} 
+                        onToggleCollapse={handleToggleWorkBoardExpand}
                     />
                 );
             case 'work_board':
@@ -294,6 +421,10 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                         onOpenTask={onEditTask}
                         onUpdateTask={(t) => handleSaveTask(t, null)} 
                         onDeleteTask={handleDeleteTask}
+                        isExpanded={isWorkBoardExpanded}
+                        onToggleExpand={handleToggleWorkBoardExpand}
+                        urgentCount={urgencyStats.totalScore}
+                        urgencyStats={urgencyStats}
                     />
                 );
             case 'tribunal_bulletin':
@@ -309,9 +440,26 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
     return (
         <AppBackground theme={currentBg.theme} pattern={currentBg.pattern} className="p-4 md:p-8 min-h-screen relative overflow-hidden">
             {/* Ambient Animated Pastel Wave Background */}
-            {currentBg.id === 'bg-pastel-wave' && (
-                <PastelWaveBackground enabled={localUser.waveBgEnabled !== false} />
-            )}
+            <AnimatePresence initial={false}>
+                {currentBg.id === 'bg-pastel-wave' && (
+                    <motion.div
+                        key="pastel-wave-scene"
+                        initial={{ clipPath: 'inset(0% 100% 0% 0%)', opacity: 1 }}
+                        animate={{
+                            clipPath: 'inset(0% 0% 0% 0%)',
+                            opacity: 1,
+                            transition: { duration: 1.18, ease: [0.22, 1, 0.36, 1] as const },
+                        }}
+                        exit={{
+                            opacity: [1, 1, 0],
+                            transition: { duration: 1.18, times: [0, 0.9, 1], ease: 'linear' },
+                        }}
+                        className="fixed inset-0 pointer-events-none z-0"
+                    >
+                        <PastelWaveBackground enabled={localUser.waveBgEnabled !== false} />
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
             <div className="relative z-10 space-y-6 pb-20">
                 
@@ -343,7 +491,7 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                         </div>
 
                         <div className="flex items-center gap-3 shrink-0 self-end sm:self-auto">
-                            <span className={`text-[9.5px] font-black px-2.5 py-1 rounded-full transition-all duration-300 ${
+                            <span className={`text-[9.5px] font-bold px-2.5 py-1 rounded-full transition-all duration-300 ${
                                 localUser.waveBgEnabled !== false
                                     ? 'bg-indigo-50 text-indigo-600 border border-indigo-150/50'
                                     : 'bg-slate-50 text-slate-400 border border-slate-150/40'
@@ -387,7 +535,7 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                                 <span className="animate-pulse">🌌</span>
                             </span>
                             <div>
-                                <h4 className="text-xs font-black text-white tracking-tight flex items-center gap-1.5">
+                                <h4 className="text-xs font-bold text-white tracking-tight flex items-center gap-1.5">
                                     <span>Cozy Interactive Workroom</span>
                                     <span className="text-[8px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-1.5 py-0.2 rounded font-bold">COCKPIT</span>
                                 </h4>
@@ -398,7 +546,7 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                         </div>
 
                         <div className="flex items-center gap-2 shrink-0 self-end sm:self-auto relative z-10">
-                            <span className="text-[9.5px] font-black px-3 py-1 bg-gradient-to-r from-pink-500 to-indigo-500 group-hover:from-pink-400 group-hover:to-indigo-400 text-white rounded-full shadow-md transition-all duration-300">
+                            <span className="text-[9.5px] font-bold px-3 py-1 bg-gradient-to-r from-pink-500 to-indigo-500 group-hover:from-pink-400 group-hover:to-indigo-400 text-white rounded-full shadow-md transition-all duration-300">
                                 ประตูมิติมาร์ป ⚡
                             </span>
                         </div>
@@ -412,20 +560,157 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
                     onDragEnd={handleDragEnd}
                 >
                     <SortableContext 
-                        items={widgetOrder}
+                        items={isWorkBoardExpanded ? widgetOrder.filter(id => id !== 'focus_zone') : widgetOrder}
                         strategy={rectSortingStrategy}
                     >
-                        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-                            {widgetOrder.map((id) => (
-                                <SortableWidget 
-                                    key={id} 
-                                    id={id} 
-                                    className={WIDGET_CONFIG[id].span}
-                                    hFull={WIDGET_CONFIG[id].hFull}
-                                >
-                                    {renderWidget(id)}
-                                </SortableWidget>
-                            ))}
+                        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-stretch relative">
+                            {widgetOrder.map((id) => {
+                                // Skip standalone focus_zone since it renders in the coordinated interactive row with work_board
+                                if (id === 'focus_zone') return null;
+
+                                if (id === 'work_board') {
+                                    const focusIdx = widgetOrder.indexOf('focus_zone');
+                                    const boardIdx = widgetOrder.indexOf('work_board');
+                                    const isFocusOnRight = focusIdx !== -1 && focusIdx > boardIdx;
+                                    const slideOffset = isFocusOnRight ? 180 : -180;
+
+                                    const drawerContainerVariants: Variants = isXlViewport
+                                        ? {
+                                              initial: {
+                                                  width: 0,
+                                                  opacity: 0,
+                                                  marginRight: 0,
+                                                  marginLeft: 0,
+                                              },
+                                              animate: {
+                                                  width: 'calc(33.333333% - 16px)',
+                                                  opacity: 1,
+                                                  marginRight: isFocusOnRight ? 0 : 24,
+                                                  marginLeft: isFocusOnRight ? 24 : 0,
+                                                  transition: WORKSPACE_SPRING,
+                                              },
+                                              exit: {
+                                                  width: 0,
+                                                  opacity: 0,
+                                                  marginRight: 0,
+                                                  marginLeft: 0,
+                                                  transition: WORKSPACE_SPRING,
+                                              },
+                                          }
+                                        : {
+                                              initial: {
+                                                  height: 0,
+                                                  opacity: 0,
+                                                  marginBottom: 0,
+                                              },
+                                              animate: {
+                                                  height: 'auto',
+                                                  opacity: 1,
+                                                  marginBottom: 24,
+                                                  transition: WORKSPACE_SPRING,
+                                              },
+                                              exit: {
+                                                  height: 0,
+                                                  opacity: 0,
+                                                  marginBottom: 0,
+                                                  transition: WORKSPACE_SPRING,
+                                              },
+                                          };
+
+                                    const drawerCardSlideVariants: Variants = {
+                                        initial: {
+                                            x: slideOffset,
+                                            opacity: 0,
+                                            scale: 0.94,
+                                        },
+                                        animate: {
+                                            x: 0,
+                                            opacity: 1,
+                                            scale: 1,
+                                            transition: WORKSPACE_SPRING,
+                                        },
+                                        exit: {
+                                            x: slideOffset,
+                                            opacity: 0,
+                                            scale: 0.94,
+                                            transition: WORKSPACE_SPRING,
+                                        },
+                                    };
+
+                                    const focusDrawerElement = (
+                                        <AnimatePresence initial={false}>
+                                            {!isWorkBoardExpanded && (
+                                                <motion.div
+                                                    key="focus-zone-drawer"
+                                                    variants={drawerContainerVariants}
+                                                    initial="initial"
+                                                    animate="animate"
+                                                    exit="exit"
+                                                    className="overflow-hidden flex-shrink-0 flex flex-col"
+                                                >
+                                                    <motion.div
+                                                        variants={drawerCardSlideVariants}
+                                                        initial="initial"
+                                                        animate="animate"
+                                                        exit="exit"
+                                                        className="w-full min-w-[300px] xl:min-w-[360px] h-full flex flex-col"
+                                                    >
+                                                        <SortableWidget
+                                                            id="focus_zone"
+                                                            className="w-full h-full"
+                                                            hFull={true}
+                                                        >
+                                                            {renderWidget('focus_zone')}
+                                                        </SortableWidget>
+                                                    </motion.div>
+                                                </motion.div>
+                                            )}
+                                        </AnimatePresence>
+                                    );
+
+                                    const workBoardElement = (
+                                        <div key="work-board-flex" className="flex-1 min-w-0 flex flex-col">
+                                            <SortableWidget
+                                                id="work_board"
+                                                className="w-full h-full"
+                                                hFull={true}
+                                            >
+                                                {renderWidget('work_board')}
+                                            </SortableWidget>
+                                        </div>
+                                    );
+
+                                    return (
+                                        <div
+                                            key="workspace_interactive_row"
+                                            className="xl:col-span-12 flex flex-col xl:flex-row gap-0 items-stretch relative"
+                                        >
+                                            {isFocusOnRight ? (
+                                                <>
+                                                    {workBoardElement}
+                                                    {focusDrawerElement}
+                                                </>
+                                            ) : (
+                                                <>
+                                                    {focusDrawerElement}
+                                                    {workBoardElement}
+                                                </>
+                                            )}
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <SortableWidget 
+                                        key={id} 
+                                        id={id} 
+                                        className={WIDGET_CONFIG[id].span}
+                                        hFull={WIDGET_CONFIG[id].hFull}
+                                    >
+                                        {renderWidget(id)}
+                                    </SortableWidget>
+                                );
+                            })}
                         </div>
                     </SortableContext>
                 </DndContext>

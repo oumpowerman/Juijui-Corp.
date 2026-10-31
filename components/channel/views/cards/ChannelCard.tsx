@@ -14,7 +14,9 @@ import {
   Coins,
   Radio,
   Sparkles,
-  Hammer
+  Hammer,
+  Copy,
+  Check
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Channel, ChannelGroup } from '../../../../types';
@@ -47,6 +49,7 @@ interface ChannelCardProps {
     meshBg: string;
   };
   bgClass: string;
+  canManage?: boolean;
 }
 
 export const ChannelCard: React.FC<ChannelCardProps> = ({
@@ -62,6 +65,7 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
   isSyncingFollowers = false,
   glow,
   bgClass,
+  canManage = true,
 }) => {
   const [isFlipped, setIsFlipped] = useState(false);
   const { isChannelIgConnected } = useIgConnectionStatus();
@@ -79,6 +83,72 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
   const platformTierItems = React.useMemo(() => {
     return calculateRelativePlatformTiers(channel.platforms || [], channel.followers || {});
   }, [channel.platforms, channel.followers]);
+
+  // Copy all social links quick action state
+  const [isCopied, setIsCopied] = useState(false);
+  const copyTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    };
+  }, []);
+
+  const handleCopyAllLinks = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    const items: string[] = [];
+    const tierPlatforms = platformTierItems.map(item => item.platform);
+    const allPlatforms = Array.from(
+      new Set([
+        ...tierPlatforms,
+        ...(channel.platforms || []),
+        ...Object.keys(channel.social_links || {})
+      ])
+    );
+
+    allPlatforms.forEach((plat) => {
+      const url = channel.social_links?.[plat as any];
+      if (url && typeof url === 'string' && url.trim()) {
+        const option = PLATFORM_OPTIONS.find(p => p.id === plat);
+        const label = option?.label || plat;
+        const followers = channel.followers?.[plat as any] || 0;
+        const followerCount = Number(followers) || 0;
+        const followerCountText = followerCount > 0 ? formatFollowersCompact(followerCount) : '0';
+        items.push(`${label} : ผู้ติดตาม ${followerCountText}\n${url.trim()}`);
+      }
+    });
+
+    let textToCopy = '';
+    if (items.length > 0) {
+      textToCopy = items.join('\n\n');
+    } else {
+      textToCopy = `${channel.name} : ผู้ติดตามรวม ${formatFollowersCompact(channelTotalFollowers)}\n(ยังไม่ได้ระบุลิงก์โซเชียล)`;
+    }
+
+    try {
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(textToCopy);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = textToCopy;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setIsCopied(true);
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+      copyTimerRef.current = setTimeout(() => {
+        setIsCopied(false);
+      }, 2200);
+    } catch (err) {
+      console.warn('Failed to copy channel links:', err);
+    }
+  };
 
   return (
     <motion.div
@@ -107,8 +177,14 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
             backfaceVisibility: 'hidden', 
             WebkitBackfaceVisibility: 'hidden' 
           }}
-          onClick={() => onEdit(channel)}
-          className={`w-full h-full rounded-[2rem] transition-all duration-300 group flex flex-col cursor-pointer relative hover:z-30 ${
+          onClick={() => {
+            if (canManage) {
+              onEdit(channel);
+            }
+          }}
+          className={`w-full h-full rounded-[2rem] transition-all duration-300 group flex flex-col relative hover:z-30 ${
+            canManage ? 'cursor-pointer' : 'cursor-default'
+          } ${
             isPlanning
               ? 'bg-gradient-to-b from-amber-50/30 via-white to-orange-50/20 border-2 border-dashed border-amber-300/85 border-b-[3.5px] border-b-amber-400/90 shadow-[0_4px_20px_rgba(245,158,11,0.06)] hover:shadow-[0_20px_45px_rgba(245,158,11,0.13)] hover:border-amber-400/95'
               : isPausedOrArchived
@@ -221,19 +297,29 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
                 </span>
               )}
 
-              {channel.code ? (
-                <span 
-                  className="font-mono text-[9px] font-black uppercase tracking-wider text-indigo-700 bg-indigo-50/90 backdrop-blur-md px-2 py-0.5 rounded-full border border-indigo-200/80 shadow-2xs shrink-0 flex items-center gap-0.5"
-                  title={`รหัสย่อช่อง: ${channel.code}`}
-                >
-                  <span className="text-indigo-400 font-bold">#</span>
-                  <span>{channel.code}</span>
-                </span>
-              ) : (
-                <span className="font-mono text-[9px] font-black uppercase tracking-widest text-slate-800/70 bg-white/40 backdrop-blur-md px-2 py-0.5 rounded-full border border-white/60 shadow-2xs shrink-0">
-                  SHOW-{channel.id.substring(0, 4).toUpperCase()}
-                </span>
-              )}
+              {/* Copy All Links Quick Action (Replaces channel code badge) */}
+              <button
+                type="button"
+                onClick={handleCopyAllLinks}
+                className={`px-2.5 py-1 text-[10px] font-semibold rounded-full transition-all duration-200 flex items-center gap-1.5 shrink-0 cursor-pointer border border-b-[2px] shadow-2xs active:scale-95 z-20 ${
+                  isCopied
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-300 border-b-emerald-400 shadow-emerald-500/10'
+                    : 'bg-white/85 hover:bg-white text-slate-700 hover:text-indigo-600 border-white/90 border-b-slate-200/90 hover:border-indigo-200 hover:border-b-indigo-300'
+                }`}
+                title="คัดลอกลิงก์โซเชียลทั้งหมดและยอดผู้ติดตาม (Copy all links)"
+              >
+                {isCopied ? (
+                  <>
+                    <Check className="w-3 h-3 text-emerald-600 animate-in zoom-in-50 duration-200" />
+                    <span className="text-emerald-700 font-semibold tracking-tight">คัดลอกแล้ว!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3 h-3 text-slate-500 group-hover:text-indigo-600 transition-colors" />
+                    <span className="font-semibold tracking-tight">คัดลอกลิงก์</span>
+                  </>
+                )}
+              </button>
 
               {/* Minimal 3D Flip Trigger */}
               <button
@@ -304,18 +390,20 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
                     {channel.name}
                   </h3>
                 </div>
-                <div className="flex space-x-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-all duration-200 shrink-0">
-                  <button 
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onDelete(channel.id, channel.name);
-                    }}
-                    className="p-1.5 text-gray-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all active:scale-95 cursor-pointer"
-                    title="ลบรายการ"
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
+                {canManage && (
+                  <div className="flex space-x-1 opacity-100 md:opacity-0 group-hover:opacity-100 transition-all duration-200 shrink-0">
+                    <button 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(channel.id, channel.name);
+                      }}
+                      className="p-1.5 text-gray-400 hover:text-rose-500 hover:bg-rose-50 rounded-xl transition-all active:scale-95 cursor-pointer"
+                      title="ลบรายการ"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
               </div>
 
               {channel.description ? (
@@ -565,17 +653,19 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
                     เพิ่ม Notion SOP, บรีฟงาน Google Docs หรือโฟลเดอร์ Drive เพื่อให้ทีมเข้าถึงได้ทันที
                   </p>
                 </div>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onEdit(channel);
-                  }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs active:scale-95 transition-all cursor-pointer"
-                >
-                  <Plus className="w-3.5 h-3.5" />
-                  <span>เพิ่มเอกสารในหน้าแก้ไข</span>
-                </button>
+                {canManage && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEdit(channel);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold shadow-xs active:scale-95 transition-all cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    <span>เพิ่มเอกสารในหน้าแก้ไข</span>
+                  </button>
+                )}
               </div>
             ) : (
               <div className="space-y-2">
@@ -641,18 +731,22 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
           </div>
 
           {/* Back Footer Actions */}
-          <div className="p-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between shrink-0">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onEdit(channel);
-              }}
-              className="text-xs font-bold text-slate-600 hover:text-indigo-600 flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl hover:bg-white transition-colors cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>แก้ไข / เพิ่มลิงก์</span>
-            </button>
+          <div className={`p-3 bg-slate-50 border-t border-slate-100 flex items-center shrink-0 ${
+            canManage ? 'justify-between' : 'justify-end'
+          }`}>
+            {canManage && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(channel);
+                }}
+                className="text-xs font-bold text-slate-600 hover:text-indigo-600 flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl hover:bg-white transition-colors cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>แก้ไข / เพิ่มลิงก์</span>
+              </button>
+            )}
 
             <button
               type="button"

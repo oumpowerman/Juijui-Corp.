@@ -27,6 +27,7 @@ export const MENU_GROUPS: MenuGroup[] = [
     title: 'Production',
     icon: Clapperboard,
     items: [
+      { view: 'CHANNELS', label: 'ช่องทางรายการ', icon: Settings2, mobileLabel: 'ช่องทาง' },
       { view: 'SCRIPT_HUB', label: 'เขียนบท', icon: FileText },
       { view: 'MEETINGS', label: 'ห้องประชุม', icon: Presentation, mobileLabel: 'ประชุม' },
       { view: 'ContentStock', label: 'คลังคลิป', icon: Film },
@@ -57,7 +58,6 @@ export const MENU_GROUPS: MenuGroup[] = [
     adminOnly: true,
     items: [
       { view: 'QUALITY_GATE', label: 'ห้องตรวจงาน', icon: ScanEye, mobileLabel: 'ห้องตรวจ' },
-      { view: 'CHANNELS', label: 'จัดการช่องทาง', icon: Settings2, mobileLabel: 'ช่องทาง' },
       { view: 'MASTER_DATA', label: 'ตั้งค่าระบบ', icon: Database },
       { view: 'SYSTEM_GUIDE', label: 'คู่มือระบบ (Logic)', icon: Terminal, mobileLabel: 'Logic' }, 
     ]

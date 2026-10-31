@@ -119,54 +119,12 @@ export default defineConfig(({ mode }) => {
     build: {
       outDir: 'dist',
       sourcemap: false,
-      target: 'es2022',
-      reportCompressedSize: false,
-      chunkSizeWarningLimit: 1500,
       rollupOptions: {
         output: {
           manualChunks(id) {
-            if (!id.includes('node_modules')) return undefined;
-            if (
-              id.includes('/node_modules/react/') ||
-              id.includes('/node_modules/react-dom/') ||
-              id.includes('/node_modules/scheduler/') ||
-              id.includes('/node_modules/react-router')
-            ) {
-              return 'vendor-react';
+            if (id.includes('node_modules')) {
+              return 'vendor';
             }
-            if (id.includes('/node_modules/recharts') || id.includes('/node_modules/d3')) {
-              return 'vendor-charts';
-            }
-            if (
-              id.includes('/node_modules/@tiptap/') ||
-              id.includes('/node_modules/prosemirror') ||
-              id.includes('/node_modules/yjs')
-            ) {
-              return 'vendor-editor';
-            }
-            if (
-              id.includes('/node_modules/framer-motion') ||
-              id.includes('/node_modules/lucide-react') ||
-              id.includes('/node_modules/react-icons') ||
-              id.includes('/node_modules/@dnd-kit/')
-            ) {
-              return 'vendor-ui';
-            }
-            if (
-              id.includes('/node_modules/@supabase/') ||
-              id.includes('/node_modules/@tanstack/')
-            ) {
-              return 'vendor-data';
-            }
-            if (
-              id.includes('/node_modules/xlsx') ||
-              id.includes('/node_modules/html2canvas') ||
-              id.includes('/node_modules/papaparse') ||
-              id.includes('/node_modules/heic2any')
-            ) {
-              return 'vendor-export';
-            }
-            return 'vendor-misc';
           }
         }
       }

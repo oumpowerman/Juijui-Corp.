@@ -8,6 +8,7 @@ import { useGlobalDialog } from '../../context/GlobalDialogContext';
 import { attendanceService } from '../../services/attendanceService';
 import { checkLateSubmissionRule } from './useLeaveUsageCalculator';
 import { useProvisionalAttendanceSync } from './useProvisionalAttendanceSync';
+import { fetchOrgAdminIds, insertAndDispatchNotifications } from '../../utils/pushDispatcher';
 
 export interface SubmitLeaveParams {
     type: LeaveType;
@@ -261,14 +262,14 @@ export const useLeaveRequestSubmitter = ({
         });
 
         try {
-            const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'ADMIN');
-            if (admins && admins.length > 0) {
+            const adminIds = await fetchOrgAdminIds(currentUser.id);
+            if (adminIds.length > 0) {
                 const labelPrimary = ATTENDANCE_REGISTRY[type]?.label || type;
                 const labelSecondary = linkedRemoteType ? ` + ${ATTENDANCE_REGISTRY[linkedRemoteType]?.label || linkedRemoteType}` : '';
                 const labelCombine = `${labelPrimary}${labelSecondary}${halfDayStr}`;
 
-                const generalNotifs = admins.map(admin => ({
-                    user_id: admin.id,
+                const generalNotifs = adminIds.map(adminId => ({
+                    user_id: adminId,
                     type: 'APPROVAL_REQ',
                     title: `📋 คำขออนุมัติ [${labelCombine}]`,
                     message: `คุณ ${currentUser.name || 'พนักงาน'} ส่งคำขอ [${labelCombine}] วันที่ ${format(startDate, 'd MMM')}: "${reason}"`,
@@ -277,7 +278,10 @@ export const useLeaveRequestSubmitter = ({
                     related_id: insertedLeaveReq?.id || null,
                     metadata: { request_type: type }
                 }));
-                await supabase.from('notifications').insert(generalNotifs);
+                await insertAndDispatchNotifications(generalNotifs, {
+                    category: 'APPROVAL_REQ',
+                    senderId: currentUser.id
+                });
             }
         } catch (notiErr) {
             console.error("Failed to insert admin general notifications:", notiErr);

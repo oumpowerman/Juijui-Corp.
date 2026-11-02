@@ -498,6 +498,9 @@ export interface MeetingNoteSheet {
     content: string;
 }
 
+export type MeetingType = 'ONSITE' | 'ONLINE' | 'HYBRID';
+export type MeetingPlatform = 'GOOGLE_MEET' | 'ZOOM' | 'TEAMS' | 'LINE' | 'CUSTOM';
+
 export interface MeetingLog {
     id: string;
     title: string;
@@ -517,6 +520,11 @@ export interface MeetingLog {
     agenda?: MeetingAgendaItem[];
     assets?: TaskAsset[];
     referenceMeetingId?: string;
+    meetingType?: MeetingType;
+    meetUrl?: string;
+    meetPlatform?: MeetingPlatform;
+    googleCalendarEventId?: string;
+    googleCalendarLink?: string;
     isPartial?: boolean;
 }
 

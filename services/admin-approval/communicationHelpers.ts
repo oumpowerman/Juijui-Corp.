@@ -1,10 +1,11 @@
 import { supabase } from '../../lib/supabase';
+import { insertAndDispatchNotifications } from '../../utils/pushDispatcher';
 
 /**
- * Sends an approval notification to the user.
+ * Sends an approval notification to the user and dispatches a device Web Push.
  */
 export async function sendApprovalNotification(userId: string, title: string, message: string, relatedId?: string, metadata?: any) {
-    return supabase.from('notifications').insert({
+    return insertAndDispatchNotifications({
         user_id: userId,
         type: 'INFO',
         title,
@@ -13,14 +14,16 @@ export async function sendApprovalNotification(userId: string, title: string, me
         link_path: 'ATTENDANCE',
         related_id: relatedId || null,
         metadata: metadata || null
+    }, {
+        category: 'APPROVAL_SUMMARY'
     });
 }
 
 /**
- * Sends a rejection notification to the user.
+ * Sends a rejection notification to the user and dispatches a device Web Push.
  */
 export async function sendRejectionNotification(userId: string, title: string, message: string, relatedId?: string, metadata?: any) {
-    return supabase.from('notifications').insert({
+    return insertAndDispatchNotifications({
         user_id: userId,
         type: 'INFO',
         title,
@@ -29,18 +32,20 @@ export async function sendRejectionNotification(userId: string, title: string, m
         link_path: 'ATTENDANCE',
         related_id: relatedId || null,
         metadata: metadata || null
+    }, {
+        category: 'APPROVAL_SUMMARY'
     });
 }
 
 /**
- * Sends an approval/rejection summary notification to the LINE group.
+ * Sends an approval/rejection summary notification to the user.
  */
 export async function sendGroupSummaryNotification(
-    employeeId: string, 
-    employeeName: string, 
-    requestType: string, 
-    adminName: string, 
-    statusText: string, 
+    employeeId: string,
+    employeeName: string,
+    requestType: string,
+    adminName: string,
+    statusText: string,
     reason: string = '',
     relatedId?: string,
     metadata?: any,
@@ -51,7 +56,7 @@ export async function sendGroupSummaryNotification(
     if (reason) {
         message += `\nหมายเหตุ: ${reason}`;
     }
-    
+
     return supabase.from('notifications').insert({
         user_id: employeeId,
         type: 'APPROVAL_SUMMARY',

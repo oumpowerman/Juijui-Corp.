@@ -99,30 +99,39 @@ if (!rootElement) {
   throw new Error("Could not find root element to mount to");
 }
 
+// --- CAPTURE PWA INSTALL PROMPT FOR ANDROID / CHROME ---
+if (typeof window !== 'undefined') {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    (window as any).__deferredPwaInstallPrompt = e;
+    window.dispatchEvent(new CustomEvent('pwa-install-available'));
+  });
+}
+
 // --- SERVICE WORKER REGISTRATION (PWA & Push Notifications) ---
-if ('serviceWorker' in navigator) {
-  if (import.meta.env.DEV) {
-    // In dev environment, unregister any existing service worker to prevent intercepting on-demand Vite modules
-    navigator.serviceWorker.getRegistrations().then(registrations => {
-      for (const reg of registrations) {
-        reg.unregister().then(unregistered => {
-          if (unregistered) {
-            console.log('[Dev] Unregistered stale service worker:', reg.scope);
+if ('serviceWorker' in navigator && (window.location.protocol === 'https:' || window.location.hostname === 'localhost')) {
+  window.addEventListener('load', () => {
+    // Purge legacy custom cache ('juijui-planner-v3') that could hold stale Vite dev modules
+    if ('caches' in window) {
+      caches.keys().then((names) => {
+        names.forEach((name) => {
+          if (name.startsWith('juijui-planner-')) {
+            caches.delete(name).catch(() => {});
           }
         });
-      }
-    });
-  } else if (window.location.protocol === 'https:' || window.location.hostname === 'localhost') {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js')
-        .then(reg => {
-          console.log('[PWA] Service Worker registered with scope:', reg.scope);
-        })
-        .catch(err => {
-          console.warn('[PWA] Service Worker registration failed:', err);
-        });
-    });
-  }
+      }).catch(() => {});
+    }
+
+    const swUrl = import.meta.env.DEV ? '/push-sw.js' : '/sw.js';
+    navigator.serviceWorker.register(swUrl, { scope: '/' })
+      .then(reg => {
+        reg.update().catch(() => {});
+        console.log(`[PWA] Service Worker (${swUrl}) registered with scope:`, reg.scope);
+      })
+      .catch(err => {
+        console.warn('[PWA] Service Worker registration failed:', err);
+      });
+  });
 }
 
 const root = ReactDOM.createRoot(rootElement);

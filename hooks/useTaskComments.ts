@@ -3,6 +3,8 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { TaskComment, User, TaskType } from '../types';
 import { useToast } from '../context/ToastContext';
+import { extractMentionedUserIds, insertAndDispatchNotifications } from '../utils/pushDispatcher';
+import { getOrgChannelName } from '../lib/tenantStorage';
 
 export const useTaskComments = (taskId: string | undefined, taskType: TaskType = 'TASK', currentUser: User | undefined) => {
     const [comments, setComments] = useState<TaskComment[]>([]);
@@ -78,8 +80,7 @@ export const useTaskComments = (taskId: string | undefined, taskType: TaskType =
             const { error } = await supabase.from('task_comments').insert(payload);
             if (error) throw error;
 
-            // 2. NOTIFICATION LOGIC
-            // Fetch relevant data to notify participants
+            // 2. NOTIFICATION LOGIC (Task Owners + @Mentioned Users)
             let recipients = new Set<string>();
             let title = '';
 
@@ -97,19 +98,29 @@ export const useTaskComments = (taskId: string | undefined, taskType: TaskType =
                 }
             }
 
+            // Also include any user explicitly tagged with @Name in the comment
+            const mentionedIds = await extractMentionedUserIds(content);
+            mentionedIds.forEach(id => recipients.add(id));
+
             recipients.delete(currentUser.id); // Don't notify self
 
             if (recipients.size > 0) {
+                const mentionedSet = new Set(mentionedIds);
                 const notifications = Array.from(recipients).map(uid => ({
-                        user_id: uid,
-                        type: 'INFO',
-                        title: `💬 คอมเมนต์ใหม่: ${title.substring(0, 20)}...`,
-                        message: `${currentUser.name}: ${content.substring(0, 50)}...`,
-                        related_id: taskId,
-                        link_path: taskType === 'CONTENT' ? 'ContentStock' : 'DASHBOARD', 
-                        is_read: false
+                    user_id: uid,
+                    type: 'INFO',
+                    title: mentionedSet.has(uid)
+                        ? `📣 ${currentUser.name} แท็กคุณใน: ${title.substring(0, 22)}`
+                        : `💬 คอมเมนต์ใหม่: ${title.substring(0, 22)}`,
+                    message: `${currentUser.name}: ${content.substring(0, 60)}${content.length > 60 ? '...' : ''}`,
+                    related_id: taskId,
+                    link_path: taskType === 'CONTENT' ? 'ContentStock' : 'DASHBOARD',
+                    is_read: false
                 }));
-                await supabase.from('notifications').insert(notifications);
+                await insertAndDispatchNotifications(notifications, {
+                    category: 'COMMENT_MENTION',
+                    senderId: currentUser.id
+                });
             }
             
         } catch (err: any) {
@@ -123,7 +134,7 @@ export const useTaskComments = (taskId: string | undefined, taskType: TaskType =
         if (!taskId) return;
 
         const channel = supabase
-            .channel(`comments-${taskId}`)
+            .channel(getOrgChannelName(`comments-${taskId}`))
             .on(
                 'postgres_changes',
                 { event: 'INSERT', schema: 'public', table: 'task_comments', filter: `${foreignKey}=eq.${taskId}` },

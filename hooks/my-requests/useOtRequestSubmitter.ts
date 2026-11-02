@@ -4,6 +4,7 @@ import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
 import { attendanceService } from '../../services/attendanceService';
 import { calculateOtBreakdownWithHours } from '../../utils/otCalculator';
+import { fetchOrgAdminIds, insertAndDispatchNotifications } from '../../utils/pushDispatcher';
 
 export interface SubmitOtParams {
     startDate: Date;
@@ -113,10 +114,10 @@ export const useOtRequestSubmitter = ({
         });
 
         try {
-            const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'ADMIN');
-            if (admins && admins.length > 0) {
-                const otNotifs = admins.map(admin => ({
-                    user_id: admin.id,
+            const adminIds = await fetchOrgAdminIds(currentUser.id);
+            if (adminIds.length > 0) {
+                const otNotifs = adminIds.map(adminId => ({
+                    user_id: adminId,
                     type: 'APPROVAL_REQ',
                     title: '⏰ คำขอ OT ใหม่',
                     message: `คุณ ${currentUser.name || 'พนักงาน'} ส่งคำขอ OT (${otDisplayStr}) วันที่ ${format(startDate, 'd MMM')}: "${displayReason}"`,
@@ -135,7 +136,10 @@ export const useOtRequestSubmitter = ({
                         reason: displayReason
                     }
                 }));
-                await supabase.from('notifications').insert(otNotifs);
+                await insertAndDispatchNotifications(otNotifs, {
+                    category: 'APPROVAL_REQ',
+                    senderId: currentUser.id
+                });
             }
         } catch (notiErr) {
             console.error("Failed to insert admin OT notifications:", notiErr);

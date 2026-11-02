@@ -9,6 +9,7 @@ import { useTaskContext } from '../context/TaskContext';
 import { format, isValid } from 'date-fns';
 
 import { sponsorshipService } from '../services/sponsorshipService';
+import { insertAndDispatchNotifications, fetchOrgAdminIds } from '../utils/pushDispatcher';
 
 // --- 1. SMART DIFF CONFIGURATION ---
 
@@ -461,7 +462,9 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
                             link_path: isContent ? 'ContentStock' : 'DASHBOARD',
                             is_read: false
                         }));
-                        await supabase.from('notifications').insert(notifications);
+                        await insertAndDispatchNotifications(notifications, {
+                            category: 'NEW_ASSIGNMENT'
+                        });
                     }
                 }
 
@@ -534,7 +537,9 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
                         link_path: isContent ? 'ContentStock' : 'DASHBOARD',
                         is_read: false
                     }));
-                    await supabase.from('notifications').insert(notifications);
+                    await insertAndDispatchNotifications(notifications, {
+                        category: 'NEW_ASSIGNMENT'
+                    });
                 }
 
                 // Update Context State (if suitable for list)
@@ -696,20 +701,13 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
 
         if (updateError) throw updateError;
 
-        // 4. Send Notifications to designated reviewer or Admins
+        // 4. Send Notifications to designated reviewer or Organization Admins
         try {
             let targetUserIds: string[] = [];
             if (reviewerId) {
                 targetUserIds = [reviewerId];
             } else {
-                const { data: admins } = await supabase
-                    .from('profiles')
-                    .select('id')
-                    .eq('role', 'ADMIN')
-                    .eq('is_active', true);
-                if (admins && admins.length > 0) {
-                    targetUserIds = admins.map(admin => admin.id);
-                }
+                targetUserIds = await fetchOrgAdminIds(currentUser.id);
             }
 
             if (targetUserIds.length > 0) {
@@ -722,7 +720,10 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
                     link_path: 'QUALITY_GATE',
                     is_read: false
                 }));
-                await supabase.from('notifications').insert(notifications);
+                await insertAndDispatchNotifications(notifications, {
+                    category: 'QC_REQUEST',
+                    senderId: currentUser.id
+                });
             }
         } catch (notifError) {
             console.error("Failed to send QC notifications:", notifError);

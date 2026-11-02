@@ -1,10 +1,16 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
-import { MeetingLog, MeetingCategory, User } from '../types';
+import { MeetingLog, MeetingCategory, MeetingType, MeetingPlatform } from '../types';
 import { useToast } from './ToastContext';
 import { useGlobalDialog } from './GlobalDialogContext';
 import { format, isValid, startOfMonth, endOfMonth } from 'date-fns';
 import { getActiveOrgIdSync, getOrgChannelName } from '../lib/tenantStorage';
+import {
+    detectMeetingPlatform,
+    encodeOnlineMetaIntoAssets,
+    extractOnlineMetaFromAssets,
+    deleteGoogleCalendarEventApi
+} from '../utils/googleCalendarLink';
 
 interface MeetingContextType {
     meetings: MeetingLog[];
@@ -25,6 +31,9 @@ interface MeetingContextType {
 
 const MeetingContext = createContext<MeetingContextType | undefined>(undefined);
 
+const EXTENDED_LIST_SELECT = 'id, title, date, start_time, end_time, category, attendees, attendance, tags, assets, author_id, created_at, updated_at, reference_meeting_id, meeting_type, meet_url, meet_platform, google_calendar_event_id, google_calendar_link';
+const BASE_LIST_SELECT = 'id, title, date, start_time, end_time, category, attendees, attendance, tags, assets, author_id, created_at, updated_at, reference_meeting_id';
+
 export const MeetingProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [meetings, setMeetings] = useState<MeetingLog[]>([]);
     const [historyMeetings, setHistoryMeetings] = useState<MeetingLog[]>([]);
@@ -42,27 +51,45 @@ export const MeetingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const PAGE_SIZE = 20;
 
     // Map DB to Type with Partial Support (Ensures robust CamelCase to SnakeCase mapping)
-    const mapMeeting = useCallback((m: any): MeetingLog => ({
-        id: m.id,
-        title: m.title,
-        date: m.date ? new Date(m.date) : new Date(),
-        startTime: m.start_time || '',
-        endTime: m.end_time || '',
-        content: m.content, // Nullable if partial
-        sheets: m.sheets || [],
-        decisions: m.decisions || '',
-        category: (m.category as MeetingCategory) || 'GENERAL',
-        attendees: m.attendees || [],
-        attendance: m.attendance || {},
-        tags: m.tags || [],
-        agenda: m.agenda || [], 
-        assets: m.assets || [],
-        referenceMeetingId: m.reference_meeting_id || undefined,
-        createdAt: new Date(m.created_at),
-        updatedAt: new Date(m.updated_at),
-        authorId: m.author_id,
-        isPartial: m.content === undefined || m.content === null
-    }), []);
+    const mapMeeting = useCallback((m: any): MeetingLog => {
+        const { cleanAssets, meta } = extractOnlineMetaFromAssets(m.assets);
+        const rawMeetUrl = m.meet_url || meta.meetUrl || '';
+        const resolvedMeetingType: MeetingType =
+            (m.meeting_type as MeetingType) ||
+            meta.meetingType ||
+            (rawMeetUrl ? 'ONLINE' : 'ONSITE');
+        const resolvedPlatform: MeetingPlatform | undefined =
+            (m.meet_platform as MeetingPlatform) ||
+            meta.meetPlatform ||
+            (rawMeetUrl ? detectMeetingPlatform(rawMeetUrl) : undefined);
+
+        return {
+            id: m.id,
+            title: m.title,
+            date: m.date ? new Date(m.date) : new Date(),
+            startTime: m.start_time || '',
+            endTime: m.end_time || '',
+            content: m.content, // Nullable if partial
+            sheets: m.sheets || [],
+            decisions: m.decisions || '',
+            category: (m.category as MeetingCategory) || 'GENERAL',
+            attendees: m.attendees || [],
+            attendance: m.attendance || {},
+            tags: m.tags || [],
+            agenda: m.agenda || [],
+            assets: cleanAssets,
+            referenceMeetingId: m.reference_meeting_id || undefined,
+            meetingType: resolvedMeetingType,
+            meetUrl: rawMeetUrl || undefined,
+            meetPlatform: resolvedPlatform,
+            googleCalendarEventId: m.google_calendar_event_id || meta.googleCalendarEventId || undefined,
+            googleCalendarLink: m.google_calendar_link || meta.googleCalendarLink || undefined,
+            createdAt: new Date(m.created_at),
+            updatedAt: new Date(m.updated_at),
+            authorId: m.author_id,
+            isPartial: m.content === undefined || m.content === null
+        };
+    }, []);
 
     // Fetch Metadata list for a specific month with Pagination
     const fetchMeetingsByMonth = useCallback(async (targetDate: Date, currentPage: number) => {
@@ -71,16 +98,26 @@ export const MeetingProvider: React.FC<{ children: React.ReactNode }> = ({ child
             const startStr = format(startOfMonth(targetDate), 'yyyy-MM-dd');
             const endStr = format(endOfMonth(targetDate), 'yyyy-MM-dd');
 
-            // PARTIAL FETCH: Exclude heavy content fields initially
-            const { data, error } = await supabase
+            // PARTIAL FETCH: Try extended columns first, fallback to base columns if migration not applied yet
+            let { data, error } = await supabase
                 .from('meeting_logs')
-                .select('id, title, date, start_time, end_time, category, attendees, attendance, tags, author_id, created_at, updated_at, reference_meeting_id')
+                .select(EXTENDED_LIST_SELECT)
                 .gte('date', startStr)
                 .lte('date', endStr)
                 .order('date', { ascending: false })
                 .range(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE - 1);
 
-            if (error) throw error;
+            if (error) {
+                const fallback = await supabase
+                    .from('meeting_logs')
+                    .select(BASE_LIST_SELECT)
+                    .gte('date', startStr)
+                    .lte('date', endStr)
+                    .order('date', { ascending: false })
+                    .range(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE - 1);
+                if (fallback.error) throw fallback.error;
+                data = fallback.data as any;
+            }
 
             if (data) {
                 const mapped = data.map(mapMeeting);
@@ -112,14 +149,23 @@ export const MeetingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         try {
             const todayStr = format(new Date(), 'yyyy-MM-dd');
             
-            const { data, error } = await supabase
+            let { data, error } = await supabase
                 .from('meeting_logs')
-                .select('id, title, date, start_time, end_time, category, attendees, attendance, tags, author_id, created_at, updated_at, reference_meeting_id')
+                .select(EXTENDED_LIST_SELECT)
                 .lt('date', todayStr) // Only past meetings
                 .order('date', { ascending: false })
                 .range(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE - 1);
 
-            if (error) throw error;
+            if (error) {
+                const fallback = await supabase
+                    .from('meeting_logs')
+                    .select(BASE_LIST_SELECT)
+                    .lt('date', todayStr)
+                    .order('date', { ascending: false })
+                    .range(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE - 1);
+                if (fallback.error) throw fallback.error;
+                data = fallback.data as any;
+            }
 
             if (data) {
                 const mapped = data.map(mapMeeting);
@@ -158,9 +204,19 @@ export const MeetingProvider: React.FC<{ children: React.ReactNode }> = ({ child
             if (error) throw error;
 
             if (data) {
+                const { cleanAssets, meta } = extractOnlineMetaFromAssets(data.assets);
                 setMeetings(prev => prev.map(m => m.id === id ? { 
                     ...m, 
-                    ...data, 
+                    content: data.content || '',
+                    sheets: data.sheets || [],
+                    decisions: data.decisions || '',
+                    agenda: data.agenda || [],
+                    assets: cleanAssets,
+                    meetingType: m.meetingType || meta.meetingType || 'ONSITE',
+                    meetUrl: m.meetUrl || meta.meetUrl || undefined,
+                    meetPlatform: m.meetPlatform || meta.meetPlatform || undefined,
+                    googleCalendarEventId: m.googleCalendarEventId || meta.googleCalendarEventId || undefined,
+                    googleCalendarLink: m.googleCalendarLink || meta.googleCalendarLink || undefined,
                     isPartial: false 
                 } : m));
             }
@@ -224,7 +280,15 @@ export const MeetingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     const createMeeting = async (title: string, date: Date, userId: string, extra?: Partial<MeetingLog>) => {
         try {
             const dateStr = format(date, 'yyyy-MM-dd');
-            const payload = {
+            const encodedAssets = encodeOnlineMetaIntoAssets(extra?.assets || [], {
+                meetingType: extra?.meetingType,
+                meetUrl: extra?.meetUrl,
+                meetPlatform: extra?.meetPlatform,
+                googleCalendarEventId: extra?.googleCalendarEventId,
+                googleCalendarLink: extra?.googleCalendarLink
+            });
+
+            const basePayload: any = {
                 title,
                 date: dateStr,
                 start_time: extra?.startTime || '09:00',
@@ -237,12 +301,25 @@ export const MeetingProvider: React.FC<{ children: React.ReactNode }> = ({ child
                 attendance: extra?.attendance || {},
                 tags: extra?.tags || [],
                 agenda: extra?.agenda || [],
-                assets: extra?.assets || [],
+                assets: encodedAssets,
                 reference_meeting_id: extra?.referenceMeetingId || null
             };
 
-            const { data, error } = await supabase.from('meeting_logs').insert(payload).select().single();
-            if (error) throw error;
+            const extendedPayload: any = {
+                ...basePayload,
+                meeting_type: extra?.meetingType || 'ONSITE',
+                meet_url: extra?.meetUrl || null,
+                meet_platform: extra?.meetPlatform || (extra?.meetUrl ? detectMeetingPlatform(extra.meetUrl) : null),
+                google_calendar_event_id: extra?.googleCalendarEventId || null,
+                google_calendar_link: extra?.googleCalendarLink || null
+            };
+
+            let { data, error } = await supabase.from('meeting_logs').insert(extendedPayload).select().single();
+            if (error) {
+                const retry = await supabase.from('meeting_logs').insert(basePayload).select().single();
+                if (retry.error) throw retry.error;
+                data = retry.data;
+            }
             
             if (data) {
                 const newMeeting = mapMeeting(data);
@@ -262,28 +339,59 @@ export const MeetingProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     const updateMeeting = async (id: string, updates: Partial<MeetingLog>) => {
         try {
-            const payload: any = { updated_at: new Date().toISOString() };
-            if (updates.title !== undefined) payload.title = updates.title;
-            if (updates.content !== undefined) payload.content = updates.content;
-            if (updates.sheets !== undefined) payload.sheets = updates.sheets;
-            if (updates.decisions !== undefined) payload.decisions = updates.decisions;
-            if (updates.startTime !== undefined) payload.start_time = updates.startTime;
-            if (updates.endTime !== undefined) payload.end_time = updates.endTime;
-            if (updates.attendance !== undefined) payload.attendance = updates.attendance;
+            const existing = meetings.find(m => m.id === id);
+            const mergedMeta = {
+                meetingType: updates.meetingType !== undefined ? updates.meetingType : existing?.meetingType,
+                meetUrl: updates.meetUrl !== undefined ? updates.meetUrl : existing?.meetUrl,
+                meetPlatform: updates.meetPlatform !== undefined ? updates.meetPlatform : existing?.meetPlatform,
+                googleCalendarEventId: updates.googleCalendarEventId !== undefined ? updates.googleCalendarEventId : existing?.googleCalendarEventId,
+                googleCalendarLink: updates.googleCalendarLink !== undefined ? updates.googleCalendarLink : existing?.googleCalendarLink
+            };
+
+            const basePayload: any = { updated_at: new Date().toISOString() };
+            if (updates.title !== undefined) basePayload.title = updates.title;
+            if (updates.content !== undefined) basePayload.content = updates.content;
+            if (updates.sheets !== undefined) basePayload.sheets = updates.sheets;
+            if (updates.decisions !== undefined) basePayload.decisions = updates.decisions;
+            if (updates.startTime !== undefined) basePayload.start_time = updates.startTime;
+            if (updates.endTime !== undefined) basePayload.end_time = updates.endTime;
+            if (updates.attendance !== undefined) basePayload.attendance = updates.attendance;
             
             if (updates.date) {
                 const d = new Date(updates.date);
-                if (isValid(d)) payload.date = format(d, 'yyyy-MM-dd');
+                if (isValid(d)) basePayload.date = format(d, 'yyyy-MM-dd');
             }
             
-            if (updates.attendees !== undefined) payload.attendees = updates.attendees;
-            if (updates.tags !== undefined) payload.tags = updates.tags;
-            if (updates.category !== undefined) payload.category = updates.category;
-            if (updates.referenceMeetingId !== undefined) payload.reference_meeting_id = updates.referenceMeetingId;
-            if (updates.agenda !== undefined) payload.agenda = updates.agenda;
-            if (updates.assets !== undefined) payload.assets = updates.assets;
+            if (updates.attendees !== undefined) basePayload.attendees = updates.attendees;
+            if (updates.tags !== undefined) basePayload.tags = updates.tags;
+            if (updates.category !== undefined) basePayload.category = updates.category;
+            if (updates.referenceMeetingId !== undefined) basePayload.reference_meeting_id = updates.referenceMeetingId;
+            if (updates.agenda !== undefined) basePayload.agenda = updates.agenda;
 
-            const { error } = await supabase.from('meeting_logs').update(payload).eq('id', id);
+            const hasOnlineUpdates =
+                updates.meetingType !== undefined ||
+                updates.meetUrl !== undefined ||
+                updates.meetPlatform !== undefined ||
+                updates.googleCalendarEventId !== undefined ||
+                updates.googleCalendarLink !== undefined;
+
+            if (updates.assets !== undefined || hasOnlineUpdates) {
+                const baseAssets = updates.assets !== undefined ? updates.assets : (existing?.assets || []);
+                basePayload.assets = encodeOnlineMetaIntoAssets(baseAssets, mergedMeta);
+            }
+
+            const extendedPayload: any = { ...basePayload };
+            if (updates.meetingType !== undefined) extendedPayload.meeting_type = updates.meetingType;
+            if (updates.meetUrl !== undefined) extendedPayload.meet_url = updates.meetUrl || null;
+            if (updates.meetPlatform !== undefined) extendedPayload.meet_platform = updates.meetPlatform || null;
+            if (updates.googleCalendarEventId !== undefined) extendedPayload.google_calendar_event_id = updates.googleCalendarEventId || null;
+            if (updates.googleCalendarLink !== undefined) extendedPayload.google_calendar_link = updates.googleCalendarLink || null;
+
+            let { error } = await supabase.from('meeting_logs').update(extendedPayload).eq('id', id);
+            if (error && hasOnlineUpdates) {
+                const retry = await supabase.from('meeting_logs').update(basePayload).eq('id', id);
+                error = retry.error;
+            }
             if (error) throw error;
             
             setMeetings(prev => prev.map(m => m.id === id ? { ...m, ...updates } : m));
@@ -294,13 +402,27 @@ export const MeetingProvider: React.FC<{ children: React.ReactNode }> = ({ child
     };
 
     const deleteMeeting = async (id: string) => {
-        const confirmed = await showConfirm('ยืนยันการลบบันทึกนี้ใช่หรือไม่?', 'ลบบันทึกการประชุม');
-        if(!confirmed) return;
+        const target = meetings.find(m => m.id === id) || historyMeetings.find(m => m.id === id);
+        const hasCalendarSync = Boolean(target?.googleCalendarEventId);
+        const confirmMsg = hasCalendarSync
+            ? 'ยืนยันการลบบันทึกการประชุมนี้ใช่หรือไม่? (ระบบจะลบนัดหมายออกจาก Google Calendar และส่งอีเมลแจ้งยกเลิกผู้เข้าร่วมโดยอัตโนมัติ)'
+            : 'ยืนยันการลบบันทึกนี้ใช่หรือไม่?';
+
+        const confirmed = await showConfirm(confirmMsg, 'ลบบันทึกการประชุม');
+        if (!confirmed) return;
         try {
+            if (target?.googleCalendarEventId) {
+                try {
+                    await deleteGoogleCalendarEventApi(target.googleCalendarEventId, true);
+                } catch (calErr) {
+                    console.warn('Google Calendar event delete warning:', calErr);
+                }
+            }
             const { error } = await supabase.from('meeting_logs').delete().eq('id', id);
             if (error) throw error;
             setMeetings(prev => prev.filter(m => m.id !== id));
-            showToast('ลบเรียบร้อย', 'info');
+            setHistoryMeetings(prev => prev.filter(m => m.id !== id));
+            showToast(hasCalendarSync ? 'ลบการประชุมและยกเลิกนัดใน Google Calendar เรียบร้อย' : 'ลบเรียบร้อย', 'info');
         } catch (err) {
             showToast('ลบไม่สำเร็จ', 'error');
         }

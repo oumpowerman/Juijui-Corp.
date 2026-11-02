@@ -5,7 +5,7 @@ import {
     ChevronLeft, ChevronRight, SlidersHorizontal, MonitorPlay, CheckSquare, Plus, 
     CalendarDays, Kanban, Maximize2, Minimize2, Check, Ban, Eye, LayoutList, 
     AlignLeft, Circle, Package, Sparkles, Smartphone, RotateCcw, Inbox, Wrench,
-    UserCheck, Users, Briefcase, ChevronDown
+    UserCheck, Users, Briefcase, ChevronDown, FileSpreadsheet
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Channel, ChipConfig, TaskType, User, MasterOption } from '../types';
@@ -71,6 +71,7 @@ interface CalendarHeaderProps {
     users?: User[];
     masterOptions?: MasterOption[];
     currentUser?: User | null;
+    onOpenMetricoolModal?: () => void;
 }
 
 const CalendarHeader: React.FC<CalendarHeaderProps> = ({
@@ -101,7 +102,8 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
     onSelectedPositionChange,
     users = [],
     masterOptions = [],
-    currentUser = null
+    currentUser = null,
+    onOpenMetricoolModal
 }) => {
     const safeChips = (customChips && Array.isArray(customChips)) ? customChips : [];
     const safeActiveIds = (activeChipIds && Array.isArray(activeChipIds)) ? activeChipIds : [];
@@ -372,6 +374,17 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                                         <SlidersHorizontal className={`w-4 h-4 ${showFilters ? 'rotate-90' : ''}`} />
                                     </button>
 
+                                    {/* Metricool CSV Button (Mobile - CONTENT Mode) */}
+                                    {viewMode === 'CONTENT' && onOpenMetricoolModal && (
+                                        <button
+                                            onClick={onOpenMetricoolModal}
+                                            className="h-11 w-9 sm:w-11 flex items-center justify-center rounded-2xl bg-white/70 hover:bg-white/90 text-indigo-600 border border-indigo-200/70 shadow-sm active:scale-95 backdrop-blur-md"
+                                            title="Metricool CSV (นำเข้า/ส่งออกตารางโพสต์)"
+                                        >
+                                            <FileSpreadsheet className="w-4 h-4" />
+                                        </button>
+                                    )}
+
                                     {/* Create Button (Mobile) */}
                                     <button 
                                         onClick={() => onSelectDate(calendarViewType === 'WEEK' && safeDate ? safeDate : new Date(), viewMode)}
@@ -531,6 +544,18 @@ const CalendarHeader: React.FC<CalendarHeaderProps> = ({
                                     >
                                         <Minimize2 className="w-4 h-4 text-slate-400 hover:scale-110 transition-transform" />
                                         <span>ซ่อนเครื่องมือ</span>
+                                    </button>
+                                )}
+
+                                {/* Metricool CSV Button (Desktop - CONTENT Mode) */}
+                                {viewMode === 'CONTENT' && onOpenMetricoolModal && (
+                                    <button
+                                        onClick={onOpenMetricoolModal}
+                                        className="h-11 px-3.5 flex items-center gap-2 rounded-2xl border border-indigo-200/80 bg-white/80 hover:bg-indigo-50/90 text-indigo-700 text-xs font-bold shadow-sm transition-all duration-200 active:scale-95 backdrop-blur-md"
+                                        title="นำเข้าและส่งออกไฟล์ CSV สำหรับตั้งเวลาโพสต์ใน Metricool"
+                                    >
+                                        <FileSpreadsheet className="w-4 h-4 text-indigo-600 shrink-0" />
+                                        <span className="whitespace-nowrap">Metricool CSV</span>
                                     </button>
                                 )}
 

@@ -50,10 +50,32 @@ Deno.serve(async (req: any) => {
 
     console.log(`Processing notification trigger ${record.id} for user ${record.user_id}`);
 
+    // Forward notification record in parallel to Mobile Web Push Webhook (/api/push/webhook)
+    // Ensures pg_cron background jobs (Check-In / Check-Out / Overdue / Penalty) trigger mobile push
+    // even when the browser/app is closed. Server-side idempotency prevents duplicate sends.
+    const forwardToWebPushWebhook = async (notifRecord: any) => {
+      try {
+        const baseAppUrl = (getAppUrl() || 'https://juijui-corp.vercel.app').replace(/\/+$/, '');
+        await fetch(`${baseAppUrl}/api/push/webhook`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-webhook-source': 'supabase-edge-push-to-line',
+          },
+          body: JSON.stringify({ record: notifRecord }),
+        });
+      } catch (pushErr) {
+        console.warn('[push-to-line] Non-blocking Web Push webhook forward warning:', pushErr);
+      }
+    };
+
     // Process the notification in the background to prevent synchronous deadlock/lock-wait with PostgreSQL
     const processNotification = async () => {
       let claimedIds: string[] = [];
       try {
+        // Trigger Mobile Web Push immediately without waiting for LINE debounce
+        void forwardToWebPushWebhook(record);
+
         // Wait 1.0 second to capture other notifications generated in the same user action/flow
         const DEBOUNCE_DELAY_MS = 1000;
         console.log(`Debouncing task: waiting ${DEBOUNCE_DELAY_MS}ms for potential concurrent messages...`);

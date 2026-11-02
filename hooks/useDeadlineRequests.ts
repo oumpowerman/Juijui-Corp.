@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { DeadlineRequest, User } from '../types';
 import { useUserSession } from '../context/UserSessionContext';
+import { fetchOrgAdminIds, insertAndDispatchNotifications } from '../utils/pushDispatcher';
 
 export const useDeadlineRequests = (passedUser?: User) => {
     const { currentUserProfile } = useUserSession();
@@ -115,19 +116,22 @@ export const useDeadlineRequests = (passedUser?: User) => {
                 }
             });
 
-            // 🔔 Create Notification for Admins
-            // First, get all admin IDs
-            const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'ADMIN');
-            if (admins && admins.length > 0) {
-                const notifications = admins.map(admin => ({
-                    user_id: admin.id,
+            // 🔔 Create Notification for Organization Admins
+            const adminIds = await fetchOrgAdminIds(currentUser.id);
+            if (adminIds.length > 0) {
+                const notifications = adminIds.map(adminId => ({
+                    user_id: adminId,
                     type: 'APPROVAL_REQ',
                     title: '📅 คำขอเลื่อน Deadline ใหม่',
                     message: `คุณ ${currentUser.name} ขอเลื่อนงาน: "${reason.substring(0, 50)}${reason.length > 50 ? '...' : ''}"`,
                     related_id: taskId,
-                    link_path: 'ADMIN_DASHBOARD'
+                    link_path: 'ADMIN_DASHBOARD',
+                    is_read: false
                 }));
-                await supabase.from('notifications').insert(notifications);
+                await insertAndDispatchNotifications(notifications, {
+                    category: 'DEADLINE_REQ',
+                    senderId: currentUser.id
+                });
             }
 
             return { 
@@ -252,6 +256,31 @@ export const useDeadlineRequests = (passedUser?: User) => {
                         newDate: newDate ? newDate.toISOString().split('T')[0] : null
                     }
                 });
+
+                // Notify the requesting employee of the decision
+                const { data: reqRow } = await supabase
+                    .from('task_deadline_requests')
+                    .select('requested_by')
+                    .eq('id', requestId)
+                    .maybeSingle();
+
+                if (reqRow?.requested_by && reqRow.requested_by !== userId) {
+                    const newDateFormatted = newDate ? newDate.toISOString().split('T')[0] : '';
+                    await insertAndDispatchNotifications({
+                        user_id: reqRow.requested_by,
+                        type: 'INFO',
+                        title: isApproved ? '✅ อนุมัติการเลื่อนกำหนดส่งงาน' : '❌ ปฏิเสธคำขอเลื่อนกำหนดส่งงาน',
+                        message: isApproved
+                            ? `คำขอเลื่อนกำหนดส่งงานของคุณได้รับอนุมัติเป็นวันที่ ${newDateFormatted}`
+                            : 'คำขอเลื่อนกำหนดส่งงานของคุณไม่ได้รับการอนุมัติ',
+                        related_id: taskIdOrGoalId,
+                        link_path: 'DASHBOARD',
+                        is_read: false
+                    }, {
+                        category: 'DEADLINE_REQ',
+                        senderId: userId
+                    });
+                }
             }
 
             return { success: true };

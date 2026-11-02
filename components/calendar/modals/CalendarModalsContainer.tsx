@@ -6,6 +6,7 @@ import UnifiedFilterModal from '../UnifiedFilterModal';
 import DayHighlightModal from '../DayHightlightModal';
 import PlanFormModal from '../PlanFormModal';
 import DelayModal from '../../DelayModal';
+import MetricoolSyncModal from './MetricoolSyncModal';
 
 interface CalendarModalsContainerProps {
   // Day List Modal
@@ -61,6 +62,12 @@ interface CalendarModalsContainerProps {
   onCloseDelayModal: () => void;
   confirmDelay: (reason: string) => void;
   tasks: Task[];
+
+  // Metricool CSV Sync Modal
+  isMetricoolModalOpen?: boolean;
+  onCloseMetricoolModal?: () => void;
+  currentDate?: Date;
+  activeChannelFilterId?: string;
 }
 
 export const CalendarModalsContainer: React.FC<CalendarModalsContainerProps> = ({
@@ -112,6 +119,12 @@ export const CalendarModalsContainer: React.FC<CalendarModalsContainerProps> = (
   onCloseDelayModal,
   confirmDelay,
   tasks,
+
+  // Metricool CSV Sync Modal
+  isMetricoolModalOpen = false,
+  onCloseMetricoolModal,
+  currentDate,
+  activeChannelFilterId,
 }) => {
   const currentHighlightType = highlights.find(
     h => selectedHighlightDate && isSameDay(h.date, selectedHighlightDate)
@@ -191,6 +204,20 @@ export const CalendarModalsContainer: React.FC<CalendarModalsContainerProps> = (
           taskTitle={pendingDelayTask.title}
           oldDate={tasks.find(t => t.id === pendingDelayTask.id)?.endDate || new Date()}
           newDate={pendingDelayTask.endDate}
+        />
+      )}
+
+      {/* Metricool CSV Import/Export Bridge Modal */}
+      {onCloseMetricoolModal && (
+        <MetricoolSyncModal
+          isOpen={isMetricoolModalOpen}
+          onClose={onCloseMetricoolModal}
+          tasks={tasks}
+          channels={channels}
+          masterOptions={masterOptions}
+          currentDate={currentDate || new Date()}
+          activeChannelFilterId={activeChannelFilterId}
+          onSaveTask={onSaveTask}
         />
       )}
     </>

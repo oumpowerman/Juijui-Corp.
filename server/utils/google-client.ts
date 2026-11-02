@@ -1,7 +1,10 @@
 import { google } from 'googleapis';
 import express from 'express';
 
-export const SCOPES = ['https://www.googleapis.com/auth/drive.file'];
+export const SCOPES = [
+    'https://www.googleapis.com/auth/drive.file',
+    'https://www.googleapis.com/auth/calendar.events'
+];
 
 export const getRedirectUri = (req?: express.Request) => {
     // 1. Priority: Explicit Redirect URI

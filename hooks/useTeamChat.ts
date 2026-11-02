@@ -8,7 +8,7 @@ export const useTeamChat = (currentUser: User | null, allUsers: User[], onAddTas
     const { messages, setMessages, isLoading, isLoadingMore, hasMore, loadMore, mapMessage } = useChatData(currentUser);
     const { unreadCount, markAsRead } = useChatReadStatus(currentUser, messages);
     const { processAIResponse } = useChatAI(allUsers, onAddTask, isBotEnabled);
-    const { sendMessage, sendFile } = useChatActions(currentUser, setMessages, mapMessage, markAsRead, processAIResponse, isBotEnabled);
+    const { sendMessage, sendFile } = useChatActions(currentUser, setMessages, mapMessage, markAsRead, processAIResponse, isBotEnabled, allUsers);
 
     return { 
         messages, 

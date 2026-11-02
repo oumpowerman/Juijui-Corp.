@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
-import { User, MeetingLog, Task, MeetingCategory, MasterOption, MeetingNoteSheet } from '../types';
+import { User, MeetingLog, Task, MeetingCategory, MeetingType, MeetingPlatform, MasterOption, MeetingNoteSheet } from '../types';
 import { useMeetings } from '../hooks/useMeetings';
 import { useTasks } from '../hooks/useTasks';
 import { FileText, Plus, Info, Sparkles, StickyNote, X, Save, Coffee, ChevronRight, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
@@ -8,6 +7,13 @@ import { format, addDays, isBefore, startOfDay } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../lib/supabase';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
+import { useToast } from '../context/ToastContext';
+import { useGoogleDriveContext } from '../context/GoogleDriveContext';
+import {
+    detectMeetingPlatform,
+    createGoogleCalendarEventApi,
+    updateGoogleCalendarEventApi
+} from '../utils/googleCalendarLink';
 
 // Import New Components
 import MeetingListSidebar from './meeting/MeetingListSidebar';
@@ -16,7 +22,7 @@ import MeetingDetail from './meeting/MeetingDetail';
 import MeetingActionModule from './meeting/MeetingActionModule';
 import InfoModal from './ui/InfoModal';
 import MeetingGuide from './meeting/MeetingGuide';
-import MeetingStartupModal from './meeting/MeetingStartupModal';
+import MeetingStartupModal, { StartupConfirmData } from './meeting/MeetingStartupModal';
 
 interface MeetingViewProps {
     users: User[];
@@ -48,6 +54,8 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks, ma
     
     // UI State
     const { showConfirm } = useGlobalDialog();
+    const { showToast } = useToast();
+    const { accessToken, login: connectGoogle } = useGoogleDriveContext();
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState<MeetingTab>('NOTES');
@@ -56,6 +64,8 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks, ma
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
     const [isHeaderCollapsed, setIsHeaderCollapsed] = useState(false);
     const [isStartupModalOpen, setIsStartupModalOpen] = useState(false);
+    const [isCreatingMeeting, setIsCreatingMeeting] = useState(false);
+    const [isCalendarSyncing, setIsCalendarSyncing] = useState(false);
     const [originalMeetingId, setOriginalMeetingId] = useState<string | null>(null);
     const [isMobile, setIsMobile] = useState(false);
 
@@ -163,45 +173,106 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks, ma
         }
     };
 
-    const handleConfirmStart = async (data: {
-        title: string;
-        date: Date;
-        startTime?: string;
-        attendees: string[];
-        referenceMeetingId?: string;
-        notify: boolean;
-    }) => {
+    const handleConfirmStart = async (data: StartupConfirmData) => {
         const isPast = isBefore(startOfDay(data.date), startOfDay(new Date()));
 
         const proceed = async () => {
-            const id = await createMeeting(data.title, data.date, currentUser.id, {
-                attendees: data.attendees,
-                startTime: data.startTime,
-                referenceMeetingId: data.referenceMeetingId,
-                attendance: data.attendees.reduce((acc, uid) => ({ ...acc, [uid]: 'INVITED' }), {})
-            });
+            setIsCreatingMeeting(true);
+            try {
+                const isOnlineOrHybrid = data.meetingType === 'ONLINE' || data.meetingType === 'HYBRID';
+                const shouldCreateGoogleMeet = isOnlineOrHybrid && data.onlineMode === 'AUTO_MEET';
+                const shouldCallCalendarApi = data.syncToCalendar || shouldCreateGoogleMeet;
 
-            if (id) {
-                setSelectedId(id);
-                setActiveTab('NOTES');
-                setProjectTags([]);
-                setIsSidebarCollapsed(true);
-                setIsHeaderCollapsed(true);
-                setIsStartupModalOpen(false);
+                let finalMeetUrl = isOnlineOrHybrid && data.onlineMode === 'CUSTOM_LINK'
+                    ? data.customMeetUrl
+                    : undefined;
+                let finalPlatform: MeetingPlatform | undefined = finalMeetUrl
+                    ? detectMeetingPlatform(finalMeetUrl)
+                    : shouldCreateGoogleMeet
+                        ? 'GOOGLE_MEET'
+                        : undefined;
+                let calendarEventId: string | undefined;
+                let calendarHtmlLink: string | undefined;
 
-                // Handle Notifications
-                if (data.notify && data.attendees.length > 0) {
-                    const notifs = data.attendees.map(uid => ({
-                        user_id: uid,
-                        type: 'INFO',
-                        title: 'การประชุมใหม่! 🗓️',
-                        message: `${currentUser.name} เริ่มประชุม: ${data.title}`,
-                        created_at: new Date().toISOString(),
-                        is_read: false,
-                        metadata: { meetingId: id }
-                    }));
-                    await supabase.from('notifications').insert(notifs);
+                if (shouldCallCalendarApi) {
+                    const attendeeEmails = users
+                        .filter(u => data.attendees.includes(u.id) && u.email && u.email.includes('@'))
+                        .map(u => u.email!);
+
+                    try {
+                        const calRes = await createGoogleCalendarEventApi(
+                            {
+                                title: data.title,
+                                description: `นัดหมายการประชุมโดย ${currentUser.name}`,
+                                date: format(data.date, 'yyyy-MM-dd'),
+                                startTime: data.startTime || '09:00',
+                                endTime: data.endTime || '10:00',
+                                attendeeEmails,
+                                createMeet: shouldCreateGoogleMeet,
+                                customMeetUrl: finalMeetUrl,
+                                sendInviteEmails: true
+                            },
+                            accessToken
+                        );
+                        if (calRes.meetUrl) {
+                            finalMeetUrl = calRes.meetUrl;
+                            finalPlatform = detectMeetingPlatform(calRes.meetUrl);
+                        }
+                        calendarEventId = calRes.eventId;
+                        calendarHtmlLink = calRes.htmlLink;
+                        showToast(
+                            shouldCreateGoogleMeet
+                                ? 'สร้างห้อง Google Meet และส่งคำเชิญทาง Google Calendar เรียบร้อย!'
+                                : 'ซิงค์นัดหมายลง Google Calendar เรียบร้อย!',
+                            'success'
+                        );
+                    } catch (calErr: any) {
+                        console.warn('Google Calendar API sync skipped or failed:', calErr);
+                        showToast(
+                            'สร้างห้องประชุมแล้ว (สามารถกดปุ่มยิง Google Meet หรือปฏิทินด่วนในห้องประชุมได้ทันที)',
+                            'info'
+                        );
+                    }
                 }
+
+                const id = await createMeeting(data.title, data.date, currentUser.id, {
+                    attendees: data.attendees,
+                    startTime: data.startTime || '09:00',
+                    endTime: data.endTime || '10:00',
+                    referenceMeetingId: data.referenceMeetingId,
+                    meetingType: data.meetingType,
+                    meetUrl: finalMeetUrl,
+                    meetPlatform: finalPlatform,
+                    googleCalendarEventId: calendarEventId,
+                    googleCalendarLink: calendarHtmlLink,
+                    attendance: data.attendees.reduce((acc, uid) => ({ ...acc, [uid]: 'INVITED' }), {})
+                });
+
+                if (id) {
+                    setSelectedId(id);
+                    setActiveTab('NOTES');
+                    setProjectTags([]);
+                    setIsSidebarCollapsed(true);
+                    setIsHeaderCollapsed(true);
+                    setIsStartupModalOpen(false);
+
+                    // Handle Notifications
+                    if (data.notify && data.attendees.length > 0) {
+                        const onlineSuffix = finalMeetUrl ? ` (ออนไลน์: ${finalMeetUrl})` : '';
+                        const notifs = data.attendees.map(uid => ({
+                            user_id: uid,
+                            type: 'INFO',
+                            title: 'การประชุมใหม่! 🗓️',
+                            message: `${currentUser.name} เริ่มประชุม: ${data.title}${onlineSuffix}`,
+                            created_at: new Date().toISOString(),
+                            is_read: false,
+                            metadata: { meetingId: id, meetUrl: finalMeetUrl }
+                        }));
+                        await supabase.from('notifications').insert(notifs);
+                    }
+                }
+            } finally {
+                setIsCreatingMeeting(false);
             }
         };
 
@@ -221,6 +292,131 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks, ma
         setIsSaving(true);
         await updateMeeting(selectedId, { [field]: value });
         setIsSaving(false);
+    };
+
+    const handleUpdateOnlineSettings = async (updates: {
+        meetingType: MeetingType;
+        meetUrl?: string;
+        meetPlatform?: MeetingPlatform;
+    }) => {
+        if (!selectedId) return;
+        setIsSaving(true);
+        await updateMeeting(selectedId, {
+            meetingType: updates.meetingType,
+            meetUrl: updates.meetUrl,
+            meetPlatform: updates.meetPlatform
+        });
+        setIsSaving(false);
+    };
+
+    const handleSyncGoogleCalendar = async (options?: { createMeet?: boolean }) => {
+        if (!selectedId || !selectedMeeting) return;
+
+        const hasExistingEvent = Boolean(selectedMeeting.googleCalendarEventId);
+        const wantCreateMeet = Boolean(options?.createMeet);
+
+        if (hasExistingEvent) {
+            const confirmed = await showConfirm(
+                'ต้องการซิงค์ข้อมูลวัน-เวลา รายละเอียด และรายชื่อผู้เข้าร่วมล่าสุดไปยัง Google Calendar พร้อมส่งอีเมลแจ้งอัปเดตให้ทีมงานทุกคนหรือไม่?',
+                'อัปเดตนัดหมาย Google Calendar'
+            );
+            if (!confirmed) return;
+        }
+
+        setIsCalendarSyncing(true);
+        try {
+            const attendeeEmails = users
+                .filter(u => attendees.includes(u.id) && u.email && u.email.includes('@'))
+                .map(u => u.email!);
+
+            const dateStr = format(date, 'yyyy-MM-dd');
+
+            if (hasExistingEvent && selectedMeeting.googleCalendarEventId) {
+                const updated = await updateGoogleCalendarEventApi(
+                    selectedMeeting.googleCalendarEventId,
+                    {
+                        title,
+                        description: decisions
+                            ? `มติ/รายละเอียด: ${decisions}`
+                            : `นัดหมายการประชุมจาก ${currentUser.name}`,
+                        date: dateStr,
+                        startTime,
+                        endTime,
+                        attendeeEmails,
+                        createMeet: wantCreateMeet,
+                        customMeetUrl: selectedMeeting.meetUrl,
+                        sendInviteEmails: true
+                    },
+                    accessToken
+                );
+
+                const nextMeetUrl = updated.meetUrl || selectedMeeting.meetUrl;
+                const nextType: MeetingType =
+                    nextMeetUrl && (!selectedMeeting.meetingType || selectedMeeting.meetingType === 'ONSITE')
+                        ? 'ONLINE'
+                        : selectedMeeting.meetingType || 'ONSITE';
+
+                await updateMeeting(selectedId, {
+                    meetingType: nextType,
+                    meetUrl: nextMeetUrl,
+                    meetPlatform: nextMeetUrl ? detectMeetingPlatform(nextMeetUrl) : selectedMeeting.meetPlatform,
+                    googleCalendarLink: updated.htmlLink || selectedMeeting.googleCalendarLink
+                });
+
+                showToast('อัปเดตนัดหมายและส่งอีเมลแจ้งเตือนผู้เข้าร่วมใน Google Calendar แล้ว!', 'success');
+            } else {
+                const created = await createGoogleCalendarEventApi(
+                    {
+                        title,
+                        description: `นัดหมายการประชุมโดย ${currentUser.name}`,
+                        date: dateStr,
+                        startTime,
+                        endTime,
+                        attendeeEmails,
+                        createMeet: wantCreateMeet || !selectedMeeting.meetUrl,
+                        customMeetUrl: selectedMeeting.meetUrl,
+                        sendInviteEmails: true
+                    },
+                    accessToken
+                );
+
+                const nextMeetUrl = created.meetUrl || selectedMeeting.meetUrl;
+                const nextType: MeetingType =
+                    nextMeetUrl && (!selectedMeeting.meetingType || selectedMeeting.meetingType === 'ONSITE')
+                        ? 'ONLINE'
+                        : selectedMeeting.meetingType || 'ONLINE';
+
+                await updateMeeting(selectedId, {
+                    meetingType: nextType,
+                    meetUrl: nextMeetUrl,
+                    meetPlatform: nextMeetUrl ? detectMeetingPlatform(nextMeetUrl) : 'GOOGLE_MEET',
+                    googleCalendarEventId: created.eventId,
+                    googleCalendarLink: created.htmlLink
+                });
+
+                showToast(
+                    nextMeetUrl
+                        ? 'สร้างลิงก์ Google Meet และซิงค์ลง Google Calendar เรียบร้อย!'
+                        : 'ซิงค์ลง Google Calendar เรียบร้อย!',
+                    'success'
+                );
+            }
+        } catch (err: any) {
+            const msg = err?.message || '';
+            if (msg.includes('ยังไม่ได้เชื่อมต่อบัญชี Google') || msg.includes('401') || msg.includes('Invalid Credentials')) {
+                const wantConnect = await showConfirm(
+                    'ยังไม่ได้เชื่อมต่อบัญชี Google (หรือเซสชันหมดอายุ) ต้องการเปิดหน้าต่างเชื่อมต่อบัญชี Google ตอนนี้เพื่อใช้งานระบบสร้าง Google Meet และซิงค์ปฏิทินอัตโนมัติหรือไม่?',
+                    'เชื่อมต่อบัญชี Google Calendar & Meet'
+                );
+                if (wantConnect) {
+                    connectGoogle();
+                }
+            } else {
+                showToast(msg || 'ซิงค์ข้อมูลกับ Google Calendar ไม่สำเร็จ', 'error');
+            }
+        } finally {
+            setIsCalendarSyncing(false);
+        }
     };
 
     // --- Task Integration Handlers (Improved Context) ---
@@ -505,6 +701,9 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks, ma
                                     onSwitchMeeting={handleSwitchToMeeting}
                                     onReturnToActive={originalMeetingId ? handleReturnToOriginal : undefined}
                                     activeMeetingTitle={meetings.find(m => m.id === originalMeetingId)?.title}
+                                    isCalendarSyncing={isCalendarSyncing}
+                                    onUpdateOnlineSettings={handleUpdateOnlineSettings}
+                                    onSyncGoogleCalendar={handleSyncGoogleCalendar}
                                 >
                                     <MeetingActionModule 
                                         users={users}
@@ -532,7 +731,7 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks, ma
                                     <div className="w-24 h-24 md:w-32 md:h-32 bg-white rounded-[2rem] md:rounded-[2.5rem] flex items-center justify-center mb-6 md:mb-8 shadow-2xl shadow-indigo-100 border-4 border-white rotate-3 hover:rotate-6 transition-transform duration-500">
                                         <Sparkles className="w-12 h-12 md:w-16 md:h-16 text-indigo-400" />
                                     </div>
-                                    <h3 className="font-black text-xl md:text-3xl text-gray-700 mb-3 tracking-tight">พร้อมประชุมรึยัง?</h3>
+                                    <h3 className="font-bold text-xl md:text-3xl text-gray-700 mb-3 tracking-tight">พร้อมประชุมรึยัง?</h3>
                                     <p className="max-w-[200px] md:max-w-xs mx-auto text-[11px] md:text-sm text-gray-500 leading-relaxed font-medium bg-white/50 px-4 py-2 rounded-xl backdrop-blur-sm border border-white/50">
                                         เลือกหัวข้อการประชุมจากทางซ้าย <br/>หรือกดปุ่ม <span className="text-indigo-600 font-bold">"เริ่มการประชุม"</span> เพื่อเริ่มเรื่องใหม่
                                     </p>
@@ -558,6 +757,7 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks, ma
                 onClose={() => setIsStartupModalOpen(false)}
                 users={users}
                 meetings={meetings}
+                isSubmitting={isCreatingMeeting}
                 onConfirm={handleConfirmStart}
             />
 

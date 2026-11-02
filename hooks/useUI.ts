@@ -38,7 +38,7 @@ export const useUI = () => {
     const updateNotificationSettings = (p: NotificationPreferences) => {
         setNotificationSettings(p);
         localStorage.setItem('juijui_notification_prefs', JSON.stringify(p));
-        showToast('Settings Updated (Local Only)', 'success');
+        showToast('บันทึกการตั้งค่าการแจ้งเตือนเรียบร้อยแล้ว', 'success');
     };
 
     // Updated to accept type for locking

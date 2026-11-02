@@ -3,6 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { ChatMessage, User } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { getOrgStoragePath } from '../../lib/tenantStorage';
+import { extractMentionedUserIds, insertAndDispatchNotifications } from '../../utils/pushDispatcher';
 
 export const useChatActions = (
     currentUser: User | null, 
@@ -10,7 +11,8 @@ export const useChatActions = (
     mapMessage: (data: any) => ChatMessage,
     markAsRead: () => Promise<void>,
     processAIResponse: (content: string) => Promise<void>,
-    isBotEnabled: boolean
+    isBotEnabled: boolean,
+    allUsers: User[] = []
 ) => {
     const { showToast } = useToast();
 
@@ -61,6 +63,26 @@ export const useChatActions = (
             }
             
             markAsRead();
+
+            // Notify any @mentioned users in Team Chat (excluding sender)
+            if (content.includes('@')) {
+                const mentionedIds = await extractMentionedUserIds(content, allUsers);
+                const recipientIds = mentionedIds.filter(id => id !== currentUser.id);
+                if (recipientIds.length > 0) {
+                    const chatNotifs = recipientIds.map(uid => ({
+                        user_id: uid,
+                        type: 'INFO',
+                        title: `📣 ${currentUser.name} แท็กคุณในแชททีม`,
+                        message: content.substring(0, 80) + (content.length > 80 ? '...' : ''),
+                        link_path: 'TEAM_CHAT',
+                        is_read: false
+                    }));
+                    void insertAndDispatchNotifications(chatNotifs, {
+                        category: 'CHAT_MENTION',
+                        senderId: currentUser.id
+                    });
+                }
+            }
 
             if (isBotEnabled) {
                 const lower = content.toLowerCase();

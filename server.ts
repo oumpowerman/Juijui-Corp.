@@ -17,6 +17,8 @@ import channelsRouter from './server/routes/channels.js';
 import cronRouter from './server/routes/cron.js';
 import internAiRouter from './server/routes/internAi.js';
 import billingRouter from './server/routes/billing.js';
+import calendarRouter from './server/routes/calendar.js';
+import metricoolRouter from './server/routes/metricool.js';
 
 const PORT = 3000;
 const app = express();
@@ -42,6 +44,8 @@ app.use(cookieSession({
 // Route mounting
 app.use(authRouter);
 app.use(driveRouter);
+app.use(calendarRouter);
+app.use(metricoolRouter);
 app.use(tagsRouter);
 app.use(dashboardRouter);
 app.use(chatRouter);
@@ -54,6 +58,30 @@ app.use(internAiRouter);
 app.use(billingRouter);
 
 async function startServer() {
+    let viteMiddleware: any = null;
+    let resolveViteReady: () => void = () => {};
+    const viteReadyPromise = new Promise<void>(resolve => {
+        resolveViteReady = resolve;
+    });
+
+    if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
+        app.use(async (req, res, next) => {
+            if (!viteMiddleware) {
+                await viteReadyPromise;
+            }
+            if (viteMiddleware) {
+                return viteMiddleware(req, res, next);
+            }
+            next();
+        });
+    }
+
+    if (!process.env.VERCEL) {
+        app.listen(PORT, '0.0.0.0', () => {
+            console.log(`Server running on http://localhost:${PORT}`);
+        });
+    }
+
     try {
         // โหลด dotenv เฉพาะเมื่อไม่ได้รันบน Vercel หรืออยู่ในสภาพแวดล้อม Development
         if (process.env.NODE_ENV !== 'production' && !process.env.VERCEL) {
@@ -62,22 +90,19 @@ async function startServer() {
                 server: { middlewareMode: true, hmr: false },
                 appType: 'spa',
             });
-            app.use(vite.middlewares);
+            viteMiddleware = vite.middlewares;
+            resolveViteReady();
         } else if (!process.env.VERCEL) {
             const distPath = path.join(process.cwd(), 'dist');
             app.use(express.static(distPath));
             app.get('*all', (req, res) => {
                 res.sendFile(path.join(distPath, 'index.html'));
             });
+            resolveViteReady();
         }
     } catch (err) {
         console.error('Vite middleware startup error:', err);
-    }
-
-    if (!process.env.VERCEL) {
-        app.listen(PORT, '0.0.0.0', () => {
-            console.log(`Server running on http://localhost:${PORT}`);
-        });
+        resolveViteReady();
     }
 }
 

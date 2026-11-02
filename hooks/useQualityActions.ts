@@ -5,6 +5,7 @@ import { Task, ReviewStatus } from '../types';
 import { useToast } from '../context/ToastContext';
 import { useGamification } from './useGamification';
 import { useTaskContext } from '../context/TaskContext';
+import { insertAndDispatchNotifications } from '../utils/pushDispatcher';
 
 export const useQualityActions = () => {
     const { showToast } = useToast();
@@ -139,7 +140,10 @@ export const useQualityActions = () => {
                              isPenalized: (task?.sla_revert_count || 0) >= 3
                          }
                     }));
-                    await supabase.from('notifications').insert(notifications);
+                    await insertAndDispatchNotifications(notifications, {
+                        category: 'REVIEW',
+                        senderId: reviewerId
+                    });
                 }
 
                 const successMessage = (task?.sla_revert_count || 0) >= 3
@@ -187,7 +191,10 @@ export const useQualityActions = () => {
                              title: task?.title
                          }
                     }));
-                    await supabase.from('notifications').insert(notifications);
+                    await insertAndDispatchNotifications(notifications, {
+                        category: 'REVIEW',
+                        senderId: reviewerId
+                    });
                 }
             }
             return true;

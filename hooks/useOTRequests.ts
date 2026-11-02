@@ -4,6 +4,7 @@ import { OtRequest, OtType, OtStatus } from '../types/attendance';
 import { useUserSession } from '../context/UserSessionContext';
 import { useToast } from '../context/ToastContext';
 import { format, parse, isValid } from 'date-fns';
+import { fetchOrgAdminIds, insertAndDispatchNotifications } from '../utils/pushDispatcher';
 
 export const useOTRequests = () => {
     const { otRequests, allUsers, attendanceLogs, currentUserProfile, refreshOTRequests } = useUserSession();
@@ -125,6 +126,27 @@ export const useOTRequests = () => {
 
             if (error) throw error;
 
+            try {
+                const adminIds = await fetchOrgAdminIds(currentUserProfile.id);
+                if (adminIds.length > 0) {
+                    const otNotifs = adminIds.map(adminId => ({
+                        user_id: adminId,
+                        type: 'APPROVAL_REQ',
+                        title: '⏰ คำขอ OT ใหม่',
+                        message: `คุณ ${currentUserProfile.name || 'พนักงาน'} ส่งคำขอ OT (${durationHours} ชม.) วันที่ ${date}: "${reason}"`,
+                        is_read: false,
+                        link_path: 'ATTENDANCE',
+                        metadata: { request_type: 'OT', date, duration: durationHours }
+                    }));
+                    await insertAndDispatchNotifications(otNotifs, {
+                        category: 'APPROVAL_REQ',
+                        senderId: currentUserProfile.id
+                    });
+                }
+            } catch (notifErr) {
+                console.warn('Failed to dispatch OT notifications:', notifErr);
+            }
+
             showToast('ยื่นขออนุมัติ OT เรียบร้อยแล้วครับ 🎉', 'success');
             await refreshOTRequests();
             return true;
@@ -221,6 +243,19 @@ export const useOTRequests = () => {
 
             if (error) throw error;
 
+            await insertAndDispatchNotifications({
+                user_id: request.userId,
+                type: 'INFO',
+                title: '✅ คำขอ OT ได้รับการอนุมัติ',
+                message: `คำขอ OT วันที่ ${request.date} (${finalHours} ชม.) ของคุณได้รับการอนุมัติแล้ว${checkOutMsg}`,
+                is_read: false,
+                link_path: 'ATTENDANCE',
+                related_id: id
+            }, {
+                category: 'APPROVAL_SUMMARY',
+                senderId: currentUserProfile.id
+            });
+
             showToast(`อนุมัติคำขอ OT เรียบร้อยแล้ว${checkOutMsg} 🎉`, 'success');
             await refreshOTRequests();
             return true;
@@ -258,6 +293,22 @@ export const useOTRequests = () => {
                 .eq('id', id);
 
             if (error) throw error;
+
+            const rejectedReq = requestsWithUsers.find(r => r.id === id);
+            if (rejectedReq?.userId) {
+                await insertAndDispatchNotifications({
+                    user_id: rejectedReq.userId,
+                    type: 'INFO',
+                    title: '❌ คำขอ OT ถูกปฏิเสธ',
+                    message: `คำขอ OT วันที่ ${rejectedReq.date} ถูกปฏิเสธ เหตุผล: ${reason}`,
+                    is_read: false,
+                    link_path: 'ATTENDANCE',
+                    related_id: id
+                }, {
+                    category: 'APPROVAL_SUMMARY',
+                    senderId: currentUserProfile.id
+                });
+            }
 
             showToast('ปฏิเสธคำขอ OT เรียบร้อย', 'info');
             await refreshOTRequests();

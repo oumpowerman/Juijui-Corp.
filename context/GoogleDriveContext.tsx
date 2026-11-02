@@ -26,7 +26,7 @@ const GoogleDriveContext = createContext<GoogleDriveContextType | undefined>(und
 
 const CLIENT_ID = (import.meta as any).env.VITE_GOOGLE_CLIENT_ID || ''; 
 const API_KEY = (import.meta as any).env.VITE_GOOGLE_PICKER_API_KEY || ''; 
-const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+const SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/calendar.events';
 const MAIN_FOLDER_NAME = 'Juijui_Uploads';
 
 export const GoogleDriveProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {

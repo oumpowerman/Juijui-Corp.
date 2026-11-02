@@ -31,7 +31,7 @@ export default defineConfig(({ mode }) => {
       react(),
       VitePWA({
         registerType: 'prompt',
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg'],
+        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'masked-icon.svg', 'push-sw.js'],
         manifest: {
           name: BRAND_CONFIG.name,
           short_name: BRAND_CONFIG.title,
@@ -66,6 +66,7 @@ export default defineConfig(({ mode }) => {
           ]
         },
         workbox: {
+          importScripts: ['/push-sw.js'],
           navigateFallbackDenylist: [/^\/api/, /^\/auth/],
           maximumFileSizeToCacheInBytes: 5 * 1024 * 1024,
         }

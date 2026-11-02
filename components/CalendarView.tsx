@@ -119,6 +119,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   const [taskDisplayMode, setTaskDisplayMode] = useState<TaskDisplayMode>('EMOJI');
   const [isStockOpen, setIsStockOpen] = useState(false);
   const [isMobileLandscape, setIsMobileLandscape] = useState(false);
+  const [isMetricoolModalOpen, setIsMetricoolModalOpen] = useState(false);
 
   // --- Responsive Device & Orientation Aware View Engine ---
   const {
@@ -287,6 +288,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
             isWorkboxOpen={isWorkboxOpen}
             calendarViewType={calendarViewType}
             setCalendarViewType={setCalendarViewType}
+            onOpenMetricoolModal={() => setIsMetricoolModalOpen(true)}
           />
 
           <CalendarSecondaryHeader 
@@ -458,6 +460,10 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           }}
           confirmDelay={modals.confirmDelay}
           tasks={tasks}
+          isMetricoolModalOpen={isMetricoolModalOpen}
+          onCloseMetricoolModal={() => setIsMetricoolModalOpen(false)}
+          currentDate={currentDate || new Date()}
+          activeChannelFilterId={filterChannelId}
         />
       </div>
     </AppBackground>

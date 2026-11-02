@@ -1,9 +1,9 @@
-
 import React, { useState, useMemo } from 'react';
 import { MeetingLog, MeetingCategory, MasterOption, User } from '../../types';
-import { Search, Trash2, Clock, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Hash, Sparkles, Filter, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Search, Trash2, Clock, Calendar as CalendarIcon, ChevronLeft, ChevronRight, Hash, Sparkles, Filter, X, ChevronDown, ChevronUp, Video } from 'lucide-react';
 import { format, endOfMonth, eachDayOfInterval, isToday, addMonths, isFuture, isSameDay, isSameMonth } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getMeetingPlatformInfo } from '../../utils/googleCalendarLink';
 
 interface MeetingListSidebarProps {
     meetings: MeetingLog[];
@@ -162,7 +162,20 @@ const MeetingListSidebar: React.FC<MeetingListSidebarProps> = React.memo(({
 
                     {/* Footer: Stats & Actions */}
                     <div className="flex items-center justify-between pt-3 border-t border-white/40">
-                         <div className="flex items-center gap-2">
+                         <div className="flex items-center gap-2 flex-wrap">
+                            {/* Online / Meet Indicator */}
+                            {(meeting.meetUrl || meeting.meetingType === 'ONLINE' || meeting.meetingType === 'HYBRID') && (
+                                <span className="text-[9px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md font-bold flex items-center gap-1 border border-emerald-200/80">
+                                    <Video className="w-2.5 h-2.5 text-emerald-600" />
+                                    <span>
+                                        {meeting.meetUrl
+                                            ? getMeetingPlatformInfo(meeting.meetPlatform, meeting.meetUrl).label
+                                            : meeting.meetingType === 'HYBRID'
+                                                ? 'Hybrid'
+                                                : 'Online'}
+                                    </span>
+                                </span>
+                            )}
                             {/* Tags */}
                             {meeting.tags.length > 0 && (
                                 <span className="text-[8px] text-indigo-500 bg-indigo-50/50 px-2 py-0.5 rounded-full font-bold flex items-center border border-indigo-100/50">

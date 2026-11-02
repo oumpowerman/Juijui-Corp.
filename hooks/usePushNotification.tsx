@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
+import { getActiveOrgIdSync } from '../lib/tenantStorage';
 
 function urlBase64ToUint8Array(base64String: string) {
     const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
@@ -15,20 +16,85 @@ function urlBase64ToUint8Array(base64String: string) {
     return outputArray;
 }
 
+async function ensureServiceWorkerReady(): Promise<ServiceWorkerRegistration | null> {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return null;
+
+    try {
+        let reg = await navigator.serviceWorker.getRegistration('/');
+        if (!reg) {
+            const swUrl = (import.meta as any).env?.DEV ? '/push-sw.js' : '/sw.js';
+            reg = await navigator.serviceWorker.register(swUrl, { scope: '/' });
+        }
+
+        const readyReg = await Promise.race([
+            navigator.serviceWorker.ready,
+            new Promise<ServiceWorkerRegistration | null>((resolve) =>
+                setTimeout(() => resolve(reg || null), 4000)
+            )
+        ]);
+
+        return readyReg || reg || null;
+    } catch (err) {
+        console.warn('[usePushNotification] ensureServiceWorkerReady warning:', err);
+        return null;
+    }
+}
+
+function buildTenantHeaders(userId?: string): Record<string, string> {
+    const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+    };
+    const orgId = getActiveOrgIdSync();
+    if (orgId) headers['x-org-id'] = orgId;
+    if (userId) headers['x-user-id'] = userId;
+    return headers;
+}
+
 export function usePushNotification(userId?: string) {
     const [isSupported, setIsSupported] = useState(false);
     const [permission, setPermission] = useState<NotificationPermission>('default');
     const [isSubscribed, setIsSubscribed] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const [canInstallPwa, setCanInstallPwa] = useState<boolean>(
+        typeof window !== 'undefined' && Boolean((window as any).__deferredPwaInstallPrompt)
+    );
 
     // Environment checks
     const isInIframe = typeof window !== 'undefined' && window.self !== window.top;
     const isIos = typeof window !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
-    const isIosPwaInstalled = typeof window !== 'undefined' && (
-        (navigator as any).standalone === true || 
+    const isAndroid = typeof window !== 'undefined' && /Android/i.test(navigator.userAgent);
+    const isStandalonePwa = typeof window !== 'undefined' && (
+        (navigator as any).standalone === true ||
         window.matchMedia('(display-mode: standalone)').matches
     );
+    const isIosPwaInstalled = isIos && isStandalonePwa;
+
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const onInstallAvailable = () => {
+            setCanInstallPwa(Boolean((window as any).__deferredPwaInstallPrompt));
+        };
+        window.addEventListener('pwa-install-available', onInstallAvailable);
+        return () => window.removeEventListener('pwa-install-available', onInstallAvailable);
+    }, []);
+
+    const promptInstallPwa = useCallback(async (): Promise<boolean> => {
+        if (typeof window === 'undefined') return false;
+        const deferredPrompt = (window as any).__deferredPwaInstallPrompt;
+        if (!deferredPrompt) return false;
+
+        try {
+            deferredPrompt.prompt();
+            const choiceResult = await deferredPrompt.userChoice;
+            (window as any).__deferredPwaInstallPrompt = null;
+            setCanInstallPwa(false);
+            return choiceResult?.outcome === 'accepted';
+        } catch (err) {
+            console.warn('[usePushNotification] PWA install prompt error:', err);
+            return false;
+        }
+    }, []);
 
     // Check support and current subscription status
     const checkSubscription = useCallback(async () => {
@@ -46,9 +112,13 @@ export function usePushNotification(userId?: string) {
             setPermission(Notification.permission);
 
             if (Notification.permission === 'granted') {
-                const registration = await navigator.serviceWorker.ready;
-                const subscription = await registration.pushManager.getSubscription();
-                setIsSubscribed(!!subscription);
+                const registration = await ensureServiceWorkerReady();
+                if (registration && registration.pushManager) {
+                    const subscription = await registration.pushManager.getSubscription();
+                    setIsSubscribed(!!subscription);
+                } else {
+                    setIsSubscribed(false);
+                }
             } else {
                 setIsSubscribed(false);
             }
@@ -63,12 +133,38 @@ export function usePushNotification(userId?: string) {
         checkSubscription();
     }, [checkSubscription]);
 
+    // Re-sync subscription org context when workspace switches (AGENTS.md Rule #4)
+    useEffect(() => {
+        if (typeof window === 'undefined') return;
+        const handleWorkspaceSwitch = async () => {
+            if (!userId || Notification.permission !== 'granted') return;
+            const registration = await ensureServiceWorkerReady();
+            const subscription = await registration?.pushManager?.getSubscription();
+            if (subscription) {
+                fetch('/api/push/subscribe', {
+                    method: 'POST',
+                    headers: buildTenantHeaders(userId),
+                    body: JSON.stringify({
+                        subscription: subscription.toJSON(),
+                        userId,
+                        orgId: getActiveOrgIdSync(),
+                        userAgent: navigator.userAgent
+                    })
+                }).catch(() => {});
+            }
+        };
+
+        window.addEventListener('org-workspace-switched', handleWorkspaceSwitch);
+        return () => window.removeEventListener('org-workspace-switched', handleWorkspaceSwitch);
+    }, [userId]);
+
     // Subscribe to Web Push
     const subscribeToPush = useCallback(async (currentUserId?: string) => {
         setIsLoading(true);
         setError(null);
 
         const targetUserId = currentUserId || userId;
+        const activeOrgId = getActiveOrgIdSync();
 
         try {
             if (isInIframe) {
@@ -90,7 +186,9 @@ export function usePushNotification(userId?: string) {
             // 2. Fetch VAPID Public Key
             let vapidPublicKey = (import.meta as any).env?.VITE_VAPID_PUBLIC_KEY;
             if (!vapidPublicKey) {
-                const keyRes = await fetch('/api/push/vapid-public-key');
+                const keyRes = await fetch('/api/push/vapid-public-key', {
+                    headers: buildTenantHeaders(targetUserId)
+                });
                 const keyData = await keyRes.json();
                 if (keyData.success && keyData.publicKey) {
                     vapidPublicKey = keyData.publicKey;
@@ -102,12 +200,14 @@ export function usePushNotification(userId?: string) {
             }
 
             // 3. Register SW & Subscribe to Push Manager
-            const registration = await navigator.serviceWorker.ready;
-            let subscription = await registration.pushManager.getSubscription();
+            const registration = await ensureServiceWorkerReady();
+            if (!registration || !registration.pushManager) {
+                throw new Error('ไม่สามารถเริ่มต้น Service Worker สำหรับรับแจ้งเตือนได้');
+            }
 
+            let subscription = await registration.pushManager.getSubscription();
             const convertedVapidKey = urlBase64ToUint8Array(vapidPublicKey);
 
-            // If subscription exists, verify or resubscribe to ensure key match
             if (!subscription) {
                 subscription = await registration.pushManager.subscribe({
                     userVisibleOnly: true,
@@ -115,13 +215,14 @@ export function usePushNotification(userId?: string) {
                 });
             }
 
-            // 4. Send Subscription to Backend
+            // 4. Send Subscription to Backend with orgId
             const res = await fetch('/api/push/subscribe', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: buildTenantHeaders(targetUserId),
                 body: JSON.stringify({
                     subscription: subscription.toJSON(),
                     userId: targetUserId,
+                    orgId: activeOrgId,
                     userAgent: navigator.userAgent
                 })
             });
@@ -152,21 +253,20 @@ export function usePushNotification(userId?: string) {
         try {
             if (!('serviceWorker' in navigator) || !('PushManager' in window)) return { success: true };
 
-            const registration = await navigator.serviceWorker.ready;
-            const subscription = await registration.pushManager.getSubscription();
+            const registration = await ensureServiceWorkerReady();
+            const subscription = await registration?.pushManager?.getSubscription();
 
             if (subscription) {
-                // Inform backend
                 await fetch('/api/push/unsubscribe', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: buildTenantHeaders(targetUserId),
                     body: JSON.stringify({
                         endpoint: subscription.endpoint,
-                        userId: targetUserId
+                        userId: targetUserId,
+                        orgId: getActiveOrgIdSync()
                     })
                 });
 
-                // Unsubscribe on browser
                 await subscription.unsubscribe();
             }
 
@@ -186,17 +286,16 @@ export function usePushNotification(userId?: string) {
         const uid = targetUserId || userId;
         try {
             let subscriptionData: any = null;
-            let reg: any = null;
+            const reg = await ensureServiceWorkerReady();
 
-            if ('serviceWorker' in navigator) {
-                reg = await navigator.serviceWorker.ready;
+            if (reg && reg.pushManager) {
                 const sub = await reg.pushManager.getSubscription();
                 if (sub) {
                     subscriptionData = sub.toJSON();
                 }
             }
 
-            // Trigger client OS notification preview directly
+            // Trigger client OS notification preview directly if supported
             if (reg && 'showNotification' in reg && Notification.permission === 'granted') {
                 reg.showNotification('🔔 ทดสอบการแจ้งเตือน Kontent OS', {
                     body: 'ระบบแจ้งเตือนแบบ Push บนอุปกรณ์ของคุณทำงานได้สมบูรณ์แบบแล้ว!',
@@ -205,15 +304,16 @@ export function usePushNotification(userId?: string) {
                     tag: 'test-notification',
                     vibrate: [200, 100, 200],
                     data: { url: '/' }
-                }).catch(() => {});
+                } as any).catch(() => {});
             }
 
-            // Also dispatch via backend web-push
+            // Dispatch via backend web-push
             const res = await fetch('/api/push/test', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: buildTenantHeaders(uid),
                 body: JSON.stringify({
                     userId: uid,
+                    orgId: getActiveOrgIdSync(),
                     subscription: subscriptionData,
                     endpoint: subscriptionData?.endpoint,
                     title: '🔔 ทดสอบการแจ้งเตือน Kontent OS',
@@ -237,7 +337,11 @@ export function usePushNotification(userId?: string) {
         error,
         isInIframe,
         isIos,
+        isAndroid,
+        isStandalonePwa,
         isIosPwaInstalled,
+        canInstallPwa,
+        promptInstallPwa,
         subscribeToPush,
         unsubscribeFromPush,
         testPush,

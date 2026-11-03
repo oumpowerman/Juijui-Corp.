@@ -40,13 +40,167 @@ import { ScreenSessionLimiter } from './components/ScreenSessionLimiter';
 import { LineUserIdLinker } from './components/LineUserIdLinker';
 import { LinePendingBanner } from './components/LinePendingBanner';
 import PWAReloadPrompt from './components/PWAReloadPrompt';
-import { Loader2 } from 'lucide-react';
+import { Sparkles } from 'lucide-react';
 import {
   AuthPortalTransition,
   consumeAuthPortalTransition,
   peekAuthPortalTransition,
   type AuthPortalMode,
 } from './components/auth/AuthPortalTransition';
+
+const STUDIO_PASTEL_BG =
+  'radial-gradient(circle at 50% 35%, rgba(255,255,255,0.98) 0%, rgba(252,231,243,0.92) 32%, rgba(224,242,254,0.94) 68%, rgba(243,232,255,0.96) 100%)';
+
+interface StudioLoadingOverlayProps {
+  stage: 'AUTH' | 'WORKSPACE' | 'DATA_SYNC';
+  hideContent?: boolean;
+}
+
+const StudioLoadingOverlay: React.FC<StudioLoadingOverlayProps> = ({
+  stage,
+  hideContent = false,
+}) => {
+  const statusConfig =
+    stage === 'DATA_SYNC'
+      ? {
+          title: 'กำลังซิงค์ตารางงานและข้อมูลทีม...',
+          subtitle: 'เชื่อมต่อฐานข้อมูลและภารกิจล่าสุดของสตูดิโอ',
+          progress: 84,
+          stepLabel: 'STEP 2 / 2 · DATA SYNC',
+        }
+      : {
+          title: 'กำลังจัดเตรียมพื้นที่สตูดิโอของคุณ...',
+          subtitle: 'ตรวจสอบสิทธิ์และตั้งค่าพื้นที่ทำงานส่วนบุคคล',
+          progress: stage === 'AUTH' ? 32 : 56,
+          stepLabel: 'STEP 1 / 2 · WORKSPACE SETUP',
+        };
+
+  return (
+    <motion.div
+      initial={{ opacity: 1 }}
+      animate={{ opacity: 1 }}
+      exit={{
+        opacity: 0,
+        scale: 1.015,
+        filter: 'blur(6px)',
+        transition: { duration: 0.38, ease: [0.16, 1, 0.3, 1] as const },
+      }}
+      className="fixed inset-0 z-[9990] flex items-center justify-center flex-col select-none overflow-hidden px-6"
+      style={{ background: STUDIO_PASTEL_BG }}
+    >
+      {!hideContent && (
+        <>
+          {/* Ambient soft pastel aura */}
+          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+            <motion.div
+              animate={{
+                scale: [1, 1.12, 1],
+                opacity: [0.45, 0.7, 0.45],
+              }}
+              transition={{
+                duration: 3.6,
+                repeat: Infinity,
+                ease: 'easeInOut',
+              }}
+              className="w-72 h-72 sm:w-96 sm:h-96 rounded-full bg-gradient-to-tr from-rose-200/50 via-sky-200/40 to-violet-200/50 blur-3xl"
+            />
+          </div>
+
+          <div className="relative z-10 flex flex-col items-center max-w-xs w-full text-center">
+            {/* Pulsing Studio Emblem */}
+            <div className="relative mb-6 flex items-center justify-center">
+              <motion.div
+                animate={{
+                  scale: [1, 1.45, 1.65],
+                  opacity: [0.45, 0.15, 0],
+                }}
+                transition={{
+                  duration: 2.2,
+                  repeat: Infinity,
+                  ease: 'easeOut',
+                }}
+                className="absolute w-16 h-16 rounded-3xl bg-gradient-to-tr from-rose-400/35 via-fuchsia-400/25 to-sky-400/35"
+              />
+              <motion.div
+                animate={{
+                  scale: [1, 1.22, 1],
+                }}
+                transition={{
+                  duration: 2.2,
+                  repeat: Infinity,
+                  ease: 'easeInOut',
+                }}
+                className="absolute w-20 h-20 rounded-[1.75rem] bg-white/40 blur-md"
+              />
+              <motion.div
+                animate={{ y: [0, -3, 0] }}
+                transition={{
+                  duration: 2.4,
+                  repeat: Infinity,
+                  ease: 'easeInOut',
+                }}
+                className="relative w-16 h-16 rounded-3xl bg-white/90 backdrop-blur-md border border-white shadow-[0_12px_32px_-8px_rgba(244,114,182,0.32)] flex items-center justify-center"
+              >
+                <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-rose-400 via-pink-500 to-indigo-500 flex items-center justify-center text-white shadow-inner">
+                  <Sparkles className="w-5 h-5 animate-pulse" />
+                </div>
+              </motion.div>
+            </div>
+
+            {/* Step Pill Badge */}
+            <div className="mb-2.5 inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/75 backdrop-blur-sm border border-rose-100/80 shadow-xs">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-400 animate-ping" />
+              <span className="text-[10px] font-bold tracking-widest text-rose-500 uppercase">
+                {statusConfig.stepLabel}
+              </span>
+            </div>
+
+            {/* Smooth Crossfading Status Text */}
+            <div className="min-h-[48px] flex flex-col items-center justify-center mb-5">
+              <AnimatePresence mode="wait">
+                <motion.div
+                  key={statusConfig.title}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] as const }}
+                  className="flex flex-col items-center"
+                >
+                  <p className="text-slate-700 font-bold text-sm sm:text-base tracking-tight">
+                    {statusConfig.title}
+                  </p>
+                  <p className="text-slate-500 font-medium text-xs mt-1">
+                    {statusConfig.subtitle}
+                  </p>
+                </motion.div>
+              </AnimatePresence>
+            </div>
+
+            {/* Smooth Capsule Progress Bar */}
+            <div className="w-56 sm:w-64 h-2 bg-white/80 rounded-full p-0.5 shadow-inner border border-rose-100/70 overflow-hidden">
+              <motion.div
+                className="h-full rounded-full bg-gradient-to-r from-rose-400 via-fuchsia-400 to-sky-400 relative overflow-hidden"
+                initial={{ width: '18%' }}
+                animate={{ width: `${statusConfig.progress}%` }}
+                transition={{ type: 'spring', stiffness: 120, damping: 24 }}
+              >
+                <motion.div
+                  className="absolute inset-y-0 w-16 bg-gradient-to-r from-transparent via-white/70 to-transparent"
+                  animate={{ x: ['-100%', '260%'] }}
+                  transition={{
+                    duration: 1.35,
+                    repeat: Infinity,
+                    ease: 'linear',
+                  }}
+                />
+              </motion.div>
+            </div>
+          </div>
+        </>
+      )}
+    </motion.div>
+  );
+};
 
 const queryClient = new QueryClient({
 
@@ -263,16 +417,11 @@ function App() {
   let content;
   if (loading) {
      content = (
-        <motion.div
-          key="loading"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          transition={{ duration: 0.3 }}
-          className="flex h-screen items-center justify-center bg-slate-50 flex-col"
-        >
-            <Loader2 className="w-12 h-12 animate-spin text-indigo-600 mb-4" />
-        </motion.div>
+        <StudioLoadingOverlay
+          key="auth-initial-loading"
+          stage="AUTH"
+          hideContent={Boolean(portalMode)}
+        />
      );
   } else if (isRecoveryMode) {
     content = (
@@ -281,7 +430,7 @@ function App() {
         initial={{ opacity: 0, scale: 0.98, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         exit={{ opacity: 0, scale: 1.02, y: -15 }}
-        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
+        transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] as const }}
       >
         <AuthPage 
           onLoginSuccess={() => {}} 
@@ -327,10 +476,10 @@ function App() {
     content = (
       <motion.div
         key="app"
-        initial={{ opacity: 0, scale: 0.985 }}
-        animate={{ opacity: 1, scale: 1 }}
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] as const }}
+        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] as const }}
       >
         <QueryClientProvider client={queryClient}>
           <AuthenticatedApp
@@ -357,7 +506,7 @@ function App() {
           }}
         />
       )}
-      <AnimatePresence mode={portalMode ? 'sync' : 'wait'}>
+      <AnimatePresence mode="sync">
         {content}
       </AnimatePresence>
     </>
@@ -419,22 +568,19 @@ function AuthenticatedAppInner({
 
   return (
     <>
-      {!coreWorkspaceReady ? (
-        <div
-          className="flex h-screen items-center justify-center flex-col select-none"
-          style={{
-            background:
-              'radial-gradient(circle at 50% 35%, rgba(255,255,255,0.98) 0%, rgba(252,231,243,0.92) 32%, rgba(224,242,254,0.94) 68%, rgba(243,232,255,0.96) 100%)',
-          }}
-        >
-          {!hasActivePortalTransition && (
-            <>
-              <Loader2 className="w-10 h-10 animate-spin text-rose-400 mb-3" />
-              <p className="text-slate-600 font-bold text-sm">กำลังจัดเตรียมพื้นที่สตูดิโอของคุณ...</p>
-            </>
-          )}
-        </div>
-      ) : (
+      {/* Single unified pastel loading overlay that stays mounted until both coreWorkspaceReady AND isManagerReady complete */}
+      <AnimatePresence>
+        {!portalWorkspaceReady && (
+          <StudioLoadingOverlay
+            key="studio-unified-loader"
+            stage={!coreWorkspaceReady ? 'WORKSPACE' : 'DATA_SYNC'}
+            hideContent={hasActivePortalTransition}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Mount the workspace and AppRouter immediately once coreWorkspaceReady is true so useTaskManager fetches in parallel behind the smooth overlay */}
+      {coreWorkspaceReady && (
         <>
           <WorkspaceSwitcherModal />
           {isSuperAdmin && isInSuperAdminPortal ? (

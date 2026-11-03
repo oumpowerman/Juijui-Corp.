@@ -338,9 +338,11 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
         // Check update based on ID existence in current list, or explicit editingTask passed
         let existingTask = editingTask || tasks.find(t => t.id === task.id);
         let isUpdate = !!existingTask;
+        const isNewImport = Boolean((task as any)._isNewImport);
+        const silentToast = Boolean((task as any)._silentToast);
 
         // --- 🚀 DB Existence Check for Unscheduled/Filtered Items ---
-        if (!isUpdate && task.id) {
+        if (!isUpdate && task.id && !isNewImport) {
             const dbTask = await fetchTaskById(task.id, task.type);
             if (dbTask) {
                 existingTask = dbTask;
@@ -498,7 +500,9 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
                     }
                 }
                 
-                showToast('แก้ไขข้อมูลสำเร็จ (Synced)', 'success');
+                if (!silentToast) {
+                    showToast('แก้ไขข้อมูลสำเร็จ (Synced)', 'success');
+                }
                 
                 // Gamification
                 const isCompleted = isTaskCompleted(task.status as string);
@@ -564,7 +568,9 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
                     await sponsorshipService.saveSponsorshipDetail(task.id, task.sponsorship);
                 }
 
-                showToast('สร้างใหม่สำเร็จ', 'success');
+                if (!silentToast) {
+                    showToast('สร้างใหม่สำเร็จ', 'success');
+                }
 
             } catch (dbError: any) {
                  console.error(dbError);

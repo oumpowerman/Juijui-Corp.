@@ -382,7 +382,7 @@ const AppBackground: React.FC<AppBackgroundProps> = ({
     const crestColors = getWaveCrestColors(theme);
 
     return (
-        <div className={`relative w-auto min-h-full flex flex-col overflow-x-hidden max-w-full ${className}`}>
+        <div className={`relative w-auto min-h-full flex flex-col overflow-x-clip max-w-full ${className}`}>
             {/* Coordinated Left-to-Right Pastel Wind Wave Scene Transition */}
             <AnimatePresence initial={false} mode="sync">
                 <motion.div

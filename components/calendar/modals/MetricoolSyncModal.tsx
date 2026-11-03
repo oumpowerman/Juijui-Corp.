@@ -5,6 +5,7 @@ import BaseModal from '../../common/BaseModal';
 import { tabContentVariants } from './metricool/constants';
 import { useMetricoolSync } from './metricool/hooks/useMetricoolSync';
 import MetricoolModalHeader from './metricool/MetricoolModalHeader';
+import MetricoolGuideBanner from './metricool/MetricoolGuideBanner';
 import MetricoolExportTab from './metricool/MetricoolExportTab';
 import MetricoolImportTab from './metricool/MetricoolImportTab';
 import MetricoolModalFooter from './metricool/MetricoolModalFooter';
@@ -18,6 +19,8 @@ export interface MetricoolSyncModalProps {
     currentDate: Date;
     activeChannelFilterId?: string;
     onSaveTask?: (task: Task) => Promise<void> | void;
+    onRangeChange?: (targetDate: Date) => void;
+    onNavigateDate?: (targetDate: Date) => void;
 }
 
 export const MetricoolSyncModal: React.FC<MetricoolSyncModalProps> = ({
@@ -28,7 +31,9 @@ export const MetricoolSyncModal: React.FC<MetricoolSyncModalProps> = ({
     masterOptions = [],
     currentDate,
     activeChannelFilterId,
-    onSaveTask
+    onSaveTask,
+    onRangeChange,
+    onNavigateDate
 }) => {
     const sync = useMetricoolSync({
         isOpen,
@@ -38,10 +43,13 @@ export const MetricoolSyncModal: React.FC<MetricoolSyncModalProps> = ({
         masterOptions,
         currentDate,
         activeChannelFilterId,
-        onSaveTask
+        onSaveTask,
+        onRangeChange,
+        onNavigateDate
     });
 
     const activeImportCount = sync.importSummary.updateCount + sync.importSummary.createCount;
+    const targetChannelName = channels.find(c => c.id === sync.importDefaultChannelId)?.name;
 
     return (
         <BaseModal
@@ -50,8 +58,8 @@ export const MetricoolSyncModal: React.FC<MetricoolSyncModalProps> = ({
             closeOnEscape={!sync.isSavingImport}
             closeOnBackdropClick={!sync.isSavingImport}
             containerClassName="p-0 sm:p-4 md:p-6 items-end sm:items-center"
-            backdropClassName="bg-slate-900/50 backdrop-blur-sm"
-            windowClassName="bg-white dark:bg-slate-900 w-full max-w-5xl h-[92vh] sm:h-[85vh] max-h-[92vh] sm:max-h-[85vh] rounded-t-[2rem] sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-slate-100 dark:border-slate-800 my-0 sm:my-auto"
+            backdropClassName="bg-[#5C5346]/35 backdrop-blur-sm"
+            windowClassName="bg-[#FAF8F5] w-full max-w-5xl h-[92vh] sm:h-[86vh] max-h-[92vh] sm:max-h-[86vh] rounded-t-[2rem] sm:rounded-3xl shadow-2xl overflow-hidden flex flex-col border border-[#E6DFD3] my-0 sm:my-auto"
         >
             {/* 1. Rigid Header & Animated Tab Switcher */}
             <MetricoolModalHeader
@@ -61,10 +69,19 @@ export const MetricoolSyncModal: React.FC<MetricoolSyncModalProps> = ({
                 disabled={sync.isSavingImport}
                 exportCount={sync.selectedExportTasks.length}
                 importCount={activeImportCount}
+                isGuideOpen={sync.isGuideOpen}
+                onToggleGuide={sync.toggleGuide}
+            />
+
+            {/* 1.5 Collapsible Step-by-Step Usage Guide Banner */}
+            <MetricoolGuideBanner
+                isOpen={sync.isGuideOpen}
+                onCloseGuide={sync.toggleGuide}
+                activeTab={sync.activeTab}
             />
 
             {/* 2. Fixed-Height Body Viewport (flex-1 min-h-0 prevents modal height jumping) */}
-            <div className="flex-1 min-h-0 flex flex-col px-5 sm:px-6 py-4 overflow-hidden">
+            <div className="flex-1 min-h-0 flex flex-col px-5 sm:px-6 py-3.5 overflow-hidden bg-[#FAF8F5]">
                 <AnimatePresence mode="wait" initial={false}>
                     {sync.activeTab === 'EXPORT' ? (
                         <motion.div
@@ -95,6 +112,10 @@ export const MetricoolSyncModal: React.FC<MetricoolSyncModalProps> = ({
                                 includeTagsInCaption={sync.includeTagsInCaption}
                                 setIncludeTagsInCaption={sync.setIncludeTagsInCaption}
                                 exportCandidateTasks={sync.exportCandidateTasks}
+                                paginatedExportTasks={sync.paginatedExportTasks}
+                                exportPage={sync.exportPage}
+                                setExportPage={sync.setExportPage}
+                                exportTotalPages={sync.exportTotalPages}
                                 selectedExportTasks={sync.selectedExportTasks}
                                 excludedTaskIds={sync.excludedTaskIds}
                                 toggleExportTask={sync.toggleExportTask}
@@ -115,6 +136,17 @@ export const MetricoolSyncModal: React.FC<MetricoolSyncModalProps> = ({
                                 importedFileName={sync.importedFileName}
                                 detectedHeaders={sync.detectedHeaders}
                                 parsedRows={sync.parsedRows}
+                                filteredImportRows={sync.filteredImportRows}
+                                paginatedImportRows={sync.paginatedImportRows}
+                                importPage={sync.importPage}
+                                setImportPage={sync.setImportPage}
+                                importTotalPages={sync.importTotalPages}
+                                statusFilter={sync.statusFilter}
+                                setStatusFilter={sync.setStatusFilter}
+                                searchQuery={sync.searchQuery}
+                                setSearchQuery={sync.setSearchQuery}
+                                expandedDiffRowIndices={sync.expandedDiffRowIndices}
+                                toggleDiffRow={sync.toggleDiffRow}
                                 channels={channels}
                                 tasks={tasks}
                                 nearbyTasks={sync.nearbyTasks}
@@ -124,6 +156,7 @@ export const MetricoolSyncModal: React.FC<MetricoolSyncModalProps> = ({
                                 setImportDefaultStatus={sync.setImportDefaultStatus}
                                 contentStatuses={sync.contentStatuses}
                                 isRunningAiMatch={sync.isRunningAiMatch}
+                                aiMatchProgress={sync.aiMatchProgress}
                                 showPasteBox={sync.showPasteBox}
                                 setShowPasteBox={sync.setShowPasteBox}
                                 rawCsvPaste={sync.rawCsvPaste}
@@ -134,6 +167,7 @@ export const MetricoolSyncModal: React.FC<MetricoolSyncModalProps> = ({
                                 handleRunAiSmartMatch={sync.handleRunAiSmartMatch}
                                 handleRowActionChange={sync.handleRowActionChange}
                                 handleRowTargetTaskChange={sync.handleRowTargetTaskChange}
+                                handleBulkActionForFiltered={sync.handleBulkActionForFiltered}
                             />
                         </motion.div>
                     )}
@@ -145,10 +179,13 @@ export const MetricoolSyncModal: React.FC<MetricoolSyncModalProps> = ({
                 activeTab={sync.activeTab}
                 onClose={onClose}
                 isSavingImport={sync.isSavingImport}
+                saveProgress={sync.saveProgress}
                 selectedExportCount={sync.selectedExportTasks.length}
                 onDownloadCsv={sync.handleDownloadCsv}
                 parsedRowsCount={sync.parsedRows.length}
                 activeImportCount={activeImportCount}
+                importSummary={sync.importSummary}
+                targetChannelName={targetChannelName}
                 onConfirmImport={sync.handleConfirmImport}
             />
         </BaseModal>

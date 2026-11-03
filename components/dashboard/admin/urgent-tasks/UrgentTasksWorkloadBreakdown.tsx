@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Channel, User } from '../../../../types';
 
 interface UrgentTasksWorkloadBreakdownProps {
@@ -12,6 +12,11 @@ interface UrgentTasksWorkloadBreakdownProps {
     setSelectedAssigneeId: (id: string | null) => void;
 }
 
+const collapseTransition = {
+    duration: 0.26,
+    ease: [0.16, 1, 0.3, 1] as const,
+};
+
 export const UrgentTasksWorkloadBreakdown: React.FC<UrgentTasksWorkloadBreakdownProps> = ({
     selectedType,
     channelsWithPending,
@@ -23,130 +28,189 @@ export const UrgentTasksWorkloadBreakdown: React.FC<UrgentTasksWorkloadBreakdown
 }) => {
     const hasChannels = (selectedType === 'ALL' || selectedType === 'CONTENT') && channelsWithPending.length > 0;
     const hasAssignees = (selectedType === 'ALL' || selectedType === 'TASK') && assigneesWithPending.length > 0;
-
-    if (!hasChannels && !hasAssignees) return null;
+    const showAny = hasChannels || hasAssignees;
 
     return (
-        <div className="bg-slate-50/50 border-b border-slate-100 px-6 py-2.5 flex flex-col gap-2 relative z-10" id="urgent-tasks-workload-breakdown">
-            {/* Channel Workload Breakdown */}
-            {hasChannels && (
-                <div className="flex flex-col gap-1">
-                    <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                            ค้างตามช่องทาง ({channelsWithPending.length})
-                        </span>
-                        {selectedChannelId && (
-                            <button 
-                                onClick={() => setSelectedChannelId(null)} 
-                                className="text-[10px] font-bold text-indigo-500 hover:text-indigo-700 flex items-center gap-0.5 cursor-pointer bg-indigo-50 px-1.5 py-0.2 rounded-full border border-indigo-100"
-                            >
-                                แสดงทั้งหมด
-                            </button>
-                        )}
-                    </div>
-                    
-                    <div className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-none -mx-2 px-2">
-                        {channelsWithPending.map(({ channel, count, id }) => {
-                            if (!channel) return null;
-                            const isSelected = selectedChannelId === id;
-                            return (
-                                <motion.button
-                                    key={id}
-                                    whileHover={{ scale: 1.03 }}
-                                    whileTap={{ scale: 0.97 }}
-                                    onClick={() => setSelectedChannelId(isSelected ? null : id)}
-                                    className={`
-                                        flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all text-xs font-bold cursor-pointer shrink-0 select-none shadow-sm
-                                        ${isSelected 
-                                            ? 'bg-purple-100 border-purple-300 text-purple-800 ring-2 ring-purple-500/10' 
-                                            : 'bg-white border-slate-200/80 hover:border-purple-200 text-slate-600'
-                                        }
-                                    `}
+        <AnimatePresence initial={false}>
+            {showAny && (
+                <motion.div
+                    key="workload-breakdown-wrapper"
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={collapseTransition}
+                    className="overflow-hidden bg-slate-50/50 border-b border-slate-100 relative z-10"
+                    id="urgent-tasks-workload-breakdown"
+                >
+                    <div className="px-6 py-2.5 flex flex-col">
+                        {/* Channel Workload Breakdown */}
+                        <AnimatePresence initial={false}>
+                            {hasChannels && (
+                                <motion.div
+                                    key="channels-breakdown"
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: 'auto', opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={collapseTransition}
+                                    className="overflow-hidden"
                                 >
-                                    <div className="w-4 h-4 rounded-full overflow-hidden flex items-center justify-center shrink-0 bg-slate-100">
-                                        {channel.logoUrl ? (
-                                            <img src={channel.logoUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-[7px] font-bold text-white" style={{ backgroundColor: channel.color || '#8b5cf6' }}>
-                                                {channel.name.slice(0, 1).toUpperCase()}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <span className="max-w-[70px] truncate text-[11px] font-bold">{channel.name}</span>
-                                    <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-extrabold ${isSelected ? 'bg-purple-200 text-purple-800' : 'bg-slate-100 text-slate-500'}`}>
-                                        {count}
-                                    </span>
-                                </motion.button>
-                            );
-                        })}
-                    </div>
-                </div>
-            )}
-
-            {/* Divider if both are shown */}
-            {selectedType === 'ALL' && channelsWithPending.length > 0 && assigneesWithPending.length > 0 && (
-                <div className="border-t border-slate-200/40 my-0.5"></div>
-            )}
-
-            {/* User Workload Breakdown */}
-            {hasAssignees && (
-                <div className="flex flex-col gap-1">
-                    <div className="flex items-center justify-between">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                            งานค้างรายบุคคล ({assigneesWithPending.length})
-                        </span>
-                        {selectedAssigneeId && (
-                            <button 
-                                onClick={() => setSelectedAssigneeId(null)} 
-                                className="text-[10px] font-bold text-indigo-500 hover:text-indigo-700 flex items-center gap-0.5 cursor-pointer bg-indigo-50 px-1.5 py-0.2 rounded-full border border-indigo-100"
-                            >
-                                แสดงทั้งหมด
-                            </button>
-                        )}
-                    </div>
-                    
-                    <div className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-none -mx-2 px-2">
-                        {assigneesWithPending.map(({ user, count, id }) => {
-                            if (!user) return null;
-                            const isSelected = selectedAssigneeId === id;
-                            const isInactive = user.isActive === false;
-                            return (
-                                <motion.button
-                                    key={id}
-                                    whileHover={{ scale: 1.03 }}
-                                    whileTap={{ scale: 0.97 }}
-                                    onClick={() => setSelectedAssigneeId(isSelected ? null : id)}
-                                    className={`
-                                        flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-all text-xs font-bold cursor-pointer shrink-0 select-none shadow-sm
-                                        ${isSelected 
-                                            ? (isInactive ? 'bg-amber-100 border-amber-400 text-amber-900 ring-2 ring-amber-500/20' : 'bg-blue-100 border-blue-300 text-blue-800 ring-2 ring-blue-500/10')
-                                            : (isInactive ? 'bg-amber-50/70 border-amber-200 hover:border-amber-300 text-amber-800' : 'bg-white border-slate-200/80 hover:border-blue-200 text-slate-600')
-                                        }
-                                    `}
-                                    title={isInactive ? `${user.name} (พ้นสภาพ / Inactive)` : user.name}
-                                >
-                                    {user.avatarUrl ? (
-                                        <img src={user.avatarUrl} className={`w-4 h-4 rounded-full object-cover shrink-0 border border-white ${isInactive ? 'grayscale' : ''}`} referrerPolicy="no-referrer" alt="" />
-                                    ) : (
-                                        <div className="w-4 h-4 rounded-full bg-slate-200 flex items-center justify-center text-[8px] font-bold text-slate-600 shrink-0">
-                                            {user.name?.slice(0, 1) || '?'}
+                                    <div className="flex flex-col gap-1 pb-1">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                                ค้างตามช่องทาง ({channelsWithPending.length})
+                                            </span>
+                                            <AnimatePresence>
+                                                {selectedChannelId && (
+                                                    <motion.button
+                                                        initial={{ opacity: 0, scale: 0.9 }}
+                                                        animate={{ opacity: 1, scale: 1 }}
+                                                        exit={{ opacity: 0, scale: 0.9 }}
+                                                        transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] as const }}
+                                                        onClick={() => setSelectedChannelId(null)} 
+                                                        className="text-[10px] font-bold text-indigo-500 hover:text-indigo-700 flex items-center gap-0.5 cursor-pointer bg-indigo-50 px-1.5 py-0.2 rounded-full border border-indigo-100"
+                                                    >
+                                                        แสดงทั้งหมด
+                                                    </motion.button>
+                                                )}
+                                            </AnimatePresence>
                                         </div>
-                                    )}
-                                    <span className="max-w-[75px] truncate text-[11px] font-bold">{user.name}</span>
-                                    {isInactive && (
-                                        <span className="text-[8px] bg-amber-200 text-amber-900 font-extrabold px-1 rounded">
-                                            Inactive
-                                        </span>
-                                    )}
-                                    <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-extrabold ${isSelected ? (isInactive ? 'bg-amber-200 text-amber-900' : 'bg-blue-200 text-blue-800') : (isInactive ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-500')}`}>
-                                        {count}
-                                    </span>
-                                </motion.button>
-                            );
-                        })}
+                                        
+                                        <div className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-none -mx-2 px-2">
+                                            {channelsWithPending.map(({ channel, count, id }) => {
+                                                if (!channel) return null;
+                                                const isSelected = selectedChannelId === id;
+                                                return (
+                                                    <motion.button
+                                                        key={id}
+                                                        whileHover={{ scale: 1.03 }}
+                                                        whileTap={{ scale: 0.97 }}
+                                                        onClick={() => setSelectedChannelId(isSelected ? null : id)}
+                                                        className={`
+                                                            flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-colors text-xs font-bold cursor-pointer shrink-0 select-none shadow-sm
+                                                            ${isSelected 
+                                                                ? 'bg-purple-100 border-purple-300 text-purple-800 ring-2 ring-purple-500/10' 
+                                                                : 'bg-white border-slate-200/80 hover:border-purple-200 text-slate-600'
+                                                            }
+                                                        `}
+                                                    >
+                                                        <div className="w-4 h-4 rounded-full overflow-hidden flex items-center justify-center shrink-0 bg-slate-100">
+                                                            {channel.logoUrl ? (
+                                                                <img src={channel.logoUrl} className="w-full h-full object-cover" referrerPolicy="no-referrer" alt="" />
+                                                            ) : (
+                                                                <div className="w-full h-full flex items-center justify-center text-[7px] font-bold text-white" style={{ backgroundColor: channel.color || '#8b5cf6' }}>
+                                                                    {channel.name.slice(0, 1).toUpperCase()}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <span className="max-w-[70px] truncate text-[11px] font-bold">{channel.name}</span>
+                                                        <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold tabular-nums ${isSelected ? 'bg-purple-200 text-purple-800' : 'bg-slate-100 text-slate-500'}`}>
+                                                            {count}
+                                                        </span>
+                                                    </motion.button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        {/* Divider if both are shown */}
+                        <AnimatePresence initial={false}>
+                            {hasChannels && hasAssignees && (
+                                <motion.div
+                                    key="breakdown-divider"
+                                    initial={{ opacity: 0, height: 0 }}
+                                    animate={{ opacity: 1, height: 'auto' }}
+                                    exit={{ opacity: 0, height: 0 }}
+                                    transition={collapseTransition}
+                                    className="overflow-hidden"
+                                >
+                                    <div className="border-t border-slate-200/40 my-1.5"></div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
+                        {/* User Workload Breakdown */}
+                        <AnimatePresence initial={false}>
+                            {hasAssignees && (
+                                <motion.div
+                                    key="assignees-breakdown"
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: 'auto', opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
+                                    transition={collapseTransition}
+                                    className="overflow-hidden"
+                                >
+                                    <div className="flex flex-col gap-1 pt-0.5">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                                                งานค้างรายบุคคล ({assigneesWithPending.length})
+                                            </span>
+                                            <AnimatePresence>
+                                                {selectedAssigneeId && (
+                                                    <motion.button
+                                                        initial={{ opacity: 0, scale: 0.9 }}
+                                                        animate={{ opacity: 1, scale: 1 }}
+                                                        exit={{ opacity: 0, scale: 0.9 }}
+                                                        transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] as const }}
+                                                        onClick={() => setSelectedAssigneeId(null)} 
+                                                        className="text-[10px] font-bold text-indigo-500 hover:text-indigo-700 flex items-center gap-0.5 cursor-pointer bg-indigo-50 px-1.5 py-0.2 rounded-full border border-indigo-100"
+                                                    >
+                                                        แสดงทั้งหมด
+                                                    </motion.button>
+                                                )}
+                                            </AnimatePresence>
+                                        </div>
+                                        
+                                        <div className="flex items-center gap-2 overflow-x-auto py-1 scrollbar-none -mx-2 px-2">
+                                            {assigneesWithPending.map(({ user, count, id }) => {
+                                                if (!user) return null;
+                                                const isSelected = selectedAssigneeId === id;
+                                                const isInactive = user.isActive === false;
+                                                return (
+                                                    <motion.button
+                                                        key={id}
+                                                        whileHover={{ scale: 1.03 }}
+                                                        whileTap={{ scale: 0.97 }}
+                                                        onClick={() => setSelectedAssigneeId(isSelected ? null : id)}
+                                                        className={`
+                                                            flex items-center gap-1.5 px-2.5 py-1 rounded-full border transition-colors text-xs font-bold cursor-pointer shrink-0 select-none shadow-sm
+                                                            ${isSelected 
+                                                                ? (isInactive ? 'bg-amber-100 border-amber-400 text-amber-900 ring-2 ring-amber-500/20' : 'bg-blue-100 border-blue-300 text-blue-800 ring-2 ring-blue-500/10')
+                                                                : (isInactive ? 'bg-amber-50/70 border-amber-200 hover:border-amber-300 text-amber-800' : 'bg-white border-slate-200/80 hover:border-blue-200 text-slate-600')
+                                                            }
+                                                        `}
+                                                        title={isInactive ? `${user.name} (พ้นสภาพ / Inactive)` : user.name}
+                                                    >
+                                                        {user.avatarUrl ? (
+                                                            <img src={user.avatarUrl} className={`w-4 h-4 rounded-full object-cover shrink-0 border border-white ${isInactive ? 'grayscale' : ''}`} referrerPolicy="no-referrer" alt="" />
+                                                        ) : (
+                                                            <div className="w-4 h-4 rounded-full bg-slate-200 flex items-center justify-center text-[8px] font-bold text-slate-600 shrink-0">
+                                                                {user.name?.slice(0, 1) || '?'}
+                                                            </div>
+                                                        )}
+                                                        <span className="max-w-[75px] truncate text-[11px] font-bold">{user.name}</span>
+                                                        {isInactive && (
+                                                            <span className="text-[8px] bg-amber-200 text-amber-900 font-bold px-1 rounded">
+                                                                Inactive
+                                                            </span>
+                                                        )}
+                                                        <span className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold tabular-nums ${isSelected ? (isInactive ? 'bg-amber-200 text-amber-900' : 'bg-blue-200 text-blue-800') : (isInactive ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-500')}`}>
+                                                            {count}
+                                                        </span>
+                                                    </motion.button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
                     </div>
-                </div>
+                </motion.div>
             )}
-        </div>
+        </AnimatePresence>
     );
 };
+

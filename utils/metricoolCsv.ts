@@ -1,16 +1,51 @@
 import Papa from 'papaparse';
 import { format, isValid, parse, differenceInCalendarDays } from 'date-fns';
 import { Task, Channel, Platform, TaskAsset } from '../types';
+import {
+    normalizeSpaces,
+    cleanMetricoolTitle,
+    normalizeTitleText,
+    toThaiConsonantSkeleton,
+    computeBigramSimilarity,
+    computeLevenshteinSimilarity,
+    scoreThaiTaskMatch
+} from './metricool/thaiFuzzyMatcher';
+import {
+    classifyGoogleDriveUrl,
+    toMetricoolDirectMediaUrl,
+    inspectTaskMetricoolMedia,
+    isMediaEligibleCategory,
+    type GoogleDriveUrlClassification,
+    type MetricoolMediaInspection,
+    type MetricoolMediaReadinessStatus
+} from './metricool/googleDriveMediaResolver';
+
+export {
+    normalizeSpaces,
+    cleanMetricoolTitle,
+    normalizeTitleText,
+    toThaiConsonantSkeleton,
+    computeBigramSimilarity,
+    computeLevenshteinSimilarity,
+    scoreThaiTaskMatch,
+    classifyGoogleDriveUrl,
+    toMetricoolDirectMediaUrl,
+    inspectTaskMetricoolMedia,
+    isMediaEligibleCategory,
+    type GoogleDriveUrlClassification,
+    type MetricoolMediaInspection,
+    type MetricoolMediaReadinessStatus
+};
 
 /**
- * Official Metricool CSV Bulk Upload Template Columns
+ * Official 97-Column Metricool CSV Bulk Upload Template Schema (`Mtr_calendar_template.csv`)
+ * Also 100% compatible with Metricool Planner CSV export (`csv_data.csv`)
  */
 export const METRICOOL_CSV_HEADERS = [
     'Text',
     'Date',
     'Time',
     'Draft',
-    'Brand Name',
     'Facebook',
     'Twitter/X',
     'LinkedIn',
@@ -18,7 +53,7 @@ export const METRICOOL_CSV_HEADERS = [
     'Instagram',
     'Pinterest',
     'TikTok',
-    'YouTube',
+    'Youtube',
     'Threads',
     'Bluesky',
     'Picture Url 1',
@@ -56,29 +91,64 @@ export const METRICOOL_CSV_HEADERS = [
     'Pinterest Pin Title',
     'Pinterest Pin Link',
     'Pinterest Pin New Format',
+    'Pinterest AI generated content',
+    'Pinterest AI generated person',
     'Instagram Post Type',
     'Instagram Show Reel On Feed',
-    'YouTube Video Title',
-    'YouTube Video Type',
-    'YouTube Video Privacy',
-    'YouTube video for kids',
-    'YouTube Video Category',
-    'YouTube Video Tags',
-    'YouTube Playlist',
-    'YouTube Notify Subscribers',
+    'Instagram Trial Reel Share Automatically',
+    'Youtube Video Title',
+    'Youtube Video Type',
+    'Youtube Video Privacy',
+    'Youtube video for kids',
+    'Youtube AI generated content',
+    'Youtube notify subscribers',
+    'Youtube Video Category',
+    'Youtube Video Tags',
+    'Youtube playlist',
     'GBP Post Type',
     'Facebook Post Type',
     'Facebook Title',
+    'First Comment Text',
     'TikTok Title',
     'TikTok disable comments',
-    'First Comment Text'
+    'TikTok disable duet',
+    'TikTok disable stitch',
+    'TikTok Post Privacy',
+    'TikTok Branded Content',
+    'TikTok Your Brand',
+    'TikTok Auto Add Music',
+    'TikTok Photo Cover Index',
+    'TikTok musicId',
+    'TikTok music title',
+    'TikTok music author',
+    'TikTok music previewUrl',
+    'TikTok music thumbnailUrl',
+    'TikTok music soundVolume',
+    'TikTok music originalVolume',
+    'TikTok music startMillis',
+    'TikTok music endMillis',
+    'TikTok Ai generated content',
+    'LinkedIn Type',
+    'LinkedIn Poll Question',
+    'LinkedIn Poll Option 1',
+    'LinkedIn Poll Option 2',
+    'LinkedIn Poll Option 3',
+    'LinkedIn Poll Option 4',
+    'LinkedIn Poll Duration',
+    'LinkedIn Show link preview',
+    'LinkedIn Images as Carousel',
+    'Threads Reply Control',
+    'Threads Is Spoiler',
+    'Threads Post Type',
+    'Brand name'
 ] as const;
 
 export interface MetricoolExportOptions {
-    defaultTime?: string; // e.g. '18:00:00'
+    defaultTime?: string; // e.g. '18:00'
     importAsDraft?: 'AUTO' | 'ALWAYS_DRAFT' | 'ALWAYS_SCHEDULED';
     youtubePrivacy?: 'PUBLIC' | 'UNLISTED' | 'PRIVATE';
     includeTagsInCaption?: boolean;
+    metricoolBrandName?: string; // Optional exact brand name in Metricool
 }
 
 export interface ParsedMetricoolRow {
@@ -110,20 +180,20 @@ export interface ParsedMetricoolRow {
  * Normalizes a caption from Task description + tags (while using Task title as clip title)
  */
 export function buildCaptionFromTask(task: Task, includeTags = true): string {
-    const baseText = (task.description || '').trim() || (task.title || '').trim();
+    const baseText = normalizeSpaces((task.description || '').trim() || (task.title || '').trim());
     if (!includeTags || !Array.isArray(task.tags) || task.tags.length === 0) {
         return baseText;
     }
 
     const existingLower = baseText.toLowerCase();
     const formattedTags = task.tags
-        .map(tag => tag.trim())
+        .map(tag => normalizeSpaces(tag))
         .filter(Boolean)
         .map(tag => (tag.startsWith('#') ? tag : `#${tag.replace(/\s+/g, '_')}`))
         .filter(hashTag => !existingLower.includes(hashTag.toLowerCase()));
 
     if (formattedTags.length === 0) return baseText;
-    return `${baseText}\n\n${formattedTags.join(' ')}`;
+    return `${baseText} ${formattedTags.join(' ')}`.trim();
 }
 
 /**
@@ -131,9 +201,11 @@ export function buildCaptionFromTask(task: Task, includeTags = true): string {
  */
 export function resolveMetricoolFormatTypes(contentFormats?: string[]) {
     const formats = (contentFormats || []).map(f => f.toUpperCase());
-    const isReelOrShort = formats.some(f =>
-        f.includes('SHORT') || f.includes('REEL') || f.includes('TIKTOK') || f.includes('VERTICAL')
-    );
+    const isReelOrShort =
+        formats.length === 0 ||
+        formats.some(f =>
+            f.includes('SHORT') || f.includes('REEL') || f.includes('TIKTOK') || f.includes('VERTICAL')
+        );
     const isStory = formats.some(f => f.includes('STORY'));
 
     const instagramPostType = isStory ? 'STORY' : isReelOrShort ? 'REEL' : 'POST';
@@ -148,44 +220,44 @@ export function resolveMetricoolFormatTypes(contentFormats?: string[]) {
 }
 
 /**
- * Converts an array of CalendarView Tasks into Metricool CSV string (UTF-8 with BOM)
+ * Converts an array of CalendarView Tasks into Official 97-Column Metricool CSV string (`Mtr_calendar_template.csv` format, UTF-8 with BOM)
  */
 export function generateMetricoolCsvFromTasks(
     tasks: Task[],
-    channels: Channel[],
+    _channels: Channel[],
     options: MetricoolExportOptions = {}
 ): string {
     const {
-        defaultTime = '18:00:00',
+        defaultTime = '18:00',
         importAsDraft = 'AUTO',
         youtubePrivacy = 'PUBLIC',
-        includeTagsInCaption = true
+        includeTagsInCaption = true,
+        metricoolBrandName = ''
     } = options;
 
-    const channelMap = new Map<string, Channel>();
-    channels.forEach(ch => channelMap.set(ch.id, ch));
-
     const rows = tasks.map(task => {
-        const channel = task.channelId ? channelMap.get(task.channelId) : undefined;
         const caption = buildCaptionFromTask(task, includeTagsInCaption);
 
-        // Date (YYYY-MM-DD)
-        const taskDate = task.endDate instanceof Date && isValid(task.endDate)
-            ? task.endDate
-            : new Date(task.endDate || Date.now());
+        const taskDate =
+            task.endDate instanceof Date && isValid(task.endDate)
+                ? task.endDate
+                : new Date(task.endDate || Date.now());
         const dateFormatted = format(taskDate, 'yyyy-MM-dd');
 
-        // Time (HH:mm:ss)
-        let timeFormatted = defaultTime;
-        if (task.scheduledTime && /^\d{1,2}:\d{2}/.test(task.scheduledTime.trim())) {
-            const parts = task.scheduledTime.trim().split(':');
+        // Time in HH:mm:ss format per Mtr_calendar_template.csv ("14:30:00")
+        let timeFormatted = '18:00:00';
+        const rawTimeSource =
+            task.scheduledTime && /^\d{1,2}:\d{2}/.test(task.scheduledTime.trim())
+                ? task.scheduledTime.trim()
+                : defaultTime.trim();
+        if (/^\d{1,2}:\d{2}/.test(rawTimeSource)) {
+            const parts = rawTimeSource.split(':');
             const hh = parts[0].padStart(2, '0');
             const mm = parts[1].padStart(2, '0');
-            const ss = parts[2] ? parts[2].padStart(2, '0') : '00';
+            const ss = (parts[2] || '00').slice(0, 2).padStart(2, '0');
             timeFormatted = `${hh}:${mm}:${ss}`;
         }
 
-        // Draft boolean
         let isDraft = false;
         if (importAsDraft === 'ALWAYS_DRAFT') {
             isDraft = true;
@@ -196,7 +268,6 @@ export function generateMetricoolCsvFromTasks(
             isDraft = !['FINAL', 'APPROVE', 'APPROVED', 'DONE', 'COMPLETED'].includes(statusUpper);
         }
 
-        // Target social networks
         const platforms = (task.targetPlatforms || []).map(p => p.toUpperCase());
         const hasAll = platforms.includes('ALL');
         const hasFacebook = hasAll || platforms.includes('FACEBOOK');
@@ -204,19 +275,14 @@ export function generateMetricoolCsvFromTasks(
         const hasTikTok = hasAll || platforms.includes('TIKTOK');
         const hasYouTube = hasAll || platforms.includes('YOUTUBE');
 
-        // Media URLs from task.assets
-        const assets: TaskAsset[] = Array.isArray(task.assets) ? task.assets : [];
-        const mediaAssets = assets.filter(
-            a => a.url && (a.category === 'VIDEO_DRAFT' || a.category === 'LINK' || a.category === 'OTHER')
-        );
-        const thumbnailAsset = assets.find(a => a.url && a.category === 'THUMBNAIL');
+        const mediaInspection = inspectTaskMetricoolMedia(task);
 
         const { instagramPostType, facebookPostType, youtubeVideoType } =
             resolveMetricoolFormatTypes(task.contentFormats);
 
         const cleanTitle = (task.title || '').trim().slice(0, 100);
         const youtubeTags = Array.isArray(task.tags)
-            ? task.tags.map(t => t.replace(/^#/, '').trim()).filter(Boolean).join(', ')
+            ? task.tags.map(t => t.replace(/^#/, '').trim()).filter(Boolean).join(',')
             : '';
 
         const rowObj: Record<string, string> = {};
@@ -228,25 +294,25 @@ export function generateMetricoolCsvFromTasks(
         rowObj['Date'] = dateFormatted;
         rowObj['Time'] = timeFormatted;
         rowObj['Draft'] = isDraft ? 'true' : 'false';
-        rowObj['Brand Name'] = channel?.name || '';
 
-        rowObj['Facebook'] = hasFacebook ? 'TRUE' : 'FALSE';
-        rowObj['Twitter/X'] = 'FALSE';
-        rowObj['LinkedIn'] = 'FALSE';
-        rowObj['GBP'] = 'FALSE';
-        rowObj['Instagram'] = hasInstagram ? 'TRUE' : 'FALSE';
-        rowObj['Pinterest'] = 'FALSE';
-        rowObj['TikTok'] = hasTikTok ? 'TRUE' : 'FALSE';
-        rowObj['YouTube'] = hasYouTube ? 'TRUE' : 'FALSE';
-        rowObj['Threads'] = 'FALSE';
-        rowObj['Bluesky'] = 'FALSE';
+        rowObj['Facebook'] = hasFacebook ? 'true' : 'false';
+        rowObj['Twitter/X'] = 'false';
+        rowObj['LinkedIn'] = 'false';
+        rowObj['GBP'] = 'false';
+        rowObj['Instagram'] = hasInstagram ? 'true' : 'false';
+        rowObj['Pinterest'] = 'false';
+        rowObj['TikTok'] = hasTikTok ? 'true' : 'false';
+        rowObj['Youtube'] = hasYouTube ? 'true' : 'false';
+        rowObj['Threads'] = 'false';
+        rowObj['Bluesky'] = 'false';
+        rowObj['Shortener'] = 'false';
 
-        mediaAssets.slice(0, 10).forEach((asset, idx) => {
-            rowObj[`Picture Url ${idx + 1}`] = asset.url;
+        mediaInspection.resolvedMediaUrls.slice(0, 10).forEach((resolvedUrl, idx) => {
+            rowObj[`Picture Url ${idx + 1}`] = resolvedUrl;
         });
 
-        if (thumbnailAsset?.url) {
-            rowObj['Video Thumbnail Url'] = thumbnailAsset.url;
+        if (mediaInspection.resolvedThumbnailUrl) {
+            rowObj['Video Thumbnail Url'] = mediaInspection.resolvedThumbnailUrl;
         }
 
         if (hasInstagram) {
@@ -255,22 +321,35 @@ export function generateMetricoolCsvFromTasks(
         }
 
         if (hasYouTube) {
-            rowObj['YouTube Video Title'] = cleanTitle;
-            rowObj['YouTube Video Type'] = youtubeVideoType;
-            rowObj['YouTube Video Privacy'] = youtubePrivacy;
-            rowObj['YouTube video for kids'] = 'false';
-            rowObj['YouTube Video Tags'] = youtubeTags;
-            rowObj['YouTube Notify Subscribers'] = 'true';
+            rowObj['Youtube Video Title'] = cleanTitle || caption.slice(0, 100);
+            rowObj['Youtube Video Type'] = youtubeVideoType;
+            rowObj['Youtube Video Privacy'] = youtubePrivacy;
+            rowObj['Youtube video for kids'] = 'false';
+            rowObj['Youtube AI generated content'] = 'false';
+            rowObj['Youtube notify subscribers'] = 'true';
+            rowObj['Youtube Video Tags'] = youtubeTags;
         }
 
         if (hasFacebook) {
             rowObj['Facebook Post Type'] = facebookPostType;
-            rowObj['Facebook Title'] = cleanTitle;
+            // Per Mtr_calendar_template.csv: "Facebook Title. Only for Facebook video posts and reels (no stories)"
+            rowObj['Facebook Title'] = facebookPostType !== 'STORY' ? cleanTitle : '';
         }
 
         if (hasTikTok) {
-            rowObj['TikTok Title'] = cleanTitle;
             rowObj['TikTok disable comments'] = 'false';
+            rowObj['TikTok disable duet'] = 'false';
+            rowObj['TikTok disable stitch'] = 'false';
+            rowObj['TikTok Post Privacy'] = 'PUBLIC_TO_EVERYONE';
+            rowObj['TikTok Branded Content'] = 'false';
+            rowObj['TikTok Your Brand'] = 'false';
+            rowObj['TikTok Auto Add Music'] = 'false';
+            rowObj['TikTok Photo Cover Index'] = '0';
+            rowObj['TikTok Ai generated content'] = 'false';
+        }
+
+        if (metricoolBrandName.trim()) {
+            rowObj['Brand name'] = metricoolBrandName.trim();
         }
 
         return rowObj;
@@ -281,7 +360,6 @@ export function generateMetricoolCsvFromTasks(
         data: rows
     });
 
-    // Prepend UTF-8 BOM so Thai characters & emojis render properly in Excel and Metricool
     return '\uFEFF' + csvBody;
 }
 
@@ -301,170 +379,7 @@ export function downloadMetricoolCsv(csvContent: string, filename?: string) {
 }
 
 // ============================================================================
-// THAI FUZZY & SKELETON SIMILARITY ENGINE (Stage 1 Local Matcher)
-// ============================================================================
-
-/**
- * Normalizes text for exact comparison (lowercase, remove hashtags, emojis, punctuation)
- */
-export function normalizeTitleText(input: string): string {
-    if (!input) return '';
-    return input
-        .toLowerCase()
-        .replace(/#[^\s#]+/g, '') // strip hashtags
-        .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}]/gu, '') // strip emojis
-        .replace(/[^\p{L}\p{M}\p{N}]+/gu, '') // keep letters, marks, numbers
-        .trim();
-}
-
-/**
- * Strips Thai vowels & tone marks (`ั ิ ี ึ ื ุ ู ็ ่ ้ ๊ ๋ ์ ำ ะ า เ แ โ ใ ไ`)
- * so that missing vowels or tone typos still match the consonant skeleton!
- */
-export function toThaiConsonantSkeleton(input: string): string {
-    const base = normalizeTitleText(input);
-    return base.replace(/[\u0E30-\u0E3A\u0E40-\u0E4E]/g, '');
-}
-
-/**
- * Computes Sørensen–Dice coefficient on character bigrams (0 to 1)
- */
-export function computeBigramSimilarity(a: string, b: string): number {
-    if (!a && !b) return 1;
-    if (!a || !b) return 0;
-    if (a === b) return 1;
-    if (a.length < 2 || b.length < 2) {
-        return a === b ? 1 : 0;
-    }
-
-    const bigramsA = new Map<string, number>();
-    for (let i = 0; i < a.length - 1; i++) {
-        const bg = a.slice(i, i + 2);
-        bigramsA.set(bg, (bigramsA.get(bg) || 0) + 1);
-    }
-
-    let intersection = 0;
-    for (let i = 0; i < b.length - 1; i++) {
-        const bg = b.slice(i, i + 2);
-        const count = bigramsA.get(bg) || 0;
-        if (count > 0) {
-            bigramsA.set(bg, count - 1);
-            intersection++;
-        }
-    }
-
-    return (2.0 * intersection) / (a.length - 1 + (b.length - 1));
-}
-
-/**
- * Computes Levenshtein edit distance between two strings
- */
-export function computeLevenshteinSimilarity(a: string, b: string): number {
-    if (!a && !b) return 1;
-    if (!a || !b) return 0;
-    if (a === b) return 1;
-
-    const maxLen = Math.max(a.length, b.length);
-    if (maxLen === 0) return 1;
-
-    const dp: number[] = Array.from({ length: b.length + 1 }, (_, i) => i);
-    for (let i = 1; i <= a.length; i++) {
-        let prev = i - 1;
-        dp[0] = i;
-        for (let j = 1; j <= b.length; j++) {
-            const temp = dp[j];
-            if (a[i - 1] === b[j - 1]) {
-                dp[j] = prev;
-            } else {
-                dp[j] = Math.min(prev + 1, dp[j] + 1, dp[j - 1] + 1);
-            }
-            prev = temp;
-        }
-    }
-
-    return Math.max(0, 1 - dp[b.length] / maxLen);
-}
-
-/**
- * Calculates overall Thai-aware similarity score (0 to 100) between a CSV row title/caption
- * and an existing CalendarView Task.
- */
-export function scoreThaiTaskMatch(
-    csvTitle: string,
-    csvCaption: string,
-    csvDate: Date,
-    task: Task
-): { score: number; matchType: 'EXACT' | 'THAI_FUZZY' | 'NONE'; reason: string } {
-    const taskDate = task.endDate instanceof Date ? task.endDate : new Date(task.endDate);
-    const dayDiff = Math.abs(differenceInCalendarDays(csvDate, taskDate));
-
-    // Only consider tasks within +/- 5 days
-    if (dayDiff > 5) {
-        return { score: 0, matchType: 'NONE', reason: '' };
-    }
-
-    const normCsvTitle = normalizeTitleText(csvTitle);
-    const normTaskTitle = normalizeTitleText(task.title);
-
-    if (!normCsvTitle || !normTaskTitle) {
-        return { score: 0, matchType: 'NONE', reason: '' };
-    }
-
-    // 1. Exact normalized match on same day (or +/- 2 days)
-    if (normCsvTitle === normTaskTitle && dayDiff <= 2) {
-        return {
-            score: dayDiff === 0 ? 100 : 96,
-            matchType: 'EXACT',
-            reason: dayDiff === 0 ? 'ชื่อคลิปและวันที่ตรงกัน 100%' : `ชื่อคลิปตรงกัน 100% (ขยับวัน ${dayDiff} วัน)`
-        };
-    }
-
-    // 2. Thai Consonant Skeleton Match (handles missing vowels/tone marks!)
-    const skelCsv = toThaiConsonantSkeleton(csvTitle);
-    const skelTask = toThaiConsonantSkeleton(task.title);
-
-    if (skelCsv.length >= 4 && skelCsv === skelTask && dayDiff <= 3) {
-        return {
-            score: dayDiff === 0 ? 95 : 90,
-            matchType: 'THAI_FUZZY',
-            reason: 'โครงพยัญชนะไทยตรงกัน (ตรวจพบสระหรือวรรณยุกต์ตกหล่นเล็กน้อย)'
-        };
-    }
-
-    // 3. Substring containment (e.g. Task title is inside CSV caption or vice versa)
-    const normCaption = normalizeTitleText(csvCaption);
-    if (normTaskTitle.length >= 6 && (normCsvTitle.includes(normTaskTitle) || normTaskTitle.includes(normCsvTitle) || normCaption.includes(normTaskTitle))) {
-        if (dayDiff <= 2) {
-            return {
-                score: dayDiff === 0 ? 89 : 84,
-                matchType: 'THAI_FUZZY',
-                reason: 'ชื่อการ์ดงานปรากฏอยู่ในพาดหัว/แคปชันของ Metricool ในช่วงวันเดียวกัน'
-            };
-        }
-    }
-
-    // 4. Combined Levenshtein + Skeleton similarity
-    const fullLev = computeLevenshteinSimilarity(normCsvTitle, normTaskTitle);
-    const skelLev = skelCsv && skelTask ? computeLevenshteinSimilarity(skelCsv, skelTask) : 0;
-    const bigramSim = computeBigramSimilarity(normCsvTitle, normTaskTitle);
-
-    const bestTextSim = Math.max(fullLev, skelLev * 0.97, bigramSim);
-    const datePenalty = dayDiff * 0.05; // -5% per day difference
-    const finalScore = Math.round(Math.max(0, (bestTextSim - datePenalty) * 100));
-
-    if (finalScore >= 75) {
-        return {
-            score: finalScore,
-            matchType: 'THAI_FUZZY',
-            reason: `ชื่อคล้ายคลึงกัน ${finalScore}%${dayDiff === 0 ? ' (วันเดียวกัน)' : ` (ห่างกัน ${dayDiff} วัน)`}`
-        };
-    }
-
-    return { score: finalScore, matchType: 'NONE', reason: '' };
-}
-
-// ============================================================================
-// FLEXIBLE METRICOOL CSV PARSER (Handles Template & Planner/History Exports)
+// FLEXIBLE METRICOOL CSV PARSER (Handles Official 96-Col & Custom Exports)
 // ============================================================================
 
 function findHeaderValue(row: Record<string, any>, candidateKeys: string[]): string {
@@ -472,24 +387,26 @@ function findHeaderValue(row: Record<string, any>, candidateKeys: string[]): str
     for (const candidate of candidateKeys) {
         const exact = row[candidate];
         if (exact !== undefined && exact !== null && String(exact).trim() !== '') {
-            return String(exact).trim();
+            return normalizeSpaces(String(exact));
         }
         const foundKey = rowKeys.find(k => k.trim().toLowerCase() === candidate.toLowerCase());
         if (foundKey && row[foundKey] !== undefined && row[foundKey] !== null && String(row[foundKey]).trim() !== '') {
-            return String(row[foundKey]).trim();
+            return normalizeSpaces(String(row[foundKey]));
         }
     }
     return '';
 }
 
-function parseFlexibleDateAndTime(dateRaw: string, timeRaw: string): { parsedDate: Date; dateStr: string; scheduledTime: string } {
+function parseFlexibleDateAndTime(
+    dateRaw: string,
+    timeRaw: string
+): { parsedDate: Date; dateStr: string; scheduledTime: string } {
     let parsedDate = new Date();
     let scheduledTime = '18:00';
 
     const cleanDateRaw = (dateRaw || '').trim();
     const cleanTimeRaw = (timeRaw || '').trim();
 
-    // If Date column already contains both Date and Time (e.g. "2026-11-05 18:30:00" or "05/11/2026 18:30")
     let datePart = cleanDateRaw;
     let embeddedTimePart = '';
     if (cleanDateRaw.includes(' ') || cleanDateRaw.includes('T')) {
@@ -524,7 +441,6 @@ function parseFlexibleDateAndTime(dateRaw: string, timeRaw: string): { parsedDat
         }
     }
 
-    // Normalize Buddhist Era year (e.g. 2569 -> 2026) if present
     if (parsedDate.getFullYear() >= 2500) {
         parsedDate.setFullYear(parsedDate.getFullYear() - 543);
     }
@@ -561,18 +477,22 @@ function isTruthyCsvFlag(val: string): boolean {
 
 function extractHashtags(text: string): string[] {
     if (!text) return [];
-    const matches = text.match(/#([^\s#.,!?;:()[\]{}"']+)/g) || [];
+    const normalized = normalizeSpaces(text);
+    const matches = normalized.match(/#([^\s#.,!?;:()[\]{}"']+)/g) || [];
     return Array.from(new Set(matches.map(m => m.replace(/^#/, '').trim()).filter(Boolean)));
 }
 
 /**
- * Parses a Metricool CSV file and performs Stage 1 Local Thai Fuzzy Matching against existing Tasks
+ * Parses a Metricool CSV file and performs:
+ * 1. Clean title vs caption/hashtag separation (handling \u00A0 non-breaking spaces)
+ * 2. Intra-CSV same-day duplicate merging (e.g., separate IG retry row on the same day)
+ * 3. Stage 1 Local Thai Fuzzy Matching against existing Tasks
  */
 export function parseMetricoolCsvText(
     csvText: string,
     existingTasks: Task[],
     channels: Channel[],
-    defaultChannelId?: string
+    _defaultChannelId?: string
 ): { headers: string[]; rows: ParsedMetricoolRow[] } {
     const parsed = Papa.parse<Record<string, any>>(csvText, {
         header: true,
@@ -582,7 +502,7 @@ export function parseMetricoolCsvText(
     const headers = parsed.meta.fields || [];
     const contentTasks = existingTasks.filter(t => t.type === 'CONTENT');
 
-    const rows: ParsedMetricoolRow[] = (parsed.data || [])
+    const initialRows: ParsedMetricoolRow[] = (parsed.data || [])
         .map((rawRow, idx): ParsedMetricoolRow | null => {
             const caption = findHeaderValue(rawRow, [
                 'Text',
@@ -596,6 +516,7 @@ export function parseMetricoolCsvText(
             ]);
 
             const explicitTitle = findHeaderValue(rawRow, [
+                'Youtube Video Title',
                 'YouTube Video Title',
                 'Facebook Title',
                 'TikTok Title',
@@ -622,29 +543,28 @@ export function parseMetricoolCsvText(
                 'เวลา'
             ]);
 
-            // Skip completely blank or instruction/example header rows
             if (!caption && !explicitTitle && !dateRaw) {
                 return null;
             }
 
-            // Derive concise title from explicitTitle or first non-empty line of caption
-            let derivedTitle = explicitTitle;
-            if (!derivedTitle && caption) {
-                const firstLine = caption
-                    .split(/\r?\n/)
-                    .map(l => l.replace(/#[^\s#]+/g, '').trim())
-                    .find(Boolean) || caption.trim();
-                derivedTitle = firstLine.length > 85 ? firstLine.slice(0, 85).trim() + '...' : firstLine;
+            // Automatically skip Metricool's official template instruction/example row ("Text Example" / "2000-12-25")
+            if (
+                caption.toLowerCase() === 'text example' ||
+                dateRaw === '2000-12-25' ||
+                explicitTitle.includes('Youtube Video Title (100 characters length)')
+            ) {
+                return null;
             }
+
+            let derivedTitle = cleanMetricoolTitle(explicitTitle || caption);
             if (!derivedTitle) {
                 derivedTitle = `คอนเทนต์จาก Metricool #${idx + 1}`;
             }
 
             const { parsedDate, dateStr, scheduledTime } = parseFlexibleDateAndTime(dateRaw, timeRaw);
 
-            // Detect Brand / Channel
             const brandName = findHeaderValue(rawRow, ['Brand Name', 'Brand', 'Channel', 'Account', 'ช่อง']);
-            let matchedChannelId = defaultChannelId || '';
+            let matchedChannelId = '';
             if (brandName) {
                 const normBrand = brandName.toLowerCase().trim();
                 const matchedCh = channels.find(
@@ -659,14 +579,12 @@ export function parseMetricoolCsvText(
                 }
             }
 
-            // Detect Target Platforms
             const targetPlatforms: Platform[] = [];
             if (isTruthyCsvFlag(findHeaderValue(rawRow, ['Facebook']))) targetPlatforms.push('FACEBOOK');
             if (isTruthyCsvFlag(findHeaderValue(rawRow, ['Instagram']))) targetPlatforms.push('INSTAGRAM');
             if (isTruthyCsvFlag(findHeaderValue(rawRow, ['TikTok', 'Tiktok']))) targetPlatforms.push('TIKTOK');
-            if (isTruthyCsvFlag(findHeaderValue(rawRow, ['YouTube', 'Youtube']))) targetPlatforms.push('YOUTUBE');
+            if (isTruthyCsvFlag(findHeaderValue(rawRow, ['Youtube', 'YouTube']))) targetPlatforms.push('YOUTUBE');
 
-            // Also support single "Network" / "Platform" column from Metricool History/Analytics exports
             const networkCol = findHeaderValue(rawRow, ['Network', 'Networks', 'Platform', 'Social Network']).toUpperCase();
             if (networkCol) {
                 if (networkCol.includes('FACEBOOK') || networkCol.includes('FB')) {
@@ -683,11 +601,10 @@ export function parseMetricoolCsvText(
                 }
             }
 
-            // Detect Content Formats
             const contentFormats: string[] = [];
             const igType = findHeaderValue(rawRow, ['Instagram Post Type']).toUpperCase();
             const fbType = findHeaderValue(rawRow, ['Facebook Post Type']).toUpperCase();
-            const ytType = findHeaderValue(rawRow, ['YouTube Video Type']).toUpperCase();
+            const ytType = findHeaderValue(rawRow, ['Youtube Video Type', 'YouTube Video Type']).toUpperCase();
             const postTypeGeneric = findHeaderValue(rawRow, ['Type', 'Post Type', 'Format']).toUpperCase();
 
             if ([igType, fbType, ytType, postTypeGeneric].some(t => t.includes('REEL') || t.includes('SHORT'))) {
@@ -700,7 +617,6 @@ export function parseMetricoolCsvText(
                 contentFormats.push('LONG_FORM');
             }
 
-            // Extract Media URLs
             const mediaUrls: string[] = [];
             for (let i = 1; i <= 10; i++) {
                 const picUrl = findHeaderValue(rawRow, [`Picture Url ${i}`, `Media Url ${i}`, `Image ${i}`]);
@@ -714,12 +630,11 @@ export function parseMetricoolCsvText(
             const thumbnailUrl = findHeaderValue(rawRow, ['Video Thumbnail Url', 'Thumbnail', 'Cover URL']);
             const publishedUrl = findHeaderValue(rawRow, ['Link', 'Permalink', 'Post URL', 'URL']);
 
-            // Extract Tags from Caption + YouTube Video Tags
-            const ytTagsRaw = findHeaderValue(rawRow, ['YouTube Video Tags', 'Tags']);
+            const ytTagsRaw = findHeaderValue(rawRow, ['Youtube Video Tags', 'YouTube Video Tags', 'Tags']);
             const ytTags = ytTagsRaw
                 ? ytTagsRaw.split(',').map(t => t.trim().replace(/^#/, '')).filter(Boolean)
                 : [];
-            const captionTags = extractHashtags(caption);
+            const captionTags = extractHashtags(`${caption} ${explicitTitle}`);
             const mergedTags = Array.from(new Set([...ytTags, ...captionTags]));
 
             const isDraft = isTruthyCsvFlag(findHeaderValue(rawRow, ['Draft']));
@@ -731,7 +646,6 @@ export function parseMetricoolCsvText(
             let bestReason = '';
 
             for (const candidate of contentTasks) {
-                // If channel is specified on both and they differ, apply small penalty but still check
                 const channelMatches = !matchedChannelId || !candidate.channelId || matchedChannelId === candidate.channelId;
                 const result = scoreThaiTaskMatch(derivedTitle, caption, parsedDate, candidate);
                 const adjustedScore = channelMatches ? result.score : Math.max(0, result.score - 8);
@@ -750,7 +664,7 @@ export function parseMetricoolCsvText(
                 rowIndex: idx,
                 rawRow,
                 title: derivedTitle,
-                description: caption || derivedTitle,
+                description: caption || explicitTitle || derivedTitle,
                 tags: mergedTags,
                 dateStr,
                 parsedDate,
@@ -772,16 +686,60 @@ export function parseMetricoolCsvText(
         })
         .filter((r): r is ParsedMetricoolRow => r !== null);
 
-    return { headers, rows };
+    // Stage 1.5: Intra-CSV Same-Day Deduplication & Platform Merging
+    const primaryRowByDayAndKey = new Map<string, ParsedMetricoolRow>();
+    const primaryRowByTitleOnly = new Map<string, ParsedMetricoolRow>();
+
+    for (const row of initialRows) {
+        const normTitle = normalizeTitleText(row.title);
+        const primaryMedia = row.mediaUrls[0] || '';
+        const sameDayKey = `${row.dateStr}::${normTitle || primaryMedia}`;
+
+        const existingSameDay = primaryRowByDayAndKey.get(sameDayKey);
+        if (existingSameDay && (normTitle.length >= 3 || primaryMedia)) {
+            existingSameDay.targetPlatforms = Array.from(
+                new Set([...existingSameDay.targetPlatforms, ...row.targetPlatforms])
+            );
+            existingSameDay.mediaUrls = Array.from(
+                new Set([...existingSameDay.mediaUrls, ...row.mediaUrls])
+            );
+            existingSameDay.tags = Array.from(
+                new Set([...existingSameDay.tags, ...row.tags])
+            );
+            if (!existingSameDay.thumbnailUrl && row.thumbnailUrl) {
+                existingSameDay.thumbnailUrl = row.thumbnailUrl;
+            }
+
+            row.action = 'SKIP';
+            row.matchReason = `ซ้ำกับแถวเวลา ${existingSameDay.scheduledTime} น. ในวันเดียวกัน (รวมแพลตฟอร์มให้แล้ว)`;
+            continue;
+        }
+
+        primaryRowByDayAndKey.set(sameDayKey, row);
+
+        if (normTitle.length >= 5) {
+            const earlierRow = primaryRowByTitleOnly.get(normTitle);
+            if (earlierRow && earlierRow.dateStr !== row.dateStr && !row.matchReason) {
+                row.matchReason = `ชื่อคลิปเดียวกับวันที่ ${format(earlierRow.parsedDate, 'dd/MM/yyyy')} (คนละวัน/แยกแพลตฟอร์ม)`;
+            } else if (!earlierRow) {
+                primaryRowByTitleOnly.set(normTitle, row);
+            }
+        }
+    }
+
+    return { headers, rows: initialRows };
 }
 
 /**
- * Stage 2: Requests Gemini AI Semantic Matching for rows that were not 100% matched locally
- * or where Thai vowels/tones/hooks differed significantly.
+ * Stage 2: Date-Scoped & Chunked Gemini AI Semantic Matching for 200-300+ rows.
+ * - Filters rows to ONLY those whose date is within +/- 5 days of an existing CONTENT card
+ *   and whose title did not match 100% locally.
+ * - Processes candidate rows in chunks of 25 rows per request so large files never timeout.
  */
 export async function requestAiMetricoolMatch(
     rows: ParsedMetricoolRow[],
-    existingTasks: Task[]
+    existingTasks: Task[],
+    onProgress?: (currentChunk: number, totalChunks: number) => void
 ): Promise<{
     rowIndex: number;
     matchedTaskId: string | null;
@@ -791,46 +749,85 @@ export async function requestAiMetricoolMatch(
     const contentTasks = existingTasks.filter(t => t.type === 'CONTENT');
     if (rows.length === 0 || contentTasks.length === 0) return [];
 
-    // Filter candidate tasks within +/- 10 days of any CSV row date to keep payload lean and fast
-    const csvDates = rows.map(r => r.parsedDate);
-    const relevantCandidates = contentTasks.filter(task => {
-        const tDate = task.endDate instanceof Date ? task.endDate : new Date(task.endDate);
-        return csvDates.some(cd => Math.abs(differenceInCalendarDays(cd, tDate)) <= 10);
-    });
-
-    if (relevantCandidates.length === 0) return [];
-
-    const response = await fetch('/api/metricool/ai-match', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-            rows: rows.map(r => ({
-                rowIndex: r.rowIndex,
-                title: r.title,
-                caption: r.description,
-                date: r.dateStr,
-                time: r.scheduledTime,
-                platforms: r.targetPlatforms
-            })),
-            candidates: relevantCandidates.map(c => {
-                const cDate = c.endDate instanceof Date ? c.endDate : new Date(c.endDate);
-                return {
-                    id: c.id,
-                    title: c.title,
-                    description: c.description || '',
-                    date: isValid(cDate) ? format(cDate, 'yyyy-MM-dd') : '',
-                    scheduledTime: c.scheduledTime || '',
-                    channelId: c.channelId,
-                    status: String(c.status || '')
-                };
-            })
+    // Pre-parse valid dates on existing content tasks
+    const tasksWithDate = contentTasks
+        .map(task => {
+            const tDate = task.endDate instanceof Date ? task.endDate : new Date(task.endDate);
+            return { task, tDate };
         })
+        .filter(item => isValid(item.tDate));
+
+    if (tasksWithDate.length === 0) return [];
+
+    // Filter rows to ONLY non-skipped, non-100% exact rows that have at least one existing task within +/- 5 days
+    const dateScopedRows = rows.filter(row => {
+        if (row.action === 'SKIP' || row.matchType === 'EXACT') return false;
+        return tasksWithDate.some(
+            ({ tDate }) => Math.abs(differenceInCalendarDays(row.parsedDate, tDate)) <= 5
+        );
     });
 
-    const data = await response.json();
-    if (!response.ok || !data.success) {
-        throw new Error(data.error || 'ไม่สามารถเรียกใช้ AI จับคู่รายการได้');
+    if (dateScopedRows.length === 0) return [];
+
+    const AI_CHUNK_SIZE = 25;
+    const totalChunks = Math.ceil(dateScopedRows.length / AI_CHUNK_SIZE);
+    const allMatches: {
+        rowIndex: number;
+        matchedTaskId: string | null;
+        confidence: number;
+        reason: string;
+    }[] = [];
+
+    for (let chunkIdx = 0; chunkIdx < totalChunks; chunkIdx++) {
+        onProgress?.(chunkIdx + 1, totalChunks);
+
+        const rowChunk = dateScopedRows.slice(
+            chunkIdx * AI_CHUNK_SIZE,
+            (chunkIdx + 1) * AI_CHUNK_SIZE
+        );
+
+        const chunkDates = rowChunk.map(r => r.parsedDate);
+        const chunkCandidates = tasksWithDate
+            .filter(({ tDate }) =>
+                chunkDates.some(cd => Math.abs(differenceInCalendarDays(cd, tDate)) <= 5)
+            )
+            .map(({ task, tDate }) => ({
+                id: task.id,
+                title: task.title,
+                description: task.description || '',
+                date: format(tDate, 'yyyy-MM-dd'),
+                scheduledTime: task.scheduledTime || '',
+                channelId: task.channelId,
+                status: String(task.status || '')
+            }));
+
+        if (chunkCandidates.length === 0) continue;
+
+        const response = await fetch('/api/metricool/ai-match', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                rows: rowChunk.map(r => ({
+                    rowIndex: r.rowIndex,
+                    title: r.title,
+                    caption: r.description,
+                    date: r.dateStr,
+                    time: r.scheduledTime,
+                    platforms: r.targetPlatforms
+                })),
+                candidates: chunkCandidates
+            })
+        });
+
+        const data = await response.json();
+        if (!response.ok || !data.success) {
+            throw new Error(data.error || 'ไม่สามารถเรียกใช้ AI จับคู่รายการได้');
+        }
+
+        if (Array.isArray(data.matches)) {
+            allMatches.push(...data.matches);
+        }
     }
 
-    return data.matches || [];
+    return allMatches;
 }

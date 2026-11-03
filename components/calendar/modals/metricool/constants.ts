@@ -5,12 +5,15 @@ export type ExportRangeMode = 'CURRENT_MONTH' | 'NEXT_7_DAYS' | 'CUSTOM';
 export type ExportStatusScope = 'ALL' | 'FINAL_ONLY';
 export type ImportDraftMode = 'AUTO' | 'ALWAYS_SCHEDULED' | 'ALWAYS_DRAFT';
 export type YoutubePrivacyMode = 'PUBLIC' | 'UNLISTED' | 'PRIVATE';
+export type ImportStatusFilter = 'ALL' | 'UPDATE' | 'CREATE' | 'SKIP';
+
+export const PREVIEW_PAGE_SIZE = 50;
 
 export const PLATFORM_BADGE_STYLE: Record<string, { label: string; bg: string; text: string }> = {
-    FACEBOOK: { label: 'FB', bg: 'bg-blue-50 border-blue-200', text: 'text-blue-700' },
-    INSTAGRAM: { label: 'IG', bg: 'bg-pink-50 border-pink-200', text: 'text-pink-700' },
-    TIKTOK: { label: 'TT', bg: 'bg-slate-100 border-slate-300', text: 'text-slate-800' },
-    YOUTUBE: { label: 'YT', bg: 'bg-red-50 border-red-200', text: 'text-red-700' }
+    FACEBOOK: { label: 'FB', bg: 'bg-[#E9F1F6] border-[#C9DDE9]', text: 'text-[#3B6B8C]' },
+    INSTAGRAM: { label: 'IG', bg: 'bg-[#F9EAE6] border-[#ECCBC2]', text: 'text-[#9E5240]' },
+    TIKTOK: { label: 'TT', bg: 'bg-[#EFECE6] border-[#D8D0C3]', text: 'text-[#5A5246]' },
+    YOUTUBE: { label: 'YT', bg: 'bg-[#FAE6E3] border-[#EBC0B8]', text: 'text-[#A64438]' }
 };
 
 /**
@@ -50,7 +53,7 @@ export const tabContentVariants: Variants = {
 };
 
 /**
- * Strictly typed Variants for collapsible paste drawer inside the Import tab
+ * Strictly typed Variants for collapsible drawers & guide banner (Zero-Jitter Rulebook #7)
  */
 export const collapsibleDrawerVariants: Variants = {
     initial: {

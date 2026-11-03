@@ -163,6 +163,8 @@ export interface TaskAsset {
     type: 'LINK' | 'FILE';
     category: AssetCategory;
     createdAt: Date;
+    /** ระบุว่าไฟล์แนบนี้คือคลิป/ภาพไฟนอลที่อนุมัติให้ส่งออกไปลงคอลัมน์ Picture Url 1 ของ Metricool */
+    isMetricoolReady?: boolean;
 }
 
 export interface ReviewSession {

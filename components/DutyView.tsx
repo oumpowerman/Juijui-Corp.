@@ -298,7 +298,7 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
     };
 
     return (
-        <AppBackground theme={bgTheme} pattern="grid" className="p-4 md:p-8 min-h-screen relative overflow-hidden">
+        <AppBackground theme={bgTheme} pattern="grid" className="p-4 md:p-8 min-h-screen shrink-0 relative">
             {/* --- MIDDLE AMBIENT LAYER: Dynamic Animated Cleaning Crew Behind Content --- */}
             <DutyAmbientLayer 
                 duties={duties}
@@ -306,7 +306,7 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
                 currentUser={currentUser}
             />
 
-            <div className="space-y-8 animate-in fade-in duration-500 pb-36 md:pb-40 relative z-20">
+            <div className="space-y-5 md:space-y-8 animate-in fade-in duration-500 pb-44 md:pb-40 relative z-20">
                 
                 {/* --- LOADING OVERLAY FOR PROOF UPLOAD --- */}
                 {isProofUploading && (

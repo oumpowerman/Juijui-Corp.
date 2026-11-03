@@ -89,7 +89,13 @@ const TaskModalBody: React.FC<TaskModalBodyProps> = ({
                                 onDelete={(id) => {
                                     const updatedAssets = (taskData.assets || []).filter(a => a.id !== id);
                                     onSave({ ...taskData, assets: updatedAssets });
-                                }} 
+                                }}
+                                onUpdateAsset={(updatedAsset) => {
+                                    const updatedAssets = (taskData.assets || []).map(a =>
+                                        a.id === updatedAsset.id ? updatedAsset : a
+                                    );
+                                    onSave({ ...taskData, assets: updatedAssets });
+                                }}
                             />
                         </div>
                     ) : viewMode === 'LOGISTICS' && taskData && currentUser ? (

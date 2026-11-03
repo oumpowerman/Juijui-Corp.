@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { createPortal } from 'react-dom';
+import BaseModal from '../common/BaseModal';
 import { DeadlineRequest, User, Task } from '../../types';
 import { useDeadlineRequests } from '../../hooks/useDeadlineRequests';
 import { useToast } from '../../context/ToastContext';
@@ -337,72 +337,73 @@ const AdminDeadlineRequestsModal: React.FC<AdminDeadlineRequestsModalProps> = ({
         };
     }, [selectedReq, users, tasks]);
 
-    if (!isOpen || typeof document === 'undefined') return null;
+    return (
+        <BaseModal
+            isOpen={isOpen}
+            onClose={onClose}
+            closeOnBackdropClick={!isProcessingBatch}
+            closeOnEscape={!isProcessingBatch}
+            containerClassName="p-0 sm:p-4"
+            backdropClassName="bg-slate-900/40 backdrop-blur-md"
+            windowClassName="bg-slate-50 w-full max-w-7xl h-[94vh] sm:h-[92vh] rounded-t-[2rem] sm:rounded-[32px] border border-slate-200/90 shadow-2xl flex flex-col justify-between overflow-hidden relative"
+        >
+            {/* Control Header & Metrics display */}
+            <DeadlineRequestsHeader 
+                requestsCount={localRequests.length} 
+                metrics={metrics} 
+                onClose={onClose} 
+            />
 
-    return createPortal(
-        <div className="fixed inset-0 z-50 overflow-hidden flex items-center justify-center bg-slate-900/40 backdrop-blur-md p-4 animate-fadeIn">
-            {/* Modal Glass Panel Container */}
-            <div className="bg-slate-50 w-full max-w-7xl h-[92vh] rounded-[32px] border border-slate-200/90 shadow-2xl flex flex-col justify-between overflow-hidden relative">
+            {/* Subheader Filters line */}
+            <DeadlineRequestsFilters 
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                filterCategory={filterCategory}
+                setFilterCategory={setFilterCategory}
+                sortBy={sortBy}
+                setSortBy={setSortBy}
+                requestsLength={localRequests.length}
+                filteredCount={filteredRequests.length}
+                metrics={metrics}
+            />
+
+            {/* Main operational Split pane workspace */}
+            <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-0 relative">
                 
-                {/* Control Header & Metrics display */}
-                <DeadlineRequestsHeader 
-                    requestsCount={localRequests.length} 
-                    metrics={metrics} 
-                    onClose={onClose} 
-                />
-
-                {/* Subheader Filters line */}
-                <DeadlineRequestsFilters 
-                    searchQuery={searchQuery}
-                    setSearchQuery={setSearchQuery}
-                    filterCategory={filterCategory}
-                    setFilterCategory={setFilterCategory}
-                    sortBy={sortBy}
-                    setSortBy={setSortBy}
-                    requestsLength={localRequests.length}
-                    filteredCount={filteredRequests.length}
-                    metrics={metrics}
-                />
-
-                {/* Main operational Split pane workspace */}
-                <div className="flex-1 min-h-0 grid grid-cols-1 lg:grid-cols-12 gap-0 relative">
-                    
-                    {/* Left Column Feed Drawer */}
-                    <DeadlineRequestsList 
-                        filteredRequests={filteredRequests}
-                        selectedIds={selectedIds}
-                        selectedReq={selectedReq}
-                        isFetching={isFetching}
-                        tasks={tasks}
-                        toggleSelect={toggleSelect}
-                        handleSelectAll={handleSelectAll}
-                        setSelectedReq={setSelectedReq}
-                    />
-
-                    {/* Right Column Intelligence Inspector Card View */}
-                    <DeadlineRequestsInspector 
-                        selectedReq={selectedReq}
-                        insights={insights}
-                        customDate={customDate}
-                        setCustomDate={setCustomDate}
-                        isProcessingBatch={isProcessingBatch}
-                        rejectionTemplates={rejectionTemplates}
-                        handleCustomApprove={handleCustomApprove}
-                        handleRejectWithTemplate={handleRejectWithTemplate}
-                        setSelectedReq={setSelectedReq}
-                        handleResolve={handleResolve}
-                    />
-                </div>
-
-                {/* Batch multi control floating drawer bar */}
-                <DeadlineRequestsBatchBar 
+                {/* Left Column Feed Drawer */}
+                <DeadlineRequestsList 
+                    filteredRequests={filteredRequests}
                     selectedIds={selectedIds}
+                    selectedReq={selectedReq}
+                    isFetching={isFetching}
+                    tasks={tasks}
+                    toggleSelect={toggleSelect}
+                    handleSelectAll={handleSelectAll}
+                    setSelectedReq={setSelectedReq}
+                />
+
+                {/* Right Column Intelligence Inspector Card View */}
+                <DeadlineRequestsInspector 
+                    selectedReq={selectedReq}
+                    insights={insights}
+                    customDate={customDate}
+                    setCustomDate={setCustomDate}
                     isProcessingBatch={isProcessingBatch}
-                    handleBatchResolve={handleBatchResolve}
+                    rejectionTemplates={rejectionTemplates}
+                    handleCustomApprove={handleCustomApprove}
+                    handleRejectWithTemplate={handleRejectWithTemplate}
+                    setSelectedReq={setSelectedReq}
+                    handleResolve={handleResolve}
                 />
             </div>
-        </div>,
-        document.body
+
+            {/* Batch multi control floating drawer bar */}
+            <DeadlineRequestsBatchBar 
+                selectedIds={selectedIds}
+                isProcessingBatch={isProcessingBatch}
+                handleBatchResolve={handleBatchResolve}
+            />
+        </BaseModal>
     );
 };
 

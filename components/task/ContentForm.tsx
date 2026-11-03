@@ -95,7 +95,7 @@ const ContentForm: React.FC<ContentFormProps> = ({
         ideaOwnerIds, setIdeaOwnerIds,
         editorIds, setEditorIds,
         assigneeIds, setAssigneeIds,
-        assets, addAsset, removeAsset,
+        assets, addAsset, removeAsset, updateAsset,
         subChecklistProgress, setSubChecklistProgress,
         error,
         formatOptions, pillarOptions, categoryOptions, statusOptions,
@@ -561,6 +561,7 @@ const ContentForm: React.FC<ContentFormProps> = ({
                                     assets={assets}
                                     onAdd={addAsset}
                                     onDelete={removeAsset}
+                                    onUpdateAsset={updateAsset}
                                 />
                             </div>
                         </div>

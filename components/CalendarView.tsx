@@ -77,6 +77,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   // --- Core Calendar Engine Hook ---
   const {
     currentDate,
+    setCurrentDate,
     viewMode, setViewMode,
     filterChannelId, setFilterChannelId,
     activeChipIds, setActiveChipIds, toggleChip, toggleFilters, customChips,
@@ -464,6 +465,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           onCloseMetricoolModal={() => setIsMetricoolModalOpen(false)}
           currentDate={currentDate || new Date()}
           activeChannelFilterId={filterChannelId}
+          onRangeChange={onRangeChange}
+          onNavigateDate={setCurrentDate}
         />
       </div>
     </AppBackground>

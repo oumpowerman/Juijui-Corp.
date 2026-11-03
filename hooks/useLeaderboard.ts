@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { User } from '../types';
 import startOfWeek from 'date-fns/startOfWeek';
@@ -23,39 +23,60 @@ export interface LeaderboardEntry {
 }
 
 export const useLeaderboard = (users: User[], currentUser: User) => {
-    const [timeRange, setTimeRange] = useState<TimeRange>('WEEKLY');
+    const [timeRange, setTimeRangeState] = useState<TimeRange>('WEEKLY');
     const [rankings, setRankings] = useState<LeaderboardEntry[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const cacheRef = useRef<Partial<Record<TimeRange, LeaderboardEntry[]>>>({});
+    const hasLoadedOnceRef = useRef(false);
+
+    const computeAllTimeEntries = useCallback((userList: User[]): LeaderboardEntry[] => {
+        const allTimeSorted = [...userList].filter(u => u.isActive).sort((a, b) => b.xp - a.xp);
+        return allTimeSorted.map((u, index) => {
+            const badges: BadgeType[] = [];
+            if (u.level >= 5) badges.push('FIRE');
+
+            return {
+                user: u,
+                rank: index + 1,
+                score: u.xp,
+                missions: 0,
+                penalties: 0,
+                diffFromTop: allTimeSorted[0] ? allTimeSorted[0].xp - u.xp : 0,
+                diffFromNext: index > 0 ? allTimeSorted[index - 1].xp - u.xp : 0,
+                nextRankUser: index > 0 ? allTimeSorted[index - 1] : undefined,
+                badges,
+            };
+        });
+    }, []);
+
+    const setTimeRange = useCallback((nextRange: TimeRange) => {
+        setTimeRangeState(nextRange);
+        if (nextRange === 'ALL_TIME' && users.length > 0) {
+            const allTimeEntries = computeAllTimeEntries(users);
+            cacheRef.current.ALL_TIME = allTimeEntries;
+            setRankings(allTimeEntries);
+            setIsLoading(false);
+        } else if (cacheRef.current[nextRange]) {
+            setRankings(cacheRef.current[nextRange]!);
+            setIsLoading(false);
+        }
+    }, [users, computeAllTimeEntries]);
 
     const fetchStats = useCallback(async (isBackground = false) => {
         if (users.length === 0) return;
 
-        // แสดง Loading เฉพาะตอนไม่มีข้อมูล หรือไม่ใช่การอัปเดตเบื้องหลัง
-        if (rankings.length === 0 || !isBackground) {
+        // แสดง Loading เฉพาะตอนเปิดครั้งแรกที่ยังไม่มีข้อมูลเลยเท่านั้น
+        if (!hasLoadedOnceRef.current && !isBackground) {
             setIsLoading(true);
         }
 
         try {
             // For ALL_TIME, we don't need to fetch logs, we use the 'users' prop directly
             if (timeRange === 'ALL_TIME') {
-                const allTimeSorted = [...users].filter(u => u.isActive).sort((a, b) => b.xp - a.xp);
-                const allTimeEntries: LeaderboardEntry[] = allTimeSorted.map((u, index) => {
-                    const badges: BadgeType[] = [];
-                    if (u.level >= 5) badges.push('FIRE');
-                    
-                    return {
-                        user: u,
-                        rank: index + 1,
-                        score: u.xp,
-                        missions: 0, 
-                        penalties: 0,
-                        diffFromTop: allTimeSorted[0].xp - u.xp,
-                        diffFromNext: index > 0 ? allTimeSorted[index - 1].xp - u.xp : 0,
-                        nextRankUser: index > 0 ? allTimeSorted[index - 1] : undefined,
-                        badges: badges
-                    };
-                });
+                const allTimeEntries = computeAllTimeEntries(users);
+                cacheRef.current.ALL_TIME = allTimeEntries;
                 setRankings(allTimeEntries);
+                hasLoadedOnceRef.current = true;
                 setIsLoading(false);
                 return;
             }
@@ -166,19 +187,35 @@ export const useLeaderboard = (users: User[], currentUser: User) => {
                 };
             });
 
-            setRankings(entries);
+            const prevCached = cacheRef.current[timeRange];
+            const isSameAsCache =
+                prevCached &&
+                prevCached.length === entries.length &&
+                prevCached.every(
+                    (p, idx) =>
+                        p.user.id === entries[idx].user.id &&
+                        p.score === entries[idx].score &&
+                        p.missions === entries[idx].missions &&
+                        p.penalties === entries[idx].penalties
+                );
+
+            cacheRef.current[timeRange] = entries;
+            hasLoadedOnceRef.current = true;
+            if (!isSameAsCache) {
+                setRankings(entries);
+            }
 
         } catch (err) {
             console.error("Leaderboard error", err);
         } finally {
             setIsLoading(false);
         }
-    }, [users, timeRange]);
+    }, [users, timeRange, computeAllTimeEntries]);
 
     // Initial fetch and re-fetch when timeRange changes
     useEffect(() => {
-        fetchStats(false); // Full loading for timeRange change
-    }, [timeRange, users]); // Trigger when timeRange or users change
+        fetchStats(hasLoadedOnceRef.current);
+    }, [timeRange, users, fetchStats]);
 
     // Dedicated Real-time subscription for game_logs
     useEffect(() => {

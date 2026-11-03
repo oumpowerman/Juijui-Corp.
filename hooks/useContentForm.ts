@@ -387,6 +387,8 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
 
     const addAsset = (newAsset: TaskAsset) => setAssets(prev => [...prev, newAsset]);
     const removeAsset = (id: string) => setAssets(prev => prev.filter(a => a.id !== id));
+    const updateAsset = (updatedAsset: TaskAsset) =>
+        setAssets(prev => prev.map(a => (a.id === updatedAsset.id ? updatedAsset : a)));
 
     return {
         // State
@@ -434,6 +436,7 @@ export const useContentForm = ({ initialData, selectedDate, sourceScript, channe
         togglePlatform,
         toggleUserSelection,
         addAsset,
-        removeAsset
+        removeAsset,
+        updateAsset
     };
 };

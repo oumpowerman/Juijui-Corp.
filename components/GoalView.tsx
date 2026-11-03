@@ -132,7 +132,7 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => 
     };
 
     // Reset page when filters change
-    useMemo(() => {
+    React.useEffect(() => {
         setPage(1);
     }, [filterTab, filterChannel, dateRange]);
 
@@ -237,7 +237,7 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => 
                 </div>
 
                 {/* 2. Controls & Filters */}
-                <div className="bg-slate-900/60 p-3 sm:p-4 rounded-[1.5rem] sm:rounded-[2.5rem] border border-white/10 shadow-2xl shadow-black/50 flex flex-col xl:flex-row gap-3 sm:gap-4 items-center justify-between sticky top-2 sm:top-4 z-40 backdrop-blur-xl">
+                <div className="bg-slate-900/60 p-3 sm:p-4 rounded-[1.5rem] sm:rounded-[2.5rem] border border-white/10 shadow-2xl shadow-black/50 flex flex-col xl:flex-row gap-3 sm:gap-4 items-center justify-between relative z-30 backdrop-blur-xl">
                     
                     {/* Left: Tab & Date Range */}
                     <div className="flex flex-col md:flex-row items-center gap-3 w-full xl:w-auto">

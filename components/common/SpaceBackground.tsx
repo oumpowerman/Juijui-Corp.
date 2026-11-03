@@ -36,7 +36,7 @@ const SpaceBackground: React.FC<SpaceBackgroundProps> = ({ children, className =
     }, []);
 
     return (
-        <div className={`relative min-h-screen w-full overflow-hidden bg-[#020617] ${className}`}>
+        <div className={`relative min-h-full w-full flex-shrink-0 overflow-x-clip bg-[#020617] ${className}`}>
             {/* 1. Deep Space Gradient */}
             <div className="fixed inset-0 bg-gradient-to-br from-[#020617] via-[#0f172a] to-[#1e1b4b] pointer-events-none z-0" />
             
@@ -57,7 +57,7 @@ const SpaceBackground: React.FC<SpaceBackgroundProps> = ({ children, className =
             />
 
             {/* 4. Twinkling Stars */}
-            <div className="fixed inset-0 pointer-events-none z-0">
+            <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
                 {stars.map((star) => (
                     <motion.div
                         key={star.id}
@@ -83,7 +83,7 @@ const SpaceBackground: React.FC<SpaceBackgroundProps> = ({ children, className =
             </div>
 
             {/* 5. Floating Sci-fi Icons */}
-            <div className="fixed inset-0 pointer-events-none z-0">
+            <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
                 {floatingElements.map((el) => (
                     <motion.div
                         key={el.id}
@@ -110,7 +110,7 @@ const SpaceBackground: React.FC<SpaceBackgroundProps> = ({ children, className =
             </div>
 
             {/* 6. Animated Rocket (The Highlight) */}
-            <div className="fixed inset-0 pointer-events-none z-0">
+            <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
                 <motion.div
                     className="absolute text-indigo-400"
                     initial={{ x: '-10%', y: '20%', rotate: 45, opacity: 0 }}

@@ -74,7 +74,7 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
         contentId, handleSetParentProject,
         showOnBoard, setShowOnBoard,
         scriptId, setScriptId, 
-        assets, addAsset, removeAsset,
+        assets, addAsset, removeAsset, updateAsset,
         tags, setTags,
         error,
         isSaving,
@@ -483,6 +483,7 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
                                 assets={assets}
                                 onAdd={addAsset}
                                 onDelete={removeAsset}
+                                onUpdateAsset={updateAsset}
                             />
                         </div>
 

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { createPortal } from 'react-dom';
+import BaseModal from '../common/BaseModal';
 import { TribunalReport, User } from '../../types';
 import { useTribunal } from '../../hooks/useTribunal';
 import { useToast } from '../../context/ToastContext';
@@ -181,60 +181,61 @@ const AdminTribunalReviewModal: React.FC<AdminTribunalReviewModalProps> = ({
         }
     };
 
-    if (!isOpen) return null;
+    return (
+        <BaseModal
+            isOpen={isOpen}
+            onClose={onClose}
+            closeOnBackdropClick={!isActionLoading}
+            closeOnEscape={!isActionLoading}
+            containerClassName="p-0 sm:p-4"
+            backdropClassName="bg-slate-900/40 backdrop-blur-xs"
+            windowClassName="bg-white w-full h-[94vh] sm:w-[96vw] sm:max-w-7xl sm:h-[92vh] rounded-t-[2rem] sm:rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden border border-slate-200 relative"
+        >
+            {/* 1. Header component */}
+            <TribunalRequestsHeader 
+                reportsCount={reports.filter(r => r.status === 'PENDING').length}
+                metrics={metrics}
+                onClose={onClose}
+            />
 
-    return createPortal(
-        <div className="fixed inset-0 z-50 overflow-hidden flex items-center justify-center bg-slate-900/40 backdrop-blur-xs animate-fade-in">
-            <div className="bg-white w-full h-full md:w-[96vw] md:h-[92vh] md:rounded-[2.5rem] md:shadow-2xl flex flex-col overflow-hidden border border-slate-200 animate-slide-up">
-                
-                {/* 1. Header component */}
-                <TribunalRequestsHeader 
-                    reportsCount={reports.filter(r => r.status === 'PENDING').length}
-                    metrics={metrics}
-                    onClose={onClose}
-                />
+            {/* 2. Advanced filters search bar */}
+            <TribunalRequestsFilters 
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                filterCategory={filterCategory}
+                setFilterCategory={setFilterCategory}
+                filterStatus={filterStatus}
+                setFilterStatus={setFilterStatus}
+                sortBy={sortBy}
+                setSortBy={setSortBy}
+                reportsLength={reports.length}
+                filteredCount={filteredReports.length}
+            />
 
-                {/* 2. Advanced filters search bar */}
-                <TribunalRequestsFilters 
-                    searchQuery={searchQuery}
-                    setSearchQuery={setSearchQuery}
-                    filterCategory={filterCategory}
-                    setFilterCategory={setFilterCategory}
-                    filterStatus={filterStatus}
-                    setFilterStatus={setFilterStatus}
-                    sortBy={sortBy}
-                    setSortBy={setSortBy}
-                    reportsLength={reports.length}
-                    filteredCount={filteredReports.length}
-                />
-
-                {/* 3. Main Grid layout: left is listed feed, right is detailed inspector */}
-                <div className="flex-1 min-h-0 flex flex-col md:flex-row">
-                    {/* Left: list of reports container */}
-                    <div className="w-full md:w-[420px] shrink-0 h-[280px] md:h-full border-b md:border-b-0 md:border-r border-slate-200">
-                        <TribunalRequestsList 
-                            filteredReports={filteredReports}
-                            allUsers={allUsers}
-                            selectedReport={selectedReport}
-                            setSelectedReport={setSelectedReport}
-                        />
-                    </div>
-
-                    {/* Right: details dynamic inspector */}
-                    <div className="flex-1 min-h-0 md:h-full min-w-0">
-                        <TribunalRequestsInspector 
-                            selectedReport={selectedReport}
-                            allUsers={allUsers}
-                            onResolve={handleResolveReport}
-                            isProcessing={isActionLoading}
-                            setSelectedReport={setSelectedReport}
-                        />
-                    </div>
+            {/* 3. Main Grid layout: left is listed feed, right is detailed inspector */}
+            <div className="flex-1 min-h-0 flex flex-col md:flex-row">
+                {/* Left: list of reports container */}
+                <div className="w-full md:w-[420px] shrink-0 h-[280px] md:h-full border-b md:border-b-0 md:border-r border-slate-200">
+                    <TribunalRequestsList 
+                        filteredReports={filteredReports}
+                        allUsers={allUsers}
+                        selectedReport={selectedReport}
+                        setSelectedReport={setSelectedReport}
+                    />
                 </div>
 
+                {/* Right: details dynamic inspector */}
+                <div className="flex-1 min-h-0 md:h-full min-w-0">
+                    <TribunalRequestsInspector 
+                        selectedReport={selectedReport}
+                        allUsers={allUsers}
+                        onResolve={handleResolveReport}
+                        isProcessing={isActionLoading}
+                        setSelectedReport={setSelectedReport}
+                    />
+                </div>
             </div>
-        </div>,
-        document.body
+        </BaseModal>
     );
 };
 

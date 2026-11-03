@@ -68,6 +68,8 @@ interface CalendarModalsContainerProps {
   onCloseMetricoolModal?: () => void;
   currentDate?: Date;
   activeChannelFilterId?: string;
+  onRangeChange?: (targetDate: Date) => void;
+  onNavigateDate?: (targetDate: Date) => void;
 }
 
 export const CalendarModalsContainer: React.FC<CalendarModalsContainerProps> = ({
@@ -125,6 +127,8 @@ export const CalendarModalsContainer: React.FC<CalendarModalsContainerProps> = (
   onCloseMetricoolModal,
   currentDate,
   activeChannelFilterId,
+  onRangeChange,
+  onNavigateDate,
 }) => {
   const currentHighlightType = highlights.find(
     h => selectedHighlightDate && isSameDay(h.date, selectedHighlightDate)
@@ -218,6 +222,8 @@ export const CalendarModalsContainer: React.FC<CalendarModalsContainerProps> = (
           currentDate={currentDate || new Date()}
           activeChannelFilterId={activeChannelFilterId}
           onSaveTask={onSaveTask}
+          onRangeChange={onRangeChange}
+          onNavigateDate={onNavigateDate}
         />
       )}
     </>

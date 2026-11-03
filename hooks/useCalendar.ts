@@ -462,6 +462,7 @@ export const useCalendar = ({ tasks, userId, onMoveTask }: UseCalendarProps) => 
 
     return {
         currentDate,
+        setCurrentDate,
         viewMode,
         showPlanOverlay,
         setShowPlanOverlay,

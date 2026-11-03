@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
-import { motion } from 'framer-motion';
+import { motion, type Variants } from 'framer-motion';
 import { ChevronRight, LayoutTemplate, CheckSquare, AlertTriangle, Clock } from 'lucide-react';
-import { format, differenceInCalendarDays, isBefore } from 'date-fns';
+import { format, differenceInCalendarDays } from 'date-fns';
 import { Task, Channel, User, MasterOption, Status } from '../../../../types';
 import { STATUS_COLORS, STATUS_LABELS } from '../../../../constants';
 
@@ -14,9 +14,34 @@ interface UrgentTaskItemProps {
     onEditTask: (task: Task) => void;
 }
 
+const taskItemVariants: Variants = {
+    hidden: {
+        opacity: 0,
+        y: 12,
+        scale: 0.985,
+    },
+    visible: {
+        opacity: 1,
+        y: 0,
+        scale: 1,
+        transition: {
+            duration: 0.28,
+            ease: [0.16, 1, 0.3, 1] as const,
+        },
+    },
+    exit: {
+        opacity: 0,
+        y: -8,
+        scale: 0.985,
+        transition: {
+            duration: 0.16,
+            ease: [0.4, 0, 1, 1] as const,
+        },
+    },
+};
+
 export const UrgentTaskItem: React.FC<UrgentTaskItemProps> = ({
     task,
-    idx,
     channels,
     users,
     masterOptions,
@@ -106,13 +131,12 @@ export const UrgentTaskItem: React.FC<UrgentTaskItemProps> = ({
     return (
         <motion.div 
             id={`urgent-task-item-${task.id}`}
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: idx * 0.04 }}
-            whileHover={{ scale: 1.015, x: 2 }}
+            variants={taskItemVariants}
+            whileHover={{ scale: 1.012, x: 2 }}
+            whileTap={{ scale: 0.99 }}
             onClick={() => onEditTask(task)}
             className={`
-                relative flex items-center gap-3 sm:gap-4 p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl border backdrop-blur-sm transition-all cursor-pointer group hover:shadow-xl select-none
+                relative flex items-center gap-3 sm:gap-4 p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl border backdrop-blur-sm transition-colors cursor-pointer group hover:shadow-xl select-none
                 ${containerClass}
             `}
         >
@@ -161,7 +185,7 @@ export const UrgentTaskItem: React.FC<UrgentTaskItemProps> = ({
                                 />
                             ))}
                             {involvedUsers.length > 2 && (
-                                <div className="w-4 h-4 rounded-full bg-slate-200 border border-white flex items-center justify-center text-[7px] text-slate-700 font-extrabold shrink-0 select-none">
+                                <div className="w-4 h-4 rounded-full bg-slate-200 border border-white flex items-center justify-center text-[7px] text-slate-700 font-bold shrink-0 select-none">
                                     +{involvedUsers.length - 2}
                                 </div>
                             )}

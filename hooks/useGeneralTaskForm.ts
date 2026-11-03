@@ -214,6 +214,8 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
 
     const addAsset = (newAsset: TaskAsset) => setAssets(prev => [...prev, newAsset]);
     const removeAsset = (id: string) => setAssets(prev => prev.filter(a => a.id !== id));
+    const updateAsset = (updatedAsset: TaskAsset) =>
+        setAssets(prev => prev.map(a => (a.id === updatedAsset.id ? updatedAsset : a)));
 
     return {
         title, setTitle,
@@ -236,7 +238,7 @@ export const useGeneralTaskForm = ({ initialData, selectedDate, masterOptions, o
         
         difficulty, setDifficulty,
         estimatedHours, setEstimatedHours,
-        assets, addAsset, removeAsset,
+        assets, addAsset, removeAsset, updateAsset,
         tags, setTags,
         
         error,

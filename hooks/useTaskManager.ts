@@ -54,21 +54,37 @@ export const useTaskManager = (
 
   // --- Initialize Logic (Orchestrator) ---
   useEffect(() => {
+    let isMounted = true;
+
     const init = async () => {
-      if (!currentUserProfile) {
-        setIsLoading(true);
-      }
+      try {
+        if (!currentUserProfile) {
+          setIsLoading(true);
+        }
 
-      const profile = currentUserProfile || (await fetchProfile());
+        const profile = currentUserProfile || (await fetchProfile());
 
-      if (profile && profile.isApproved && masterOptions.length === 0) {
-        await fetchMasterOptions();
+        if (profile && profile.isApproved && masterOptions.length === 0) {
+          await fetchMasterOptions();
+        }
+      } catch (err) {
+        console.warn('[useTaskManager] init warning (offline/reconnecting):', err);
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
-      setIsLoading(false);
     };
 
-    if (sessionUser?.id) init();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (sessionUser?.id) {
+      init();
+    } else {
+      setIsLoading(false);
+    }
+
+    return () => {
+      isMounted = false;
+    };
   }, [sessionUser?.id]); 
 
   // Wrapper for handleSaveTask to match original signature expected by App.tsx

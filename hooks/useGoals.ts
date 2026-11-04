@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { Goal, User, Channel, Platform } from '../types';
 import { useToast } from '../context/ToastContext';
 import { getActiveOrgIdSync, getOrgChannelName } from '../lib/tenantStorage';
+
+const DEFAULT_EMPTY_CHANNELS: Channel[] = [];
 
 /**
  * Computes the follower count of a single channel for a given platform ('ALL' or specific platform).
@@ -81,17 +83,24 @@ export interface GoalLiveSyncResult {
     errorMessage?: string;
 }
 
-export const useGoals = (currentUser: User, externalChannels: Channel[] = []) => {
+export const useGoals = (currentUser?: User | null, externalChannels: Channel[] = DEFAULT_EMPTY_CHANNELS) => {
     const [goals, setGoals] = useState<Goal[]>([]);
     const [liveChannels, setLiveChannels] = useState<Channel[]>(externalChannels);
     const [isLoading, setIsLoading] = useState(true);
     const { showToast } = useToast();
 
+    // Cache latest externalChannels in a stable ref to prevent array recreation from triggering infinite loops
+    const externalChannelsRef = useRef(externalChannels);
     useEffect(() => {
+        externalChannelsRef.current = externalChannels;
         if (externalChannels && externalChannels.length > 0) {
             setLiveChannels(externalChannels);
         }
     }, [externalChannels]);
+
+    // Concurrency lock to prevent multiple rapid parallel fetches
+    const isFetchingRef = useRef(false);
+    const lastFetchTimeRef = useRef(0);
 
     const rewardGoalOwnersIfNeeded = useCallback(async (goal: Goal, newCurrentValue: number) => {
         const wasCompleted = goal.currentValue >= goal.targetValue;
@@ -133,6 +142,14 @@ export const useGoals = (currentUser: User, externalChannels: Channel[] = []) =>
     }, [showToast]);
 
     const fetchGoalsAndReconcile = useCallback(async (silent = false) => {
+        const now = Date.now();
+        // Prevent concurrent or hyper-frequent fetches
+        if (isFetchingRef.current) return;
+        if (silent && now - lastFetchTimeRef.current < 1000) return;
+
+        isFetchingRef.current = true;
+        lastFetchTimeRef.current = now;
+
         if (!silent) setIsLoading(true);
         try {
             const [{ data: goalsData, error: goalsErr }, { data: channelsData, error: chErr }] = await Promise.all([
@@ -153,7 +170,7 @@ export const useGoals = (currentUser: User, externalChannels: Channel[] = []) =>
 
             if (goalsErr) throw goalsErr;
 
-            let mappedChannels: Channel[] = externalChannels;
+            let mappedChannels: Channel[] = externalChannelsRef.current;
             if (!chErr && channelsData) {
                 mappedChannels = channelsData.map((c: any) => ({
                     ...c,
@@ -214,15 +231,24 @@ export const useGoals = (currentUser: User, externalChannels: Channel[] = []) =>
                 setGoals(reconciledGoals);
             }
         } catch (err: any) {
-            console.error('Fetch goals error:', err.message || err);
+            // Handle offline or transient network drops gracefully without breaking the app
+            console.warn('[useGoals] Fetch goals paused (offline/network drop):', err?.message || err);
         } finally {
+            isFetchingRef.current = false;
             if (!silent) setIsLoading(false);
         }
-    }, [externalChannels, rewardGoalOwnersIfNeeded]);
+    }, [rewardGoalOwnersIfNeeded]);
+
+    // Keep stable callback reference for subscriptions
+    const fetchGoalsRef = useRef(fetchGoalsAndReconcile);
+    useEffect(() => {
+        fetchGoalsRef.current = fetchGoalsAndReconcile;
+    }, [fetchGoalsAndReconcile]);
 
     // Realtime Subscription (Tenant-scoped channel + Workspace switch listener)
     useEffect(() => {
-        fetchGoalsAndReconcile(false);
+        // Initial fetch once on mount
+        fetchGoalsRef.current(false);
 
         const channelName = getOrgChannelName('realtime-goals-and-channels');
         const channel = supabase
@@ -230,28 +256,28 @@ export const useGoals = (currentUser: User, externalChannels: Channel[] = []) =>
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'goals' },
-                () => fetchGoalsAndReconcile(true)
+                () => fetchGoalsRef.current(true)
             )
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'goal_owners' },
-                () => fetchGoalsAndReconcile(true)
+                () => fetchGoalsRef.current(true)
             )
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'goal_boosts' },
-                () => fetchGoalsAndReconcile(true)
+                () => fetchGoalsRef.current(true)
             )
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'channels' },
-                () => fetchGoalsAndReconcile(true)
+                () => fetchGoalsRef.current(true)
             )
             .subscribe();
 
         const handleWorkspaceSwitch = () => {
             setGoals([]);
-            fetchGoalsAndReconcile(false);
+            fetchGoalsRef.current(false);
         };
         window.addEventListener('org-workspace-switched', handleWorkspaceSwitch);
 
@@ -259,7 +285,8 @@ export const useGoals = (currentUser: User, externalChannels: Channel[] = []) =>
             supabase.removeChannel(channel);
             window.removeEventListener('org-workspace-switched', handleWorkspaceSwitch);
         };
-    }, [fetchGoalsAndReconcile]);
+    }, []);
+
 
     const addGoal = async (goal: Omit<Goal, 'id' | 'owners' | 'boosts'>) => {
         try {
@@ -557,13 +584,16 @@ export const useGoals = (currentUser: User, externalChannels: Channel[] = []) =>
     };
 
     const toggleBoost = async (goalId: string, isCurrentlyBoosted: boolean) => {
+        const user = currentUser;
+        if (!user) return;
+
         const previousGoals = [...goals];
         setGoals(prev =>
             prev.map(g => {
                 if (g.id === goalId) {
                     const newBoosts = isCurrentlyBoosted
-                        ? g.boosts.filter(uid => uid !== currentUser.id)
-                        : [...g.boosts, currentUser.id];
+                        ? g.boosts.filter(uid => uid !== user.id)
+                        : [...g.boosts, user.id];
                     return { ...g, boosts: newBoosts };
                 }
                 return g;
@@ -576,12 +606,12 @@ export const useGoals = (currentUser: User, externalChannels: Channel[] = []) =>
                     .from('goal_boosts')
                     .delete()
                     .eq('goal_id', goalId)
-                    .eq('user_id', currentUser.id);
+                    .eq('user_id', user.id);
                 if (error) throw error;
             } else {
                 const { error } = await supabase
                     .from('goal_boosts')
-                    .insert({ goal_id: goalId, user_id: currentUser.id });
+                    .insert({ goal_id: goalId, user_id: user.id });
 
                 if (error && error.code !== '23505') throw error;
 
@@ -597,12 +627,18 @@ export const useGoals = (currentUser: User, externalChannels: Channel[] = []) =>
     };
 
     const requestExtension = async (goalId: string, newDateStr: string, reason: string) => {
+        const user = currentUser;
+        if (!user) {
+            showToast('ขอขยายเวลาไม่สำเร็จ: ไม่พบข้อมูลผู้ใช้', 'error');
+            return false;
+        }
+
         try {
             const { error } = await supabase
                 .from('goal_deadline_requests')
                 .insert({
                     goal_id: goalId,
-                    requested_by: currentUser.id,
+                    requested_by: user.id,
                     new_deadline: new Date(newDateStr).toISOString(),
                     reason: reason,
                     status: 'PENDING',
@@ -618,7 +654,7 @@ export const useGoals = (currentUser: User, externalChannels: Channel[] = []) =>
                     user_id: admin.id,
                     type: 'APPROVAL_REQ',
                     title: 'คำขอเลื่อน Deadline เป้าหมาย',
-                    message: `คุณ ${currentUser.name} ขอเลื่อนเป้าหมาย: "${reason.substring(0, 50)}${reason.length > 50 ? '...' : ''}"`,
+                    message: `คุณ ${user.name} ขอเลื่อนเป้าหมาย: "${reason.substring(0, 50)}${reason.length > 50 ? '...' : ''}"`,
                     related_id: goalId,
                     is_read: false,
                     link_path: 'GOALS',

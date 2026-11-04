@@ -278,7 +278,7 @@ function App() {
     isFastCheckoutHoldActive()
   );
   const [portalMode, setPortalMode] = useState<AuthPortalMode | null>(() =>
-    peekAuthPortalTransition()
+    consumeAuthPortalTransition()
   );
 
   useEffect(() => {
@@ -361,7 +361,7 @@ function App() {
         } else {
           // Only set standard session if we're not actively handling recovery on initial mount
           if (session && !window.location.hash.includes('type=recovery')) {
-            const pendingMode = peekAuthPortalTransition();
+            const pendingMode = consumeAuthPortalTransition();
             if (pendingMode && pendingMode !== 'REGISTER_JOIN') {
               setPortalMode(pendingMode);
             }
@@ -391,7 +391,7 @@ function App() {
       } else if (session) {
         // If we are currently in recovery mode, don't let the authed app load yet
         if (!isRecoveryMode) {
-          const pendingMode = peekAuthPortalTransition();
+          const pendingMode = consumeAuthPortalTransition();
           if (pendingMode && pendingMode !== 'REGISTER_JOIN') {
             setPortalMode(pendingMode);
           }
@@ -551,6 +551,14 @@ function AuthenticatedAppInner({
   const { isReady: isOrgReady, isSuperAdmin, isInSuperAdminPortal } = useOrganization();
   const { masterOptions } = useMasterData();
   const [isManagerReady, setIsManagerReady] = useState(false);
+
+  // Safety fallback: ensure workspace loads within 3.5s even if background sync is slow or network drops
+  useEffect(() => {
+    const fallbackTimer = window.setTimeout(() => {
+      setIsManagerReady(true);
+    }, 3500);
+    return () => window.clearTimeout(fallbackTimer);
+  }, []);
 
   const coreWorkspaceReady = isReady && isOrgReady;
   const portalWorkspaceReady = coreWorkspaceReady && (isInSuperAdminPortal || isManagerReady);

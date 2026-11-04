@@ -102,7 +102,7 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
 
     // Data Hooks
     const { quests } = useWeeklyQuests();
-    const { goals } = useGoals(currentUser);
+    const { goals } = useGoals(currentUser, channels);
     const { handleSaveTask, handleDeleteTask } = useTasks(); 
     const { duties, setDuties, calendarMetadata } = useDuty(currentUser); // Direct fetch for custom passing
 

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from '../lib/supabase';
 import { MasterDataContextType } from './master/types';
 import { checkAndHealVersions } from './master/masterVersionSync';
@@ -17,14 +17,22 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const [isLoading, setIsLoading] = useState(true);
     const [activeOrgId, setActiveOrgId] = useState<string>(() => getActiveOrgIdSync());
 
+    const isFetchingRef = useRef(false);
+    const healingTimersRef = useRef<{ [key: string]: ReturnType<typeof setTimeout> }>({});
+
     // 1. Initialize Domain Hooks
     const masterOptionsDomain = useMasterOptionsDomain();
     const channelsDomain = useChannelsDomain();
     const inventoryDomain = useInventoryDomain();
     const calendarDomain = useCalendarMasterDomain();
 
-    // 2. Centralized Master Data Orchestrator
+    // 2. Centralized Master Data Orchestrator with Concurrency Lock
     const fetchAllMasterData = useCallback(async () => {
+        if (isFetchingRef.current) {
+            console.log('🔄 Master Data: Fetch already in flight, skipping duplicate call');
+            return;
+        }
+        isFetchingRef.current = true;
         try {
             const versions = await checkAndHealVersions([
                 'master_options_version', 
@@ -41,6 +49,7 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         } catch (err: any) {
             console.error('Fetch all master data failed:', err);
         } finally {
+            isFetchingRef.current = false;
             setIsLoading(false);
         }
     }, [
@@ -54,8 +63,37 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
         await masterOptionsDomain.seedDefaults(fetchAllMasterData);
     }, [masterOptionsDomain.seedDefaults, fetchAllMasterData]);
 
-    // 3. Centralized Realtime Listeners isolated per organization
+    // Stable reference bridge for Realtime event handlers to prevent subscription churn
+    const handlersRef = useRef({
+        fetchAllMasterData,
+        calendarDomain,
+        masterOptionsDomain,
+        inventoryDomain,
+        channelsDomain
+    });
+
     useEffect(() => {
+        handlersRef.current = {
+            fetchAllMasterData,
+            calendarDomain,
+            masterOptionsDomain,
+            inventoryDomain,
+            channelsDomain
+        };
+    });
+
+    // 3. Centralized Realtime Listeners strictly isolated per organization [activeOrgId]
+    useEffect(() => {
+        const triggerDebouncedHealing = (key: string, fn: () => void) => {
+            if (healingTimersRef.current[key]) {
+                clearTimeout(healingTimersRef.current[key]);
+            }
+            healingTimersRef.current[key] = setTimeout(() => {
+                delete healingTimersRef.current[key];
+                fn();
+            }, 1500);
+        };
+
         const metadataChannel = supabase.channel(getOrgChannelName('system-metadata-changes', activeOrgId))
             .on('postgres_changes', { 
                 event: 'UPDATE', 
@@ -70,81 +108,86 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
                 if (updatedKey === 'master_options_version') {
                     if (localStorage.getItem(optVerKey) !== remoteVersion) {
-                        setTimeout(() => {
+                        triggerDebouncedHealing('master_options', () => {
                             if (localStorage.getItem(optVerKey) !== remoteVersion) {
                                 console.log('🔄 Master Data: Options Delta missed, healing with full fetch...');
-                                fetchAllMasterData();
+                                handlersRef.current.fetchAllMasterData();
                             }
-                        }, 2000);
+                        });
                     }
                 } else if (updatedKey === 'inventory_version') {
                     if (localStorage.getItem(invVerKey) !== remoteVersion) {
-                        setTimeout(() => {
+                        triggerDebouncedHealing('inventory', () => {
                             if (localStorage.getItem(invVerKey) !== remoteVersion) {
                                 console.log('🔄 Master Data: Inventory Delta missed, healing with full fetch...');
-                                fetchAllMasterData();
+                                handlersRef.current.fetchAllMasterData();
                             }
-                        }, 2000);
+                        });
                     }
                 } else if (updatedKey === 'channels_version') {
                     if (localStorage.getItem(chVerKey) !== remoteVersion) {
-                        setTimeout(() => {
+                        triggerDebouncedHealing('channels', () => {
                             if (localStorage.getItem(chVerKey) !== remoteVersion) {
                                 console.log('🔄 Master Data: Channels Delta missed, healing with full fetch...');
-                                fetchAllMasterData();
+                                handlersRef.current.fetchAllMasterData();
                             }
-                        }, 2000);
+                        });
                     }
                 }
             }).subscribe();
 
         const holidaysChannel = supabase.channel(getOrgChannelName('global-annual-holidays', activeOrgId))
             .on('postgres_changes', { event: '*', schema: 'public', table: 'annual_holidays' }, () => {
-                calendarDomain.loadCalendarData();
+                handlersRef.current.calendarDomain.loadCalendarData();
             }).subscribe();
 
         const exceptionsChannel = supabase.channel(getOrgChannelName('global-calendar-exceptions', activeOrgId))
             .on('postgres_changes', { event: '*', schema: 'public', table: 'calendar_exceptions' }, () => {
-                calendarDomain.loadCalendarData();
+                handlersRef.current.calendarDomain.loadCalendarData();
             }).subscribe();
 
         const optionsChannel = supabase.channel(getOrgChannelName('global-master-options', activeOrgId))
             .on('postgres_changes', { event: '*', schema: 'public', table: 'master_options' }, (payload) => {
-                if (!masterOptionsDomain.isMutatingOptionsCache.current) {
+                const { masterOptionsDomain: optDomain } = handlersRef.current;
+                if (!optDomain.isMutatingOptionsCache.current) {
                     console.log(`🔄 Master Data: Remote options ${payload.eventType} detected, syncing delta...`);
                     if (payload.eventType === 'DELETE') {
-                        masterOptionsDomain.updateOptionsLocalCache('DELETE', payload.old.id, true);
+                        optDomain.updateOptionsLocalCache('DELETE', payload.old.id, true);
                     } else {
-                        masterOptionsDomain.updateOptionsLocalCache(payload.eventType === 'INSERT' ? 'ADD' : 'UPDATE', payload.new, true);
+                        optDomain.updateOptionsLocalCache(payload.eventType === 'INSERT' ? 'ADD' : 'UPDATE', payload.new, true);
                     }
                 }
             }).subscribe();
 
         const inventoryChannel = supabase.channel(getOrgChannelName('global-inventory-items', activeOrgId))
             .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_items' }, (payload) => {
-                if (!inventoryDomain.isMutatingInventoryCache.current) {
+                const { inventoryDomain: invDomain } = handlersRef.current;
+                if (!invDomain.isMutatingInventoryCache.current) {
                     console.log(`🔄 Master Data: Remote inventory ${payload.eventType} detected, syncing delta...`);
                     if (payload.eventType === 'DELETE') {
-                        inventoryDomain.updateInventoryLocalCache('DELETE', payload.old.id, true);
+                        invDomain.updateInventoryLocalCache('DELETE', payload.old.id, true);
                     } else {
-                        inventoryDomain.updateInventoryLocalCache(payload.eventType === 'INSERT' ? 'ADD' : 'UPDATE', payload.new, true);
+                        invDomain.updateInventoryLocalCache(payload.eventType === 'INSERT' ? 'ADD' : 'UPDATE', payload.new, true);
                     }
                 }
             }).subscribe();
 
         const channelsChannel = supabase.channel(getOrgChannelName('global-channels', activeOrgId))
             .on('postgres_changes', { event: '*', schema: 'public', table: 'channels' }, (payload) => {
-                if (!channelsDomain.isMutatingChannelsCache.current) {
+                const { channelsDomain: chDomain } = handlersRef.current;
+                if (!chDomain.isMutatingChannelsCache.current) {
                     console.log(`🔄 Master Data: Remote channels ${payload.eventType} detected, syncing delta...`);
                     if (payload.eventType === 'DELETE') {
-                        channelsDomain.updateChannelsLocalCache('DELETE', payload.old.id, true);
+                        chDomain.updateChannelsLocalCache('DELETE', payload.old.id, true);
                     } else {
-                        channelsDomain.updateChannelsLocalCache(payload.eventType === 'INSERT' ? 'ADD' : 'UPDATE', payload.new, true);
+                        chDomain.updateChannelsLocalCache(payload.eventType === 'INSERT' ? 'ADD' : 'UPDATE', payload.new, true);
                     }
                 }
             }).subscribe();
 
         return () => {
+            Object.values(healingTimersRef.current).forEach(clearTimeout);
+            healingTimersRef.current = {};
             supabase.removeChannel(metadataChannel);
             supabase.removeChannel(holidaysChannel);
             supabase.removeChannel(exceptionsChannel);
@@ -152,14 +195,7 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             supabase.removeChannel(inventoryChannel);
             supabase.removeChannel(channelsChannel);
         };
-    }, [
-        activeOrgId,
-        fetchAllMasterData,
-        calendarDomain.loadCalendarData,
-        masterOptionsDomain.updateOptionsLocalCache,
-        inventoryDomain.updateInventoryLocalCache,
-        channelsDomain.updateChannelsLocalCache
-    ]);
+    }, [activeOrgId]);
 
     // Reload master data whenever user switches active Organization Workspace
     useEffect(() => {
@@ -174,11 +210,11 @@ export const MasterDataProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             } catch {
                 // Ignore storage errors
             }
-            fetchAllMasterData();
+            handlersRef.current.fetchAllMasterData();
         };
         window.addEventListener('org-workspace-switched', handleWorkspaceSwitched);
         return () => window.removeEventListener('org-workspace-switched', handleWorkspaceSwitched);
-    }, [fetchAllMasterData]);
+    }, []);
 
     // 4. Compose Combined Context Value
     const value = useMemo<MasterDataContextType>(() => ({

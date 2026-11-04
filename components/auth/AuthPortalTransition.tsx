@@ -269,15 +269,21 @@ export const AuthPortalTransition: React.FC<AuthPortalTransitionProps> = ({
             setMinChargeElapsed(true);
         }, chargeDuration);
 
+        // Auto-split fallback: if isWorkspaceReady is delayed, proceed with camera ascent at 3.2s
+        const autoSplitTimer = window.setTimeout(() => {
+            setPhase('SPLIT');
+        }, 3200);
+
         // Hard safety fallback so the overlay can never get stuck blocking clicks
         const safetyTimer = window.setTimeout(() => {
             consumeAuthPortalTransition();
             onCompleteRef.current();
-        }, 5200);
+        }, 4200);
 
         return () => {
             window.clearInterval(stepInterval);
             window.clearTimeout(timer);
+            window.clearTimeout(autoSplitTimer);
             window.clearTimeout(safetyTimer);
         };
     }, [mode]);

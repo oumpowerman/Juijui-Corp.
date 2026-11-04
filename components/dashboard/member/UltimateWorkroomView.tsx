@@ -62,7 +62,50 @@ export const UltimateWorkroomView: React.FC<UltimateWorkroomViewProps> = ({
 
     // --- State: Active Drawer view ---
     const [activeDrawer, setActiveDrawer] = useState<'DESK' | 'SOFA' | 'BOOKSHELF' | null>(null);
-    const [isDeskMaximized, setIsDeskMaximized] = useState<boolean>(false);
+    const [isDeskMaximized, setIsDeskMaximized] = useState<boolean>(() => {
+        const savedLocal = localStorage.getItem(`ultimate_desk_maximized_${currentUser.id}`);
+        if (savedLocal === 'true' || savedLocal === 'false') {
+            return savedLocal === 'true';
+        }
+        if (currentUser?.settings?.desk_maximized !== undefined) {
+            return Boolean(currentUser.settings.desk_maximized);
+        }
+        return false;
+    });
+
+    useEffect(() => {
+        if (currentUser?.settings?.desk_maximized !== undefined) {
+            const dbVal = Boolean(currentUser.settings.desk_maximized);
+            setIsDeskMaximized(dbVal);
+            localStorage.setItem(`ultimate_desk_maximized_${currentUser.id}`, String(dbVal));
+        }
+    }, [currentUser.id, currentUser?.settings?.desk_maximized]);
+
+    const handleToggleDeskMaximized = async () => {
+        const next = !isDeskMaximized;
+        setIsDeskMaximized(next);
+        localStorage.setItem(`ultimate_desk_maximized_${currentUser.id}`, String(next));
+
+        try {
+            const baseSettings =
+                currentUser.settings && typeof currentUser.settings === 'object'
+                    ? currentUser.settings
+                    : {};
+            const updatedSettings = {
+                ...baseSettings,
+                desk_maximized: next,
+            };
+            const { error } = await supabase
+                .from('profiles')
+                .update({ settings: updatedSettings })
+                .eq('id', currentUser.id);
+            if (!error && onRefreshProfile) {
+                onRefreshProfile();
+            }
+        } catch (err) {
+            console.warn('Could not persist desk_maximized to profiles.settings:', err);
+        }
+    };
 
     // --- State: Viewport Zoom and Pan (Synchronized from PixelHeroFollower) ---
     const [viewport, setViewport] = useState({ zoom: 1.0, pan: { x: 0, y: 0 } });
@@ -429,7 +472,7 @@ export const UltimateWorkroomView: React.FC<UltimateWorkroomViewProps> = ({
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <button 
-                                        onClick={() => setIsDeskMaximized(!isDeskMaximized)}
+                                        onClick={handleToggleDeskMaximized}
                                         className="p-1 px-3 py-1.5 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-200 hover:text-white rounded-xl text-xs font-bold transition-all cursor-pointer border border-indigo-500/20 flex items-center gap-1.5"
                                     >
                                         {isDeskMaximized ? (
@@ -445,7 +488,6 @@ export const UltimateWorkroomView: React.FC<UltimateWorkroomViewProps> = ({
                                     <button 
                                         onClick={() => {
                                             setActiveDrawer(null);
-                                            setIsDeskMaximized(false);
                                         }}
                                         className="p-1 px-3 py-1.5 bg-white/5 hover:bg-white/10 text-slate-300 hover:text-white rounded-xl text-xs font-bold transition-all cursor-pointer border border-white/5"
                                     >

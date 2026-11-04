@@ -116,19 +116,24 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
 
     // WorkBoard Full-Width Expansion State (Persistent in DB profiles.settings & LocalStorage)
     const [isWorkBoardExpanded, setIsWorkBoardExpanded] = useState<boolean>(() => {
+        const savedLocal = localStorage.getItem(`member_workboard_expanded_${currentUser.id}`);
+        if (savedLocal === 'true' || savedLocal === 'false') {
+            return savedLocal === 'true';
+        }
         if (currentUser?.settings?.workboard_expanded !== undefined) {
             return Boolean(currentUser.settings.workboard_expanded);
         }
-        const saved = localStorage.getItem(`member_workboard_expanded_${currentUser.id}`);
-        return saved === 'true';
+        return false;
     });
 
-    // Synchronize if profile settings are refreshed
+    // Synchronize when DB profile settings load or change
     useEffect(() => {
         if (currentUser?.settings?.workboard_expanded !== undefined) {
-            setIsWorkBoardExpanded(Boolean(currentUser.settings.workboard_expanded));
+            const dbVal = Boolean(currentUser.settings.workboard_expanded);
+            setIsWorkBoardExpanded(dbVal);
+            localStorage.setItem(`member_workboard_expanded_${currentUser.id}`, String(dbVal));
         }
-    }, [currentUser?.settings?.workboard_expanded]);
+    }, [currentUser.id, currentUser?.settings?.workboard_expanded]);
 
     // Track XL breakpoint (1280px+) for horizontal vs vertical coordinated slide physics
     const [isXlViewport, setIsXlViewport] = useState<boolean>(() => {
@@ -148,18 +153,23 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
         const next = !isWorkBoardExpanded;
         // 1. Optimistic UI update
         setIsWorkBoardExpanded(next);
-        // 2. LocalStorage fast cache fallback
+        // 2. LocalStorage fast cache fallback (persists across view navigation & reload)
         localStorage.setItem(`member_workboard_expanded_${currentUser.id}`, String(next));
 
         // 3. Persist to DB profiles table under settings JSONB
         try {
-            const currentSettings = (currentUser.settings && typeof currentUser.settings === 'object')
-                ? currentUser.settings
-                : {};
+            const baseSettings =
+                localUser.settings && typeof localUser.settings === 'object'
+                    ? localUser.settings
+                    : currentUser.settings && typeof currentUser.settings === 'object'
+                      ? currentUser.settings
+                      : {};
             const updatedSettings = {
-                ...currentSettings,
+                ...baseSettings,
                 workboard_expanded: next,
             };
+
+            setLocalUser(prev => ({ ...prev, settings: updatedSettings }));
 
             const { error } = await supabase
                 .from('profiles')
@@ -168,6 +178,8 @@ const MemberDashboard: React.FC<MemberDashboardProps> = ({
 
             if (error) {
                 console.warn('Could not persist workboard_expanded to profiles.settings:', error.message);
+            } else if (onRefreshProfile) {
+                onRefreshProfile();
             }
         } catch (err: any) {
             console.warn('DB settings sync error:', err);

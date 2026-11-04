@@ -94,7 +94,8 @@ const mapProfileToUser = (data: any): User => ({
     username: data.username || '',
     acceptedTermsVersion: data.accepted_terms_version || 0,
     acceptedTermsAt: data.accepted_terms_at ? new Date(data.accepted_terms_at) : null,
-    appVersion: data.app_version || '1.0.0'
+    appVersion: data.app_version || '1.0.0',
+    settings: data.settings && typeof data.settings === 'object' ? data.settings : null
 });
 
 const mapDBToUserUpdates = (u: any): Partial<User> => {
@@ -144,6 +145,7 @@ const mapDBToUserUpdates = (u: any): Partial<User> => {
     if ('last_read_chat_at' in u) updates.lastReadChatAt = u.last_read_chat_at ? new Date(u.last_read_chat_at) : new Date(0);
     if ('last_read_notification_at' in u) updates.lastReadNotificationAt = u.last_read_notification_at ? new Date(u.last_read_notification_at) : new Date(0);
     if ('app_version' in u) updates.appVersion = u.app_version;
+    if ('settings' in u) updates.settings = u.settings;
     return updates;
 };
 
@@ -623,6 +625,7 @@ export const UserSessionProvider: React.FC<{ sessionUser: any, children: React.R
             if (updates.companyId !== undefined) payload.company_id = updates.companyId;
             if (updates.acceptedTermsVersion !== undefined) payload.accepted_terms_version = updates.acceptedTermsVersion;
             if (updates.acceptedTermsAt !== undefined) payload.accepted_terms_at = updates.acceptedTermsAt ? updates.acceptedTermsAt.toISOString() : null;
+            if (updates.settings !== undefined) payload.settings = updates.settings;
 
             if (updates.email !== undefined) {
                 const cleanNewEmail = updates.email.trim().toLowerCase();

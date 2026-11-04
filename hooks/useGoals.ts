@@ -1,31 +1,175 @@
-
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
-import { Goal, User } from '../types';
+import { Goal, User, Channel, Platform } from '../types';
 import { useToast } from '../context/ToastContext';
+import { getActiveOrgIdSync, getOrgChannelName } from '../lib/tenantStorage';
 
-export const useGoals = (currentUser: User) => {
+/**
+ * Computes the follower count of a single channel for a given platform ('ALL' or specific platform).
+ */
+export const getChannelFollowersByPlatform = (
+    channel: Channel | undefined | null,
+    platform: Platform | 'ALL'
+): number => {
+    if (!channel || !channel.followers || typeof channel.followers !== 'object') return 0;
+    const normPlat = (platform || 'ALL').toUpperCase();
+    if (normPlat === 'ALL') {
+        return Object.entries(channel.followers).reduce((sum, [key, val]) => {
+            if (key.startsWith('_')) return sum;
+            const num = Number(val);
+            return sum + (!isNaN(num) && num > 0 ? num : 0);
+        }, 0);
+    }
+    const directVal = (channel.followers as any)[normPlat] ?? (channel.followers as any)[platform];
+    const num = Number(directVal);
+    return !isNaN(num) && num > 0 ? num : 0;
+};
+
+/**
+ * Computes the real-time follower count for a Goal based on its channelId and platform.
+ */
+export const computeGoalFollowerValue = (
+    params: { channelId?: string | null; platform: Platform | 'ALL' },
+    channels: Channel[]
+): number => {
+    if (!channels || channels.length === 0) return 0;
+    if (params.channelId) {
+        const target = channels.find(c => c.id === params.channelId);
+        return getChannelFollowersByPlatform(target, params.platform);
+    }
+    return channels.reduce((sum, ch) => sum + getChannelFollowersByPlatform(ch, params.platform), 0);
+};
+
+/**
+ * Gets the latest follower sync timestamp relevant to a Goal.
+ */
+export const getGoalLastSyncedAt = (
+    params: { channelId?: string | null },
+    channels: Channel[]
+): string | null => {
+    if (!channels || channels.length === 0) return null;
+    if (params.channelId) {
+        const target = channels.find(c => c.id === params.channelId);
+        if (!target) return null;
+        return target.last_sync_followers_at || (target.followers as any)?._last_synced_at || null;
+    }
+    let latest: string | null = null;
+    for (const c of channels) {
+        const ts = c.last_sync_followers_at || (c.followers as any)?._last_synced_at;
+        if (ts && (!latest || new Date(ts).getTime() > new Date(latest).getTime())) {
+            latest = ts;
+        }
+    }
+    return latest;
+};
+
+export interface GoalLiveSyncResult {
+    success: boolean;
+    previousValue: number;
+    newValue: number;
+    diff: number;
+    isNewlyCompleted: boolean;
+    syncedAt: string;
+    platformBreakdown: {
+        platform: string;
+        previousCount: number;
+        newCount: number;
+        diff: number;
+        success: boolean;
+        error?: string;
+    }[];
+    errorMessage?: string;
+}
+
+export const useGoals = (currentUser: User, externalChannels: Channel[] = []) => {
     const [goals, setGoals] = useState<Goal[]>([]);
+    const [liveChannels, setLiveChannels] = useState<Channel[]>(externalChannels);
     const [isLoading, setIsLoading] = useState(true);
     const { showToast } = useToast();
 
-    const fetchGoals = async () => {
-        setIsLoading(true);
+    useEffect(() => {
+        if (externalChannels && externalChannels.length > 0) {
+            setLiveChannels(externalChannels);
+        }
+    }, [externalChannels]);
+
+    const rewardGoalOwnersIfNeeded = useCallback(async (goal: Goal, newCurrentValue: number) => {
+        const wasCompleted = goal.currentValue >= goal.targetValue;
+        const isNowCompleted = newCurrentValue >= goal.targetValue;
+
+        if (!wasCompleted && isNowCompleted && goal.owners.length > 0) {
+            const now = new Date();
+            const isLate = now > new Date(goal.deadline);
+            const multiplier = isLate ? (goal.isRedeemed ? 0.3 : 0.5) : 1.0;
+
+            const finalXp = Math.round((goal.rewardXp || 0) * multiplier);
+            const finalCoin = Math.round((goal.rewardCoin || 0) * multiplier);
+
+            for (const userId of goal.owners) {
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('xp, coins')
+                    .eq('id', userId)
+                    .maybeSingle();
+                if (profile) {
+                    await supabase
+                        .from('profiles')
+                        .update({
+                            xp: (profile.xp || 0) + finalXp,
+                            coins: (profile.coins || 0) + finalCoin,
+                        })
+                        .eq('id', userId);
+                }
+            }
+
+            const rewardMessage = isLate
+                ? `ภารกิจสำเร็จ (ล่าช้า: ได้รับรางวัลลดลง)! +${finalXp} XP, +${finalCoin} Coins`
+                : `ยินดีด้วย! เป้าหมายสำเร็จและจ่ายรางวัลให้ทีมแล้ว +${finalXp} XP, +${finalCoin} Coins`;
+
+            showToast(rewardMessage, isLate ? 'info' : 'success');
+            return true;
+        }
+        return false;
+    }, [showToast]);
+
+    const fetchGoalsAndReconcile = useCallback(async (silent = false) => {
+        if (!silent) setIsLoading(true);
         try {
-            const { data, error } = await supabase
-                .from('goals')
-                .select(`
-                    *,
-                    goal_owners (user_id),
-                    goal_boosts (user_id)
-                `)
-                .eq('is_archived', false)
-                .order('deadline', { ascending: true });
+            const [{ data: goalsData, error: goalsErr }, { data: channelsData, error: chErr }] = await Promise.all([
+                supabase
+                    .from('goals')
+                    .select(`
+                        *,
+                        goal_owners (user_id),
+                        goal_boosts (user_id)
+                    `)
+                    .eq('is_archived', false)
+                    .order('deadline', { ascending: true }),
+                supabase
+                    .from('channels')
+                    .select('*')
+                    .order('created_at', { ascending: true }),
+            ]);
 
-            if (error) throw error;
+            if (goalsErr) throw goalsErr;
 
-            if (data) {
-                setGoals(data.map((g: any) => ({
+            let mappedChannels: Channel[] = externalChannels;
+            if (!chErr && channelsData) {
+                mappedChannels = channelsData.map((c: any) => ({
+                    ...c,
+                    platforms: Array.isArray(c.platforms) ? c.platforms : ['OTHER'],
+                    logoUrl: c.logo_url || c.logoUrl,
+                    social_links: c.social_links || {},
+                    followers: c.followers || {},
+                    email: c.email || '',
+                    last_sync_followers_at: c.last_sync_followers_at || c.followers?._last_synced_at || null,
+                    meta_api: c.meta_api || c.social_links?._meta_api || undefined,
+                }));
+                setLiveChannels(mappedChannels);
+            }
+
+            if (goalsData) {
+                const mappedGoals: Goal[] = goalsData.map((g: any) => ({
                     id: g.id,
                     title: g.title,
                     platform: g.platform,
@@ -39,80 +183,130 @@ export const useGoals = (currentUser: User) => {
                     isRedeemed: g.is_redeemed || false,
                     extensionCount: g.extension_count || 0,
                     owners: g.goal_owners?.map((o: any) => o.user_id) || [],
-                    boosts: g.goal_boosts?.map((b: any) => b.user_id) || []
-                })));
+                    boosts: g.goal_boosts?.map((b: any) => b.user_id) || [],
+                }));
+
+                // Reconcile each goal's currentValue with actual channel followers
+                const reconciledGoals: Goal[] = [];
+                for (const g of mappedGoals) {
+                    const liveValue = computeGoalFollowerValue(
+                        { channelId: g.channelId, platform: g.platform },
+                        mappedChannels
+                    );
+                    if (mappedChannels.length > 0 && liveValue !== g.currentValue) {
+                        const updatedGoal = { ...g, currentValue: liveValue };
+                        reconciledGoals.push(updatedGoal);
+                        // Persist updated current_value in background & check completion reward
+                        supabase
+                            .from('goals')
+                            .update({ current_value: liveValue })
+                            .eq('id', g.id)
+                            .then(({ error }) => {
+                                if (!error) {
+                                    rewardGoalOwnersIfNeeded(g, liveValue);
+                                }
+                            });
+                    } else {
+                        reconciledGoals.push(g);
+                    }
+                }
+
+                setGoals(reconciledGoals);
             }
         } catch (err: any) {
             console.error('Fetch goals error:', err.message || err);
         } finally {
-            setIsLoading(false);
+            if (!silent) setIsLoading(false);
         }
-    };
+    }, [externalChannels, rewardGoalOwnersIfNeeded]);
 
-    // Realtime Subscription
+    // Realtime Subscription (Tenant-scoped channel + Workspace switch listener)
     useEffect(() => {
-        fetchGoals();
+        fetchGoalsAndReconcile(false);
 
+        const channelName = getOrgChannelName('realtime-goals-and-channels');
         const channel = supabase
-            .channel('realtime-goals')
+            .channel(channelName)
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'goals' },
-                () => fetchGoals()
+                () => fetchGoalsAndReconcile(true)
             )
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'goal_owners' },
-                () => fetchGoals()
+                () => fetchGoalsAndReconcile(true)
             )
             .on(
                 'postgres_changes',
                 { event: '*', schema: 'public', table: 'goal_boosts' },
-                () => fetchGoals()
+                () => fetchGoalsAndReconcile(true)
+            )
+            .on(
+                'postgres_changes',
+                { event: '*', schema: 'public', table: 'channels' },
+                () => fetchGoalsAndReconcile(true)
             )
             .subscribe();
 
+        const handleWorkspaceSwitch = () => {
+            setGoals([]);
+            fetchGoalsAndReconcile(false);
+        };
+        window.addEventListener('org-workspace-switched', handleWorkspaceSwitch);
+
         return () => {
             supabase.removeChannel(channel);
+            window.removeEventListener('org-workspace-switched', handleWorkspaceSwitch);
         };
-    }, []);
+    }, [fetchGoalsAndReconcile]);
 
     const addGoal = async (goal: Omit<Goal, 'id' | 'owners' | 'boosts'>) => {
         try {
+            const syncedCurrentValue = computeGoalFollowerValue(
+                { channelId: goal.channelId, platform: goal.platform },
+                liveChannels
+            );
+
             const payload = {
                 title: goal.title,
                 platform: goal.platform,
-                current_value: goal.currentValue,
+                current_value: syncedCurrentValue,
                 target_value: goal.targetValue,
                 deadline: goal.deadline.toISOString(),
                 channel_id: goal.channelId || null,
                 is_archived: false,
                 reward_xp: goal.rewardXp,
-                reward_coin: goal.rewardCoin
+                reward_coin: goal.rewardCoin,
             };
 
-            const { data, error } = await supabase.from('goals').insert(payload).select().single();
+            const { error } = await supabase.from('goals').insert(payload).select().single();
             if (error) throw error;
-            
-            showToast('สร้างเป้าหมายใหม่สำเร็จ 🎯', 'success');
+
+            showToast('สร้างเป้าหมายใหม่และซิงค์ยอดผู้ติดตามเริ่มต้นสำเร็จ', 'success');
+            await fetchGoalsAndReconcile(true);
         } catch (err: any) {
             console.error(err);
             showToast('สร้างไม่สำเร็จ: ' + (err.message || 'Unknown error'), 'error');
         }
     };
 
-    // NEW: Full Update Function
     const updateGoal = async (goal: Goal) => {
         try {
+            const syncedCurrentValue = computeGoalFollowerValue(
+                { channelId: goal.channelId, platform: goal.platform },
+                liveChannels
+            );
+
             const payload = {
                 title: goal.title,
                 platform: goal.platform,
-                current_value: goal.currentValue,
+                current_value: syncedCurrentValue,
                 target_value: goal.targetValue,
                 deadline: goal.deadline.toISOString(),
                 channel_id: goal.channelId || null,
                 reward_xp: goal.rewardXp,
-                reward_coin: goal.rewardCoin
+                reward_coin: goal.rewardCoin,
             };
 
             const { error } = await supabase
@@ -122,9 +316,10 @@ export const useGoals = (currentUser: User) => {
 
             if (error) throw error;
 
-            // Optimistic Update
-            setGoals(prev => prev.map(g => g.id === goal.id ? goal : g));
-            showToast('แก้ไขเป้าหมายเรียบร้อย ✨', 'success');
+            const updatedGoalObj = { ...goal, currentValue: syncedCurrentValue };
+            setGoals(prev => prev.map(g => (g.id === goal.id ? updatedGoalObj : g)));
+            await rewardGoalOwnersIfNeeded(goal, syncedCurrentValue);
+            showToast('แก้ไขเป้าหมายและอัปเดตยอดซิงค์เรียบร้อย', 'success');
         } catch (err: any) {
             console.error(err);
             showToast('แก้ไขไม่สำเร็จ: ' + err.message, 'error');
@@ -136,48 +331,166 @@ export const useGoals = (currentUser: User) => {
             const goal = goals.find(g => g.id === id);
             if (!goal) return;
 
-            const wasCompleted = goal.currentValue >= goal.targetValue;
-            const isNowCompleted = currentValue >= goal.targetValue;
-
-            setGoals(prev => prev.map(g => g.id === id ? { ...g, currentValue } : g));
+            setGoals(prev => prev.map(g => (g.id === id ? { ...g, currentValue } : g)));
             await supabase.from('goals').update({ current_value: currentValue }).eq('id', id);
-            
-            // Auto-Reward Logic
-            if (!wasCompleted && isNowCompleted && goal.owners.length > 0) {
-                // Check if it was completed after deadline
-                const now = new Date();
-                const isLate = now > goal.deadline;
-                
-                // Reward Calculation Logic
-                let multiplier = 1.0;
-                if (isLate) {
-                    multiplier = goal.isRedeemed ? 0.3 : 0.5; // If it's redeemed, 0.3. If just late, 0.5.
-                }
 
-                const finalXp = Math.round((goal.rewardXp || 0) * multiplier);
-                const finalCoin = Math.round((goal.rewardCoin || 0) * multiplier);
-
-                // Reward each owner
-                for (const userId of goal.owners) {
-                    const { data: profile } = await supabase.from('profiles').select('xp, coins').eq('id', userId).maybeSingle();
-                    if (profile) {
-                        await supabase.from('profiles').update({
-                            xp: (profile.xp || 0) + finalXp,
-                            coins: (profile.coins || 0) + finalCoin
-                        }).eq('id', userId);
-                    }
-                }
-                
-                const rewardMessage = isLate 
-                    ? `ภารกิจสำเร็จ (ล่าช้า: ได้รับรางวัลลดลง)! 🏆 +${finalXp} XP, +${finalCoin} Coins`
-                    : `ยินดีด้วย! เป้าหมายสำเร็จและจ่ายรางวัลให้ทีมแล้ว 🏆 +${finalXp} XP, +${finalCoin} Coins`;
-                
-                showToast(rewardMessage, isLate ? 'info' : 'success');
-            } else {
-                showToast('อัปเดตยอดล่าสุดแล้ว! 📈', 'success');
+            const rewarded = await rewardGoalOwnersIfNeeded(goal, currentValue);
+            if (!rewarded) {
+                showToast('อัปเดตยอดผู้ติดตามล่าสุดแล้ว', 'success');
             }
         } catch (err: any) {
             showToast('อัปเดตไม่สำเร็จ', 'error');
+        }
+    };
+
+    /**
+     * Triggers a live follower sync from social platforms via the backend API
+     * and updates both the Channel(s) and the Goal's currentValue.
+     */
+    const syncGoalFollowersFromApi = async (goal: Goal): Promise<GoalLiveSyncResult> => {
+        const previousValue = goal.currentValue;
+        const activeOrgId = getActiveOrgIdSync();
+        const targetChannels = goal.channelId
+            ? liveChannels.filter(c => c.id === goal.channelId)
+            : liveChannels.filter(c => (c.status || 'ACTIVE') === 'ACTIVE');
+
+        if (targetChannels.length === 0) {
+            return {
+                success: false,
+                previousValue,
+                newValue: previousValue,
+                diff: 0,
+                isNewlyCompleted: false,
+                syncedAt: new Date().toISOString(),
+                platformBreakdown: [],
+                errorMessage: 'ไม่พบข้อมูลช่องสำหรับซิงค์ยอดผู้ติดตาม',
+            };
+        }
+
+        try {
+            const aggregatedBreakdownMap: Record<
+                string,
+                { platform: string; previousCount: number; newCount: number; diff: number; success: boolean; error?: string }
+            > = {};
+
+            let latestSyncTime = new Date().toISOString();
+
+            // Sync each relevant channel via /api/channels/:id/sync-followers
+            await Promise.all(
+                targetChannels.map(async ch => {
+                    const res = await fetch(`/api/channels/${ch.id}/sync-followers`, {
+                        method: 'POST',
+                        headers: {
+                            Accept: 'application/json',
+                            'Content-Type': 'application/json',
+                            'x-org-id': activeOrgId,
+                        },
+                    });
+                    const data = await res.json();
+                    if (!res.ok || !data?.success) {
+                        throw new Error(data?.error || `ไม่สามารถดึงข้อมูลช่อง ${ch.name} ได้`);
+                    }
+
+                    const result = data.result;
+                    if (result?.last_sync_followers_at) {
+                        latestSyncTime = result.last_sync_followers_at;
+                    }
+
+                    if (Array.isArray(result?.platforms)) {
+                        for (const p of result.platforms) {
+                            const pKey = String(p.platform || '').toUpperCase();
+                            if (goal.platform !== 'ALL' && pKey !== goal.platform) continue;
+
+                            const prevC = Number(p.previousCount) || 0;
+                            const newC = Number(p.newCount ?? p.previousCount) || 0;
+                            if (!aggregatedBreakdownMap[pKey]) {
+                                aggregatedBreakdownMap[pKey] = {
+                                    platform: pKey,
+                                    previousCount: prevC,
+                                    newCount: newC,
+                                    diff: newC - prevC,
+                                    success: Boolean(p.success),
+                                    error: p.error,
+                                };
+                            } else {
+                                aggregatedBreakdownMap[pKey].previousCount += prevC;
+                                aggregatedBreakdownMap[pKey].newCount += newC;
+                                aggregatedBreakdownMap[pKey].diff += newC - prevC;
+                                aggregatedBreakdownMap[pKey].success =
+                                    aggregatedBreakdownMap[pKey].success || Boolean(p.success);
+                            }
+                        }
+                    }
+                })
+            );
+
+            // Refetch latest channels & goals from DB to guarantee consistency
+            const { data: freshChannelsData } = await supabase
+                .from('channels')
+                .select('*')
+                .order('created_at', { ascending: true });
+
+            let updatedChannels = liveChannels;
+            if (freshChannelsData) {
+                updatedChannels = freshChannelsData.map((c: any) => ({
+                    ...c,
+                    platforms: Array.isArray(c.platforms) ? c.platforms : ['OTHER'],
+                    logoUrl: c.logo_url || c.logoUrl,
+                    social_links: c.social_links || {},
+                    followers: c.followers || {},
+                    email: c.email || '',
+                    last_sync_followers_at: c.last_sync_followers_at || c.followers?._last_synced_at || null,
+                    meta_api: c.meta_api || c.social_links?._meta_api || undefined,
+                }));
+                setLiveChannels(updatedChannels);
+            }
+
+            const newValue = computeGoalFollowerValue(
+                { channelId: goal.channelId, platform: goal.platform },
+                updatedChannels
+            );
+            const diff = newValue - previousValue;
+            const wasCompleted = previousValue >= goal.targetValue;
+            const isNowCompleted = newValue >= goal.targetValue;
+            const isNewlyCompleted = !wasCompleted && isNowCompleted;
+
+            // Update goal value in state and DB
+            setGoals(prev => prev.map(g => (g.id === goal.id ? { ...g, currentValue: newValue } : g)));
+            await supabase.from('goals').update({ current_value: newValue }).eq('id', goal.id);
+
+            await rewardGoalOwnersIfNeeded(goal, newValue);
+
+            if (!isNewlyCompleted) {
+                if (diff !== 0) {
+                    const sign = diff > 0 ? `+${diff.toLocaleString()}` : diff.toLocaleString();
+                    showToast(`ซิงค์ยอดผู้ติดตามสำเร็จ (${sign} รวม ${newValue.toLocaleString()} คน)`, 'success');
+                } else {
+                    showToast(`ตรวจสอบแล้ว ยอดผู้ติดตามเป็นปัจจุบัน (${newValue.toLocaleString()} คน)`, 'info');
+                }
+            }
+
+            return {
+                success: true,
+                previousValue,
+                newValue,
+                diff,
+                isNewlyCompleted,
+                syncedAt: latestSyncTime,
+                platformBreakdown: Object.values(aggregatedBreakdownMap),
+            };
+        } catch (err: any) {
+            console.error('[useGoals] syncGoalFollowersFromApi error:', err);
+            showToast(err?.message || 'ดึงข้อมูลผู้ติดตามไม่สำเร็จ', 'error');
+            return {
+                success: false,
+                previousValue,
+                newValue: previousValue,
+                diff: 0,
+                isNewlyCompleted: false,
+                syncedAt: new Date().toISOString(),
+                platformBreakdown: [],
+                errorMessage: err?.message || 'เกิดข้อผิดพลาดในการเชื่อมต่อระบบซิงค์ผู้ติดตาม',
+            };
         }
     };
 
@@ -185,41 +498,40 @@ export const useGoals = (currentUser: User) => {
         try {
             const { error } = await supabase.from('goals').update({ is_redeemed: true }).eq('id', id);
             if (error) throw error;
-            
-            setGoals(prev => prev.map(g => g.id === id ? { ...g, isRedeemed: true } : g));
-            showToast('ปลดล็อกคภารกิจเพื่อกู้หน้าคืน! (พยายามเข้า รางวัลจะลดลงเหลือ 30%) 🛡️', 'success');
+
+            setGoals(prev => prev.map(g => (g.id === id ? { ...g, isRedeemed: true } : g)));
+            showToast('ปลดล็อกภารกิจเพื่อกู้หน้าคืน! (รางวัลจะลดลงเหลือ 30%)', 'success');
         } catch (err: any) {
             showToast('ขอคืนชีพไม่สำเร็จ', 'error');
         }
     };
 
     const deleteGoal = async (id: string) => {
-        // Confirm logic moved to UI component (GoalView)
         try {
             await supabase.from('goals').delete().eq('id', id);
+            setGoals(prev => prev.filter(g => g.id !== id));
             showToast('ลบเป้าหมายแล้ว', 'info');
-        } catch(err: any) {
+        } catch (err: any) {
             showToast('ลบไม่สำเร็จ', 'error');
         }
     };
 
-    // --- New Features ---
     const toggleOwner = async (goalId: string, userId: string, isCurrentlyOwner: boolean) => {
-        // Optimistic Update
         const previousGoals = [...goals];
-        setGoals(prev => prev.map(g => {
-            if (g.id === goalId) {
-                const newOwners = isCurrentlyOwner 
-                    ? g.owners.filter(uid => uid !== userId)
-                    : [...g.owners, userId];
-                return { ...g, owners: newOwners };
-            }
-            return g;
-        }));
+        setGoals(prev =>
+            prev.map(g => {
+                if (g.id === goalId) {
+                    const newOwners = isCurrentlyOwner
+                        ? g.owners.filter(uid => uid !== userId)
+                        : [...g.owners, userId];
+                    return { ...g, owners: newOwners };
+                }
+                return g;
+            })
+        );
 
         try {
             if (isCurrentlyOwner) {
-                // Remove
                 const { error } = await supabase
                     .from('goal_owners')
                     .delete()
@@ -227,38 +539,36 @@ export const useGoals = (currentUser: User) => {
                     .eq('user_id', userId);
                 if (error) throw error;
             } else {
-                // Add
                 const { error } = await supabase
                     .from('goal_owners')
                     .insert({ goal_id: goalId, user_id: userId });
-                
-                // Handle unique constraint if user somehow joins twice
+
                 if (error && error.code !== '23505') throw error;
-                
+
                 if (!error) {
-                    showToast('เข้าร่วมทีมสำเร็จ! 🤝', 'success');
+                    showToast('เข้าร่วมทีมสำเร็จ!', 'success');
                 }
             }
         } catch (err: any) {
             console.error('Toggle owner error:', err);
-            // Rollback on error
             setGoals(previousGoals);
             showToast('ไม่สามารถเปลี่ยนสถานะทีมได้ในขณะนี้', 'error');
         }
     };
 
     const toggleBoost = async (goalId: string, isCurrentlyBoosted: boolean) => {
-        // Optimistic Update
         const previousGoals = [...goals];
-        setGoals(prev => prev.map(g => {
-            if (g.id === goalId) {
-                const newBoosts = isCurrentlyBoosted 
-                    ? g.boosts.filter(uid => uid !== currentUser.id)
-                    : [...g.boosts, currentUser.id];
-                return { ...g, boosts: newBoosts };
-            }
-            return g;
-        }));
+        setGoals(prev =>
+            prev.map(g => {
+                if (g.id === goalId) {
+                    const newBoosts = isCurrentlyBoosted
+                        ? g.boosts.filter(uid => uid !== currentUser.id)
+                        : [...g.boosts, currentUser.id];
+                    return { ...g, boosts: newBoosts };
+                }
+                return g;
+            })
+        );
 
         try {
             if (isCurrentlyBoosted) {
@@ -272,18 +582,15 @@ export const useGoals = (currentUser: User) => {
                 const { error } = await supabase
                     .from('goal_boosts')
                     .insert({ goal_id: goalId, user_id: currentUser.id });
-                
-                // If error is 23505 (unique constraint), it means it's already boosted, 
-                // which is fine for a toggle that was intended to boost.
+
                 if (error && error.code !== '23505') throw error;
-                
+
                 if (!error) {
-                    showToast('ส่งพลังเชียร์แล้ว! 🔥', 'success');
+                    showToast('ส่งพลังเชียร์แล้ว!', 'success');
                 }
             }
         } catch (err: any) {
             console.error('Toggle boost error:', err);
-            // Rollback on error
             setGoals(previousGoals);
             showToast('ไม่สามารถส่งพลังเชียร์ได้ในขณะนี้', 'error');
         }
@@ -291,14 +598,14 @@ export const useGoals = (currentUser: User) => {
 
     const requestExtension = async (goalId: string, newDateStr: string, reason: string) => {
         try {
-            const { data, error } = await supabase
+            const { error } = await supabase
                 .from('goal_deadline_requests')
                 .insert({
                     goal_id: goalId,
                     requested_by: currentUser.id,
                     new_deadline: new Date(newDateStr).toISOString(),
                     reason: reason,
-                    status: 'PENDING'
+                    status: 'PENDING',
                 })
                 .select()
                 .single();
@@ -307,18 +614,18 @@ export const useGoals = (currentUser: User) => {
 
             const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'ADMIN');
             if (admins && admins.length > 0) {
-                 const notifications = admins.map(admin => ({
+                const notifications = admins.map(admin => ({
                     user_id: admin.id,
                     type: 'APPROVAL_REQ',
-                    title: '📅 คำขอเลื่อน Deadline เป้าหมาย',
+                    title: 'คำขอเลื่อน Deadline เป้าหมาย',
                     message: `คุณ ${currentUser.name} ขอเลื่อนเป้าหมาย: "${reason.substring(0, 50)}${reason.length > 50 ? '...' : ''}"`,
                     related_id: goalId,
                     is_read: false,
-                    link_path: 'GOALS'
+                    link_path: 'GOALS',
                 }));
                 await supabase.from('notifications').insert(notifications);
             }
-            showToast('ส่งคำขอเลื่อน Deadline ของเป้าหมายให้แอดมินพิจารณาแล้ว! 📨', 'success');
+            showToast('ส่งคำขอเลื่อน Deadline ของเป้าหมายให้แอดมินพิจารณาแล้ว!', 'success');
             return true;
         } catch (err: any) {
             console.error('requestExtension error:', err);
@@ -329,15 +636,17 @@ export const useGoals = (currentUser: User) => {
 
     return {
         goals,
+        liveChannels,
         isLoading,
         addGoal,
-        updateGoal, // Exported
+        updateGoal,
         updateGoalValue,
+        syncGoalFollowersFromApi,
         deleteGoal,
         toggleOwner,
         toggleBoost,
         redeemGoal,
         requestExtension,
-        refreshGoals: fetchGoals
+        refreshGoals: () => fetchGoalsAndReconcile(false),
     };
 };

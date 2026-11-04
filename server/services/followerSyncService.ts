@@ -845,6 +845,9 @@ export async function syncAllChannelFollowers(
         duration_ms: durationMs,
     }, activeOrgId);
 
+    // Automatically synchronize active Goals with the latest channel follower counts
+    await syncOrgGoalsWithChannels(activeOrgId);
+
     onProgress?.({
         type: 'finish',
         currentIndex: results.length,
@@ -856,6 +859,116 @@ export async function syncAllChannelFollowers(
     });
 
     return finalSummary;
+}
+
+/**
+ * Compute follower count for a single channel's followers map and target platform
+ */
+function computeChannelFollowerCount(followersMap: Record<string, any> | null | undefined, platform?: string | null): number {
+    if (!followersMap || typeof followersMap !== 'object') return 0;
+    const normPlat = (platform || 'ALL').toUpperCase();
+    if (normPlat === 'ALL') {
+        return Object.entries(followersMap).reduce((sum, [key, val]) => {
+            if (key.startsWith('_')) return sum;
+            const num = Number(val);
+            return sum + (!isNaN(num) && num > 0 ? num : 0);
+        }, 0);
+    }
+    const directVal = followersMap[normPlat] ?? followersMap[platform || ''];
+    const num = Number(directVal);
+    return !isNaN(num) && num > 0 ? num : 0;
+}
+
+/**
+ * Synchronize all active Goals in the organization with the latest channel follower counts.
+ * Also handles automatic XP/Coin reward distribution if a goal crosses its target threshold.
+ */
+export async function syncOrgGoalsWithChannels(orgId?: string | null): Promise<void> {
+    const activeOrgId = orgId || PRIMARY_DEFAULT_ORG_ID;
+    try {
+        const [{ data: channels, error: chErr }, { data: goals, error: gErr }] = await Promise.all([
+            serverSupabase
+                .from('channels')
+                .select('id, followers')
+                .eq('org_id', activeOrgId),
+            serverSupabase
+                .from('goals')
+                .select('*, goal_owners(user_id)')
+                .eq('org_id', activeOrgId)
+                .eq('is_archived', false),
+        ]);
+
+        if (chErr || gErr || !channels || !goals || goals.length === 0) {
+            return;
+        }
+
+        const channelMap = new Map<string, Record<string, any>>();
+        for (const ch of channels) {
+            channelMap.set(ch.id, (ch.followers || {}) as Record<string, any>);
+        }
+
+        for (const goal of goals) {
+            const targetPlat = (goal.platform || 'ALL').toUpperCase();
+            let computedFollowers = 0;
+
+            if (goal.channel_id) {
+                const chFollowers = channelMap.get(goal.channel_id);
+                computedFollowers = computeChannelFollowerCount(chFollowers, targetPlat);
+            } else {
+                for (const chFollowers of channelMap.values()) {
+                    computedFollowers += computeChannelFollowerCount(chFollowers, targetPlat);
+                }
+            }
+
+            const prevValue = Number(goal.current_value) || 0;
+            const targetValue = Number(goal.target_value) || 1;
+
+            if (computedFollowers !== prevValue) {
+                const wasCompleted = prevValue >= targetValue;
+                const isNowCompleted = computedFollowers >= targetValue;
+
+                const { error: updateGoalErr } = await serverSupabase
+                    .from('goals')
+                    .update({ current_value: computedFollowers })
+                    .eq('id', goal.id)
+                    .eq('org_id', activeOrgId);
+
+                if (!updateGoalErr && !wasCompleted && isNowCompleted) {
+                    const owners: string[] = Array.isArray(goal.goal_owners)
+                        ? goal.goal_owners.map((o: any) => o.user_id).filter(Boolean)
+                        : [];
+
+                    if (owners.length > 0) {
+                        const now = new Date();
+                        const deadlineDate = goal.deadline ? new Date(goal.deadline) : now;
+                        const isLate = now > deadlineDate;
+                        const multiplier = isLate ? (goal.is_redeemed ? 0.3 : 0.5) : 1.0;
+                        const finalXp = Math.round((Number(goal.reward_xp) || 0) * multiplier);
+                        const finalCoin = Math.round((Number(goal.reward_coin) || 0) * multiplier);
+
+                        for (const userId of owners) {
+                            const { data: profile } = await serverSupabase
+                                .from('profiles')
+                                .select('xp, coins')
+                                .eq('id', userId)
+                                .maybeSingle();
+                            if (profile) {
+                                await serverSupabase
+                                    .from('profiles')
+                                    .update({
+                                        xp: (Number(profile.xp) || 0) + finalXp,
+                                        coins: (Number(profile.coins) || 0) + finalCoin,
+                                    })
+                                    .eq('id', userId);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    } catch (err) {
+        console.warn(`[FollowerSync] Failed to sync goals for org ${activeOrgId}:`, err);
+    }
 }
 
 /**
@@ -948,7 +1061,10 @@ export async function syncSingleChannelFollowers(channelId: string): Promise<Cha
         })
     );
 
-    const totalFollowers = Object.values(newFollowersMap).reduce((sum, count) => sum + (Number(count) || 0), 0);
+    const totalFollowers = Object.entries(newFollowersMap).reduce((sum, [key, count]) => {
+        if (key.startsWith('_')) return sum;
+        return sum + (Number(count) || 0);
+    }, 0);
     const syncTimestamp = new Date().toISOString();
     newFollowersMap._last_synced_at = syncTimestamp;
 
@@ -990,6 +1106,9 @@ export async function syncSingleChannelFollowers(channelId: string): Promise<Cha
             last_sync_followers_at: syncTimestamp,
         };
     }
+
+    // Automatically synchronize active Goals with the newly updated channel follower counts
+    await syncOrgGoalsWithChannels(channelOrgId);
 
     return {
         channelId: channel.id,

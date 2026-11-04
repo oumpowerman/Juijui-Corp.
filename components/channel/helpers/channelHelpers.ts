@@ -4,11 +4,11 @@ export const formatFollowersCompact = (num?: number): string => {
   if (!num || isNaN(num) || num <= 0) return '0';
   if (num >= 1_000_000) {
     const formatted = (num / 1_000_000).toFixed(1);
-    return formatted.endsWith('.0') ? `${num / 1_000_000}M` : `${formatted}M`;
+    return `${formatted.replace(/\.0$/, '')}M`;
   }
   if (num >= 1_000) {
     const formatted = (num / 1_000).toFixed(1);
-    return formatted.endsWith('.0') ? `${num / 1_000}K` : `${formatted}K`;
+    return `${formatted.replace(/\.0$/, '')}K`;
   }
   return num.toLocaleString();
 };

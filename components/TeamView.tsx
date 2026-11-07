@@ -51,7 +51,7 @@ interface TeamViewProps {
   channels: Channel[];
   users: User[];
   currentUser: User | null;
-  onEditTask: (task: Task) => void;
+  onEditTask: (task: Task, currentViewMode?: string) => void;
   onApproveMember?: (id: string) => void;
   onRemoveMember?: (id: string) => void;
   onToggleStatus?: (id: string, currentStatus: boolean) => void; 
@@ -660,7 +660,7 @@ const TeamView: React.FC<TeamViewProps> = ({
         <TeamTaskContextMenu
           menuState={taskContextMenu}
           onClose={() => setTaskContextMenu(null)}
-          onEdit={(task) => onEditTask(task)}
+          onEdit={(task) => onEditTask({ ...task, _openInEditMode: true } as Task, 'EDIT')}
           onDuplicate={handleContextDuplicate}
           onDelete={handleContextDelete}
         />

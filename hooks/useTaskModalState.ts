@@ -68,12 +68,13 @@ export const useTaskModalState = ({
             const justOpened = !wasOpenRef.current;
 
             if (justOpened || isNewTask) {
-                setViewMode((initialViewMode as any) || 'DETAILS');
+                const startInEditMode = initialViewMode === 'EDIT' || Boolean((initialData as any)?._openInEditMode);
+                setViewMode(startInEditMode ? 'DETAILS' : ((initialViewMode as any) || 'DETAILS'));
                 setIsNavExpanded(false); 
                 
                 if (initialData) {
                     setActiveTab(initialData.type || 'CONTENT');
-                    setMode('VIEW');
+                    setMode(startInEditMode ? 'EDIT' : 'VIEW');
                 } else {
                     setMode('EDIT');
                     setDetailedData(null);

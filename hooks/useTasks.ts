@@ -350,9 +350,34 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
             }
         }
 
-        // --- 🚀 Resiliency for Partial Tasks ---
+        // --- 🚀 Resiliency for Partial Tasks & Duplicated Tasks ---
         let taskToSave = { ...task };
-        if ((task as any)._isPartial) {
+        const sourceTaskId = (task as any)._sourceTaskId;
+        if (sourceTaskId) {
+            const fullSourceTask = await fetchTaskById(sourceTaskId, task.type);
+            if (fullSourceTask) {
+                taskToSave = {
+                    ...fullSourceTask,
+                    id: task.id,
+                    title: task.title,
+                    startDate: task.startDate,
+                    endDate: task.endDate,
+                    assigneeIds: task.assigneeIds && task.assigneeIds.length > 0
+                        ? task.assigneeIds
+                        : fullSourceTask.assigneeIds,
+                    isUnscheduled: task.isUnscheduled ?? false,
+                    createdAt: new Date(),
+                    updatedAt: new Date(),
+                    sponsorship: fullSourceTask.sponsorship
+                        ? {
+                            ...fullSourceTask.sponsorship,
+                            taskId: task.id,
+                        }
+                        : undefined,
+                    _isPartial: false,
+                } as any;
+            }
+        } else if ((task as any)._isPartial) {
             const fullTask = await fetchTaskById(task.id, task.type);
             if (fullTask) {
                 taskToSave = { ...fullTask, ...task };
@@ -525,19 +550,19 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
         else {
             // Create New
             try {
-                const insertPayload = { id: task.id, ...dbPayload };
+                const insertPayload = { id: taskToSave.id, ...dbPayload };
                 const { error } = await (supabase.from(table) as any).insert(insertPayload);
                 
                 if (error) throw error;
                 
                 // --- NOTIFICATION: NEW ASSIGNMENT ---
-                if (task.assigneeIds && task.assigneeIds.length > 0) {
-                    const notifications = task.assigneeIds.map(uid => ({
+                if (taskToSave.assigneeIds && taskToSave.assigneeIds.length > 0) {
+                    const notifications = taskToSave.assigneeIds.map(uid => ({
                         user_id: uid,
                         type: 'NEW_ASSIGNMENT',
-                        title: `⚡ งานใหม่: ${task.title}`,
-                        message: `คุณได้รับมอบหมายงานใหม่: "${task.title}" กำหนดส่ง ${format(task.endDate, 'dd/MM/yyyy')}`,
-                        related_id: task.id,
+                        title: `⚡ งานใหม่: ${taskToSave.title}`,
+                        message: `คุณได้รับมอบหมายงานใหม่: "${taskToSave.title}" กำหนดส่ง ${format(taskToSave.endDate, 'dd/MM/yyyy')}`,
+                        related_id: taskToSave.id,
                         link_path: isContent ? 'ContentStock' : 'DASHBOARD',
                         is_read: false
                     }));
@@ -547,25 +572,25 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
                 }
 
                 // Update Context State (if suitable for list)
-                if (!task.contentId) {
-                    setTasks(prev => [...prev, task]);
-                    if (setIsModalOpen) setIsModalOpen(false);
+                if (!taskToSave.contentId || taskToSave.showOnBoard) {
+                    setTasks(prev => [...prev, taskToSave]);
+                    if (!sourceTaskId && setIsModalOpen) setIsModalOpen(false);
                 }
 
                 // Log Creation (Always log creations)
                 const { data: { user } } = await supabase.auth.getUser();
                 const logPayload: any = {
                      action: 'CREATED',
-                     details: `สร้างใหม่: ${task.title}`,
+                     details: sourceTaskId ? `คัดลอกงานใหม่: ${taskToSave.title}` : `สร้างใหม่: ${taskToSave.title}`,
                      user_id: user?.id
                 };
-                if (isContent) logPayload.content_id = task.id;
-                else logPayload.task_id = task.id;
+                if (isContent) logPayload.content_id = taskToSave.id;
+                else logPayload.task_id = taskToSave.id;
                 await supabase.from('task_logs').insert(logPayload);
 
                 // --- 🚀 NEW: Sponsorship Detail Save ---
-                if (isContent && task.sponsorship && task.sponsorship.isSponsored) {
-                    await sponsorshipService.saveSponsorshipDetail(task.id, task.sponsorship);
+                if (isContent && taskToSave.sponsorship && taskToSave.sponsorship.isSponsored) {
+                    await sponsorshipService.saveSponsorshipDetail(taskToSave.id, taskToSave.sponsorship);
                 }
 
                 if (!silentToast) {

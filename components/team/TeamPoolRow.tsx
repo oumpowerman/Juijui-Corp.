@@ -1,9 +1,7 @@
-
 import React, { memo } from 'react';
 import { Users, AlertCircle, Zap } from 'lucide-react';
 import { Task, Status } from '../../types';
 import { STATUS_COLORS } from '../../constants';
-import { format, isToday } from 'date-fns';
 
 interface TeamPoolRowProps {
     type: 'POOL' | 'UNASSIGNED';
@@ -12,9 +10,19 @@ interface TeamPoolRowProps {
     onEditTask: (task: Task) => void;
     // Helper function moved from parent or duplicated to keep logic self-contained
     isTaskOnDay: (task: Task, day: Date) => boolean;
+    onDragStart?: (e: React.DragEvent, taskId: string, clickDate?: Date) => void;
+    onTaskContextMenu?: (e: React.MouseEvent, task: Task, userId: string, date: Date) => void;
 }
 
-const TeamPoolRow: React.FC<TeamPoolRowProps> = ({ type, tasks, weekDays, onEditTask, isTaskOnDay }) => {
+const TeamPoolRow: React.FC<TeamPoolRowProps> = ({
+    type,
+    tasks,
+    weekDays,
+    onEditTask,
+    isTaskOnDay,
+    onDragStart,
+    onTaskContextMenu,
+}) => {
     if (tasks.length === 0) return null;
 
     const isPool = type === 'POOL';
@@ -58,7 +66,26 @@ const TeamPoolRow: React.FC<TeamPoolRowProps> = ({ type, tasks, weekDays, onEdit
                 return (
                     <div key={day.toString()} className={`col-span-1 border-l ${config.border} p-1.5 relative flex flex-col gap-1`}>
                         {dayTasks.map(task => (
-                            <div key={task.id} onClick={() => onEditTask(task)} className={`text-[10px] p-2 rounded-lg cursor-pointer border shadow-sm truncate hover:scale-105 transition-transform font-medium flex items-center ${STATUS_COLORS[task.status as Status]} ${config.borderColor} bg-white ring-1 ${config.ringColor}`}>
+                            <div
+                                key={task.id}
+                                draggable={!!onDragStart}
+                                onDragStart={(e) => {
+                                    if (onDragStart) {
+                                        e.dataTransfer.effectAllowed = 'copyMove';
+                                        onDragStart(e, task.id, day);
+                                    }
+                                }}
+                                onClick={() => onEditTask(task)}
+                                onContextMenu={(e) => {
+                                    if (onTaskContextMenu) {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        onTaskContextMenu(e, task, '', day);
+                                    }
+                                }}
+                                title="คลิกเพื่อแก้ไข, คลิกขวาเพื่อจัดการ หรือกด Alt ค้างไว้แล้วลากเพื่อคัดลอกงาน"
+                                className={`text-[10px] p-2 rounded-lg cursor-grab active:cursor-grabbing border shadow-sm truncate hover:scale-105 transition-transform font-medium flex items-center ${STATUS_COLORS[task.status as Status]} ${config.borderColor} bg-white ring-1 ${config.ringColor}`}
+                            >
                                 {isPool ? <Zap className={`w-3 h-3 mr-1 ${config.itemIconColor}`} /> : <AlertCircle className={`w-3 h-3 mr-1 ${config.itemIconColor}`} />}
                                 {task.title}
                             </div>

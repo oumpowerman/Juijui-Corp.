@@ -90,7 +90,8 @@ export const useTaskManager = (
   // Wrapper for handleSaveTask to match original signature expected by App.tsx
   // UPDATED: Pass context data (users, masterOptions, channels) for Smart Diffing
   const handleSaveTask = async (task: any) => {
-    await saveTaskInternal(task, editingTask, {
+    const matchedEditingTask = editingTask && editingTask.id === task.id ? editingTask : null;
+    await saveTaskInternal(task, matchedEditingTask, {
       users: allUsers,
       masterOptions: masterOptions,
       channels: channels

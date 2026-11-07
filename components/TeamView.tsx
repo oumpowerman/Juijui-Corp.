@@ -27,6 +27,8 @@ import TeamPagination from './team/TeamPagination'; // NEW
 import InternManagementView from './team/intern/index';
 import RandomizerModal from './team/RandomizerModal';
 import { OverdueTasksSection } from './team/OverdueTasksSection';
+import TeamTaskDuplicateModal, { TeamTaskDuplicateRequest } from './team/modals/TeamTaskDuplicateModal';
+import TeamTaskContextMenu, { TeamTaskContextMenuState } from './team/modals/TeamTaskContextMenu';
 
 // Lazy Load Tribunal Components
 const TribunalReportModal = React.lazy(() => import('./team/TribunalReportModal'));
@@ -34,6 +36,7 @@ const TribunalReportModal = React.lazy(() => import('./team/TribunalReportModal'
 import { useInterns } from '../hooks/useInterns';
 import AppBackground, { BackgroundTheme } from './common/AppBackground';
 import { useTaskContext } from '../context/TaskContext';
+import { useGlobalDialog } from '../context/GlobalDialogContext';
 
 // Import DnD Hook
 import { useTeamDragDrop } from '../hooks/useTeamDragDrop';
@@ -56,6 +59,7 @@ interface TeamViewProps {
   onOpenSettings: () => void;
   onAddTask?: (type?: any) => void; 
   onMoveTask?: (task: Task) => void; 
+  onDeleteTask?: (taskId: string, taskType?: 'CONTENT' | 'TASK') => void;
 }
 
 export type ColorLensMode = 'STATUS' | 'PRIORITY' | 'TYPE';
@@ -71,7 +75,8 @@ const TeamView: React.FC<TeamViewProps> = ({
   onToggleStatus,
   onAdjustStats,
   onAddTask,
-  onMoveTask
+  onMoveTask,
+  onDeleteTask
 }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<'TEAM' | 'INTERNS'>('TEAM');
@@ -92,6 +97,9 @@ const TeamView: React.FC<TeamViewProps> = ({
   const [isRandomizerOpen, setIsRandomizerOpen] = useState(false);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [selectedMember, setSelectedMember] = useState<User | null>(null);
+  const [duplicateRequest, setDuplicateRequest] = useState<TeamTaskDuplicateRequest | null>(null);
+  const [taskContextMenu, setTaskContextMenu] = useState<TeamTaskContextMenuState | null>(null);
+  const { showConfirm } = useGlobalDialog();
 
   // --- HOOKS ---
   const { 
@@ -208,26 +216,24 @@ const TeamView: React.FC<TeamViewProps> = ({
   const { handleDragStart, handleDragOver, handleDrop } = useTeamDragDrop({
     tasks,
     onDragStartExtra: (taskId, clickDate) => {
-    const task = tasks.find(t => t.id === taskId);
-    if (!task) return;
+        const task = tasks.find(t => t.id === taskId);
+        if (!task) return;
 
-    const start = new Date(task.startDate);
-    const diffDays = differenceInCalendarDays(clickDate, start);
+        const start = new Date(task.startDate);
+        const diffDays = differenceInCalendarDays(clickDate, start);
 
-    setDragOffsetDays(diffDays);
+        setDragOffsetDays(diffDays);
     },
     onTaskMove: (taskId, newAssigneeId, newDate) => {
         const task = tasks.find(t => t.id === taskId);
         if (task && onMoveTask) {
-
             const oldStart = new Date(task.startDate);
             const oldEnd = new Date(task.endDate);
 
             const correctedStart = new Date(newDate);
             correctedStart.setDate(correctedStart.getDate() - dragOffsetDays);
 
-            const duration =
-                oldEnd.getTime() - oldStart.getTime();
+            const duration = oldEnd.getTime() - oldStart.getTime();
 
             const newStart = correctedStart;
             const newEnd = new Date(newStart.getTime() + duration);
@@ -242,8 +248,69 @@ const TeamView: React.FC<TeamViewProps> = ({
 
             onMoveTask(updatedTask);
         }
+    },
+    onTaskDuplicate: (taskId, targetUserId, targetDate) => {
+        const task = tasks.find(t => t.id === taskId);
+        if (!task) return;
+
+        const oldStart = new Date(task.startDate);
+        const oldEnd = new Date(task.endDate);
+
+        const correctedStart = new Date(targetDate);
+        correctedStart.setDate(correctedStart.getDate() - dragOffsetDays);
+
+        const duration = Math.max(0, oldEnd.getTime() - oldStart.getTime());
+        const newStart = correctedStart;
+        const newEnd = new Date(newStart.getTime() + duration);
+
+        const targetUser = users.find(u => u.id === targetUserId);
+
+        setDuplicateRequest({
+            sourceTask: task,
+            targetUserId,
+            targetUser,
+            startDate: newStart,
+            endDate: newEnd,
+        });
     }
   });
+
+  // --- Right-Click Context Menu Handlers on Task Pills ---
+  const handleTaskContextMenu = useCallback((e: React.MouseEvent, task: Task, userId: string, date: Date) => {
+      setTaskContextMenu({
+          x: e.clientX,
+          y: e.clientY,
+          task,
+          userId: userId || task.assigneeIds?.[0] || '',
+          date,
+      });
+  }, []);
+
+  const handleContextDuplicate = useCallback((task: Task, userId: string, _clickedDate: Date) => {
+      const start = task.startDate instanceof Date ? task.startDate : new Date(task.startDate);
+      const end = task.endDate instanceof Date ? task.endDate : new Date(task.endDate);
+      const resolvedUserId = userId || task.assigneeIds?.[0] || '';
+      const targetUser = users.find(u => u.id === resolvedUserId);
+
+      setDuplicateRequest({
+          sourceTask: task,
+          targetUserId: resolvedUserId,
+          targetUser,
+          startDate: start,
+          endDate: end,
+      });
+  }, [users]);
+
+  const handleContextDelete = useCallback(async (task: Task) => {
+      if (!onDeleteTask) return;
+      const confirmed = await showConfirm(
+          `คุณต้องการลบงาน "${task.title}" ใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้`,
+          'ยืนยันการลบงาน'
+      );
+      if (confirmed) {
+          onDeleteTask(task.id, task.type === 'CONTENT' ? 'CONTENT' : 'TASK');
+      }
+  }, [onDeleteTask, showConfirm]);
 
   // --- Handlers ---
   const nextWeek = () => setCurrentDate(prev => addWeeks(prev, 1));
@@ -471,8 +538,8 @@ const TeamView: React.FC<TeamViewProps> = ({
                       {/* Team Pool Rows (Show only on Page 1) */}
                       {pagination.currentPage === 1 && (
                           <>
-                              <TeamPoolRow type="POOL" tasks={teamPoolTasks} weekDays={weekDays} onEditTask={onEditTask} isTaskOnDay={isTaskOnDay} />
-                              <TeamPoolRow type="UNASSIGNED" tasks={unassignedTasks} weekDays={weekDays} onEditTask={onEditTask} isTaskOnDay={isTaskOnDay} />
+                              <TeamPoolRow type="POOL" tasks={teamPoolTasks} weekDays={weekDays} onEditTask={onEditTask} isTaskOnDay={isTaskOnDay} onDragStart={handleDragStart} onTaskContextMenu={handleTaskContextMenu} />
+                              <TeamPoolRow type="UNASSIGNED" tasks={unassignedTasks} weekDays={weekDays} onEditTask={onEditTask} isTaskOnDay={isTaskOnDay} onDragStart={handleDragStart} onTaskContextMenu={handleTaskContextMenu} />
                           </>
                       )}
 
@@ -490,6 +557,7 @@ const TeamView: React.FC<TeamViewProps> = ({
                               onDragStart={handleDragStart}
                               onDragOver={handleDragOver}
                               onDrop={handleDrop}
+                              onTaskContextMenu={handleTaskContextMenu}
                               channels={channels}
                               masterOptions={masterOptions}
                           />
@@ -586,6 +654,30 @@ const TeamView: React.FC<TeamViewProps> = ({
             onClose={() => setIsRandomizerOpen(false)}
             users={users}
             currentUser={currentUser}
+        />
+
+        {/* RIGHT-CLICK TASK CONTEXT MENU DROPDOWN */}
+        <TeamTaskContextMenu
+          menuState={taskContextMenu}
+          onClose={() => setTaskContextMenu(null)}
+          onEdit={(task) => onEditTask(task)}
+          onDuplicate={handleContextDuplicate}
+          onDelete={handleContextDelete}
+        />
+
+        {/* ALT + DRAG / RIGHT-CLICK TASK DUPLICATE MODAL */}
+        <TeamTaskDuplicateModal
+          isOpen={!!duplicateRequest}
+          request={duplicateRequest}
+          users={users}
+          channels={channels}
+          masterOptions={masterOptions}
+          onClose={() => setDuplicateRequest(null)}
+          onConfirm={async (duplicatedTask) => {
+            if (onMoveTask) {
+              await onMoveTask(duplicatedTask);
+            }
+          }}
         />
 
         {/* TRIBUNAL REPORT MODAL */}

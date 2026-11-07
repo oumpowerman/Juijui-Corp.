@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { 
     X, ShieldCheck, AlertTriangle, Zap, Clock, CheckCircle, 
     HeartHandshake, Coins, Trophy, Ban, Scale, MessageCircle,
-    Camera, ArrowRightCircle, Sparkles, Info
+    Camera, ArrowRightCircle, Sparkles, Info, Skull
 } from 'lucide-react';
 import { useGameConfig } from '../../context/GameConfigContext';
 import BaseModal from '../common/BaseModal';
@@ -179,27 +179,31 @@ const DutyRuleModal: React.FC<Props> = ({ isOpen, onClose }) => {
                             stats={{ xp: globals.XP_DUTY_COMPLETE || 20, jp: globals.COIN_DUTY || 5 }}
                             description={
                                 <span>
-                                    ถ่ายรูปหลักฐานการทำเวรส่งในระบบให้เรียบร้อย จะได้รับรางวัลตอบแทนความรับผิดชอบ
+                                    ถ่ายรูปหลักฐานการทำเวรส่งในระบบภายในวันที่ได้รับมอบหมาย จะได้รับรางวัลทั้ง XP และเหรียญ JP ตอบแทนความรับผิดชอบ
                                 </span>
                             }
                         />
                         <RuleCard 
-                            icon={Camera} colorTheme="blue" title="การส่งหลักฐาน (Proof)" delay={0.2}
-                            description="ต้องถ่ายรูปงานที่ทำเสร็จแล้วจริงๆ ระบบจะบันทึกเวลาที่ส่งงานเพื่อใช้ในการตรวจสอบย้อนหลัง"
+                            icon={Camera} colorTheme="blue" title="การส่งหลักฐาน & ห้ามส่งล่วงหน้า (Proof)" delay={0.2}
+                            description={
+                                <span>
+                                    ต้องถ่ายรูปงานที่ทำเสร็จแล้วในวันที่กำหนดเท่านั้น <span className="font-bold text-blue-700">ระบบไม่อนุญาตให้ติ๊กหรือส่งหลักฐานล่วงหน้าก่อนถึงวันเวรจริง</span> และจะบันทึกเวลาส่งงานพร้อมส่งแจ้งเตือนเข้าห้องแชททีมอัตโนมัติ
+                                </span>
+                            }
                         />
                         
                         <SectionHeader title="ช่วงเวลาผ่อนผัน (Grace Period)" icon={Zap} color="text-indigo-600" />
                         <RuleCard 
-                            icon={Clock} colorTheme="indigo" title="โอกาสแก้ตัว" delay={0.3}
+                            icon={Clock} colorTheme="indigo" title="โอกาสส่งงานช่วงผ่อนผัน" delay={0.3}
                             description={
                                 <span>
-                                    หากลืมทำเวรในวันที่กำหนด ระบบจะยังไม่ลงโทษทันที แต่จะให้โอกาสแก้ตัวจนถึง <span className="font-bold text-indigo-600">{autoJudge.duty_grace_hour || 10}:00 น.</span> ของวันถัดไป
+                                    หากลืมทำเวรในวันที่กำหนด ระบบจะยังไม่ตัดสินว่าละเลยทันที แต่จะเปิดช่วงผ่อนผันให้รีบส่งงานย้อนหลังได้จนถึงเวลา <span className="font-bold text-indigo-600">{autoJudge.duty_grace_hour || 10}:00 น.</span> ของวันถัดไป
                                 </span>
                             }
                         />
                         <RuleCard 
                             icon={Ban} colorTheme="rose" title="วันหยุด & การลา" delay={0.4}
-                            description="ระบบจะไม่สุ่มเวรในวันหยุดบริษัท และหากคุณลา (ได้รับการอนุมัติ) ระบบจะยกเว้นเวรให้โดยอัตโนมัติ"
+                            description="ระบบจะไม่สุ่มเวรในวันหยุดบริษัท และหากตรงกับวันหยุดพิเศษหรือคุณมีใบลาที่ได้รับการอนุมัติแล้ว (APPROVED) ระบบจะยกเว้นเวร (EXCUSED) ให้อัตโนมัติโดยไม่เสียคะแนน"
                         />
                     </motion.div>
                 )}
@@ -210,26 +214,30 @@ const DutyRuleModal: React.FC<Props> = ({ isOpen, onClose }) => {
                         <SectionHeader title="ระบบแลกเวร (Duty Swap)" icon={ArrowRightCircle} color="text-purple-600" />
                         <RuleCard 
                             icon={ArrowRightCircle} colorTheme="purple" title="การแลกเวร" delay={0.1}
-                            description="หากติดธุระ สามารถส่งคำขอแลกเวรกับเพื่อนได้ โดยเพื่อนต้องกด 'Accept' เพื่อยืนยันการสลับหน้าที่"
+                            description="หากติดธุระ สามารถส่งคำขอแลกเวรกับเพื่อนได้ โดยเพื่อนต้องกด 'Accept' ในกล่องข้อความแจ้งเตือนแลกเวรเพื่อยืนยันการสลับหน้าที่"
                         />
                         <RuleCard 
                             icon={Info} colorTheme="blue" title="เงื่อนไขการแลก" delay={0.2}
-                            description="แลกได้เฉพาะเวรในอนาคตที่ยังไม่ทำเท่านั้น และไม่สามารถแลกเวรที่ผ่านมาแล้วได้"
+                            description={
+                                <span>
+                                    กดขอแลกได้เฉพาะ <span className="font-bold text-blue-700">เวรของตัวเองที่ยังไม่ได้ทำ และยังไม่หลุดเข้าสถานะขาดเวร ขึ้นศาล หรือถูกละเลย</span> เท่านั้น
+                                </span>
+                            }
                         />
 
                         <SectionHeader title="ระบบช่วยเหลือ (Hero Assist)" icon={HeartHandshake} color="text-rose-600" />
                         <RuleCard 
                             icon={Sparkles} colorTheme="pink" title="เป็นฮีโร่ช่วยเพื่อน" delay={0.3}
-                            stats={{ xp: globals.XP_DUTY_ASSIST || 30 }}
+                            stats={{ xp: globals.XP_DUTY_ASSIST || 30, jp: globals.COIN_DUTY || 5 }}
                             description={
                                 <span>
-                                    หากเห็นเพื่อนงานยุ่ง สามารถกด <span className="font-bold text-pink-600">"Assist"</span> เพื่อทำแทนได้ ฮีโร่จะได้รับ XP โบนัสพิเศษ!
+                                    หากเห็นเพื่อนงานยุ่ง สามารถกดปุ่ม <span className="font-bold text-pink-600">"Assist"</span> บนการ์ดเวรของเพื่อนเพื่อถ่ายรูปส่งงานแทนได้ ฮีโร่ผู้ช่วยจะได้รับทั้งโบนัส XP และเหรียญ JP!
                                 </span>
                             }
                         />
                         <RuleCard 
                             icon={CheckCircle} colorTheme="emerald" title="ผลของการช่วย" delay={0.4}
-                            description="เพื่อนที่ถูกช่วยจะถือว่าทำเวรเสร็จสิ้น (รอดพ้นบทลงโทษ) แต่จะไม่ได้รับแต้มรางวัลในรอบนั้น"
+                            description="เพื่อนที่ถูกช่วยจะถือว่าทำเวรเสร็จสมบูรณ์ (รอดพ้นบทลงโทษทั้งหมด) แต่แต้มรางวัลในรอบนั้นจะมอบให้กับฮีโร่ผู้มาช่วยแทน"
                         />
                     </motion.div>
                 )}
@@ -237,46 +245,63 @@ const DutyRuleModal: React.FC<Props> = ({ isOpen, onClose }) => {
                 {/* Tab 3: TRIBUNAL */}
                 {activeTab === 'TRIBUNAL' && (
                     <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 20 }} className="space-y-4">
-                        <SectionHeader title="ศาลตัดสินเวร (Duty Tribunal)" icon={Scale} color="text-rose-600" />
+                        <SectionHeader title="ศาลตัดสินเวร & ทางเลือกการแก้ไข (Duty Tribunal)" icon={Scale} color="text-rose-600" />
                         
                         <RuleCard 
-                            icon={AlertTriangle} colorTheme="orange" title="ส่งงานล่าช้า (Late)" delay={0.1}
-                            stats={{ hp: -(penalties.HP_PENALTY_DUTY_LATE_SUBMIT || 5) }}
+                            icon={AlertTriangle} colorTheme="orange" title="ส่งงานล่าช้าในช่วงผ่อนผัน (Late Submit)" delay={0.1}
+                            stats={{ xp: globals.XP_DUTY_LATE_SUBMIT || 5, hp: -(penalties.HP_PENALTY_DUTY_LATE_SUBMIT || 5) }}
                             description={
                                 <span>
-                                    การส่งงานในช่วงเวลาแก้ตัว (หลังเที่ยงคืนแต่ก่อน {autoJudge.duty_grace_hour || 10}:00 น.) จะถูกหัก HP เล็กน้อยเป็นค่าปรับล่าช้า
+                                    การส่งงานย้อนหลังในช่วงเวลาผ่อนผัน (หลังเที่ยงคืนแต่ก่อน <span className="font-bold text-orange-600">{autoJudge.duty_grace_hour || 10}:00 น.</span> ของวันถัดไป) จะถูกหัก HP เล็กน้อยเป็นค่าปรับล่าช้า แต่ยังได้รับ XP ความรับผิดชอบปลอบใจ
                                 </span>
                             }
                         />
                         
                         <RuleCard 
-                            icon={Scale} colorTheme="indigo" title="ขอแก้ตัวที่ศาล (Redeem)" delay={0.15}
-                            stats={{ hp: -(penalties.HP_PENALTY_MISSED_DUTY - (penalties.HP_REFUND_DUTY_REDEEM || 10) || 10) }}
+                            icon={Scale} colorTheme="indigo" title="ขอแก้ตัวที่ศาล (Tribunal Redeem)" delay={0.15}
+                            stats={{ xp: globals.XP_DUTY_LATE_SUBMIT || 5, hp: -(penalties.HP_PENALTY_DUTY_LATE_SUBMIT || 5) }}
                             description={
                                 <span>
-                                    หากโดนหักคะแนนไปแล้ว และส่งงานย้อนหลังย้อนหลังที่ศาล ระบบจะคืนให้ <span className="font-bold text-emerald-600">+{penalties.HP_REFUND_DUTY_REDEEM || 10} HP</span> ทันที
+                                    เมื่อเวรเข้าสู่สถานะรอขึ้นศาล (<span className="font-bold text-indigo-600">AWAITING TRIBUNAL</span>) การถ่ายรูปส่งงานแก้ตัวจะช่วยให้รอดพ้นโทษหนัก <span className="font-bold text-rose-600">-{penalties.HP_PENALTY_MISSED_DUTY || 20} HP</span> (เสียเพียงค่าปรับส่งช้า <span className="font-bold text-rose-600">-{penalties.HP_PENALTY_DUTY_LATE_SUBMIT || 5} HP</span> และได้ <span className="font-bold text-blue-600">+{globals.XP_DUTY_LATE_SUBMIT || 5} XP</span>) หรือหากเป็นการกู้คืนจากสถานะละเลยที่ถูกหักคะแนนไปแล้ว ระบบจะคืนให้ <span className="font-bold text-emerald-600">+{penalties.HP_REFUND_DUTY_REDEEM || 10} HP</span>
                                 </span>
                             }
                         />
+
+                        <RuleCard 
+                            icon={MessageCircle} colorTheme="blue" title="การอุทธรณ์แจ้งเหตุจำเป็น (Appeal)" delay={0.2}
+                            description="หากมีเหตุจำเป็นสุดวิสัย (เช่น ป่วยกะทันหัน หรือติดภารกิจด่วน) สามารถยื่นอุทธรณ์พร้อมแนบรูปหลักฐานในหน้าศาลเพื่อเปลี่ยนสถานะเป็นรอตรวจสอบ (UNDER REVIEW) ให้ Admin พิจารณายกเว้นโทษได้"
+                        />
+
+                        <RuleCard 
+                            icon={Ban} colorTheme="rose" title="ยอมรับผิดในชั้นศาล (Accept Fault)" delay={0.25}
+                            stats={{ hp: -(penalties.HP_PENALTY_MISSED_DUTY || 20) }}
+                            description={
+                                <span>
+                                    หากลืมทำเวรจริงและไม่ต้องการส่งงานแก้ตัว สามารถกดปุ่ม <span className="font-bold text-rose-600">"ฉันลืมทำเวรจริงๆ"</span> เพื่อรับโทษหัก HP และเคลียร์สถานะเวรนั้นให้จบสิ้นทันที
+                                </span>
+                            }
+                        />
+
+                        <SectionHeader title="บทลงโทษกรณีปล่อยปละละเลย (2 ขั้นตอน)" icon={Skull} color="text-rose-700" />
                         
                         <RuleCard 
-                            icon={Ban} colorTheme="rose" title="เพิกเฉยต่อหน้าที่ (Negligence)" delay={0.2}
+                            icon={Skull} colorTheme="rose" title="ขั้นที่ 1: ละเลยเวรเกินกำหนด (Abandoned Duty)" delay={0.3}
+                            stats={{ hp: -(penalties.HP_PENALTY_MISSED_DUTY || 20) }}
+                            description={
+                                <span>
+                                    หากปล่อยเวรทิ้งไว้จนเลยเวลาผ่อนผันครบ <span className="font-bold text-rose-600">{autoJudge.negligence_threshold_days || 1} วันทำการ</span> ระบบจะตัดสินเป็นสถานะ <span className="font-bold text-rose-600">ABANDONED (FAILED)</span> หักคะแนนทันที และแสดงการ์ดแจ้งเตือนบน Dashboard บังคับให้กดรับทราบความผิด (ล็อกหน้าจอนับถอยหลัง 5 วินาที)
+                                </span>
+                            }
+                        />
+
+                        <RuleCard 
+                            icon={Ban} colorTheme="rose" title="ขั้นที่ 2: เพิกเฉยซ้ำซ้อนจนเวรใหม่มาถึง (Negligence Protocol)" delay={0.35}
                             stats={{ hp: -(autoJudge.negligence_penalty_hp || 20) }}
                             description={
                                 <span>
-                                    หากละเลยจนเวรใหม่มาถึง ระบบจะหักคะแนนซ้ำซ้อนอีก <span className="font-bold text-rose-600">-{autoJudge.negligence_penalty_hp || 20} HP</span> และล็อคการใช้งานชั่วคราว
+                                    หากมีเวรที่ติดสถานะ <span className="font-bold text-rose-600">ABANDONED</span> ค้างอยู่แล้วยังไม่ยอมกดรับทราบเพื่อเคลียร์ จนกระทั่งถึงวันที่มีเวรรอบใหม่ของตัวเองวนมาถึง ระบบจะเปิดโปรโตคอลลงทัณฑ์หักคะแนนซ้ำเป็นรอบที่ 2 อีก <span className="font-bold text-rose-600">-{autoJudge.negligence_penalty_hp || 20} HP</span> และบังคับเคลียร์เวรเก่าอัตโนมัติ
                                 </span>
                             }
-                        />
-
-                        <RuleCard 
-                            icon={MessageCircle} colorTheme="indigo" title="การอุทธรณ์ (Appeal)" delay={0.3}
-                            description="หากมีเหตุจำเป็นจริงๆ (เช่น ป่วยกระทันหัน) สามารถยื่นอุทธรณ์พร้อมหลักฐานเพื่อให้ Admin พิจารณายกเว้นโทษได้"
-                        />
-
-                        <RuleCard 
-                            icon={Ban} colorTheme="rose" title="ยอมรับผิด (Accept Fault)" delay={0.4}
-                            description="หากลืมจริงๆ และไม่อยากแก้ตัว สามารถกด 'ยอมรับผิด' เพื่อรับโทษและเคลียร์รายการเวรทิ้งได้"
                         />
                     </motion.div>
                 )}

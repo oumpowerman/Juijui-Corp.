@@ -280,6 +280,7 @@ export const ViewRouteRegistry: React.FC<ViewRouteRegistryProps> = ({
                 onOpenSettings={() => setIsNotifSettingsOpen(true)}
                 onAddTask={(type) => handleAddTask(type)}
                 onMoveTask={(t) => handleSaveTask(t)}
+                onDeleteTask={handleDeleteTask}
               />
             );
           case 'CHAT':

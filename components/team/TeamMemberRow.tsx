@@ -27,6 +27,7 @@ interface TeamMemberRowProps {
     onDragStart: (e: React.DragEvent, taskId: string, clickDate?: Date) => void;
     onDragOver: (e: React.DragEvent) => void;
     onDrop: (e: React.DragEvent, userId: string, date: Date) => void;
+    onTaskContextMenu?: (e: React.MouseEvent, task: Task, userId: string, date: Date) => void;
     // Visual Props
     colorLens?: ColorLensMode;
     isFocused?: boolean;
@@ -86,6 +87,7 @@ const TeamMemberRow: React.FC<TeamMemberRowProps> = ({
     onDragStart,
     onDragOver,
     onDrop,
+    onTaskContextMenu,
     colorLens = 'STATUS',
     isFocused = false,
     channels,
@@ -438,6 +440,13 @@ const TeamMemberRow: React.FC<TeamMemberRowProps> = ({
                                     taskId={task.id}
                                     onDragStart={(e, taskId) => onDragStart(e, taskId, day)}
                                     onDragEnd={() => {}}
+                                    onContextMenu={(e) => {
+                                        if (onTaskContextMenu) {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            onTaskContextMenu(e, task, user.id, day);
+                                        }
+                                    }}
                                 >
                                     <TeamTaskPill
                                         task={task}

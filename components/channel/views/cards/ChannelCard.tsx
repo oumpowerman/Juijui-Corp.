@@ -641,7 +641,7 @@ export const ChannelCard: React.FC<ChannelCardProps> = ({
           </div>
 
           {/* Back Body: Links List or Empty State */}
-          <div className="flex-1 overflow-y-auto p-4 custom-scrollbar space-y-2.5">
+          <div className="flex-1 overflow-y-auto p-4 channel-card-scroll space-y-2.5">
             {brandLinksCount === 0 ? (
               <div className="h-full flex flex-col items-center justify-center text-center p-4 space-y-3">
                 <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-500 shadow-2xs">

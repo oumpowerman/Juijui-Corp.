@@ -8,6 +8,7 @@ import MemberHistoryModal from './MemberHistoryModal';
 import { useToast } from '../../context/ToastContext';
 import ShopTab from './shop/ShopTab';
 import InventoryTab from './shop/InventoryTab';
+import { supabase } from '../../lib/supabase';
 
 interface ItemShopModalProps {
     isOpen: boolean;
@@ -42,8 +43,6 @@ const ItemShopModal: React.FC<ItemShopModalProps> = ({ isOpen, onClose, currentU
             }
 
             try {
-                const { supabase } = await import('../../lib/supabase');
-                
                 const isEquipped = (currentUser as any).equippedBgId === item.id;
 
                 if (item.id === 'bg-pastel-wave' && isEquipped) {
@@ -97,8 +96,6 @@ const ItemShopModal: React.FC<ItemShopModalProps> = ({ isOpen, onClose, currentU
             }
 
             try {
-                const { supabase } = await import('../../lib/supabase');
-                
                 const isEquipped = (currentUser as any).equippedFrameId === item.id;
 
                 // Logic: 

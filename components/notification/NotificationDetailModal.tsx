@@ -109,36 +109,72 @@ export const NotificationDetailModal: React.FC<NotificationDetailModalProps> = (
             onMarkRead(notification.id);
         }
 
-        // Extract raw request ID if this is an attendance or approval-based notification
-        let rawId = '';
-        if (notification.id.startsWith('leave_')) {
-            rawId = notification.id.replace('leave_', '');
-        } else if (notification.taskId) {
+        const notifId = notification.id || '';
+        const actionLink = notification.actionLink || '';
+
+        // Extract raw request/task ID
+        let rawId = notification.relatedId || notification.related_id || notification.metadata?.request_id || '';
+        if (!rawId && notifId.startsWith('leave_')) {
+            rawId = notifId.replace('leave_', '');
+        } else if (!rawId && notifId.startsWith('ot_')) {
+            rawId = notifId.replace('ot_', '');
+        } else if (!rawId && notifId.startsWith('deadline_')) {
+            rawId = notification.taskId || notifId.replace('deadline_', '');
+        } else if (!rawId && notification.taskId) {
             rawId = notification.taskId;
-        } else {
-            // Look for uuid in notification ID or messages
-            const uuidMatch = notification.id.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
-            if (uuidMatch) rawId = uuidMatch[0];
         }
 
-        // Handle navigation based on notification criteria
-        if (notification.actionLink === 'ATTENDANCE' || isApproval || notification.id.startsWith('leave_')) {
-            // Route to Attendance under Approvals tab and highlight card
-            onNavigate('ATTENDANCE', { tab: 'APPROVALS', highlightReqId: rawId });
-        } else if (notification.actionLink === 'COMPANY_CHECKLIST') {
-            const presetId = notification.relatedId || notification.metadata?.checklistId || '';
+        const isAttendanceNotif =
+            actionLink === 'ATTENDANCE' ||
+            actionLink === 'ADMIN_APPROVALS' ||
+            actionLink === 'LEAVE' ||
+            notifId.startsWith('leave_') ||
+            notifId.startsWith('ot_') ||
+            (isApproval && (!actionLink || actionLink === 'ATTENDANCE' || actionLink === 'ADMIN_APPROVALS' || actionLink === 'LEAVE'));
+
+        if (isAttendanceNotif) {
+            const targetTab = (isApproval || actionLink === 'ADMIN_APPROVALS' || notifId.startsWith('leave_') || notifId.startsWith('ot_'))
+                ? 'APPROVALS'
+                : 'HISTORY';
+            onNavigate('ATTENDANCE', rawId ? { tab: targetTab, highlightReqId: rawId } : { tab: targetTab });
+        } else if (actionLink === 'COMPANY_CHECKLIST') {
+            const presetId = notification.relatedId || notification.metadata?.checklistId || rawId || '';
             onNavigate('COMPANY_CHECKLIST', presetId ? { presetId } : undefined);
-        } else if (notification.actionLink === 'ADMIN_DASHBOARD') {
-            onNavigate('DASHBOARD');
-        } else if (notification.taskId) {
-            const task = tasks.find(t => t.id === notification.taskId);
+        } else if (actionLink === 'DUTY') {
+            onNavigate('DUTY');
+        } else if (actionLink === 'GOALS') {
+            onNavigate('GOALS');
+        } else if (actionLink === 'FINANCE' || isFinance) {
+            onNavigate('FINANCE');
+        } else if (actionLink === 'TEAM_CHAT' || actionLink === 'CHAT') {
+            onNavigate('CHAT');
+        } else if (actionLink === 'FEEDBACK') {
+            onNavigate('FEEDBACK');
+        } else if (actionLink === 'MEETING' || actionLink === 'MEETINGS') {
+            onNavigate('MEETINGS');
+        } else if (actionLink === 'ContentStock' || actionLink === 'STOCK') {
+            onNavigate('ContentStock', rawId ? { openTaskId: rawId } : undefined);
+            if (rawId) {
+                const task = tasks.find(t => t.id === rawId);
+                if (task) onOpenTask(task);
+            }
+        } else if (actionLink === 'QUALITY_GATE') {
+            onNavigate('QUALITY_GATE', rawId ? { openTaskId: rawId } : undefined);
+            if (rawId) {
+                const task = tasks.find(t => t.id === rawId);
+                if (task) onOpenTask(task);
+            }
+        } else if (actionLink === 'ADMIN_DASHBOARD' || actionLink === 'DASHBOARD') {
+            onNavigate('DASHBOARD', rawId ? { openTaskId: rawId } : undefined);
+        } else if (rawId) {
+            const task = tasks.find(t => t.id === rawId);
             if (task) {
                 onOpenTask(task);
             } else {
-                onNavigate('CALENDAR');
+                onNavigate('CALENDAR', { openTaskId: rawId });
             }
-        } else if (notification.actionLink) {
-            onNavigate(notification.actionLink as ViewMode);
+        } else if (actionLink) {
+            onNavigate(actionLink as ViewMode);
         } else {
             onNavigate('DASHBOARD');
         }

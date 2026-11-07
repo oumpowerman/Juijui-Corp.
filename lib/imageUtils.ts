@@ -97,22 +97,22 @@ export const compressImage = async (file: File, maxWidth = 1920, quality = 0.8):
 };
 
 /**
- * Transforms Google Drive Links to Direct Images using Googleusercontent proxy
+ * Extracts Google Drive File ID from various Google Drive URL formats
  */
-export const getDirectDriveUrl = (url: string | undefined): string => {
-    if (!url) return '';
-    
-    // If it's already a direct link or not a drive link, return as is
-    if (!url.includes('drive.google.com')) return url;
+export const extractDriveFileId = (url: string | undefined): string | null => {
+    if (!url) return null;
 
     try {
-        // Extract ID from various drive URL formats
-        // Format 1: https://drive.google.com/open?id=ID
-        // Format 2: https://drive.google.com/file/d/ID/view
-        // Format 3: https://drive.google.com/thumbnail?id=ID
+        if (url.includes('lh3.googleusercontent.com/d/')) {
+            const match = url.match(/\/d\/([^=/?#]+)/);
+            if (match?.[1]) return match[1];
+        }
+
+        if (!url.includes('drive.google.com')) return null;
+
         const urlObj = new URL(url);
         let id = urlObj.searchParams.get('id');
-        
+
         if (!id) {
             const pathParts = urlObj.pathname.split('/');
             const dIndex = pathParts.indexOf('d');
@@ -121,12 +121,38 @@ export const getDirectDriveUrl = (url: string | undefined): string => {
             }
         }
 
-        if (id) {
-            return `https://lh3.googleusercontent.com/d/${id}=s2000`;
-        }
+        return id || null;
     } catch (e) {
         console.error("Error parsing Drive URL", e);
+        return null;
     }
-    
+};
+
+/**
+ * Transforms Google Drive Links to Direct Images using Googleusercontent proxy
+ */
+export const getDirectDriveUrl = (url: string | undefined): string => {
+    if (!url) return '';
+    const id = extractDriveFileId(url);
+    if (id) {
+        return `https://lh3.googleusercontent.com/d/${id}=s2000`;
+    }
     return url;
 };
+
+/**
+ * Returns an ordered list of candidate image URLs for Google Drive links
+ * to support automatic multi-endpoint fallback if one endpoint is throttled or blocked.
+ */
+export const getDriveFallbackUrls = (url: string | undefined): string[] => {
+    if (!url) return [];
+    const id = extractDriveFileId(url);
+    if (!id) return [url];
+
+    return [
+        `https://lh3.googleusercontent.com/d/${id}=s2000`,
+        `https://drive.google.com/thumbnail?id=${id}&sz=w2000`,
+        `https://drive.google.com/uc?export=view&id=${id}`,
+    ];
+};
+

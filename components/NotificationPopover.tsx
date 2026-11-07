@@ -13,7 +13,7 @@ interface NotificationPopoverProps {
     onClose: () => void;
     notifications: AppNotification[];
     tasks: Task[];
-    onOpenTask: (task: Task) => void;
+    onOpenTask: (taskOrId: Task | string) => void;
     onOpenSettings: () => void;
     onDismiss?: (id: string) => void;
     onMarkRead?: (id: string) => void;
@@ -32,7 +32,7 @@ interface NotificationPopoverProps {
 
 const NotificationPopover: React.FC<NotificationPopoverProps> = ({ 
     isOpen, onClose, notifications, tasks, onOpenTask, onOpenSettings, onDismiss, onMarkRead, onMarkAllRead, onNavigate,
-    onViewDetail, onApproveLeave, onRejectLeave, leaveRequests = []
+    onApproveLeave, onRejectLeave, leaveRequests = []
 }) => {
     const { showAlert } = useGlobalDialog();
     const [activeTab, setActiveTab] = useState<NotificationTab>('ALL');
@@ -46,60 +46,179 @@ const NotificationPopover: React.FC<NotificationPopoverProps> = ({
     };
 
     const handleItemClick = (notification: AppNotification) => {
-        const isAttendanceNotif = notification.actionLink === 'ATTENDANCE' || 
-                                  notification.type === 'APPROVAL_REQ' || 
-                                  (notification.id && notification.id.startsWith('leave_'));
+        // 1. Mark notification as read immediately
+        if (onMarkRead && notification.id) {
+            onMarkRead(notification.id);
+        }
+
+        const notifId = notification.id || '';
+        const actionLink = notification.actionLink || '';
+        const title = notification.title || '';
+        const message = notification.message || '';
+
+        // Helper to extract related request/task UUID
+        let rawId = notification.relatedId || notification.related_id || notification.metadata?.request_id || '';
+        if (!rawId && notifId.startsWith('leave_')) {
+            rawId = notifId.replace('leave_', '');
+        } else if (!rawId && notifId.startsWith('ot_')) {
+            rawId = notifId.replace('ot_', '');
+        } else if (!rawId && notifId.startsWith('deadline_')) {
+            rawId = notification.taskId || notifId.replace('deadline_', '');
+        } else if (!rawId && (notifId.startsWith('overdue_') || notifId.startsWith('upcoming_'))) {
+            rawId = notification.taskId || notifId.replace(/^(overdue_|upcoming_)/, '').split('_')[0];
+        } else if (!rawId && notification.taskId) {
+            rawId = notification.taskId;
+        }
+
+        // 2. Attendance / Leave / OT Requests & Approvals
+        const isAttendanceNotif =
+            actionLink === 'ATTENDANCE' ||
+            actionLink === 'ADMIN_APPROVALS' ||
+            actionLink === 'LEAVE' ||
+            notifId.startsWith('leave_') ||
+            notifId.startsWith('ot_') ||
+            (notification.type === 'APPROVAL_REQ' && (!actionLink || actionLink === 'ATTENDANCE' || actionLink === 'ADMIN_APPROVALS' || actionLink === 'LEAVE'));
 
         if (isAttendanceNotif) {
-            // Explicitly sync and mark individual DB notification as read on click
-            if (onMarkRead && notification.id && !notification.id.includes('_')) {
-                onMarkRead(notification.id);
-            }
+            const isApproval =
+                notification.type === 'APPROVAL_REQ' ||
+                actionLink === 'ADMIN_APPROVALS' ||
+                notifId.startsWith('leave_') ||
+                notifId.startsWith('ot_');
+            const targetTab = isApproval ? 'APPROVALS' : 'HISTORY';
 
-            // Extract raw request ID
-            let rawId = notification.relatedId || notification.related_id || '';
-            if (!rawId && notification.id && notification.id.startsWith('leave_')) {
-                rawId = notification.id.replace('leave_', '');
-            } else if (!rawId && notification.taskId) {
-                rawId = notification.taskId;
-            } else if (!rawId && notification.id) {
-                const uuidMatch = notification.id.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i);
-                if (uuidMatch) rawId = uuidMatch[0];
-            }
+            onNavigate('ATTENDANCE', rawId ? { tab: targetTab, highlightReqId: rawId } : { tab: targetTab });
+            onClose();
+            return;
+        }
 
-            const targetTab = notification.type === 'APPROVAL_REQ' ? 'APPROVALS' : 'HISTORY';
-
-            onNavigate('ATTENDANCE', { tab: targetTab, highlightReqId: rawId });
-            onClose(); // Close the popover since we are navigating to another view
-        } else if (notification.actionLink === 'COMPANY_CHECKLIST') {
-            if (onMarkRead && notification.id) {
-                onMarkRead(notification.id);
-            }
-            const presetId = notification.relatedId || notification.metadata?.checklistId || '';
+        // 3. Company Checklist
+        if (actionLink === 'COMPANY_CHECKLIST') {
+            const presetId = notification.relatedId || notification.metadata?.checklistId || rawId || '';
             onNavigate('COMPANY_CHECKLIST', presetId ? { presetId } : undefined);
             onClose();
-        } else if (onViewDetail) {
-            // Open detail modal and do NOT close the popover so it remains open behind the modal!
-            onViewDetail(notification);
-        } else {
-            // Explicitly sync and mark individual DB notification as read on click
-            if (onMarkRead && notification.id && !notification.id.includes('_')) {
-                onMarkRead(notification.id);
-            }
-
-            if (notification.taskId) {
-                // Case 1: Open Task
-                const task = tasks.find(t => t.id === notification.taskId);
-                if (task) {
-                    onOpenTask(task);
-                    onClose();
-                }
-            } else if (notification.actionLink) {
-                // Case 2: Navigate to specific module (e.g. FINANCE, ATTENDANCE)
-                onNavigate(notification.actionLink as ViewMode);
-                onClose();
-            }
+            return;
         }
+
+        // 4. Duty Swap / Duty Alerts
+        if (actionLink === 'DUTY') {
+            onNavigate('DUTY');
+            onClose();
+            return;
+        }
+
+        // 5. Goals & Goal Deadline Requests
+        if (actionLink === 'GOALS') {
+            onNavigate('GOALS');
+            onClose();
+            return;
+        }
+
+        // 6. Finance / Payroll
+        if (actionLink === 'FINANCE' || title.includes('เงินเดือน')) {
+            onNavigate('FINANCE');
+            onClose();
+            return;
+        }
+
+        // 7. Team Chat
+        if (actionLink === 'TEAM_CHAT' || actionLink === 'CHAT') {
+            onNavigate('CHAT');
+            onClose();
+            return;
+        }
+
+        // 8. Feedback
+        if (actionLink === 'FEEDBACK') {
+            onNavigate('FEEDBACK');
+            onClose();
+            return;
+        }
+
+        // 9. Meetings
+        if (actionLink === 'MEETING' || actionLink === 'MEETINGS') {
+            onNavigate('MEETINGS');
+            onClose();
+            return;
+        }
+
+        // 10. Content Stock
+        if (actionLink === 'ContentStock' || actionLink === 'STOCK') {
+            onNavigate('ContentStock', rawId ? { openTaskId: rawId } : undefined);
+            if (rawId) {
+                const existingTask = tasks.find(t => t.id === rawId);
+                onOpenTask(existingTask || rawId);
+            }
+            onClose();
+            return;
+        }
+
+        // 11. Quality Gate
+        if (actionLink === 'QUALITY_GATE') {
+            onNavigate('QUALITY_GATE', rawId ? { openTaskId: rawId } : undefined);
+            if (rawId) {
+                const existingTask = tasks.find(t => t.id === rawId);
+                onOpenTask(existingTask || rawId);
+            }
+            onClose();
+            return;
+        }
+
+        // 12. Admin Dashboard / Dashboard (e.g. Deadline Request or Task Assigned)
+        if (actionLink === 'ADMIN_DASHBOARD' || actionLink === 'DASHBOARD') {
+            onNavigate('DASHBOARD', rawId ? { openTaskId: rawId } : undefined);
+            if (rawId) {
+                const existingTask = tasks.find(t => t.id === rawId);
+                onOpenTask(existingTask || rawId);
+            }
+            onClose();
+            return;
+        }
+
+        // 13. Calendar
+        if (actionLink === 'CALENDAR') {
+            onNavigate('CALENDAR', rawId ? { openTaskId: rawId } : undefined);
+            if (rawId) {
+                const existingTask = tasks.find(t => t.id === rawId);
+                onOpenTask(existingTask || rawId);
+            }
+            onClose();
+            return;
+        }
+
+        // 14. Game Penalty / Reward Notifications
+        if (notification.type === 'GAME_PENALTY' || notification.type === 'GAME_REWARD' || notifId.startsWith('game_')) {
+            if (title.includes('เวร') || message.includes('เวร')) {
+                onNavigate('DUTY');
+            } else if (title.includes('ตอกบัตร') || title.includes('ขาดงาน') || title.includes('กลับก่อนเวลา') || message.includes('เข้างานสาย')) {
+                onNavigate('ATTENDANCE', { tab: 'HISTORY' });
+            } else if (rawId) {
+                const existingTask = tasks.find(t => t.id === rawId);
+                onOpenTask(existingTask || rawId);
+            } else if (title.includes('ส่งงานล่าช้า')) {
+                onNavigate('CALENDAR');
+            } else {
+                onNavigate('DASHBOARD');
+            }
+            onClose();
+            return;
+        }
+
+        // 15. Any notification with a taskId / relatedId (e.g. Overdue / Upcoming / Task Alert)
+        if (rawId) {
+            const existingTask = tasks.find(t => t.id === rawId);
+            onOpenTask(existingTask || rawId);
+            onClose();
+            return;
+        }
+
+        // 16. Fallback module navigation
+        if (actionLink) {
+            onNavigate(actionLink as ViewMode);
+        } else {
+            onNavigate('DASHBOARD');
+        }
+        onClose();
     };
     
     const [isActionLoading, setIsActionLoading] = useState<string | null>(null);

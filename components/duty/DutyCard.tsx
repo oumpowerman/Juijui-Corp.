@@ -1,13 +1,12 @@
 
 import React, { useRef, useState, useMemo } from 'react';
-import { createPortal } from 'react-dom';
 import { Duty, User } from '../../types';
-import { CheckCircle2, Circle, Trash2, Camera, Loader2, Image as ImageIcon, X, ArrowRightLeft, Skull, AlertCircle, Ban, HeartHandshake, ExternalLink, Sparkles } from 'lucide-react';
+import { CheckCircle2, Circle, Trash2, Camera, Loader2, Image as ImageIcon, ArrowRightLeft, Skull, AlertCircle, Ban, HeartHandshake, Sparkles } from 'lucide-react';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
 import { isPast, isToday, isSameDay, subDays, getDay } from 'date-fns';
-import { compressImage, getDirectDriveUrl } from '../../lib/imageUtils';
-
+import { compressImage } from '../../lib/imageUtils';
 import { useGameConfig } from '../../context/GameConfigContext';
+import DutyProofModal from './DutyProofModal';
 
 interface DutyCardProps {
     duty: Duty;
@@ -328,39 +327,13 @@ const DutyCard: React.FC<DutyCardProps> = ({
                 onChange={handleFileChange}
             />
 
-            {/* Proof Modal - Using Portal */}
-            {showProof && duty.proofImageUrl && createPortal(
-                <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4 animate-in fade-in" onClick={() => setShowProof(false)}>
-                    <div className="relative max-w-lg w-full bg-transparent p-2 animate-in zoom-in-95" onClick={e => e.stopPropagation()}>
-                        <button onClick={() => setShowProof(false)} className="absolute -top-12 right-0 text-white hover:text-gray-300 transition-colors">
-                            <X className="w-8 h-8" />
-                        </button>
-                        
-                        {/* Display Image with Proxy Logic */}
-                        <img 
-                            src={getDirectDriveUrl(duty.proofImageUrl)} 
-                            className="w-full h-auto rounded-3xl shadow-2xl border-4 border-white bg-black" 
-                            alt="Proof" 
-                            referrerPolicy="no-referrer"
-                        />
-                        
-                        <div className="mt-4 flex flex-col items-center gap-2">
-                            <span className="bg-white/20 backdrop-blur text-white px-4 py-2 rounded-full text-sm font-bold shadow-sm">
-                                📸 หลักฐาน: {duty.title}
-                            </span>
-                            <a 
-                                href={duty.proofImageUrl} 
-                                target="_blank" 
-                                rel="noreferrer" 
-                                className="text-white/70 text-xs hover:text-white hover:underline flex items-center gap-1"
-                            >
-                                <ExternalLink className="w-3 h-3" /> เปิดลิงก์ต้นฉบับ
-                            </a>
-                        </div>
-                    </div>
-                </div>,
-                document.body
-            )}
+            {/* Proof Modal - Powered by BaseModal & Glassmorphism Zero-Cut-Off Layout */}
+            <DutyProofModal
+                isOpen={showProof}
+                onClose={() => setShowProof(false)}
+                duty={duty}
+                assignee={assignee}
+            />
         </div>
     );
 };

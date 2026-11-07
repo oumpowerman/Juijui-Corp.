@@ -40,17 +40,30 @@ export interface TriggerPushParams {
 /**
  * Resolves an internal view key + relatedId into a browser deep-link URL
  */
-export function buildNotificationDeepLink(linkPath?: string | null, relatedId?: string | null): string {
-    if (linkPath === 'ATTENDANCE') {
+export function buildNotificationDeepLink(
+    linkPath?: string | null,
+    relatedId?: string | null,
+    notifType?: string | null
+): string {
+    if (linkPath === 'ATTENDANCE' || linkPath === 'ADMIN_APPROVALS' || linkPath === 'LEAVE') {
+        const isApproval = linkPath === 'ADMIN_APPROVALS' || notifType === 'APPROVAL_REQ';
+        const targetTab = isApproval ? 'APPROVALS' : 'HISTORY';
         if (relatedId) {
-            return `/?view=ATTENDANCE&tab=APPROVALS&highlightReqId=${encodeURIComponent(relatedId)}`;
+            return `/?view=ATTENDANCE&tab=${targetTab}&highlightReqId=${encodeURIComponent(relatedId)}`;
         }
-        return '/?view=ATTENDANCE';
+        return `/?view=ATTENDANCE&tab=${targetTab}`;
+    }
+
+    if (linkPath === 'COMPANY_CHECKLIST') {
+        if (relatedId) {
+            return `/?view=COMPANY_CHECKLIST&presetId=${encodeURIComponent(relatedId)}`;
+        }
+        return '/?view=COMPANY_CHECKLIST';
     }
 
     const viewKeyMap: Record<string, string> = {
-        ContentStock: '/?view=STOCK',
-        STOCK: '/?view=STOCK',
+        ContentStock: '/?view=ContentStock',
+        STOCK: '/?view=ContentStock',
         QUALITY_GATE: '/?view=QUALITY_GATE',
         ADMIN_DASHBOARD: '/?view=DASHBOARD',
         DASHBOARD: '/?view=DASHBOARD',
@@ -58,11 +71,22 @@ export function buildNotificationDeepLink(linkPath?: string | null, relatedId?: 
         CHAT: '/?view=CHAT',
         CALENDAR: '/?view=CALENDAR',
         MEETING: '/?view=MEETINGS',
+        MEETINGS: '/?view=MEETINGS',
+        DUTY: '/?view=DUTY',
+        FINANCE: '/?view=FINANCE',
+        GOALS: '/?view=GOALS',
+        FEEDBACK: '/?view=FEEDBACK',
+        KPI: '/?view=KPI',
+        WEEKLY: '/?view=WEEKLY',
+        WIKI: '/?view=WIKI',
+        LEADERBOARD: '/?view=LEADERBOARD',
+        TEAM: '/?view=TEAM',
     };
 
     if (linkPath && viewKeyMap[linkPath]) {
         let url = viewKeyMap[linkPath];
-        if (relatedId && (linkPath === 'ContentStock' || linkPath === 'DASHBOARD')) {
+        const supportsTaskModal = ['ContentStock', 'STOCK', 'DASHBOARD', 'ADMIN_DASHBOARD', 'QUALITY_GATE', 'CALENDAR'].includes(linkPath);
+        if (relatedId && supportsTaskModal) {
             url += `&openTaskId=${encodeURIComponent(relatedId)}`;
         }
         return url;
@@ -96,7 +120,7 @@ export async function triggerPushNotification({
     if (uniqueIds.length === 0) return;
 
     const orgId = getActiveOrgIdSync();
-    const deepLinkUrl = buildNotificationDeepLink(linkPath, relatedId);
+    const deepLinkUrl = buildNotificationDeepLink(linkPath, relatedId, category);
 
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',

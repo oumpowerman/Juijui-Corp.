@@ -14,41 +14,65 @@ self.addEventListener('activate', (event) => {
 
 function resolveNotificationTargetUrl(rawUrl, data) {
   const fallback = '/';
-  if (!rawUrl && (!data || !data.taskId)) return fallback;
+  const relatedId = data?.relatedId || data?.taskId || data?.metadata?.request_id || data?.metadata?.checklistId;
+  const notifType = data?.type || data?.category;
 
-  const relatedId = data?.relatedId || data?.taskId;
-  if (rawUrl === 'ATTENDANCE') {
-    if (relatedId && data?.type === 'APPROVAL_REQ') {
-      return `/?view=ATTENDANCE&tab=APPROVALS&highlightReqId=${encodeURIComponent(relatedId)}`;
+  if (!rawUrl && !relatedId) return fallback;
+
+  // If rawUrl is already a resolved query deep link (e.g. /?view=ATTENDANCE&...), preserve it directly
+  if (typeof rawUrl === 'string' && rawUrl.startsWith('/?')) {
+    return rawUrl;
+  }
+
+  if (rawUrl === 'ATTENDANCE' || rawUrl === 'ADMIN_APPROVALS' || rawUrl === 'LEAVE') {
+    const isApproval = rawUrl === 'ADMIN_APPROVALS' || notifType === 'APPROVAL_REQ';
+    const targetTab = isApproval ? 'APPROVALS' : 'HISTORY';
+    if (relatedId) {
+      return `/?view=ATTENDANCE&tab=${targetTab}&highlightReqId=${encodeURIComponent(relatedId)}`;
     }
-    if (data?.type === 'APPROVAL_REQ') {
-      return '/?view=ATTENDANCE&tab=APPROVALS';
+    return `/?view=ATTENDANCE&tab=${targetTab}`;
+  }
+
+  if (rawUrl === 'COMPANY_CHECKLIST') {
+    if (relatedId) {
+      return `/?view=COMPANY_CHECKLIST&presetId=${encodeURIComponent(relatedId)}`;
     }
-    return '/?view=ATTENDANCE';
+    return '/?view=COMPANY_CHECKLIST';
   }
 
   const viewKeyMap = {
-    ContentStock: '/?view=STOCK',
-    STOCK: '/?view=STOCK',
+    ContentStock: '/?view=ContentStock',
+    STOCK: '/?view=ContentStock',
     QUALITY_GATE: '/?view=QUALITY_GATE',
     ADMIN_DASHBOARD: '/?view=DASHBOARD',
     DASHBOARD: '/?view=DASHBOARD',
     TEAM_CHAT: '/?view=CHAT',
     CHAT: '/?view=CHAT',
     CALENDAR: '/?view=CALENDAR',
-    MEETING: '/?view=MEETINGS'
+    MEETING: '/?view=MEETINGS',
+    MEETINGS: '/?view=MEETINGS',
+    DUTY: '/?view=DUTY',
+    FINANCE: '/?view=FINANCE',
+    GOALS: '/?view=GOALS',
+    FEEDBACK: '/?view=FEEDBACK',
+    KPI: '/?view=KPI',
+    WEEKLY: '/?view=WEEKLY',
+    WIKI: '/?view=WIKI',
+    LEADERBOARD: '/?view=LEADERBOARD',
+    TEAM: '/?view=TEAM'
   };
 
   if (rawUrl && viewKeyMap[rawUrl]) {
     let resolved = viewKeyMap[rawUrl];
-    if (relatedId && (rawUrl === 'ContentStock' || rawUrl === 'DASHBOARD')) {
+    const supportsTaskModal = ['ContentStock', 'STOCK', 'DASHBOARD', 'ADMIN_DASHBOARD', 'QUALITY_GATE', 'CALENDAR'].includes(rawUrl);
+    if (relatedId && supportsTaskModal) {
       resolved += `&openTaskId=${encodeURIComponent(relatedId)}`;
     }
     return resolved;
   }
 
-  if (data?.taskId && (!rawUrl || rawUrl === '/')) {
-    return `/?openTaskId=${encodeURIComponent(data.taskId)}`;
+  if (relatedId && (!rawUrl || rawUrl === '/')) {
+    return `/?openTaskId=${encodeURIComponent(relatedId)}`;
   }
 
   if (typeof rawUrl === 'string' && (rawUrl.startsWith('/') || rawUrl.startsWith('http'))) {
@@ -75,8 +99,9 @@ self.addEventListener('push', (event) => {
       renotify: true,
       requireInteraction: false,
       data: {
+        ...(data.data || {}),
         url: targetUrl,
-        ...(data.data || {})
+        actionLink: data.actionLink || undefined
       },
       actions: data.actions || []
     };
@@ -101,17 +126,19 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  const targetUrl = event.notification.data?.url || '/';
+  const notifData = event.notification.data || {};
+  const targetUrl = resolveNotificationTargetUrl(notifData.url || notifData.actionLink, notifData);
 
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
         if (client.url.includes(self.location.origin) && 'focus' in client) {
-          client.focus();
-          if (targetUrl && targetUrl !== '/') {
-            client.navigate(targetUrl).catch(() => {});
-          }
-          return;
+          client.postMessage({
+            type: 'PUSH_NOTIFICATION_CLICK',
+            url: targetUrl,
+            data: notifData
+          });
+          return client.focus();
         }
       }
       if (self.clients.openWindow) {

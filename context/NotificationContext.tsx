@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect, useRef, useCallb
 import { supabase } from '../lib/supabase';
 import { User, AppNotification, GameLog } from '../types';
 import { getActiveOrgIdSync, getOrgChannelName } from '../lib/tenantStorage';
+import { buildNotificationDeepLink } from '../utils/pushDispatcher';
 
 interface NotificationContextType {
     notifications: any[];
@@ -180,14 +181,23 @@ export const NotificationProvider: React.FC<{ currentUser: User | null, children
                     if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
                         try {
                             if ('serviceWorker' in navigator) {
+                                const rawLinkPath = newNotif.link_path || newNotif.action_link || null;
+                                const rawRelatedId = newNotif.related_id || newNotif.task_id || newNotif.metadata?.request_id || null;
+                                const deepLinkUrl = buildNotificationDeepLink(rawLinkPath, rawRelatedId, newNotif.type);
+
                                 navigator.serviceWorker.ready.then(reg => {
                                     reg.showNotification(newNotif.title || 'Kontent OS', {
                                         body: newNotif.message || '',
                                         icon: '/icon-192.png',
                                         badge: '/icon-192.png',
-                                        tag: newNotif.type || 'app-notification',
+                                        tag: `${newNotif.type || 'app-notification'}-${rawRelatedId || newNotif.id}`,
                                         data: { 
-                                            url: newNotif.action_link || (newNotif.task_id ? `/task/${newNotif.task_id}` : '/') 
+                                            url: deepLinkUrl,
+                                            actionLink: rawLinkPath || deepLinkUrl,
+                                            type: newNotif.type,
+                                            relatedId: rawRelatedId || undefined,
+                                            taskId: rawRelatedId || undefined,
+                                            metadata: newNotif.metadata || undefined
                                         }
                                     });
                                 }).catch(() => {});

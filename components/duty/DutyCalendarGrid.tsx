@@ -253,7 +253,7 @@ const DutyCalendarGrid: React.FC<DutyCalendarGridProps> = ({
                 {/* Duty List */}
                 <div className={`
                     flex-1 space-y-3 relative z-10
-                    ${isMobileCard ? 'p-3.5 overflow-visible' : 'pl-3.5 pr-2.5 py-3.5 mr-1 overflow-y-auto max-h-[380px] md:max-h-[440px] duty-slim-scroll'}
+                    ${isMobileCard ? 'p-3.5 overflow-visible' : 'px-3.5 py-3.5 overflow-y-auto max-h-[380px] md:max-h-[440px] duty-slim-scroll'}
                 `}>
                     {meta.isHoliday && !meta.isSpecialWork && dayDuties.length === 0 ? (
                         <div className="py-10 h-full flex flex-col items-center justify-center text-slate-400 p-4 text-center">

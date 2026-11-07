@@ -93,15 +93,24 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null, 
             }
         });
 
+        const dbRelatedApprovalIds = new Set(
+            dbNotifs
+                .filter((n: any) => n.type === 'APPROVAL_REQ' && n.related_id)
+                .map((n: any) => n.related_id)
+        );
+
         // 3. Map Leave Requests
         leaveRequests.forEach((req: any) => {
             if (req.status && req.status !== 'PENDING') return;
+            if (dbRelatedApprovalIds.has(req.id)) return;
             const notifId = `leave_${req.id}`;
             dynamicNotifs.push({
                 id: notifId,
                 type: 'APPROVAL_REQ',
                 title: '📋 คำขอลาใหม่',
-                message: `คุณ ${req.profiles?.full_name} ส่งคำขอ: "${req.reason}"`,
+                message: `คุณ ${req.profiles?.full_name || 'พนักงาน'} ส่งคำขอ: "${req.reason}"`,
+                relatedId: req.id,
+                taskId: req.id,
                 date: new Date(req.created_at),
                 isRead: acknowledgedIds.includes(notifId) || new Date(req.created_at) < lastReadTime,
                 actionLink: 'ATTENDANCE'
@@ -111,6 +120,7 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null, 
         // 3.5. Map OT Requests
         otRequests.forEach((req: any) => {
             if (req.status && req.status !== 'PENDING') return;
+            if (dbRelatedApprovalIds.has(req.id)) return;
             const notifId = `ot_${req.id}`;
             const timeDisplay = req.start_time && req.end_time ? `${req.start_time}-${req.end_time}` : '';
             const hrsDisplay = req.duration_hours ? ` (${req.duration_hours} ชม.)` : '';
@@ -119,6 +129,8 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null, 
                 type: 'APPROVAL_REQ',
                 title: '⏰ คำขอ OT ใหม่',
                 message: `คุณ ${req.profiles?.full_name || 'พนักงาน'} ส่งคำขอ OT ${timeDisplay}${hrsDisplay}: "${req.reason}"`,
+                relatedId: req.id,
+                taskId: req.id,
                 date: new Date(req.created_at),
                 isRead: acknowledgedIds.includes(notifId) || new Date(req.created_at) < lastReadTime,
                 actionLink: 'ATTENDANCE'
@@ -128,30 +140,38 @@ export const useSystemNotifications = (tasks: Task[], currentUser: User | null, 
         // 4. Map Deadline Requests
         deadlineRequests.forEach((req: any) => {
             if (req.status && req.status !== 'PENDING') return;
+            if (dbRelatedApprovalIds.has(req.id) || (req.taskId && dbRelatedApprovalIds.has(req.taskId))) return;
             const notifId = `deadline_${req.id}`;
+            const isGoal = req.requestType === 'GOAL';
             dynamicNotifs.push({
                 id: notifId,
                 type: 'APPROVAL_REQ',
-                title: '📅 คำขอเลื่อน Deadline',
-                message: `คุณ ${req.user?.name} ขอเลื่อนงาน: "${req.taskTitle || 'งานบางอย่าง'}"`,
+                title: isGoal ? '🎯 คำขอเลื่อนเป้าหมาย' : '📅 คำขอเลื่อน Deadline',
+                message: `คุณ ${req.user?.name || 'พนักงาน'} ขอเลื่อนงาน: "${req.taskTitle || 'งานบางอย่าง'}"`,
+                relatedId: req.taskId || req.id,
+                taskId: isGoal ? undefined : req.taskId,
                 date: new Date(req.created_at),
                 isRead: acknowledgedIds.includes(notifId) || new Date(req.created_at) < lastReadTime,
-                actionLink: 'ADMIN_DASHBOARD'
+                actionLink: isGoal ? 'GOALS' : 'ADMIN_DASHBOARD'
             });
         });
 
         const mappedDbNotifs: AppNotification[] = dbNotifs.map((n: any) => {
             const isAcknowledgedLocal = acknowledgedIds.includes(n.id);
+            const resolvedRelatedId = n.related_id || n.metadata?.request_id || n.metadata?.checklistId;
             return {
                 id: n.id,
                 type: n.type,
                 title: n.title,
                 message: n.message,
-                taskId: n.related_id,
+                relatedId: resolvedRelatedId,
+                related_id: resolvedRelatedId,
+                taskId: resolvedRelatedId,
                 date: new Date(n.created_at),
                 isRead: n.is_read || isAcknowledgedLocal || new Date(n.created_at) < lastReadTime,
                 is_read: n.is_read || isAcknowledgedLocal, // Add raw DB field for compatibility
                 actionLink: n.link_path,
+                metadata: n.metadata || undefined,
             };
         });
 

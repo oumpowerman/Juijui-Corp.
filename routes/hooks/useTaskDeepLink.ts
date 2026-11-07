@@ -142,6 +142,50 @@ export function useTaskDeepLink({
     }
   }, [isManagerLoading, currentUserProfile, searchParams, handleOpenTaskById, setSearchParams]);
 
+  // --- SERVICE WORKER PUSH NOTIFICATION CLICK LISTENER ---
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return;
+
+    const handleServiceWorkerMessage = (event: MessageEvent) => {
+      if (!event.data || event.data.type !== 'PUSH_NOTIFICATION_CLICK') return;
+
+      const rawUrl: string = event.data.url || '/';
+      try {
+        const parsed = new URL(rawUrl, window.location.origin);
+        const params = parsed.searchParams;
+        const targetView = (params.get('view') as ViewMode)
+          || (params.get('tab') || params.get('highlightReqId') ? 'ATTENDANCE' : null)
+          || (params.get('presetId') ? 'COMPANY_CHECKLIST' : null)
+          || (params.get('channels') || params.get('channel') || params.get('stockTab') || params.get('stockMode') ? 'ContentStock' : null);
+
+        const queryObj: Record<string, string> = {};
+        params.forEach((val, key) => {
+          if (key !== 'view' && key !== 'openExternalBrowser') {
+            queryObj[key] = val;
+          }
+        });
+
+        const taskToOpen = params.get('openTaskId') || params.get('taskId') || params.get('contentId') || params.get('highlightTaskId');
+
+        if (targetView) {
+          handleNavigate(targetView, queryObj);
+        }
+
+        if (taskToOpen) {
+          initialTaskOpenedRef.current = taskToOpen;
+          handleOpenTaskById(taskToOpen);
+        }
+      } catch (err) {
+        console.warn('[useTaskDeepLink] Failed to parse SW notification URL:', err);
+      }
+    };
+
+    navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
+    return () => {
+      navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
+    };
+  }, [handleNavigate, handleOpenTaskById]);
+
   return {
     handleOpenTaskById,
   };

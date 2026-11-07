@@ -15,6 +15,7 @@ import {
     calculatePMShiftDetails, 
     timeToMinutes 
 } from '../../utils/shiftCalculator';
+import { fetchOrgAdminIds, insertAndDispatchNotifications } from '../../utils/pushDispatcher';
 
 export const useAttendanceActions = (userId: string) => {
     const { masterOptions } = useMasterData();
@@ -301,21 +302,18 @@ export const useAttendanceActions = (userId: string) => {
                         });
 
                         // 3. Send Notification to all Admins
-                        const { data: admins } = await supabase
-                            .from('profiles')
-                            .select('id')
-                            .eq('role', 'ADMIN');
+                        const adminIds = await fetchOrgAdminIds(userId);
 
-                        if (admins && admins.length > 0) {
-                            const notifications = admins.map(adm => ({
-                                user_id: adm.id,
+                        if (adminIds.length > 0) {
+                            const notifications = adminIds.map(admId => ({
+                                user_id: admId,
                                 type: 'APPROVAL_REQ',
                                 title: provisionalType === 'GPS_SPOOF_APPEAL' ? `🔔 คำขออุทธรณ์พิกัด GPS จาก ${userName}` : `🔔 คำขออัตโนมัติ (${provisionalType}) จากพนักงาน`,
                                 message: provisionalType === 'GPS_SPOOF_APPEAL' 
                                     ? `มีคำขออุทธรณ์พิกัด GPS ผิดปกติของ ${userName} วันที่ ${format(now, 'dd/MM/yyyy')} โปรดตรวจสอบ`
                                     : `มีรายการลงเวลาแบบจำลอง (${provisionalType}) ของ ${userName} วันที่ ${format(now, 'dd/MM/yyyy')} โปรดตรวจสอบและอนุมัติ`,
                                 is_read: false,
-                                link_path: 'ADMIN_APPROVALS',
+                                link_path: 'ATTENDANCE',
                                 related_id: leaveReq?.id || null,
                                 metadata: {
                                     request_id: leaveReq?.id || null,
@@ -323,7 +321,10 @@ export const useAttendanceActions = (userId: string) => {
                                     applicant_name: userName
                                 }
                             }));
-                            await supabase.from('notifications').insert(notifications);
+                            await insertAndDispatchNotifications(notifications, {
+                                category: 'APPROVAL_REQ',
+                                senderId: userId
+                            });
                         }
                     }
                 } catch (requestErr: any) {

@@ -214,35 +214,43 @@
   background-color: rgba(129, 140, 248, 0.2);
 }
 
-/* ChannelCard Exclusive 1px Hover-Only Ultra-Slim Scrollbar */
-.channel-card-scroll {
+/* ChannelCard & DutyCard Exclusive 1px Hover-Only Ultra-Slim Scrollbar */
+.channel-card-scroll,
+.duty-slim-scroll {
   scrollbar-width: none;
 }
 @supports selector(::-webkit-scrollbar) {
   .channel-card-scroll,
-  .channel-card-scroll:hover {
+  .channel-card-scroll:hover,
+  .duty-slim-scroll,
+  .duty-slim-scroll:hover {
     scrollbar-width: auto;
     scrollbar-color: auto;
   }
-  .channel-card-scroll::-webkit-scrollbar {
+  .channel-card-scroll::-webkit-scrollbar,
+  .duty-slim-scroll::-webkit-scrollbar {
     width: 1px !important;
     height: 1px !important;
   }
-  .channel-card-scroll::-webkit-scrollbar-track {
+  .channel-card-scroll::-webkit-scrollbar-track,
+  .duty-slim-scroll::-webkit-scrollbar-track {
     background: transparent !important;
   }
-  .channel-card-scroll::-webkit-scrollbar-thumb {
+  .channel-card-scroll::-webkit-scrollbar-thumb,
+  .duty-slim-scroll::-webkit-scrollbar-thumb {
     background: transparent !important;
     border: none !important;
     background-clip: border-box !important;
     border-radius: 9999px !important;
     transition: background-color 0.2s ease;
   }
-  .channel-card-scroll:hover::-webkit-scrollbar-thumb {
+  .channel-card-scroll:hover::-webkit-scrollbar-thumb,
+  .duty-slim-scroll:hover::-webkit-scrollbar-thumb {
     background: rgba(99, 102, 241, 0.35) !important;
     border: none !important;
   }
-  .channel-card-scroll:hover::-webkit-scrollbar-thumb:hover {
+  .channel-card-scroll:hover::-webkit-scrollbar-thumb:hover,
+  .duty-slim-scroll:hover::-webkit-scrollbar-thumb:hover {
     background: rgba(99, 102, 241, 0.6) !important;
     border: none !important;
   }

@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Task, Channel, User, MasterOption, ViewMode } from '../types';
 import AdminDashboard from './dashboard/AdminDashboard';
@@ -25,10 +25,46 @@ interface DashboardProps {
   isFetching?: boolean;
 }
 
+const DISSOLVE_EASE = [0.22, 1, 0.36, 1] as const;
+
 const Dashboard: React.FC<DashboardProps> = (props) => {
   const isAdmin = props.currentUser.role === 'ADMIN';
-  const [viewMode, setViewMode] = useState<'ADMIN' | 'MEMBER'>(isAdmin ? 'ADMIN' : 'MEMBER');
+  const initialMode = isAdmin ? 'ADMIN' : 'MEMBER';
+  const [viewMode, setViewMode] = useState<'ADMIN' | 'MEMBER'>(initialMode);
+  const [selectedMode, setSelectedMode] = useState<'ADMIN' | 'MEMBER'>(initialMode);
   const [isHovered, setIsHovered] = useState(false);
+  const [isMelting, setIsMelting] = useState(false);
+
+  const swapTimerRef = useRef<number | null>(null);
+  const endTimerRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (swapTimerRef.current) window.clearTimeout(swapTimerRef.current);
+      if (endTimerRef.current) window.clearTimeout(endTimerRef.current);
+    };
+  }, []);
+
+  const handleModeChange = (nextMode: 'ADMIN' | 'MEMBER') => {
+    if (nextMode === selectedMode) return;
+
+    if (swapTimerRef.current) window.clearTimeout(swapTimerRef.current);
+    if (endTimerRef.current) window.clearTimeout(endTimerRef.current);
+
+    // 1. Immediately update pill UI & start melting the current screen
+    setSelectedMode(nextMode);
+    setIsMelting(true);
+
+    // 2. Swap the actual dashboard component only after the current screen has melted (360ms)
+    swapTimerRef.current = window.setTimeout(() => {
+      setViewMode(nextMode);
+    }, 360);
+
+    // 3. Unveil & unblur to reveal the new dashboard (740ms total)
+    endTimerRef.current = window.setTimeout(() => {
+      setIsMelting(false);
+    }, 740);
+  };
 
   const renderDashboard = () => {
     if (viewMode === 'ADMIN' && isAdmin) {
@@ -72,10 +108,11 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.8 }}
                   transition={{ duration: 0.12 }}
+                  onClick={() => handleModeChange(selectedMode === 'ADMIN' ? 'MEMBER' : 'ADMIN')}
                   className="flex items-center justify-center w-full h-full"
-                  title="Hover/Tap to switch role"
+                  title="Hover or click to switch role"
                 >
-                  {viewMode === 'ADMIN' ? (
+                  {selectedMode === 'ADMIN' ? (
                     <div className="flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white shadow-sm">
                       <LayoutDashboard size={16} />
                     </div>
@@ -95,15 +132,16 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
                   className="flex items-center gap-1 p-1 w-full h-full"
                 >
                   <button
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setViewMode('ADMIN');
+                      handleModeChange('ADMIN');
                     }}
-                    className={`relative flex-1 h-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-black rounded-xl transition-all duration-300 z-10 ${
-                      viewMode === 'ADMIN' ? 'text-white' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                    className={`relative flex-1 h-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-bold rounded-xl transition-colors duration-300 z-10 ${
+                      selectedMode === 'ADMIN' ? 'text-white' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                     }`}
                   >
-                    {viewMode === 'ADMIN' && (
+                    {selectedMode === 'ADMIN' && (
                       <motion.div
                         layoutId="active-pill"
                         className="absolute inset-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 rounded-xl shadow-[0_0_12px_rgba(99,102,241,0.3)]"
@@ -112,7 +150,7 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
                     )}
                     <LayoutDashboard size={14} className="relative z-20" />
                     <span className="relative z-20">Admin</span>
-                    {viewMode === 'ADMIN' && (
+                    {selectedMode === 'ADMIN' && (
                       <motion.div
                         initial={{ scale: 0 }}
                         animate={{ scale: 1 }}
@@ -124,15 +162,16 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
                   </button>
 
                   <button
+                    type="button"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setViewMode('MEMBER');
+                      handleModeChange('MEMBER');
                     }}
-                    className={`relative flex-1 h-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-black rounded-xl transition-all duration-300 z-10 ${
-                      viewMode === 'MEMBER' ? 'text-white' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
+                    className={`relative flex-1 h-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-bold rounded-xl transition-colors duration-300 z-10 ${
+                      selectedMode === 'MEMBER' ? 'text-white' : 'text-slate-500 hover:text-slate-800 dark:hover:text-slate-200'
                     }`}
                   >
-                    {viewMode === 'MEMBER' && (
+                    {selectedMode === 'MEMBER' && (
                       <motion.div
                         layoutId="active-pill"
                         className="absolute inset-0 bg-gradient-to-r from-pink-500 via-rose-500 to-orange-500 rounded-xl shadow-[0_0_12px_rgba(244,63,94,0.3)]"
@@ -141,7 +180,7 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
                     )}
                     <UserCircle size={14} className="relative z-20" />
                     <span className="relative z-20">Member</span>
-                    {viewMode === 'MEMBER' && (
+                    {selectedMode === 'MEMBER' && (
                       <motion.div
                         initial={{ scale: 0 }}
                         animate={{ scale: 1 }}
@@ -157,6 +196,81 @@ const Dashboard: React.FC<DashboardProps> = (props) => {
           </motion.div>
         </div>
       )}
+
+      {/* Two-Stage Screen Melt & Dissolve Curtain (No parent filter/transform, preserving Sidebar fixed background) */}
+      <AnimatePresence>
+        {isMelting && (
+          <motion.div
+            key="dashboard-melt-curtain"
+            initial={{
+              opacity: 0,
+              backdropFilter: 'blur(0px) saturate(1)',
+            }}
+            animate={{
+              opacity: 1,
+              backdropFilter: 'blur(26px) saturate(1.4)',
+              transition: { duration: 0.35, ease: DISSOLVE_EASE },
+            }}
+            exit={{
+              opacity: 0,
+              backdropFilter: 'blur(0px) saturate(1)',
+              transition: { duration: 0.38, ease: DISSOLVE_EASE },
+            }}
+            className="pointer-events-none fixed inset-0 z-40 flex items-center justify-center overflow-hidden"
+          >
+            {/* Pastel Mist Veil */}
+            <motion.div
+              initial={{ opacity: 0, scale: 1.05 }}
+              animate={{
+                opacity: 0.78,
+                scale: 1,
+                transition: { duration: 0.35, ease: DISSOLVE_EASE },
+              }}
+              exit={{
+                opacity: 0,
+                scale: 0.98,
+                transition: { duration: 0.38, ease: DISSOLVE_EASE },
+              }}
+              className={`absolute inset-0 ${
+                selectedMode === 'ADMIN'
+                  ? 'bg-gradient-to-br from-indigo-100/85 via-purple-100/75 to-pink-100/85'
+                  : 'bg-gradient-to-br from-rose-100/85 via-pink-100/75 to-amber-100/85'
+              }`}
+            />
+
+            {/* Floating Mode Indicator Pill inside the Melt Mist */}
+            <motion.div
+              initial={{ opacity: 0, y: 10, scale: 0.9 }}
+              animate={{
+                opacity: 1,
+                y: 0,
+                scale: 1,
+                transition: { duration: 0.28, ease: DISSOLVE_EASE },
+              }}
+              exit={{
+                opacity: 0,
+                y: -8,
+                scale: 1.04,
+                transition: { duration: 0.28, ease: DISSOLVE_EASE },
+              }}
+              className={`relative px-5 py-2.5 rounded-2xl bg-white/90 backdrop-blur-xl border shadow-xl flex items-center gap-2.5 ${
+                selectedMode === 'ADMIN'
+                  ? 'border-indigo-200/80 text-indigo-700 shadow-indigo-200/40'
+                  : 'border-pink-200/80 text-rose-600 shadow-rose-200/40'
+              }`}
+            >
+              {selectedMode === 'ADMIN' ? (
+                <LayoutDashboard className="w-4 h-4 text-indigo-500 animate-pulse" />
+              ) : (
+                <UserCircle className="w-4 h-4 text-rose-500 animate-pulse" />
+              )}
+              <span className="text-xs font-bold tracking-wide">
+                {selectedMode === 'ADMIN' ? 'Admin Dashboard' : 'Member Dashboard'}
+              </span>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       <div className="flex-1 overflow-auto">
         {renderDashboard()}

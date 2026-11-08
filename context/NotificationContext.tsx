@@ -72,8 +72,9 @@ export const NotificationProvider: React.FC<{ currentUser: User | null, children
                     supabase
                         .from('task_deadline_requests')
                         .select(`
-                            id, task_id, requested_by, new_deadline, reason, status, created_at,
-                            profiles:requested_by (full_name, avatar_url),
+                            id, task_id, requested_by, resolved_by, new_deadline, reason, status, created_at,
+                            profiles:requested_by (full_name, avatar_url, position),
+                            approver:resolved_by (full_name, avatar_url, position),
                             tasks:task_id (title, end_date)
                         `)
                         .eq('status', 'PENDING')
@@ -81,8 +82,9 @@ export const NotificationProvider: React.FC<{ currentUser: User | null, children
                     supabase
                         .from('goal_deadline_requests')
                         .select(`
-                            id, goal_id, requested_by, new_deadline, reason, status, created_at,
-                            profiles:requested_by (full_name, avatar_url),
+                            id, goal_id, requested_by, resolved_by, new_deadline, reason, status, created_at,
+                            profiles:requested_by (full_name, avatar_url, position),
+                            approver:resolved_by (full_name, avatar_url, position),
                             goals:goal_id (title, deadline)
                         `)
                         .eq('status', 'PENDING')
@@ -101,14 +103,17 @@ export const NotificationProvider: React.FC<{ currentUser: User | null, children
                 if (deadlinesRes.data) {
                     const mappedTaskDeadlines = deadlinesRes.data.map(req => {
                         const profile = Array.isArray(req.profiles) ? req.profiles[0] : req.profiles;
+                        const approverProfile = Array.isArray(req.approver) ? req.approver[0] : req.approver;
                         const task = Array.isArray(req.tasks) ? req.tasks[0] : req.tasks;
                         return {
                             ...req,
                             taskId: req.task_id,
+                            approverId: req.resolved_by || undefined,
                             requestType: 'TASK' as const,
                             newDeadline: new Date(req.new_deadline),
                             createdAt: new Date(req.created_at),
                             user: profile ? { name: profile.full_name, avatarUrl: profile.avatar_url } : undefined,
+                            approver: approverProfile ? { name: approverProfile.full_name, avatarUrl: approverProfile.avatar_url, position: approverProfile.position } : undefined,
                             taskTitle: task?.title,
                             originalDeadline: task?.end_date ? new Date(task.end_date) : undefined
                         };
@@ -119,15 +124,18 @@ export const NotificationProvider: React.FC<{ currentUser: User | null, children
                 if (goalDeadlinesRes.data) {
                     const mappedGoalDeadlines = goalDeadlinesRes.data.map(req => {
                         const profile = Array.isArray(req.profiles) ? req.profiles[0] : req.profiles;
+                        const approverProfile = Array.isArray(req.approver) ? req.approver[0] : req.approver;
                         const goal = Array.isArray(req.goals) ? req.goals[0] : req.goals;
                         return {
                             ...req,
                             taskId: req.goal_id,
                             goalId: req.goal_id,
+                            approverId: req.resolved_by || undefined,
                             requestType: 'GOAL' as const,
                             newDeadline: new Date(req.new_deadline),
                             createdAt: new Date(req.created_at),
                             user: profile ? { name: profile.full_name, avatarUrl: profile.avatar_url } : undefined,
+                            approver: approverProfile ? { name: approverProfile.full_name, avatarUrl: approverProfile.avatar_url, position: approverProfile.position } : undefined,
                             taskTitle: `🎯 เป้าหมาย: ${goal?.title || 'เป้าหมาย'}`,
                             goalTitle: goal?.title,
                             originalDeadline: goal?.deadline ? new Date(goal.deadline) : undefined
@@ -300,8 +308,9 @@ export const NotificationProvider: React.FC<{ currentUser: User | null, children
                     supabase
                         .from('task_deadline_requests')
                         .select(`
-                            id, task_id, requested_by, new_deadline, reason, status, created_at,
-                            profiles:requested_by (full_name, avatar_url),
+                            id, task_id, requested_by, resolved_by, new_deadline, reason, status, created_at,
+                            profiles:requested_by (full_name, avatar_url, position),
+                            approver:resolved_by (full_name, avatar_url, position),
                             tasks:task_id (title, end_date)
                         `)
                         .eq('id', payload.new.id)
@@ -309,14 +318,17 @@ export const NotificationProvider: React.FC<{ currentUser: User | null, children
                         .then(({ data }) => {
                             if (data && data.status === 'PENDING') {
                                 const profile = Array.isArray(data.profiles) ? data.profiles[0] : data.profiles;
+                                const approverProfile = Array.isArray(data.approver) ? data.approver[0] : data.approver;
                                 const task = Array.isArray(data.tasks) ? data.tasks[0] : data.tasks;
                                 const mapped = {
                                     ...data,
                                     taskId: data.task_id,
+                                    approverId: data.resolved_by || undefined,
                                     requestType: 'TASK' as const,
                                     newDeadline: new Date(data.new_deadline),
                                     createdAt: new Date(data.created_at),
                                     user: profile ? { name: profile.full_name, avatarUrl: profile.avatar_url } : undefined,
+                                    approver: approverProfile ? { name: approverProfile.full_name, avatarUrl: approverProfile.avatar_url, position: approverProfile.position } : undefined,
                                     taskTitle: task?.title,
                                     originalDeadline: task?.end_date ? new Date(task.end_date) : undefined
                                 };
@@ -342,8 +354,9 @@ export const NotificationProvider: React.FC<{ currentUser: User | null, children
                     supabase
                         .from('goal_deadline_requests')
                         .select(`
-                            id, goal_id, requested_by, new_deadline, reason, status, created_at,
-                            profiles:requested_by (full_name, avatar_url),
+                            id, goal_id, requested_by, resolved_by, new_deadline, reason, status, created_at,
+                            profiles:requested_by (full_name, avatar_url, position),
+                            approver:resolved_by (full_name, avatar_url, position),
                             goals:goal_id (title, deadline)
                         `)
                         .eq('id', payload.new.id)
@@ -351,15 +364,18 @@ export const NotificationProvider: React.FC<{ currentUser: User | null, children
                         .then(({ data }) => {
                             if (data && data.status === 'PENDING') {
                                 const profile = Array.isArray(data.profiles) ? data.profiles[0] : data.profiles;
+                                const approverProfile = Array.isArray(data.approver) ? data.approver[0] : data.approver;
                                 const goal = Array.isArray(data.goals) ? data.goals[0] : data.goals;
                                 const mapped = {
                                     ...data,
                                     taskId: data.goal_id,
                                     goalId: data.goal_id,
+                                    approverId: data.resolved_by || undefined,
                                     requestType: 'GOAL' as const,
                                     newDeadline: new Date(data.new_deadline),
                                     createdAt: new Date(data.created_at),
                                     user: profile ? { name: profile.full_name, avatarUrl: profile.avatar_url } : undefined,
+                                    approver: approverProfile ? { name: approverProfile.full_name, avatarUrl: approverProfile.avatar_url, position: approverProfile.position } : undefined,
                                     taskTitle: `🎯 เป้าหมาย: ${goal?.title || 'เป้าหมาย'}`,
                                     goalTitle: goal?.title,
                                     originalDeadline: goal?.deadline ? new Date(goal.deadline) : undefined

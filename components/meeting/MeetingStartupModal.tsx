@@ -22,7 +22,8 @@ import { User, MeetingLog, MeetingType, MeetingPlatform } from '../../types';
 import { format, isBefore, startOfDay, addHours } from 'date-fns';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import AttendeeSelectorModal from './AttendeeSelectorModal';
-import CustomDatePicker from '../common/CustomDatePicker';
+import DatePickerModal, { formatDisplayDate } from '../common/DatePickerModal';
+import TimePickerModal from '../common/TimePickerModal';
 import { useGoogleDriveContext } from '../../context/GoogleDriveContext';
 import { detectMeetingPlatform, getMeetingPlatformInfo } from '../../utils/googleCalendarLink';
 
@@ -194,6 +195,7 @@ const MeetingStartupModal: React.FC<MeetingStartupModalProps> = ({
     const [direction, setDirection] = useState(1); // 1 = forward, -1 = backward
     const [title, setTitle] = useState('');
     const [meetingDate, setMeetingDate] = useState<Date>(new Date());
+    const [startTime, setStartTime] = useState<string>(() => format(new Date(), 'HH:00'));
     const [endTime, setEndTime] = useState<string>(() => format(addHours(new Date(), 1), 'HH:00'));
     const [selectedAttendees, setSelectedAttendees] = useState<string[]>([]);
     const [refMeetingId, setRefMeetingId] = useState<string | undefined>();
@@ -208,8 +210,23 @@ const MeetingStartupModal: React.FC<MeetingStartupModalProps> = ({
     // Modal states
     const [isAttendeeModalOpen, setIsAttendeeModalOpen] = useState(false);
     const [isRefDrillDownOpen, setIsRefDrillDownOpen] = useState(false);
+    const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+    const [isStartTimePickerOpen, setIsStartTimePickerOpen] = useState(false);
+    const [isEndTimePickerOpen, setIsEndTimePickerOpen] = useState(false);
 
-    const startTime = useMemo(() => format(meetingDate, 'HH:mm'), [meetingDate]);
+    // Time comparison helpers
+    const timeToMinutes = (t: string): number => {
+        const [h, m] = (t || '00:00').split(':').map(Number);
+        return (isNaN(h) ? 0 : h) * 60 + (isNaN(m) ? 0 : m);
+    };
+
+    const addOneHourToTime = (t: string): string => {
+        const [h, m] = (t || '09:00').split(':').map(Number);
+        const safeH = isNaN(h) ? 9 : h;
+        const safeM = isNaN(m) ? 0 : m;
+        const nextH = (safeH + 1) % 24;
+        return `${String(nextH).padStart(2, '0')}:${String(safeM).padStart(2, '0')}`;
+    };
 
     // Reset step on open
     useEffect(() => {
@@ -226,12 +243,18 @@ const MeetingStartupModal: React.FC<MeetingStartupModalProps> = ({
         }
     }, [meetingType, onlineMode]);
 
-    // Keep endTime at least 1 hour after startTime when meetingDate changes
-    const handleDateChange = (newDate: Date | null) => {
+    // Handle Date Selection from DatePickerModal
+    const handleDateChange = (newDate: Date) => {
         if (!newDate) return;
         setMeetingDate(newDate);
-        const nextHour = format(addHours(newDate, 1), 'HH:mm');
-        setEndTime(nextHour);
+    };
+
+    // Handle Start Time Selection with auto +1 hour adjustment if startTime >= endTime
+    const handleStartTimeChange = (newStart: string) => {
+        setStartTime(newStart);
+        if (timeToMinutes(newStart) >= timeToMinutes(endTime)) {
+            setEndTime(addOneHourToTime(newStart));
+        }
     };
 
     // Handle Escape key
@@ -404,32 +427,71 @@ const MeetingStartupModal: React.FC<MeetingStartupModalProps> = ({
                                             />
                                         </div>
 
-                                        {/* Date & Time Selection */}
+                                        {/* Date & Time Selection (Common DatePickerModal & TimePickerModal) */}
                                         <div className="space-y-1.5 sm:space-y-2">
                                             <label className="text-[10px] sm:text-xs font-bold text-gray-400 uppercase tracking-widest ml-1">
-                                                เลือกวันที่และช่วงเวลา
+                                                เลือกวันที่และช่วงเวลาการประชุม
                                             </label>
                                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                                <div className="sm:col-span-2">
-                                                    <CustomDatePicker 
-                                                        selected={meetingDate}
-                                                        onChange={handleDateChange}
-                                                        showTimeSelect={true}
-                                                        portalId="root"
-                                                    />
-                                                </div>
-                                                <div className="flex items-center gap-2 bg-gray-50/80 border-2 border-gray-100 rounded-xl sm:rounded-2xl px-3 py-2">
-                                                    <Clock className="w-4 h-4 text-indigo-400 shrink-0" />
-                                                    <div className="flex-1 min-w-0">
-                                                        <div className="text-[9px] font-bold text-gray-400 uppercase leading-none">เวลาสิ้นสุด</div>
-                                                        <input
-                                                            type="time"
-                                                            value={endTime}
-                                                            onChange={(e) => setEndTime(e.target.value)}
-                                                            className="w-full bg-transparent border-none p-0 text-xs sm:text-sm font-bold text-gray-700 focus:ring-0 tabular-nums"
-                                                        />
+                                                {/* 1. Date Trigger */}
+                                                <button
+                                                    id="startup-meeting-date-btn"
+                                                    type="button"
+                                                    onClick={() => setIsDatePickerOpen(true)}
+                                                    className="flex items-center gap-2.5 bg-gray-50/80 hover:bg-white border-2 border-gray-100 hover:border-indigo-200 rounded-xl sm:rounded-2xl px-3.5 py-2.5 text-left transition-all group"
+                                                >
+                                                    <div className="p-2 rounded-xl bg-indigo-50 text-indigo-500 group-hover:bg-indigo-100 transition-colors shrink-0">
+                                                        <CalendarIcon className="w-4 h-4" />
                                                     </div>
-                                                </div>
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="text-[9px] font-bold text-gray-400 uppercase leading-none mb-1">
+                                                            วันที่ประชุม
+                                                        </div>
+                                                        <div className="text-xs sm:text-sm font-bold text-gray-700 truncate">
+                                                            {formatDisplayDate(meetingDate)}
+                                                        </div>
+                                                    </div>
+                                                </button>
+
+                                                {/* 2. Start Time Trigger */}
+                                                <button
+                                                    id="startup-meeting-start-time-btn"
+                                                    type="button"
+                                                    onClick={() => setIsStartTimePickerOpen(true)}
+                                                    className="flex items-center gap-2.5 bg-gray-50/80 hover:bg-white border-2 border-gray-100 hover:border-emerald-200 rounded-xl sm:rounded-2xl px-3.5 py-2.5 text-left transition-all group"
+                                                >
+                                                    <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600 group-hover:bg-emerald-100 transition-colors shrink-0">
+                                                        <Clock className="w-4 h-4" />
+                                                    </div>
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="text-[9px] font-bold text-gray-400 uppercase leading-none mb-1">
+                                                            เวลาเริ่ม
+                                                        </div>
+                                                        <div className="text-xs sm:text-sm font-bold text-gray-700 tabular-nums truncate">
+                                                            {startTime} น.
+                                                        </div>
+                                                    </div>
+                                                </button>
+
+                                                {/* 3. End Time Trigger */}
+                                                <button
+                                                    id="startup-meeting-end-time-btn"
+                                                    type="button"
+                                                    onClick={() => setIsEndTimePickerOpen(true)}
+                                                    className="flex items-center gap-2.5 bg-gray-50/80 hover:bg-white border-2 border-gray-100 hover:border-indigo-200 rounded-xl sm:rounded-2xl px-3.5 py-2.5 text-left transition-all group"
+                                                >
+                                                    <div className="p-2 rounded-xl bg-indigo-50 text-indigo-500 group-hover:bg-indigo-100 transition-colors shrink-0">
+                                                        <Clock className="w-4 h-4" />
+                                                    </div>
+                                                    <div className="min-w-0 flex-1">
+                                                        <div className="text-[9px] font-bold text-gray-400 uppercase leading-none mb-1">
+                                                            เวลาสิ้นสุด
+                                                        </div>
+                                                        <div className="text-xs sm:text-sm font-bold text-gray-700 tabular-nums truncate">
+                                                            {endTime} น.
+                                                        </div>
+                                                    </div>
+                                                </button>
                                             </div>
 
                                             <AnimatePresence>
@@ -797,6 +859,29 @@ const MeetingStartupModal: React.FC<MeetingStartupModalProps> = ({
                     </motion.div>
 
                     {/* Child Modals */}
+                    <DatePickerModal
+                        isOpen={isDatePickerOpen}
+                        onClose={() => setIsDatePickerOpen(false)}
+                        selectedDate={meetingDate}
+                        onSelect={handleDateChange}
+                    />
+
+                    <TimePickerModal
+                        isOpen={isStartTimePickerOpen}
+                        onClose={() => setIsStartTimePickerOpen(false)}
+                        initialTime={startTime}
+                        title="เลือกเวลาเริ่มประชุม"
+                        onSelect={handleStartTimeChange}
+                    />
+
+                    <TimePickerModal
+                        isOpen={isEndTimePickerOpen}
+                        onClose={() => setIsEndTimePickerOpen(false)}
+                        initialTime={endTime}
+                        title="เลือกเวลาสิ้นสุดการประชุม"
+                        onSelect={(val) => setEndTime(val)}
+                    />
+
                     <AttendeeSelectorModal 
                         isOpen={isAttendeeModalOpen}
                         onClose={() => setIsAttendeeModalOpen(false)}

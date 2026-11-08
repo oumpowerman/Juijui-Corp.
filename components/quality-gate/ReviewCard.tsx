@@ -9,7 +9,7 @@ import { useGameConfig } from '../../context/GameConfigContext';
 interface ReviewCardProps {
     review: ReviewSession;
     users: User[];
-    onAction: (id: string, action: 'PASS' | 'REVISE', taskId: string, task: Task, submissionDate?: Date) => void;
+    onAction: (id: string, action: 'PASS' | 'REVISE', taskId: string, task: Task, submissionDate?: Date, assignedReviewerId?: string | null) => void;
     onOpenTask: (task: Task) => void;
     getChannelName: (id?: string) => string;
     getStatusInfo: (statusKey: string) => { label: string, color: string };
@@ -55,8 +55,10 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
 
     const primaryAssignee = users.find(u => u.id === taskAssigneeIds[0]);
 
-    // FIND REVIEWER (If reviewed)
+    // FIND REVIEWER (Assigned or Completed)
     const reviewer = review.reviewerId ? users.find(u => u.id === review.reviewerId) : null;
+    const isAssignedToMe = Boolean(review.reviewerId && review.reviewerId === currentUser.id);
+    const isAssignedToOther = Boolean(review.reviewerId && review.reviewerId !== currentUser.id);
 
     // Derived Task Properties for UI
     const difficulty = review.task?.difficulty || 'MEDIUM';
@@ -101,21 +103,21 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
             // Late
             const days = Math.abs(diff);
             return (
-                <span className="flex items-center gap-1 text-[10px] font-black text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100" title={`Deadline was ${format(deadlineDate, 'd MMM')}`}>
+                <span className="flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-50 px-2 py-0.5 rounded border border-red-100 tabular-nums" title={`Deadline was ${format(deadlineDate, 'd MMM')}`}>
                     <AlarmClock className="w-3 h-3" /> Late {days} Days
                 </span>
             );
         } else if (diff >= 1) {
             // Early Bird
             return (
-                <span className="flex items-center gap-1 text-[10px] font-black text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
+                <span className="flex items-center gap-1 text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-100">
                     <Flame className="w-3 h-3" /> Early Bird (+Bonus)
                 </span>
             );
         } else {
             // On Time (Same Day)
             return (
-                <span className="flex items-center gap-1 text-[10px] font-black text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
+                <span className="flex items-center gap-1 text-[10px] font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded border border-blue-100">
                     <CalendarCheck className="w-3 h-3" /> On Time
                 </span>
             );
@@ -129,7 +131,9 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
             ? 'border-rose-500/30 bg-rose-500/5 shadow-rose-500/10' 
             : highlightRevise 
                 ? 'border-amber-500/30 bg-amber-500/5 shadow-amber-500/10' 
-                : 'border-white/5 bg-slate-900/40 shadow-indigo-500/5';
+                : isAssignedToMe && review.status === 'PENDING'
+                    ? 'border-indigo-500/30 bg-slate-900/60 shadow-indigo-500/10'
+                    : 'border-white/5 bg-slate-900/40 shadow-indigo-500/5';
     
     const statusColor = review.status === 'PENDING' ? 'bg-indigo-500' : 
                         review.status === 'REVISE' ? 'bg-rose-500' : 
@@ -150,21 +154,21 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
             {/* Time & Review Status Badge */}
             <div className="flex flex-row md:flex-col items-center justify-between md:justify-start w-full md:w-auto md:min-w-[100px] text-center pt-1 pl-2 relative z-10 pb-3 md:pb-0 border-b md:border-b-0 border-white/5 gap-3 shrink-0">
                 <div className="flex flex-col items-start md:items-center text-left md:text-center shrink-0">
-                    <span className="text-2xl sm:text-3xl font-black text-white leading-none italic tracking-tighter">{format(review.scheduledAt, 'HH:mm')}</span>
-                    <span className="text-[10px] text-indigo-400/60 font-black uppercase tracking-[0.3em] mt-1">{format(review.scheduledAt, 'dd MMM')}</span>
+                    <span className="text-2xl sm:text-3xl font-bold text-white leading-none italic tracking-tighter tabular-nums">{format(review.scheduledAt, 'HH:mm')}</span>
+                    <span className="text-[10px] text-indigo-400/60 font-bold uppercase tracking-[0.3em] mt-1">{format(review.scheduledAt, 'dd MMM')}</span>
                 </div>
                 
                 <div className="w-auto md:w-full shrink-0">
                     {isExpired ? (
-                        <div className="px-3 py-1.5 bg-slate-500/20 text-slate-400 rounded-xl text-[10px] font-black border border-slate-500/30 shadow-lg shadow-slate-900/20 uppercase tracking-widest text-center" title="ระบบดีดกลับงานอัตโนมัติเนื่องจากตรวจไม่ทัน">
+                        <div className="px-3 py-1.5 bg-slate-500/20 text-slate-400 rounded-xl text-[10px] font-bold border border-slate-500/30 shadow-lg shadow-slate-900/20 uppercase tracking-widest text-center" title="ระบบดีดกลับงานอัตโนมัติเนื่องจากตรวจไม่ทัน">
                             SLA Expired
                         </div>
                     ) : isOverdue ? (
-                        <div className="px-3 py-1.5 bg-rose-500/20 text-rose-400 rounded-xl text-[10px] font-black border border-rose-500/30 shadow-lg shadow-rose-900/20 uppercase tracking-widest text-center animate-pulse" title="แอดมินดองงาน (Admin Pending)">
+                        <div className="px-3 py-1.5 bg-rose-500/20 text-rose-400 rounded-xl text-[10px] font-bold border border-rose-500/30 shadow-lg shadow-rose-900/20 uppercase tracking-widest text-center animate-pulse tabular-nums" title="แอดมินดองงาน (Admin Pending)">
                             +{adminDaysLate} Days Late
                         </div>
                     ) : (
-                        <div className={`px-3 py-1.5 text-[10px] font-black rounded-xl border flex items-center justify-center gap-2 uppercase tracking-widest shadow-lg text-center ${
+                        <div className={`px-3 py-1.5 text-[10px] font-bold rounded-xl border flex items-center justify-center gap-2 uppercase tracking-widest shadow-lg text-center ${
                             review.status === 'PENDING' ? 'bg-indigo-500/20 text-indigo-400 border-indigo-500/30 shadow-indigo-900/20' :
                             review.status === 'PASSED' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30 shadow-emerald-900/20' :
                             review.status === 'EXPIRED' ? 'bg-slate-500/20 text-slate-400 border-slate-500/30 shadow-slate-900/20' :
@@ -188,15 +192,15 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
                 {/* Header Line */}
                 <div>
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
-                        {isExpired && <span className="bg-slate-600 text-white px-2 py-0.5 rounded-lg text-[10px] font-black flex items-center shadow-lg shadow-slate-900/40 italic uppercase tracking-tighter">SYSTEM REVERTED</span>}
-                        {isOverdue && !isExpired && <span className="bg-rose-600 text-white px-2 py-0.5 rounded-lg text-[10px] font-black flex items-center shadow-lg shadow-rose-900/40 italic uppercase tracking-tighter"><AlertTriangle className="w-3 h-3 mr-1"/> ADMIN DELAY</span>}
+                        {isExpired && <span className="bg-slate-600 text-white px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center shadow-lg shadow-slate-900/40 italic uppercase tracking-tighter">SYSTEM REVERTED</span>}
+                        {isOverdue && !isExpired && <span className="bg-rose-600 text-white px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center shadow-lg shadow-rose-900/40 italic uppercase tracking-tighter"><AlertTriangle className="w-3 h-3 mr-1"/> ADMIN DELAY</span>}
                         
-                        <span className="bg-indigo-500/10 text-indigo-400 px-2.5 py-1 rounded-lg text-[10px] font-black border border-indigo-500/20 uppercase tracking-widest">
+                        <span className="bg-indigo-500/10 text-indigo-400 px-2.5 py-1 rounded-lg text-[10px] font-bold border border-indigo-500/20 uppercase tracking-widest tabular-nums">
                             Draft {review.round}
                         </span>
 
                         {review.task?.channelId && (
-                            <span className="text-[10px] text-indigo-300/60 bg-white/5 px-2.5 py-1 rounded-lg border border-white/5 font-black uppercase tracking-widest">
+                            <span className="text-[10px] text-indigo-300/60 bg-white/5 px-2.5 py-1 rounded-lg border border-white/5 font-bold uppercase tracking-widest">
                                 {getChannelName(review.task.channelId)}
                             </span>
                         )}
@@ -205,7 +209,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
                         {getPunctualityBadge()}
                     </div>
                     <h4 
-                        className="text-2xl font-black text-white hover:text-indigo-400 cursor-pointer leading-tight italic tracking-tight transition-colors"
+                        className="text-2xl font-bold text-white hover:text-indigo-400 cursor-pointer leading-tight italic tracking-tight transition-colors"
                         onClick={() => review.task && onOpenTask(review.task)}
                     >
                         {review.task?.title || 'Unknown Task'}
@@ -219,7 +223,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
                             <div className="bg-amber-500/5 border border-amber-500/20 p-3.5 rounded-2xl flex items-start gap-3 backdrop-blur-md group/caution hover:bg-amber-500/10 transition-colors">
                                 <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5 group-hover/caution:scale-110 transition-transform" />
                                 <div>
-                                    <p className="text-[10px] font-black text-amber-500/60 uppercase tracking-widest mb-1">Caution</p>
+                                    <p className="text-[10px] font-bold text-amber-500/60 uppercase tracking-widest mb-1">Caution</p>
                                     <p className="text-xs text-amber-200/80 leading-relaxed font-medium">{review.task.caution}</p>
                                 </div>
                             </div>
@@ -228,7 +232,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
                             <div className="bg-indigo-500/5 border border-indigo-500/20 p-3.5 rounded-2xl flex items-start gap-3 backdrop-blur-md group/info hover:bg-indigo-500/10 transition-colors">
                                 <Info className="w-5 h-5 text-indigo-400 shrink-0 mt-0.5 group-hover/info:scale-110 transition-transform" />
                                 <div>
-                                    <p className="text-[10px] font-black text-indigo-400/60 uppercase tracking-widest mb-1">Key Point</p>
+                                    <p className="text-[10px] font-bold text-indigo-400/60 uppercase tracking-widest mb-1">Key Point</p>
                                     <p className="text-xs text-indigo-200/80 leading-relaxed font-medium">{review.task.importance}</p>
                                 </div>
                             </div>
@@ -239,21 +243,21 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
                 {/* Meta Row: XP, User, Asset */}
                 <div className="flex items-center gap-4 pt-1 flex-wrap">
                     {/* XP Badge */}
-                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border shadow-inner ${isTaskPenalized ? 'bg-slate-800/50 text-slate-500 border-slate-700 line-through opacity-50' : 'bg-white/5 text-indigo-100 border-white/5'}`} title={isTaskPenalized ? 'งานนี้ไม่ได้รับ XP เนื่องจากถูก SLA Revert เกิน 3 ครั้ง' : `Difficulty: ${difficulty}, Est: ${estHours}h`}>
+                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border shadow-inner tabular-nums ${isTaskPenalized ? 'bg-slate-800/50 text-slate-500 border-slate-700 line-through opacity-50' : 'bg-white/5 text-indigo-100 border-white/5'}`} title={isTaskPenalized ? 'งานนี้ไม่ได้รับ XP เนื่องจากถูก SLA Revert เกิน 3 ครั้ง' : `Difficulty: ${difficulty}, Est: ${estHours}h`}>
                         <Star className={`w-4 h-4 ${isTaskPenalized ? 'text-slate-600 fill-slate-600' : 'text-amber-400 fill-amber-400'}`} />
-                        <span className="text-xs font-black uppercase tracking-widest">{totalXP} XP</span>
+                        <span className="text-xs font-bold uppercase tracking-widest">{totalXP} XP</span>
                         {difficulty === 'HARD' && !isTaskPenalized && <Flame className="w-4 h-4 text-rose-500 animate-pulse" />}
                     </div>
 
                     {/* SLA Revert Count Badge */}
                     {review.task?.sla_revert_count && review.task.sla_revert_count > 0 && (
-                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border shadow-inner ${
+                        <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border shadow-inner tabular-nums ${
                             review.task.sla_revert_count >= 3 
                                 ? 'bg-rose-500/20 text-rose-400 border-rose-500/30 shadow-rose-900/20' 
                                 : 'bg-amber-500/20 text-amber-400 border-amber-500/30 shadow-amber-900/20'
                         }`} title={`งานนี้ถูกระบบดีดกลับอัตโนมัติ (SLA Revert) มาแล้ว ${review.task.sla_revert_count} ครั้ง`}>
                             <RefreshCw className={`w-4 h-4 ${review.task.sla_revert_count >= 3 ? 'animate-spin-slow' : ''}`} />
-                            <span className="text-xs font-black uppercase tracking-widest">
+                            <span className="text-xs font-bold uppercase tracking-widest">
                                 Revert: {review.task.sla_revert_count}
                                 {review.task.sla_revert_count >= 3 && " (NO XP)"}
                             </span>
@@ -262,17 +266,17 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
 
                     {/* Assignee Avatar */}
                     {primaryAssignee && (
-                        <div className="flex items-center gap-2 bg-white/5 px-2.5 py-1.5 rounded-full border border-white/5 pl-1.5 hover:bg-white/10 transition-colors cursor-pointer">
+                        <div className="flex items-center gap-2 bg-white/5 px-2.5 py-1.5 rounded-full border border-white/5 pl-1.5 hover:bg-white/10 transition-colors cursor-pointer" title="ผู้ส่งงาน (Creator)">
                             <img src={primaryAssignee.avatarUrl} className="w-6 h-6 rounded-full object-cover border border-white/10" />
-                            <span className="text-[10px] text-indigo-200/80 font-black uppercase tracking-widest pr-2">{primaryAssignee.name}</span>
+                            <span className="text-[10px] text-indigo-200/80 font-bold uppercase tracking-widest pr-2">{primaryAssignee.name}</span>
                         </div>
                     )}
 
                     {/* Quality Score Display (If Passed) */}
                     {review.qualityScore !== undefined && review.qualityScore > 0 && (
-                        <div className="flex bg-slate-900/40 px-3 py-1.5 rounded-xl border border-white/5 items-center gap-2">
+                        <div className="flex bg-slate-900/40 px-3 py-1.5 rounded-xl border border-white/5 items-center gap-2 tabular-nums">
                              <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                             <span className="text-xs font-black text-white italic">{review.qualityScore} / 5</span>
+                             <span className="text-xs font-bold text-white italic">{review.qualityScore} / 5</span>
                         </div>
                     )}
 
@@ -282,7 +286,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
                             href={latestAsset.url} 
                             target="_blank" 
                             rel="noreferrer"
-                            className="inline-flex items-center text-[10px] text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 px-4 py-2 rounded-xl transition-all border border-indigo-500/20 font-black uppercase tracking-widest ml-auto sm:ml-0 group/link"
+                            className="inline-flex items-center text-[10px] text-indigo-400 bg-indigo-500/10 hover:bg-indigo-500/20 px-4 py-2 rounded-xl transition-all border border-indigo-500/20 font-bold uppercase tracking-widest ml-auto sm:ml-0 group/link"
                             onClick={(e) => e.stopPropagation()}
                         >
                             <PlayCircle className="w-4 h-4 mr-2 group-hover/link:scale-110 transition-transform" />
@@ -290,7 +294,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
                             <ExternalLink className="w-3 h-3 ml-2 opacity-30" />
                         </a>
                     ) : (
-                        <span className="inline-flex items-center text-[10px] text-indigo-400/40 bg-white/5 px-3 py-2 rounded-xl border border-white/5 ml-auto sm:ml-0 font-black uppercase tracking-widest">
+                        <span className="inline-flex items-center text-[10px] text-indigo-400/40 bg-white/5 px-3 py-2 rounded-xl border border-white/5 ml-auto sm:ml-0 font-bold uppercase tracking-widest">
                             ⚠️ No Assets Attached
                         </span>
                     )}
@@ -300,7 +304,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
                 {review.feedbackCategories && review.feedbackCategories.length > 0 && (
                     <div className="flex flex-wrap gap-2">
                         {review.feedbackCategories.map(cat => (
-                            <span key={cat} className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[9px] font-black text-indigo-300 uppercase tracking-widest italic">
+                            <span key={cat} className="px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[9px] font-bold text-indigo-300 uppercase tracking-widest italic">
                                 {cat}
                             </span>
                         ))}
@@ -311,7 +315,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
                     <div className="text-sm text-indigo-300 bg-indigo-500/10 p-4 rounded-2xl border border-indigo-500/20 flex items-start gap-3 backdrop-blur-md">
                         <MessageSquare className="w-5 h-5 mt-0.5 shrink-0 text-indigo-400" />
                         <div>
-                            <span className="font-black block text-[10px] uppercase tracking-widest text-indigo-400/60 mb-1">Creator Note:</span>
+                            <span className="font-bold block text-[10px] uppercase tracking-widest text-indigo-400/60 mb-1">Creator Note:</span>
                             <p className="font-medium leading-relaxed">{review.submissionNotes}</p>
                         </div>
                     </div>
@@ -321,7 +325,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
                     <div className="text-sm text-rose-300 bg-rose-500/10 p-4 rounded-2xl border border-rose-500/20 flex items-start gap-3 backdrop-blur-md">
                         <MessageSquare className="w-5 h-5 mt-0.5 shrink-0 text-rose-400" />
                         <div>
-                            <span className="font-black block text-[10px] uppercase tracking-widest text-rose-500/60 mb-1">Latest Feedback:</span>
+                            <span className="font-bold block text-[10px] uppercase tracking-widest text-rose-500/60 mb-1">Latest Feedback:</span>
                             <p className="font-medium leading-relaxed">{review.feedback}</p>
                         </div>
                     </div>
@@ -331,15 +335,33 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
             {/* Actions */}
             <div className="flex flex-col sm:flex-row md:flex-col gap-2.5 w-full md:w-auto mt-4 md:mt-0 shrink-0 border-t md:border-t-0 md:border-l border-white/5 pt-4 md:pt-0 md:pl-6 relative z-10">
                 
-                {/* SHOW REVIEWER IF COMPLETED */}
-                {(review.status === 'PASSED' || review.status === 'REVISE') && reviewer && (
-                     <div className="flex items-center gap-3 p-3 bg-white/5 rounded-2xl border border-white/5 backdrop-blur-md w-full md:w-auto">
-                         <img src={reviewer.avatarUrl} className="w-8 h-8 rounded-full object-cover border border-white/10" />
-                         <div className="min-w-0">
-                             <p className="text-[9px] text-indigo-400/40 font-black uppercase tracking-widest leading-none mb-1">Inspector</p>
-                             <p className="text-xs font-black text-white truncate max-w-[100px] uppercase tracking-tight italic">{reviewer.name}</p>
-                         </div>
-                     </div>
+                {/* SHOW ASSIGNED OR COMPLETED REVIEWER */}
+                {reviewer && (
+                    <div className={`flex items-center gap-3 p-3 rounded-2xl border backdrop-blur-md w-full md:w-auto ${
+                        review.status === 'PENDING'
+                            ? isAssignedToMe
+                                ? 'bg-indigo-500/15 border-indigo-500/40 shadow-lg shadow-indigo-950/30'
+                                : 'bg-amber-500/10 border-amber-500/30'
+                            : 'bg-white/5 border-white/5'
+                    }`}>
+                        <img src={reviewer.avatarUrl} className="w-8 h-8 rounded-full object-cover border border-white/10 shrink-0" />
+                        <div className="min-w-0">
+                            <p className={`text-[9px] font-bold uppercase tracking-widest leading-none mb-1 ${
+                                review.status === 'PENDING'
+                                    ? isAssignedToMe
+                                        ? 'text-emerald-400'
+                                        : 'text-amber-400/90'
+                                    : 'text-indigo-400/40'
+                            }`}>
+                                {review.status === 'PENDING'
+                                    ? (isAssignedToMe ? 'งานของคุณ (Assigned)' : 'ผู้ตรวจที่ระบุไว้')
+                                    : 'Inspected By'}
+                            </p>
+                            <p className="text-xs font-bold text-white truncate max-w-[120px] uppercase tracking-tight italic">
+                                {reviewer.name}
+                            </p>
+                        </div>
+                    </div>
                 )}
 
                 {/* ACTION BUTTONS (Only if Pending and Permission Granted) */}
@@ -347,29 +369,33 @@ const ReviewCard: React.FC<ReviewCardProps> = ({
                     canReview ? (
                         <div className="grid grid-cols-2 md:flex md:flex-col gap-2 w-full">
                             <button 
-                                onClick={() => onAction(review.id, 'PASS', review.taskId, review.task!, review.scheduledAt)}
-                                className="px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-[0.15rem] flex items-center justify-center transition-all shadow-xl shadow-emerald-950/40 active:scale-95 border border-emerald-400/20 italic"
+                                onClick={() => onAction(review.id, 'PASS', review.taskId, review.task!, review.scheduledAt, review.reviewerId)}
+                                className="px-4 py-3 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-[10px] font-bold uppercase tracking-[0.12rem] flex items-center justify-center transition-all shadow-xl shadow-emerald-950/40 active:scale-95 border border-emerald-400/20 italic whitespace-nowrap"
+                                title={isAssignedToOther && reviewer ? `ตรวจอนุมัติแทน ${reviewer.name}` : 'อนุมัติงาน'}
                             >
-                                <ThumbsUp className="w-4 h-4 mr-1.5" /> Pass
+                                <ThumbsUp className="w-4 h-4 mr-1.5 shrink-0" />
+                                {isAssignedToOther ? 'Pass (ตรวจแทน)' : 'Pass'}
                             </button>
                             <button 
-                                onClick={() => onAction(review.id, 'REVISE', review.taskId, review.task!, review.scheduledAt)}
-                                className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-rose-400 rounded-xl text-[10px] font-black uppercase tracking-[0.15rem] flex items-center justify-center transition-all active:scale-95 border border-white/5 italic"
+                                onClick={() => onAction(review.id, 'REVISE', review.taskId, review.task!, review.scheduledAt, review.reviewerId)}
+                                className="px-4 py-3 bg-slate-800 hover:bg-slate-700 text-rose-400 rounded-xl text-[10px] font-bold uppercase tracking-[0.12rem] flex items-center justify-center transition-all active:scale-95 border border-white/5 italic whitespace-nowrap"
+                                title={isAssignedToOther && reviewer ? `ส่งแก้แทน ${reviewer.name}` : 'ส่งกลับแก้ไข'}
                             >
-                                <Wrench className="w-4 h-4 mr-1.5" /> Revise
+                                <Wrench className="w-4 h-4 mr-1.5 shrink-0" />
+                                {isAssignedToOther ? 'Revise (ตรวจแทน)' : 'Revise'}
                             </button>
                         </div>
                     ) : (
                         <div className="p-3 bg-white/5 rounded-2xl text-center border border-white/5 backdrop-blur-md w-full">
                             <ShieldCheck className="w-5 h-5 text-indigo-500/40 mx-auto mb-1.5" />
-                            <p className="text-[9px] text-indigo-400/40 font-black uppercase tracking-widest">Awaiting Inspection</p>
+                            <p className="text-[9px] text-indigo-400/40 font-bold uppercase tracking-widest">Awaiting Inspection</p>
                         </div>
                     )
                 )}
 
                 <button 
                     onClick={() => review.task && onOpenTask(review.task)}
-                    className="w-full md:w-auto px-4 py-3 bg-white/5 hover:bg-white/10 text-indigo-200/60 rounded-xl sm:rounded-2xl text-[10px] font-black uppercase tracking-[0.15rem] flex items-center justify-center transition-all border border-white/5 italic"
+                    className="w-full md:w-auto px-4 py-3 bg-white/5 hover:bg-white/10 text-indigo-200/60 rounded-xl sm:rounded-2xl text-[10px] font-bold uppercase tracking-[0.15rem] flex items-center justify-center transition-all border border-white/5 italic"
                 >
                     <FileSearch className="w-4 h-4 mr-1.5" /> Details
                 </button>

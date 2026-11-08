@@ -626,7 +626,7 @@ export const useGoals = (currentUser?: User | null, externalChannels: Channel[] 
         }
     };
 
-    const requestExtension = async (goalId: string, newDateStr: string, reason: string) => {
+    const requestExtension = async (goalId: string, newDateStr: string, reason: string, approverId?: string) => {
         const user = currentUser;
         if (!user) {
             showToast('ขอขยายเวลาไม่สำเร็จ: ไม่พบข้อมูลผู้ใช้', 'error');
@@ -634,24 +634,36 @@ export const useGoals = (currentUser?: User | null, externalChannels: Channel[] 
         }
 
         try {
+            const insertPayload: any = {
+                goal_id: goalId,
+                requested_by: user.id,
+                new_deadline: new Date(newDateStr).toISOString(),
+                reason: reason,
+                status: 'PENDING',
+            };
+            if (approverId) {
+                insertPayload.resolved_by = approverId;
+            }
+
             const { error } = await supabase
                 .from('goal_deadline_requests')
-                .insert({
-                    goal_id: goalId,
-                    requested_by: user.id,
-                    new_deadline: new Date(newDateStr).toISOString(),
-                    reason: reason,
-                    status: 'PENDING',
-                })
+                .insert(insertPayload)
                 .select()
                 .single();
 
             if (error) throw error;
 
-            const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'ADMIN');
-            if (admins && admins.length > 0) {
-                const notifications = admins.map(admin => ({
-                    user_id: admin.id,
+            let targetUserIds: string[] = [];
+            if (approverId) {
+                targetUserIds = [approverId];
+            } else {
+                const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'ADMIN');
+                targetUserIds = (admins || []).map(a => a.id);
+            }
+
+            if (targetUserIds.length > 0) {
+                const notifications = targetUserIds.map(targetId => ({
+                    user_id: targetId,
                     type: 'APPROVAL_REQ',
                     title: 'คำขอเลื่อน Deadline เป้าหมาย',
                     message: `คุณ ${user.name} ขอเลื่อนเป้าหมาย: "${reason.substring(0, 50)}${reason.length > 50 ? '...' : ''}"`,
@@ -661,7 +673,7 @@ export const useGoals = (currentUser?: User | null, externalChannels: Channel[] 
                 }));
                 await supabase.from('notifications').insert(notifications);
             }
-            showToast('ส่งคำขอเลื่อน Deadline ของเป้าหมายให้แอดมินพิจารณาแล้ว!', 'success');
+            showToast('ส่งคำขอเลื่อน Deadline ของเป้าหมายให้หัวหน้า/แอดมินพิจารณาแล้ว!', 'success');
             return true;
         } catch (err: any) {
             console.error('requestExtension error:', err);

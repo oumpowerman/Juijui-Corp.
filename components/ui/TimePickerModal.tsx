@@ -12,7 +12,7 @@ interface TimePickerModalProps {
     title?: string;
 }
 
-const TimePickerModal: React.FC<TimePickerModalProps> = ({ isOpen, onClose, onSelect, initialTime }) => {
+const TimePickerModal: React.FC<TimePickerModalProps> = ({ isOpen, onClose, onSelect, initialTime, title }) => {
     const [view, setView] = useState<'hours' | 'minutes'>('hours');
     const [hour, setHour] = useState(12);
     const [minute, setMinute] = useState(0);
@@ -37,6 +37,9 @@ const TimePickerModal: React.FC<TimePickerModalProps> = ({ isOpen, onClose, onSe
                 }
             }
             if (!isNaN(m)) setMinute(m);
+        }
+        if (isOpen) {
+            setView('hours');
         }
     }, [initialTime, isOpen]);
 
@@ -83,35 +86,39 @@ const TimePickerModal: React.FC<TimePickerModalProps> = ({ isOpen, onClose, onSe
                             <div className="flex justify-between items-center mb-4">
                                 <h3 className="text-lg font-bold text-gray-800 flex items-center">
                                     <Clock className="w-5 h-4 mr-2 text-indigo-600" />
-                                    เลือกเวลาที่ต้องการ
+                                    {title || 'เลือกเวลาที่ต้องการ'}
                                 </h3>
-                                <button onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
+                                <button type="button" onClick={onClose} className="p-2 hover:bg-gray-200 rounded-full transition-colors">
                                     <X className="w-5 h-5 text-gray-400" />
                                 </button>
                             </div>
                             
-                            <div className="flex items-center justify-center space-x-2">
+                            <div className="flex items-center justify-center space-x-2 tabular-nums">
                                 <button 
+                                    type="button"
                                     onClick={() => setView('hours')}
-                                    className={`text-5xl font-black transition-colors ${view === 'hours' ? 'text-indigo-600' : 'text-gray-300'}`}
+                                    className={`text-5xl font-bold transition-colors tabular-nums ${view === 'hours' ? 'text-indigo-600' : 'text-gray-300'}`}
                                 >
                                     {hour.toString().padStart(2, '0')}
                                 </button>
-                                <span className="text-5xl font-black text-gray-300">:</span>
+                                <span className="text-5xl font-bold text-gray-300">:</span>
                                 <button 
+                                    type="button"
                                     onClick={() => setView('minutes')}
-                                    className={`text-5xl font-black transition-colors ${view === 'minutes' ? 'text-indigo-600' : 'text-gray-300'}`}
+                                    className={`text-5xl font-bold transition-colors tabular-nums ${view === 'minutes' ? 'text-indigo-600' : 'text-gray-300'}`}
                                 >
                                     {minute.toString().padStart(2, '0')}
                                 </button>
                                 <div className="flex flex-col ml-4 space-y-1">
                                     <button 
+                                        type="button"
                                         onClick={() => setAmPm('AM')}
                                         className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${ampm === 'AM' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-gray-100 text-gray-400'}`}
                                     >
                                         AM
                                     </button>
                                     <button 
+                                        type="button"
                                         onClick={() => setAmPm('PM')}
                                         className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${ampm === 'PM' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 'bg-gray-100 text-gray-400'}`}
                                     >

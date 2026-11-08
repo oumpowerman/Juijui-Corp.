@@ -68,10 +68,14 @@ export const useQualityActions = () => {
         manualBonus: number = 0,
         submissionDate?: Date,
         qualityScore?: number,
-        categories?: string[]
+        categories?: string[],
+        originalReviewerId?: string | null,
+        reviewerName?: string
     ) => {
         if (isProcessing) return false;
         setIsProcessing(true);
+
+        const isCrossReview = Boolean(originalReviewerId && originalReviewerId !== reviewerId);
 
         // --- OPTIMISTIC UI: Update Local State Immediately ---
         const previousTasks: Task[] = []; // For Rollback
@@ -111,17 +115,19 @@ export const useQualityActions = () => {
                     task_id: task?.type !== 'CONTENT' ? taskId : null,
                     content_id: task?.type === 'CONTENT' ? taskId : null,
                     action: 'STATUS_CHANGE',
-                    details: `Quality Gate: PASSED (Bonus: ${manualBonus}) -> Status set to DONE`,
+                    details: `Quality Gate: PASSED (Bonus: ${manualBonus})${isCrossReview ? ` [ตรวจแทนโดย ${reviewerName || 'ผู้ตรวจท่านอื่น'}]` : ''} -> Status set to DONE`,
                     user_id: reviewerId,
                     metadata: {
                         category: 'STATUS_QC',
                         decision: 'PASSED',
                         status: 'DONE',
-                        bonus: manualBonus
+                        bonus: manualBonus,
+                        original_reviewer_id: originalReviewerId || reviewerId,
+                        is_cross_review: isCrossReview
                     }
                 });
                 
-                // 5. NOTIFICATION: SUCCESS
+                // 5. NOTIFICATION: SUCCESS (To Task Assignees)
                 if (recipients.size > 0) {
                      const notifications = Array.from(recipients).map(uid => ({
                          user_id: uid,
@@ -141,6 +147,28 @@ export const useQualityActions = () => {
                          }
                     }));
                     await insertAndDispatchNotifications(notifications, {
+                        category: 'REVIEW',
+                        senderId: reviewerId
+                    });
+                }
+
+                // 6. NOTIFICATION: CROSS-REVIEW ALERT (To Original Assigned Reviewer)
+                if (isCrossReview && originalReviewerId) {
+                    await insertAndDispatchNotifications([{
+                        user_id: originalReviewerId,
+                        type: 'REVIEW',
+                        title: '📋 มีผู้ตรวจงานแทนคุณ (อนุมัติผ่าน)',
+                        message: `${reviewerName || 'ผู้ตรวจท่านอื่น'} ได้ช่วยตรวจและอนุมัติงาน "${task?.title}" แทนคุณเรียบร้อยแล้ว`,
+                        related_id: taskId,
+                        link_path: 'QUALITY_GATE',
+                        is_read: false,
+                        metadata: {
+                            title: task?.title,
+                            action: 'PASSED',
+                            delegated_by: reviewerId,
+                            delegated_by_name: reviewerName
+                        }
+                    }], {
                         category: 'REVIEW',
                         senderId: reviewerId
                     });
@@ -166,17 +194,19 @@ export const useQualityActions = () => {
                     task_id: task?.type !== 'CONTENT' ? taskId : null,
                     content_id: task?.type === 'CONTENT' ? taskId : null,
                     action: 'STATUS_CHANGE',
-                    details: `Quality Gate: REVISE -> ${feedback}`,
+                    details: `Quality Gate: REVISE${isCrossReview ? ` [ตรวจแทนโดย ${reviewerName || 'ผู้ตรวจท่านอื่น'}]` : ''} -> ${feedback}`,
                     user_id: reviewerId,
                     metadata: {
                         category: 'STATUS_QC',
                         decision: 'REVISE',
                         status: 'DOING',
-                        feedback
+                        feedback,
+                        original_reviewer_id: originalReviewerId || reviewerId,
+                        is_cross_review: isCrossReview
                     }
                 });
 
-                // NOTIFICATION: REVISE
+                // NOTIFICATION: REVISE (To Task Assignees)
                 if (recipients.size > 0) {
                      const notifications = Array.from(recipients).map(uid => ({
                          user_id: uid,
@@ -192,6 +222,29 @@ export const useQualityActions = () => {
                          }
                     }));
                     await insertAndDispatchNotifications(notifications, {
+                        category: 'REVIEW',
+                        senderId: reviewerId
+                    });
+                }
+
+                // NOTIFICATION: CROSS-REVIEW ALERT (To Original Assigned Reviewer)
+                if (isCrossReview && originalReviewerId) {
+                    await insertAndDispatchNotifications([{
+                        user_id: originalReviewerId,
+                        type: 'REVIEW',
+                        title: '📋 มีผู้ตรวจงานแทนคุณ (ส่งกลับแก้ไข)',
+                        message: `${reviewerName || 'ผู้ตรวจท่านอื่น'} ได้ตรวจและตีกลับงาน "${task?.title}" แทนคุณ (หมายเหตุ: ${feedback})`,
+                        related_id: taskId,
+                        link_path: 'QUALITY_GATE',
+                        is_read: false,
+                        metadata: {
+                            title: task?.title,
+                            action: 'REVISE',
+                            feedback,
+                            delegated_by: reviewerId,
+                            delegated_by_name: reviewerName
+                        }
+                    }], {
                         category: 'REVIEW',
                         senderId: reviewerId
                     });

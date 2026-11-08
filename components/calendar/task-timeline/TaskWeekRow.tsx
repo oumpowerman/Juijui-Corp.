@@ -28,6 +28,7 @@ interface TaskWeekRowProps {
     onDrop: (e: React.DragEvent, day: Date) => void;
     onTaskDragStart: (e: React.DragEvent, taskId: string) => void;
     onTaskClick: (task: Task) => void;
+    onTaskContextMenu?: (e: React.MouseEvent, task: Task, date?: Date) => void;
 }
 
 const TaskWeekRow: React.FC<TaskWeekRowProps> = ({
@@ -50,7 +51,8 @@ const TaskWeekRow: React.FC<TaskWeekRowProps> = ({
     onDragLeave,
     onDrop,
     onTaskDragStart,
-    onTaskClick
+    onTaskClick,
+    onTaskContextMenu
 }) => {
     const weekStart = useMemo(() => startOfDay(weekDays[0]), [weekDays]);
     const weekEnd = useMemo(() => endOfDay(weekDays[6]), [weekDays]);
@@ -287,6 +289,7 @@ const TaskWeekRow: React.FC<TaskWeekRowProps> = ({
                             users={users}
                             onDragStart={onTaskDragStart}
                             onClick={onTaskClick}
+                            onTaskContextMenu={(e, t) => onTaskContextMenu?.(e, t, weekDays[segment.startCol])}
                         />
                     </div>
                 ))}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { DeadlineRequest, Task } from '../../../types';
+import { DeadlineRequest, Task, User } from '../../../types';
 import { CheckSquare, Square, Inbox, Calendar, ChevronRight } from 'lucide-react';
 
 interface DeadlineRequestsListProps {
@@ -11,6 +11,7 @@ interface DeadlineRequestsListProps {
     toggleSelect: (id: string, e: React.MouseEvent) => void;
     handleSelectAll: () => void;
     setSelectedReq: (req: DeadlineRequest | null) => void;
+    currentUser?: User;
 }
 
 const DeadlineRequestsList: React.FC<DeadlineRequestsListProps> = ({
@@ -21,7 +22,8 @@ const DeadlineRequestsList: React.FC<DeadlineRequestsListProps> = ({
     tasks,
     toggleSelect,
     handleSelectAll,
-    setSelectedReq
+    setSelectedReq,
+    currentUser
 }) => {
     return (
         <div className="lg:col-span-5 border-r border-slate-200 flex flex-col justify-between min-h-0 bg-white">
@@ -119,7 +121,26 @@ const DeadlineRequestsList: React.FC<DeadlineRequestsListProps> = ({
                                             <span>{origDateStr} ➔ <strong className="text-indigo-600 text-left font-bold">{req.newDeadline.toLocaleDateString('th-TH', { month: 'short', day: 'numeric' })}</strong></span>
                                         </div>
 
-                                        <p className="text-[9px] text-slate-400 mt-2 italic bg-slate-50 p-1.5 border border-slate-100 rounded-lg line-clamp-1 text-left">
+                                        {/* Assigned Approver Badge */}
+                                        <div className="mt-1 flex items-center gap-1">
+                                            {req.approverId ? (
+                                                req.approverId === currentUser?.id ? (
+                                                    <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-700 font-bold border border-emerald-200">
+                                                        🎯 ส่งถึงคุณ (รออนุมัติ)
+                                                    </span>
+                                                ) : (
+                                                    <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-600 font-medium border border-slate-200">
+                                                        🔒 ส่งถึง: {req.approver?.name || 'หัวหน้าที่ระบุ'}
+                                                    </span>
+                                                )
+                                            ) : (
+                                                <span className="inline-flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded-md bg-slate-50 text-slate-400 font-medium border border-slate-200/60">
+                                                    🌐 แอดมินทุกคน
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        <p className="text-[9px] text-slate-400 mt-1.5 italic bg-slate-50 p-1.5 border border-slate-100 rounded-lg line-clamp-1 text-left">
                                             "{req.reason || 'ไม่ได้ระบุสาเหตุคอยหนุน...'}"
                                         </p>
                                     </div>

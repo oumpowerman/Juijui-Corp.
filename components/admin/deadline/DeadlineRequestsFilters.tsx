@@ -4,8 +4,8 @@ import { Search } from 'lucide-react';
 interface DeadlineRequestsFiltersProps {
     searchQuery: string;
     setSearchQuery: (val: string) => void;
-    filterCategory: 'ALL' | 'URGENT' | 'LONG' | 'CRITICAL';
-    setFilterCategory: (val: 'ALL' | 'URGENT' | 'LONG' | 'CRITICAL') => void;
+    filterCategory: 'ALL' | 'ASSIGNED_TO_ME' | 'URGENT' | 'LONG' | 'CRITICAL';
+    setFilterCategory: (val: 'ALL' | 'ASSIGNED_TO_ME' | 'URGENT' | 'LONG' | 'CRITICAL') => void;
     sortBy: 'NEWEST' | 'OLDEST' | 'NEW_DEADLINE' | 'EMPLOYEE';
     setSortBy: (val: 'NEWEST' | 'OLDEST' | 'NEW_DEADLINE' | 'EMPLOYEE') => void;
     requestsLength: number;
@@ -14,6 +14,7 @@ interface DeadlineRequestsFiltersProps {
         urgent: number;
         longExtensions: number;
     };
+    myRequestsCount?: number;
 }
 
 const DeadlineRequestsFilters: React.FC<DeadlineRequestsFiltersProps> = ({
@@ -25,7 +26,8 @@ const DeadlineRequestsFilters: React.FC<DeadlineRequestsFiltersProps> = ({
     setSortBy,
     requestsLength,
     filteredCount,
-    metrics
+    metrics,
+    myRequestsCount = 0
 }) => {
     return (
         <div className="bg-slate-100/70 border-b border-slate-200 px-5 md:px-8 py-3 flex flex-wrap gap-2 md:items-center justify-between shrink-0">
@@ -47,6 +49,7 @@ const DeadlineRequestsFilters: React.FC<DeadlineRequestsFiltersProps> = ({
                     className="bg-white border text-[11px] rounded-xl px-2.5 py-1.5 text-slate-600 font-medium focus:none"
                 >
                     <option value="ALL">🔍 ทุกประเภทเลื่อน ({requestsLength})</option>
+                    <option value="ASSIGNED_TO_ME">👤 คำขอถึงฉัน ({myRequestsCount})</option>
                     <option value="URGENT">⚠️ เดดไลน์กระชั้นชิด ({metrics.urgent})</option>
                     <option value="LONG">⏱️ ยาวเกิน 7 วัน ({metrics.longExtensions})</option>
                     <option value="CRITICAL">📊 งานเดิมกองสะสมเยอะ</option>

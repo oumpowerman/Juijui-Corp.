@@ -1,12 +1,14 @@
 import React from 'react';
 import { format, isSameDay } from 'date-fns';
-import { Task, Channel, User, MasterOption, ChipConfig, CalendarHighlight } from '../../../types';
+import { Task, Channel, User, MasterOption, ChipConfig, CalendarHighlight, TaskType } from '../../../types';
 import TaskCategoryModal from '../../TaskCategoryModal';
 import UnifiedFilterModal from '../UnifiedFilterModal';
 import DayHighlightModal from '../DayHightlightModal';
 import PlanFormModal from '../PlanFormModal';
 import DelayModal from '../../DelayModal';
 import MetricoolSyncModal from './MetricoolSyncModal';
+import TeamTaskContextMenu, { TeamTaskContextMenuState } from '../../team/modals/TeamTaskContextMenu';
+import TeamTaskDuplicateModal, { TeamTaskDuplicateRequest } from '../../team/modals/TeamTaskDuplicateModal';
 
 interface CalendarModalsContainerProps {
   // Day List Modal
@@ -16,7 +18,7 @@ interface CalendarModalsContainerProps {
   selectedDayTasks: Task[];
   channels: Channel[];
   masterOptions?: MasterOption[];
-  onSelectTask: (task: Task) => void;
+  onSelectTask: (task: Task, currentViewMode?: string) => void;
   viewMode: 'CONTENT' | 'TASK' | 'PLAN';
 
   // Cosmic Filter Modal
@@ -54,7 +56,7 @@ interface CalendarModalsContainerProps {
   selectedPlanData: Task | null;
   currentUser: User;
   onSaveTask?: (task: Task) => void;
-  onDeleteTask?: (taskId: string) => void;
+  onDeleteTask?: (taskId: string, taskType?: TaskType) => void;
 
   // Delay Modal
   pendingDelayTask: Task | null;
@@ -70,6 +72,15 @@ interface CalendarModalsContainerProps {
   activeChannelFilterId?: string;
   onRangeChange?: (targetDate: Date) => void;
   onNavigateDate?: (targetDate: Date) => void;
+
+  // Right-Click Task Context Menu & Quick Duplicate Modal
+  taskContextMenu?: TeamTaskContextMenuState | null;
+  onCloseTaskContextMenu?: () => void;
+  onContextEditTask?: (task: Task) => void;
+  onContextDuplicateTask?: (task: Task, userId: string, date: Date) => void;
+  onContextDeleteTask?: (task: Task) => void;
+  duplicateRequest?: TeamTaskDuplicateRequest | null;
+  onCloseDuplicateModal?: () => void;
 }
 
 export const CalendarModalsContainer: React.FC<CalendarModalsContainerProps> = ({
@@ -129,6 +140,15 @@ export const CalendarModalsContainer: React.FC<CalendarModalsContainerProps> = (
   activeChannelFilterId,
   onRangeChange,
   onNavigateDate,
+
+  // Right-Click Task Context Menu & Quick Duplicate Modal
+  taskContextMenu = null,
+  onCloseTaskContextMenu,
+  onContextEditTask,
+  onContextDuplicateTask,
+  onContextDeleteTask,
+  duplicateRequest = null,
+  onCloseDuplicateModal,
 }) => {
   const currentHighlightType = highlights.find(
     h => selectedHighlightDate && isSameDay(h.date, selectedHighlightDate)
@@ -194,7 +214,7 @@ export const CalendarModalsContainer: React.FC<CalendarModalsContainerProps> = (
         }}
         onDelete={(planId) => {
           if (onDeleteTask) {
-            onDeleteTask(planId);
+            onDeleteTask(planId, 'TASK');
           }
         }}
       />
@@ -226,8 +246,37 @@ export const CalendarModalsContainer: React.FC<CalendarModalsContainerProps> = (
           onNavigateDate={onNavigateDate}
         />
       )}
+
+      {/* Right-Click Task Context Menu (Edit / Duplicate / Delete) */}
+      {onCloseTaskContextMenu && onContextEditTask && onContextDuplicateTask && onContextDeleteTask && (
+        <TeamTaskContextMenu
+          menuState={taskContextMenu}
+          onClose={onCloseTaskContextMenu}
+          onEdit={onContextEditTask}
+          onDuplicate={onContextDuplicateTask}
+          onDelete={onContextDeleteTask}
+        />
+      )}
+
+      {/* Quick Duplicate Task Modal */}
+      {onCloseDuplicateModal && (
+        <TeamTaskDuplicateModal
+          isOpen={!!duplicateRequest}
+          request={duplicateRequest}
+          users={users}
+          channels={channels}
+          masterOptions={masterOptions}
+          onClose={onCloseDuplicateModal}
+          onConfirm={async (duplicatedTask) => {
+            if (onSaveTask) {
+              await onSaveTask(duplicatedTask);
+            }
+          }}
+        />
+      )}
     </>
   );
 };
 
 export default React.memo(CalendarModalsContainer);
+

@@ -28,7 +28,7 @@ interface CalendarViewProps {
   users: User[];
   currentUser: User;
   masterOptions?: MasterOption[];
-  onSelectTask: (task: Task) => void;
+  onSelectTask: (task: Task, currentViewMode?: string) => void;
   onSelectDate: (date: Date, type?: TaskType) => void;
   onMoveTask: (task: Task) => void; 
   onDelayTask?: (taskId: string, newDate: Date, reason: string) => void;
@@ -42,7 +42,7 @@ interface CalendarViewProps {
   onToggleWorkbox?: () => void;
   isWorkboxOpen?: boolean;
   onSaveTask?: (task: Task) => void;
-  onDeleteTask?: (taskId: string) => void;
+  onDeleteTask?: (taskId: string, taskType?: TaskType) => void;
 }
 
 const CalendarView: React.FC<CalendarViewProps> = ({ 
@@ -72,6 +72,8 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     onSelectTask,
     onMoveTask,
     onDelayTask,
+    onDeleteTask,
+    users,
   });
 
   // --- Core Calendar Engine Hook ---
@@ -94,7 +96,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
   } = useCalendar({ 
     tasks, 
     userId: currentUser.id,
-    onMoveTask: (t) => modals.handleMoveAttempt(t) 
+    onMoveTask: (t) => modals.handleMoveAttempt(t)
   });
 
   // --- Highlights Engine Hook ---
@@ -372,6 +374,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
                 onDrop={internalHandleDrop}
                 onTaskDragStart={handleDragStart}
                 onTaskClick={modals.handleTaskClick}
+                onTaskContextMenu={modals.handleTaskContextMenu}
                 onSelectDate={onSelectDate}
                 onMoveTask={modals.handleMoveAttempt}
                 onAddTask={onAddTask}
@@ -467,6 +470,13 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           activeChannelFilterId={filterChannelId}
           onRangeChange={onRangeChange}
           onNavigateDate={setCurrentDate}
+          taskContextMenu={modals.taskContextMenu}
+          onCloseTaskContextMenu={() => modals.setTaskContextMenu(null)}
+          onContextEditTask={modals.handleContextEdit}
+          onContextDuplicateTask={modals.handleContextDuplicate}
+          onContextDeleteTask={modals.handleContextDelete}
+          duplicateRequest={modals.duplicateRequest}
+          onCloseDuplicateModal={() => modals.setDuplicateRequest(null)}
         />
       </div>
     </AppBackground>

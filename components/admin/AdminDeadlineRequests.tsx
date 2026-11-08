@@ -198,11 +198,24 @@ const AdminDeadlineRequests: React.FC<AdminDeadlineRequestsProps> = ({
                                             )}
                                             <span className="text-[10px] text-red-950 font-bold truncate">{req.user?.name || 'พนักงาน'}</span>
                                         </div>
-                                        {diffDays > 0 && (
-                                            <span className="shrink-0 bg-red-100 text-red-800 border border-red-300 text-[8.5px] font-bold px-2 py-0.5 rounded-lg flex items-center gap-0.5">
-                                                ยืด +{diffDays} วัน
-                                            </span>
-                                        )}
+                                        <div className="flex items-center gap-1 shrink-0">
+                                            {req.approverId && (
+                                                req.approverId === currentUser.id ? (
+                                                    <span className="bg-emerald-100 text-emerald-800 border border-emerald-300 text-[8px] font-bold px-1.5 py-0.5 rounded-md">
+                                                        🎯 ถึงคุณ
+                                                    </span>
+                                                ) : (
+                                                    <span className="bg-slate-100 text-slate-600 border border-slate-200 text-[8px] font-medium px-1.5 py-0.5 rounded-md truncate max-w-[90px]">
+                                                        🔒 {req.approver?.name || 'หัวหน้า'}
+                                                    </span>
+                                                )
+                                            )}
+                                            {diffDays > 0 && (
+                                                <span className="bg-red-100 text-red-800 border border-red-300 text-[8.5px] font-bold px-2 py-0.5 rounded-lg flex items-center gap-0.5">
+                                                    ยืด +{diffDays} วัน
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
 
                                     {/* Title */}

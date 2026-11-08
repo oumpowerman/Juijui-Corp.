@@ -4,8 +4,9 @@ import { useReviews } from '../hooks/useReviews';
 import { useQualityActions } from '../hooks/useQualityActions';
 import { useReviewJudge } from '../hooks/useReviewJudge';
 import { useMasterDataContext } from '../context/MasterDataContext';
+import { useGlobalDialog } from '../context/GlobalDialogContext';
 import { isToday, isTomorrow, isPast, isFuture, differenceInCalendarDays, isSameDay } from 'date-fns';
-import { Clock, Search, Filter, AlertTriangle, Info, CheckCircle2, ChevronDown, ChevronRight, LayoutList, Layers, Calendar, RefreshCw } from 'lucide-react';
+import { Clock, Search, Filter, AlertTriangle, Info, CheckCircle2, ChevronDown, ChevronRight, LayoutList, Layers, Calendar, RefreshCw, UserCheck } from 'lucide-react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { Channel, Task, MasterOption, User } from '../types';
 import ReviewCard from './quality-gate/ReviewCard';
@@ -29,6 +30,7 @@ type GroupType = 'CRITICAL' | 'REVISE' | 'TODAY' | 'UPCOMING' | 'EXPIRED';
 
 const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, masterOptions, onOpenTask, currentUser, tasks }) => {
     const { reviews, isLoading, updateReviewStatus } = useReviews();
+    const { showConfirm } = useGlobalDialog();
     
     const containerVariants: Variants = {
         hidden: { opacity: 0 },
@@ -64,7 +66,7 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
             opacity: 1,
             overflow: "visible",
             transition: {
-                height: { duration: 0.4, ease: [0.04, 0.62, 0.23, 0.98] },
+                height: { duration: 0.4, ease: [0.04, 0.62, 0.23, 0.98] as const },
                 opacity: { duration: 0.3, delay: 0.1 }
             }
         }
@@ -76,6 +78,7 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
     // --- UI State ---
     const [isChecking, setIsChecking] = useState(false);
     const [filterDateType, setFilterDateType] = useState<'ALL_PENDING' | 'TODAY' | 'OVERDUE'>('ALL_PENDING');
+    const [reviewerFilter, setReviewerFilter] = useState<'ALL' | 'MINE'>('ALL');
     const [searchTerm, setSearchTerm] = useState('');
     const [selectedCreators, setSelectedCreators] = useState<string[]>([]);
     const [isInfoOpen, setIsInfoOpen] = useState(false);
@@ -90,13 +93,24 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
     });
 
     // Modal State
-    const [modalConfig, setModalConfig] = useState<{ isOpen: boolean, type: 'PASS' | 'REVISE' | null, reviewId: string, taskId: string, task?: Task, submissionDate?: Date }>({
+    const [modalConfig, setModalConfig] = useState<{
+        isOpen: boolean;
+        type: 'PASS' | 'REVISE' | null;
+        reviewId: string;
+        taskId: string;
+        task?: Task;
+        submissionDate?: Date;
+        originalReviewerId?: string | null;
+        originalReviewerName?: string;
+    }>({
         isOpen: false,
         type: null,
         reviewId: '',
         taskId: '',
         task: undefined,
-        submissionDate: undefined
+        submissionDate: undefined,
+        originalReviewerId: undefined,
+        originalReviewerName: undefined
     });
 
     // --- Core Logic: Re-hydrating Review Sessions with Authoritative Task Data ---
@@ -128,10 +142,18 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
         return Array.from(latestReviewsMap.values());
     }, [enrichedReviews]);
 
+    const myPendingCount = useMemo(() => {
+        return uniqueReviews.filter(r => r.reviewerId === currentUser.id && r.status === 'PENDING').length;
+    }, [uniqueReviews, currentUser.id]);
+
     // 2. Apply Filters
     const filteredReviews = useMemo(() => {
         const today = new Date();
         return uniqueReviews.filter(r => {
+            if (reviewerFilter === 'MINE' && r.reviewerId !== currentUser.id) {
+                return false;
+            }
+
             if (selectedCreators.length > 0 && r.task?.assigneeIds) {
                 const hasMatch = r.task.assigneeIds.some(id => selectedCreators.includes(id));
                 if (!hasMatch) return false;
@@ -152,7 +174,7 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
             
             return r.status !== 'PASSED';
         });
-    }, [uniqueReviews, selectedCreators, searchTerm, filterDateType]);
+    }, [uniqueReviews, reviewerFilter, currentUser.id, selectedCreators, searchTerm, filterDateType]);
 
     // Grouping Logic
     const groups = useMemo(() => {
@@ -200,8 +222,28 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
 
     const getChannelName = (id?: string) => channels.find(c => c.id === id)?.name || 'Unknown';
 
-    const handleActionClick = (reviewId: string, action: 'PASS' | 'REVISE', taskId: string, task: Task, submissionDate?: Date) => {
-        setModalConfig({ isOpen: true, type: action, reviewId, taskId, task, submissionDate });
+    const handleActionClick = async (reviewId: string, action: 'PASS' | 'REVISE', taskId: string, task: Task, submissionDate?: Date, assignedReviewerId?: string | null) => {
+        let originalReviewerName: string | undefined;
+        if (assignedReviewerId && assignedReviewerId !== currentUser.id) {
+            const assignedReviewer = users.find(u => u.id === assignedReviewerId);
+            originalReviewerName = assignedReviewer?.name || 'ผู้ตรวจท่านอื่น';
+            const actionLabel = action === 'PASS' ? 'อนุมัติผ่าน (Pass)' : 'ส่งกลับแก้ไข (Revise)';
+            const confirmed = await showConfirm(
+                `งาน "${task.title}" ถูกส่งระบุให้ "${originalReviewerName}" เป็นผู้ตรวจ\n\nคุณต้องการดำเนินการ "${actionLabel}" แทนใช่หรือไม่? (ระบบจะส่งแจ้งเตือนให้ ${originalReviewerName} ทราบอัตโนมัติ)`,
+                '⚠️ ยืนยันการตรวจงานแทน'
+            );
+            if (!confirmed) return;
+        }
+        setModalConfig({
+            isOpen: true,
+            type: action,
+            reviewId,
+            taskId,
+            task,
+            submissionDate,
+            originalReviewerId: assignedReviewerId,
+            originalReviewerName
+        });
     };
 
     const handleForceSLACheck = async () => {
@@ -226,7 +268,9 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
             adjustment, // Pass the manual adjustment
             modalConfig.submissionDate, // Pass submission date for accurate bonus
             qualityScore,
-            categories
+            categories,
+            modalConfig.originalReviewerId,
+            currentUser.name
         );
         if (success) setModalConfig({ ...modalConfig, isOpen: false });
     };
@@ -248,7 +292,7 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                                     <h1 className="text-2xl sm:text-3xl md:text-4xl font-black text-white flex flex-wrap items-center tracking-tight italic uppercase gap-2 leading-none">
                                         Inspector's Desk <span className="text-indigo-500 not-italic text-xl sm:text-2xl">🔍</span>
                                     </h1>
-                                    <p className="text-indigo-400/60 mt-1 font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] text-[9px] sm:text-xs truncate">
+                                    <p className="text-indigo-400/60 mt-1 font-bold uppercase tracking-[0.2em] sm:tracking-[0.3em] text-[9px] sm:text-xs truncate">
                                         Quality Gate Control Center
                                     </p>
                                 </div>
@@ -270,25 +314,25 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                                 <input 
                                     type="text" 
                                     placeholder="SCANNING FOR TASKS (TITLE, TAGS)..." 
-                                    className="w-full pl-11 sm:pl-14 pr-6 py-3.5 sm:py-4 rounded-xl sm:rounded-2xl bg-black/60 border border-white/10 focus:border-indigo-500/50 focus:ring-8 focus:ring-indigo-500/10 outline-none transition-all text-xs sm:text-sm font-black text-white placeholder:text-indigo-900/40 uppercase tracking-[0.15em] sm:tracking-[0.2em]"
+                                    className="w-full pl-11 sm:pl-14 pr-6 py-3.5 sm:py-4 rounded-xl sm:rounded-2xl bg-black/60 border border-white/10 focus:border-indigo-500/50 focus:ring-8 focus:ring-indigo-500/10 outline-none transition-all text-xs sm:text-sm font-bold text-white placeholder:text-indigo-900/40 uppercase tracking-[0.15em] sm:tracking-[0.2em]"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                 />
                                 <div className="absolute right-4 sm:right-5 top-1/2 -translate-y-1/2 flex items-center gap-1.5 sm:gap-2">
                                     <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-indigo-500 animate-pulse shadow-[0_0_10px_rgba(99,102,241,0.8)]"></div>
-                                    <span className="text-[8px] sm:text-[10px] font-black text-indigo-500/40 tracking-widest uppercase hidden xs:inline">Active Scan</span>
+                                    <span className="text-[8px] sm:text-[10px] font-bold text-indigo-500/40 tracking-widest uppercase hidden xs:inline">Active Scan</span>
                                 </div>
                             </div>
                         </div>
 
                         {/* Bottom Row: Filters & Team */}
                         <div className="bg-slate-900/60 backdrop-blur-2xl p-4 rounded-2xl sm:rounded-[2.5rem] border border-white/5 shadow-2xl flex flex-col xl:flex-row items-stretch xl:items-center gap-4 sm:gap-6 ring-1 ring-white/5">
-                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0 w-full xl:w-auto">
+                            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 shrink-0 w-full xl:w-auto flex-wrap">
                                 {/* Force SLA Check Button */}
                                 <button
                                     onClick={handleForceSLACheck}
                                     disabled={isChecking}
-                                    className={`flex items-center justify-center gap-2 px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all border shrink-0 ${
+                                    className={`flex items-center justify-center gap-2 px-4 sm:px-5 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl text-[9px] sm:text-[10px] font-bold uppercase tracking-widest transition-all border shrink-0 whitespace-nowrap ${
                                         isChecking 
                                         ? 'bg-black/20 text-indigo-900 border-white/5 cursor-not-allowed' 
                                         : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20 hover:bg-indigo-500/20 hover:border-indigo-500/40 hover:shadow-lg hover:shadow-indigo-500/10'
@@ -299,14 +343,39 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                                     {isChecking ? 'Checking...' : 'Check SLA'}
                                 </button>
 
+                                {/* Reviewer Ownership Filter: All vs My Queue */}
+                                <div className="flex bg-black/40 p-1 sm:p-1.5 rounded-xl sm:rounded-2xl border border-white/5 shrink-0 shadow-inner w-full sm:w-auto">
+                                    <button
+                                        onClick={() => setReviewerFilter('ALL')}
+                                        className={`flex-1 sm:flex-none px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-[9px] sm:text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap ${
+                                            reviewerFilter === 'ALL'
+                                                ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-900/50'
+                                                : 'text-indigo-400/40 hover:text-indigo-400 hover:bg-white/5'
+                                        }`}
+                                    >
+                                        งานทั้งหมด
+                                    </button>
+                                    <button
+                                        onClick={() => setReviewerFilter('MINE')}
+                                        className={`flex-1 sm:flex-none px-3 sm:px-4 py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-[9px] sm:text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap flex items-center justify-center gap-1.5 tabular-nums ${
+                                            reviewerFilter === 'MINE'
+                                                ? 'bg-emerald-600 text-white shadow-xl shadow-emerald-900/50'
+                                                : 'text-emerald-400/60 hover:text-emerald-400 hover:bg-white/5'
+                                        }`}
+                                    >
+                                        <UserCheck className="w-3.5 h-3.5 shrink-0" />
+                                        งานของฉัน ({myPendingCount})
+                                    </button>
+                                </div>
+
                                 <div className="flex bg-black/40 p-1 sm:p-1.5 rounded-xl sm:rounded-2xl border border-white/5 shrink-0 shadow-inner w-full sm:w-auto overflow-x-auto scrollbar-none">
-                                    <button onClick={() => setFilterDateType('ALL_PENDING')} className={`flex-1 sm:flex-none px-3 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${filterDateType === 'ALL_PENDING' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-900/50' : 'text-indigo-400/40 hover:text-indigo-400 hover:bg-white/5'}`}>
+                                    <button onClick={() => setFilterDateType('ALL_PENDING')} className={`flex-1 sm:flex-none px-3 sm:px-5 py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-[9px] sm:text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap tabular-nums ${filterDateType === 'ALL_PENDING' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-900/50' : 'text-indigo-400/40 hover:text-indigo-400 hover:bg-white/5'}`}>
                                         Pending ({totalActiveTasks})
                                     </button>
-                                    <button onClick={() => setFilterDateType('TODAY')} className={`flex-1 sm:flex-none px-3 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${filterDateType === 'TODAY' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-900/50' : 'text-indigo-400/40 hover:text-indigo-400 hover:bg-white/5'}`}>
+                                    <button onClick={() => setFilterDateType('TODAY')} className={`flex-1 sm:flex-none px-3 sm:px-5 py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-[9px] sm:text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap ${filterDateType === 'TODAY' ? 'bg-indigo-600 text-white shadow-xl shadow-indigo-900/50' : 'text-indigo-400/40 hover:text-indigo-400 hover:bg-white/5'}`}>
                                         Today
                                     </button>
-                                    <button onClick={() => setFilterDateType('OVERDUE')} className={`flex-1 sm:flex-none px-3 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${filterDateType === 'OVERDUE' ? 'bg-rose-600 text-white shadow-xl shadow-rose-900/50' : 'text-indigo-400/40 hover:text-rose-400 hover:bg-white/5'}`}>
+                                    <button onClick={() => setFilterDateType('OVERDUE')} className={`flex-1 sm:flex-none px-3 sm:px-5 py-2.5 sm:py-3 rounded-lg sm:rounded-xl text-[9px] sm:text-[10px] font-bold uppercase tracking-widest transition-all whitespace-nowrap tabular-nums ${filterDateType === 'OVERDUE' ? 'bg-rose-600 text-white shadow-xl shadow-rose-900/50' : 'text-indigo-400/40 hover:text-rose-400 hover:bg-white/5'}`}>
                                         Overdue ({groups.critical.length})
                                     </button>
                                 </div>
@@ -573,6 +642,7 @@ const QualityGateView: React.FC<QualityGateViewProps> = ({ channels, users, mast
                     onConfirm={onConfirmModal}
                     masterOptions={masterOptions} // PASS MASTER OPTIONS
                     isProcessing={isProcessing}
+                    originalReviewerName={modalConfig.originalReviewerName}
                 />
 
                 <InfoModal 

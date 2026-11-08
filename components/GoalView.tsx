@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Goal, Channel, User } from '../types';
+import { Goal, Channel, User, MasterOption } from '../types';
 import { useGoals, getGoalLastSyncedAt, GoalLiveSyncResult } from '../hooks/useGoals';
 import GoalStatsHeader from './goal/GoalStatsHeader';
 import GoalCard from './goal/GoalCard';
@@ -17,11 +17,12 @@ interface GoalViewProps {
     channels: Channel[];
     users: User[];
     currentUser: User;
+    masterOptions?: MasterOption[];
 }
 
 const ITEMS_PER_PAGE = 9;
 
-const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => {
+const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser, masterOptions = [] }) => {
     const {
         goals,
         liveChannels,
@@ -566,8 +567,11 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser }) => 
                     currentValue={extendingGoal?.currentValue}
                     targetValue={extendingGoal?.targetValue}
                     unit={extendingGoal && extendingGoal.platform !== 'ALL' ? extendingGoal.platform : undefined}
-                    onRequestExtension={async (id, newDate, reason) => {
-                        const success = await requestExtension(id, newDate, reason);
+                    users={users}
+                    masterOptions={masterOptions}
+                    currentUser={currentUser}
+                    onRequestExtension={async (id, newDate, reason, approverId) => {
+                        const success = await requestExtension(id, newDate, reason, approverId);
                         if (success && onExtensionSubmitted) {
                             onExtensionSubmitted();
                         }

@@ -38,6 +38,7 @@ interface CalendarGridProps {
     onDrop: (e: React.DragEvent, day: Date) => void;
     onTaskDragStart: (e: React.DragEvent, taskId: string) => void;
     onTaskClick: (task: Task) => void;
+    onTaskContextMenu?: (e: React.MouseEvent, task: Task, date?: Date) => void;
 }
 
 const CalendarGrid: React.FC<CalendarGridProps> = ({
@@ -63,7 +64,8 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
     onDragLeave,
     onDrop,
     onTaskDragStart,
-    onTaskClick
+    onTaskClick,
+    onTaskContextMenu
 }) => {
     const gridDays = useMemo(() => eachDayOfInterval({ start: startDate, end: endDate }), [startDate, endDate]);
     const weekDays = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
@@ -162,6 +164,7 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
                             onDrop={onDrop}
                             onTaskDragStart={onTaskDragStart}
                             onTaskClick={onTaskClick}
+                            onTaskContextMenu={onTaskContextMenu}
                         />
                     ))}
                 </div>
@@ -230,6 +233,7 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
                             onDrop={onDrop}
                             onTaskDragStart={onTaskDragStart}
                             onTaskClick={onTaskClick}
+                            onTaskContextMenu={onTaskContextMenu}
                         />
                     );
                 })}

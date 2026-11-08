@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { DeadlineRequest } from '../../../types';
+import { DeadlineRequest, User } from '../../../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-    SlidersHorizontal, CalendarDays, AlertCircle, FileText, Sparkles 
+    SlidersHorizontal, CalendarDays, AlertCircle, FileText, Sparkles, Lock, UserCheck 
 } from 'lucide-react';
 import DatePickerModal, { formatDisplayDate } from '../../ui/DatePickerModal';
 
@@ -23,6 +23,7 @@ interface DeadlineRequestsInspectorProps {
     handleRejectWithTemplate: (req: DeadlineRequest, tpl: string) => void;
     setSelectedReq: (req: DeadlineRequest | null) => void;
     handleResolve: (requestId: string, taskId: string, isApproved: boolean, targetDate: Date) => void;
+    currentUser?: User;
 }
 
 const DeadlineRequestsInspector: React.FC<DeadlineRequestsInspectorProps> = ({
@@ -35,9 +36,13 @@ const DeadlineRequestsInspector: React.FC<DeadlineRequestsInspectorProps> = ({
     handleCustomApprove,
     handleRejectWithTemplate,
     setSelectedReq,
-    handleResolve
+    handleResolve,
+    currentUser
 }) => {
     const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
+
+    const isDesignatedApprover = !selectedReq?.approverId || selectedReq.approverId === currentUser?.id;
+    const designatedApproverName = selectedReq?.approver?.name || 'หัวหน้าที่ระบุชื่อ';
     return (
         <div className="lg:col-span-7 bg-slate-50 p-6 overflow-y-auto flex flex-col justify-between text-left">
             <AnimatePresence mode="wait">
@@ -96,6 +101,34 @@ const DeadlineRequestsInspector: React.FC<DeadlineRequestsInspectorProps> = ({
                                 <CalendarDays className="w-3.5 h-3.5" /> ยื่นยืดระยะ {insights?.diffDays || 0} วัน
                             </span>
                         </div>
+
+                        {/* Assigned Approver Banner */}
+                        {selectedReq.approverId ? (
+                            isDesignatedApprover ? (
+                                <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center justify-between text-left">
+                                    <div className="flex items-center gap-2">
+                                        <UserCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                                        <span className="text-xs text-emerald-800 font-bold">คำขอนี้ส่งตรงถึงคุณ เพื่อพิจารณาอนุมัติ</span>
+                                    </div>
+                                    <span className="text-[10px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-md font-bold shrink-0">มีสิทธิ์ตัดสินใจ</span>
+                                </div>
+                            ) : (
+                                <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl flex items-center justify-between text-left">
+                                    <div className="flex items-center gap-2">
+                                        <Lock className="w-4 h-4 text-amber-600 shrink-0" />
+                                        <div className="text-left">
+                                            <p className="text-xs text-amber-900 font-bold">🔒 คำขอนี้ส่งถึงเฉพาะ: {designatedApproverName}</p>
+                                            <p className="text-[10px] text-amber-700">เฉพาะหัวหน้าที่ถูกระบุชื่อจึงจะอนุมัติหรือปฏิเสธได้ (คุณสามารถดูข้อมูลได้อย่างเดียว)</p>
+                                        </div>
+                                    </div>
+                                    <span className="text-[10px] bg-amber-100 text-amber-800 px-2 py-0.5 rounded-md font-bold shrink-0">ดูได้อย่างเดียว</span>
+                                </div>
+                            )
+                        ) : (
+                            <div className="p-2.5 bg-slate-100 border border-slate-200 rounded-2xl flex items-center justify-between text-left">
+                                <span className="text-[11px] text-slate-600 font-medium">คำขอนี้ไม่ได้ระบุหัวหน้าเฉพาะเจาะจง (แอดมินทุกคนสามารถพิจารณาได้)</span>
+                            </div>
+                        )}
 
                         {/* Primary and secondary project content panel */}
                         <div className="bg-white border rounded-2xl p-4 space-y-2 shadow-2xs text-left">
@@ -173,8 +206,9 @@ const DeadlineRequestsInspector: React.FC<DeadlineRequestsInspectorProps> = ({
                                 <div className="flex items-center gap-2 w-full md:w-auto shrink-0 justify-end md:justify-start">
                                     <button 
                                         type="button"
-                                        onClick={() => setIsDatePickerOpen(true)}
-                                        className="px-2.5 py-1.5 border border-indigo-200 rounded-xl text-[11px] bg-white text-indigo-900 font-bold hover:bg-indigo-50/50 transition-all flex items-center justify-between gap-1"
+                                        onClick={() => isDesignatedApprover && setIsDatePickerOpen(true)}
+                                        disabled={!isDesignatedApprover || isProcessingBatch}
+                                        className="px-2.5 py-1.5 border border-indigo-200 rounded-xl text-[11px] bg-white text-indigo-900 font-bold hover:bg-indigo-50/50 transition-all flex items-center justify-between gap-1 disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         <span>{formatDisplayDate(customDate)}</span>
                                         <CalendarDays className="w-3.5 h-3.5 text-indigo-400" />
@@ -190,13 +224,19 @@ const DeadlineRequestsInspector: React.FC<DeadlineRequestsInspectorProps> = ({
                                             }
                                         }}
                                     />
-                                    <button 
-                                        onClick={() => handleCustomApprove(selectedReq)}
-                                        disabled={isProcessingBatch}
-                                        className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] shrink-0 transition-colors font-bold"
-                                    >
-                                        ล็อกตัวเลือกดัดแปลงนี้
-                                    </button>
+                                    {isDesignatedApprover ? (
+                                        <button 
+                                            onClick={() => handleCustomApprove(selectedReq)}
+                                            disabled={isProcessingBatch}
+                                            className="px-3.5 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] shrink-0 transition-colors font-bold"
+                                        >
+                                            ล็อกตัวเลือกดัดแปลงนี้
+                                        </button>
+                                    ) : (
+                                        <span className="px-3 py-1.5 bg-slate-200 text-slate-500 rounded-xl text-[10px] font-bold flex items-center gap-1">
+                                            <Lock className="w-3 h-3" /> ล็อกเฉพาะ {designatedApproverName}
+                                        </span>
+                                    )}
                                 </div>
                             </div>
 
@@ -207,9 +247,13 @@ const DeadlineRequestsInspector: React.FC<DeadlineRequestsInspectorProps> = ({
                                     {rejectionTemplates.map((tpl, idx) => (
                                         <button 
                                             key={idx}
-                                            onClick={() => handleRejectWithTemplate(selectedReq, tpl)}
-                                            disabled={isProcessingBatch}
-                                            className="px-2 py-1 bg-white hover:bg-rose-50 border text-[9px] text-slate-500 hover:text-rose-600 hover:border-rose-100 rounded-lg text-left truncate max-w-xs transition-colors"
+                                            onClick={() => isDesignatedApprover && handleRejectWithTemplate(selectedReq, tpl)}
+                                            disabled={isProcessingBatch || !isDesignatedApprover}
+                                            className={`px-2 py-1 border text-[9px] rounded-lg text-left truncate max-w-xs transition-colors ${
+                                                isDesignatedApprover
+                                                    ? 'bg-white hover:bg-rose-50 text-slate-500 hover:text-rose-600 hover:border-rose-100 cursor-pointer'
+                                                    : 'bg-slate-100 text-slate-400 border-slate-200 cursor-not-allowed opacity-60'
+                                            }`}
                                         >
                                             ❌ {tpl}
                                         </button>
@@ -230,22 +274,29 @@ const DeadlineRequestsInspector: React.FC<DeadlineRequestsInspectorProps> = ({
                     >
                         ย่นการตริตรอง
                     </button>
-                    <div className="flex items-center gap-2">
-                        <button
-                            onClick={() => handleResolve(selectedReq.id, selectedReq.taskId, false, selectedReq.newDeadline)}
-                            disabled={isProcessingBatch}
-                            className="px-4 py-1.5 border border-rose-200 text-rose-600 hover:bg-rose-50 rounded-lg text-[10px] transition-colors font-bold"
-                        >
-                            ปฏิเสธคำหลัก
-                        </button>
-                        <button
-                            onClick={() => handleResolve(selectedReq.id, selectedReq.taskId, true, selectedReq.newDeadline)}
-                            disabled={isProcessingBatch}
-                            className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] transition-colors shadow-xs font-bold"
-                        >
-                            อนุมัติตามเดดไลน์ร้องขอ
-                        </button>
-                    </div>
+                    {isDesignatedApprover ? (
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => handleResolve(selectedReq.id, selectedReq.taskId, false, selectedReq.newDeadline)}
+                                disabled={isProcessingBatch}
+                                className="px-4 py-1.5 border border-rose-200 text-rose-600 hover:bg-rose-50 rounded-lg text-[10px] transition-colors font-bold"
+                            >
+                                ปฏิเสธคำหลัก
+                            </button>
+                            <button
+                                onClick={() => handleResolve(selectedReq.id, selectedReq.taskId, true, selectedReq.newDeadline)}
+                                disabled={isProcessingBatch}
+                                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-[10px] transition-colors shadow-xs font-bold"
+                            >
+                                อนุมัติตามเดดไลน์ร้องขอ
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="flex items-center gap-1.5 px-3.5 py-1.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-bold">
+                            <Lock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                            เฉพาะ {designatedApproverName} จึงจะกดอนุมัติหรือปฏิเสธคำขอนี้ได้
+                        </div>
+                    )}
                 </div>
             )}
         </div>

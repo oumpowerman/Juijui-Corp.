@@ -28,6 +28,7 @@ interface CalendarTaskPillProps {
     users?: User[];
     onDragStart: (e: React.DragEvent, taskId: string) => void;
     onClick: (task: Task) => void;
+    onTaskContextMenu?: (e: React.MouseEvent, task: Task, date?: Date) => void;
 }
 
 const CalendarTaskPill = React.forwardRef<HTMLDivElement, CalendarTaskPillProps>(({
@@ -45,7 +46,8 @@ const CalendarTaskPill = React.forwardRef<HTMLDivElement, CalendarTaskPillProps>
     isFirstWeek = false,
     users = [],
     onDragStart,
-    onClick
+    onClick,
+    onTaskContextMenu
 }, ref) => {
     const [isHovered, setIsHovered] = useState(false);
     const [mousePos, setMousePos] = useState<{ x: number; y: number } | null>(null);
@@ -308,6 +310,13 @@ const CalendarTaskPill = React.forwardRef<HTMLDivElement, CalendarTaskPillProps>
             onClick={(e) => {
                 e.stopPropagation();
                 onClick(task);
+            }}
+            onContextMenu={(e) => {
+                if (onTaskContextMenu) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onTaskContextMenu(e, task, cellDate);
+                }
             }}
             onMouseEnter={(e) => {
                 setIsHovered(true);

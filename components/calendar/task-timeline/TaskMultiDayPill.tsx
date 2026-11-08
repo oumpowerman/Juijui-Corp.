@@ -30,6 +30,7 @@ interface TaskMultiDayPillProps {
     users?: User[];
     onDragStart: (e: React.DragEvent, taskId: string) => void;
     onClick: (task: Task) => void;
+    onTaskContextMenu?: (e: React.MouseEvent, task: Task, date?: Date) => void;
 }
 
 const TaskMultiDayPill: React.FC<TaskMultiDayPillProps> = ({
@@ -42,7 +43,8 @@ const TaskMultiDayPill: React.FC<TaskMultiDayPillProps> = ({
     channels,
     users = [],
     onDragStart,
-    onClick
+    onClick,
+    onTaskContextMenu
 }) => {
     const { task, startCol, span, slotIndex, isRealStart, isRealEnd, continuesFromPrev, continuesToNext } = segment;
     const [isHovered, setIsHovered] = useState(false);
@@ -226,6 +228,13 @@ const TaskMultiDayPill: React.FC<TaskMultiDayPillProps> = ({
             onClick={(e) => {
                 e.stopPropagation();
                 onClick(task);
+            }}
+            onContextMenu={(e) => {
+                if (onTaskContextMenu) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onTaskContextMenu(e, task);
+                }
             }}
             onMouseEnter={(e) => {
                 setIsHovered(true);

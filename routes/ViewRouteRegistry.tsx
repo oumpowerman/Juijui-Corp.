@@ -421,6 +421,7 @@ export const ViewRouteRegistry: React.FC<ViewRouteRegistryProps> = ({
                 channels={channels}
                 users={activeUsers}
                 currentUser={currentUserProfile}
+                masterOptions={masterOptions}
               />
             );
           case 'WIKI':

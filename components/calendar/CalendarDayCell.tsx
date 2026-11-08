@@ -31,6 +31,7 @@ interface CalendarDayCellProps {
     onDrop: (e: React.DragEvent, day: Date) => void;
     onTaskDragStart: (e: React.DragEvent, taskId: string) => void;
     onTaskClick: (task: Task) => void;
+    onTaskContextMenu?: (e: React.MouseEvent, task: Task, date?: Date) => void;
 }
 
 const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
@@ -54,7 +55,8 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
     onDragLeave,
     onDrop,
     onTaskDragStart,
-    onTaskClick
+    onTaskClick,
+    onTaskContextMenu
 }) => {
     const isCurrentMonth = isSameMonth(day, currentDate);
     const isTodayDate = isToday(day);
@@ -178,6 +180,7 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
                                 users={users}
                                 onDragStart={onTaskDragStart}
                                 onClick={onTaskClick}
+                                onTaskContextMenu={onTaskContextMenu}
                             />
                         ))}
                     </AnimatePresence>
@@ -215,6 +218,7 @@ const CalendarDayCell: React.FC<CalendarDayCellProps> = ({
                                 users={users}
                                 onDragStart={onTaskDragStart}
                                 onClick={onTaskClick}
+                                onTaskContextMenu={onTaskContextMenu}
                             />
                         ))}
                         {tasks.length > 8 && (

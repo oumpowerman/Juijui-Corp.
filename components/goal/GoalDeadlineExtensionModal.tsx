@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Calendar as CalendarIcon, Send, Loader2, Hourglass, TrendingUp } from 'lucide-react';
+import { X, Calendar as CalendarIcon, Send, Loader2, Hourglass, TrendingUp, ChevronDown, Check, UserCheck } from 'lucide-react';
 import DatePickerModal, { formatDisplayDate } from '../ui/DatePickerModal';
+import { User, MasterOption } from '../../types';
 
 interface GoalDeadlineExtensionModalProps {
     isOpen: boolean;
@@ -10,14 +11,28 @@ interface GoalDeadlineExtensionModalProps {
     goalId: string;
     goalTitle: string;
     currentDeadline: Date;
-    onRequestExtension: (goalId: string, newDate: string, reason: string) => Promise<boolean>;
+    onRequestExtension: (goalId: string, newDate: string, reason: string, approverId?: string) => Promise<boolean>;
     currentValue?: number;
     targetValue?: number;
     unit?: string;
+    users?: User[];
+    masterOptions?: MasterOption[];
+    currentUser?: User;
 }
 
 const GoalDeadlineExtensionModal: React.FC<GoalDeadlineExtensionModalProps> = ({ 
-    isOpen, onClose, goalId, goalTitle, currentDeadline, onRequestExtension, currentValue, targetValue, unit
+    isOpen, 
+    onClose, 
+    goalId, 
+    goalTitle, 
+    currentDeadline, 
+    onRequestExtension, 
+    currentValue, 
+    targetValue, 
+    unit,
+    users = [],
+    masterOptions = [],
+    currentUser
 }) => {
     const currentDeadlineDate = new Date(currentDeadline);
     const currentEndDateStr = currentDeadlineDate.toISOString().split('T')[0];
@@ -31,6 +46,62 @@ const GoalDeadlineExtensionModal: React.FC<GoalDeadlineExtensionModalProps> = ({
     const [reason, setReason] = useState('');
     const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [selectedApproverId, setSelectedApproverId] = useState<string>('');
+    const [isApproverDropdownOpen, setIsApproverDropdownOpen] = useState(false);
+
+    // Candidates calculation following QC resolver rules
+    const candidates = useMemo(() => {
+        if (!users || users.length === 0) return [];
+        const userPos = currentUser?.position || '';
+        const userPosOpt = masterOptions.find(o => 
+            o.type === 'POSITION' && 
+            (o.label.toLowerCase().trim() === userPos.toLowerCase().trim() || 
+             o.key.toLowerCase().trim() === userPos.toLowerCase().trim())
+        );
+
+        let parentUsers: User[] = [];
+        if (userPosOpt && userPosOpt.parentKey) {
+            const parentPosOpt = masterOptions.find(o => 
+                o.type === 'POSITION' && 
+                o.key === userPosOpt.parentKey
+            );
+            if (parentPosOpt) {
+                parentUsers = users.filter(u => 
+                    u.isActive && 
+                    u.id !== currentUser?.id &&
+                    (u.position?.toLowerCase().trim() === parentPosOpt?.label.toLowerCase().trim() || 
+                     u.position?.toLowerCase().trim() === parentPosOpt?.key.toLowerCase().trim())
+                );
+            }
+        }
+
+        const adminsAndManagers = users.filter(u => 
+            u.isActive && 
+            u.id !== currentUser?.id && (
+                u.role === 'ADMIN' || 
+                u.position?.toLowerCase().includes('qc') || 
+                u.position?.toLowerCase().includes('manager') || 
+                u.position?.toLowerCase().includes('director') || 
+                u.position?.toLowerCase().includes('head') || 
+                u.position?.toLowerCase().includes('senior') ||
+                u.position?.toLowerCase().includes('หัวหน้า') ||
+                u.position?.toLowerCase().includes('ผู้ตรวจ')
+            )
+        );
+
+        const combinedMap = new Map<string, User>();
+        parentUsers.forEach(u => combinedMap.set(u.id, u));
+        adminsAndManagers.forEach(u => combinedMap.set(u.id, u));
+        return Array.from(combinedMap.values());
+    }, [users, masterOptions, currentUser]);
+
+    useEffect(() => {
+        if (isOpen && candidates.length > 0 && !selectedApproverId) {
+            setSelectedApproverId(candidates[0].id);
+        }
+    }, [isOpen, candidates, selectedApproverId]);
+
+    const selectedApprover = users.find(u => u.id === selectedApproverId);
 
     // Remaining time calculations
     const today = new Date();
@@ -70,7 +141,7 @@ const GoalDeadlineExtensionModal: React.FC<GoalDeadlineExtensionModalProps> = ({
         if (!newDate || !reason.trim() || isSubmitting) return;
         
         setIsSubmitting(true);
-        const success = await onRequestExtension(goalId, newDate, reason);
+        const success = await onRequestExtension(goalId, newDate, reason, selectedApproverId || undefined);
         setIsSubmitting(false);
         if (success) {
             onClose();
@@ -147,6 +218,80 @@ const GoalDeadlineExtensionModal: React.FC<GoalDeadlineExtensionModalProps> = ({
                                     </div>
                                 )}
                             </div>
+
+                            {/* Approver Selection */}
+                            {candidates.length > 0 && (
+                                <div className="space-y-1.5">
+                                    <label className="block text-[10px] font-black text-gray-400 uppercase tracking-wider ml-1 flex items-center justify-between">
+                                        <span>หัวหน้า/ผู้อนุมัติ (Approver)</span>
+                                        <span className="text-[10px] text-indigo-400 font-bold lowercase">ส่งคำขอถึงเฉพาะท่านนี้</span>
+                                    </label>
+                                    
+                                    <div className="relative">
+                                        <button
+                                            type="button"
+                                            onClick={() => setIsApproverDropdownOpen(!isApproverDropdownOpen)}
+                                            className="w-full p-2.5 bg-white/5 border border-white/10 rounded-2xl flex items-center justify-between hover:bg-white/10 transition-all text-left"
+                                        >
+                                            <div className="flex items-center gap-2.5 min-w-0">
+                                                {selectedApprover?.avatarUrl ? (
+                                                    <img 
+                                                        src={selectedApprover.avatarUrl} 
+                                                        alt={selectedApprover.name}
+                                                        className="w-8 h-8 rounded-full object-cover border border-white/20 shrink-0" 
+                                                    />
+                                                ) : (
+                                                    <div className="w-8 h-8 rounded-full bg-indigo-600/30 border border-indigo-500/30 text-indigo-300 font-bold text-xs flex items-center justify-center shrink-0">
+                                                        {selectedApprover?.name?.charAt(0) || 'ผ'}
+                                                    </div>
+                                                )}
+                                                <div className="min-w-0">
+                                                    <p className="text-xs font-bold text-white truncate">
+                                                        {selectedApprover?.name || 'เลือกหัวหน้าผู้อนุมัติ'}
+                                                    </p>
+                                                    <p className="text-[10px] text-indigo-400 truncate">
+                                                        {selectedApprover?.position || (selectedApprover?.role === 'ADMIN' ? 'Admin' : 'หัวหน้าสายงาน')}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform shrink-0 ${isApproverDropdownOpen ? 'rotate-180' : ''}`} />
+                                        </button>
+
+                                        {isApproverDropdownOpen && (
+                                            <div className="absolute top-full left-0 right-0 mt-1 bg-slate-900 border border-white/10 rounded-2xl shadow-2xl z-30 max-h-48 overflow-y-auto p-1.5 space-y-1 backdrop-blur-xl">
+                                                {candidates.map((cand) => (
+                                                    <button
+                                                        key={cand.id}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setSelectedApproverId(cand.id);
+                                                            setIsApproverDropdownOpen(false);
+                                                        }}
+                                                        className={`w-full p-2 rounded-xl flex items-center justify-between text-left transition-colors ${
+                                                            selectedApproverId === cand.id ? 'bg-indigo-600/20 text-white font-bold border border-indigo-500/30' : 'hover:bg-white/5 text-gray-300'
+                                                        }`}
+                                                    >
+                                                        <div className="flex items-center gap-2 min-w-0">
+                                                            {cand.avatarUrl ? (
+                                                                <img src={cand.avatarUrl} alt={cand.name} className="w-6 h-6 rounded-full object-cover shrink-0" />
+                                                            ) : (
+                                                                <div className="w-6 h-6 rounded-full bg-white/10 text-gray-300 text-[10px] font-bold flex items-center justify-center shrink-0">
+                                                                    {cand.name.charAt(0)}
+                                                                </div>
+                                                            )}
+                                                            <span className="text-xs truncate text-white">{cand.name}</span>
+                                                            <span className="text-[10px] text-gray-400">({cand.position || cand.role})</span>
+                                                        </div>
+                                                        {selectedApproverId === cand.id && (
+                                                            <Check className="w-4 h-4 text-indigo-400 shrink-0" />
+                                                        )}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* New Date Selector */}
                             <div className="space-y-2">

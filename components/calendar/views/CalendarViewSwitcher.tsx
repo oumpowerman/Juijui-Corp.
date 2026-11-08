@@ -34,6 +34,7 @@ interface CalendarViewSwitcherProps {
   onDrop: (e: React.DragEvent, day: Date) => void;
   onTaskDragStart: (e: React.DragEvent, taskId: string) => void;
   onTaskClick: (task: Task) => void;
+  onTaskContextMenu?: (e: React.MouseEvent, task: Task, date?: Date) => void;
   onSelectDate: (date: Date, type?: TaskType) => void;
   onMoveTask: (task: Task) => void;
   onAddTask: (status: Status, type?: TaskType) => void;
@@ -71,6 +72,7 @@ export const CalendarViewSwitcher: React.FC<CalendarViewSwitcherProps> = ({
   onDrop,
   onTaskDragStart,
   onTaskClick,
+  onTaskContextMenu,
   onSelectDate,
   onMoveTask,
   onAddTask,
@@ -117,6 +119,7 @@ export const CalendarViewSwitcher: React.FC<CalendarViewSwitcherProps> = ({
               onDrop={onDrop}
               onTaskDragStart={onTaskDragStart}
               onTaskClick={onTaskClick}
+              onTaskContextMenu={onTaskContextMenu}
             />
           ) : (
             <WeeklyView 

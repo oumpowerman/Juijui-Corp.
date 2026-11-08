@@ -45,7 +45,7 @@ const AdminDeadlineRequestsModal: React.FC<AdminDeadlineRequestsModalProps> = ({
     const [selectedIds, setSelectedIds] = useState<string[]>([]);
     const [isProcessingBatch, setIsProcessingBatch] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
-    const [filterCategory, setFilterCategory] = useState<'ALL' | 'URGENT' | 'LONG' | 'CRITICAL'>('ALL');
+    const [filterCategory, setFilterCategory] = useState<'ALL' | 'ASSIGNED_TO_ME' | 'URGENT' | 'LONG' | 'CRITICAL'>('ALL');
     const [sortBy, setSortBy] = useState<'NEWEST' | 'OLDEST' | 'NEW_DEADLINE' | 'EMPLOYEE'>('NEWEST');
     const [selectedReq, setSelectedReq] = useState<DeadlineRequest | null>(null);
     const [customDate, setCustomDate] = useState<string>('');
@@ -113,6 +113,11 @@ const AdminDeadlineRequestsModal: React.FC<AdminDeadlineRequestsModalProps> = ({
         return { total, urgent, longExtensions, topRequester };
     }, [localRequests]);
 
+    // Count requests specifically assigned to currentUser or unassigned (open to all admins)
+    const myRequestsCount = useMemo(() => {
+        return localRequests.filter(r => !r.approverId || r.approverId === currentUser.id).length;
+    }, [localRequests, currentUser.id]);
+
     // Data filtering and Sorting matching standard structures
     const filteredRequests = useMemo(() => {
         let result = [...localRequests];
@@ -127,7 +132,9 @@ const AdminDeadlineRequestsModal: React.FC<AdminDeadlineRequestsModalProps> = ({
             );
         }
 
-        if (filterCategory === 'URGENT') {
+        if (filterCategory === 'ASSIGNED_TO_ME') {
+            result = result.filter(r => !r.approverId || r.approverId === currentUser.id);
+        } else if (filterCategory === 'URGENT') {
             result = result.filter(r => {
                 const originalEnd = r.originalDeadline ? new Date(r.originalDeadline) : null;
                 if (!originalEnd) return false;
@@ -162,7 +169,12 @@ const AdminDeadlineRequestsModal: React.FC<AdminDeadlineRequestsModalProps> = ({
         }
 
         return result;
-    }, [localRequests, searchQuery, filterCategory, sortBy, tasks]);
+    }, [localRequests, searchQuery, filterCategory, sortBy, tasks, currentUser.id]);
+
+    // Items selected in batch that are assigned to someone else
+    const unauthorizedSelected = useMemo(() => {
+        return localRequests.filter(r => selectedIds.includes(r.id) && r.approverId && r.approverId !== currentUser.id);
+    }, [localRequests, selectedIds, currentUser.id]);
 
     const handleResolve = async (requestId: string, taskId: string, isApproved: boolean, targetDate: Date) => {
         setIsProcessingBatch(true);
@@ -365,6 +377,7 @@ const AdminDeadlineRequestsModal: React.FC<AdminDeadlineRequestsModalProps> = ({
                 requestsLength={localRequests.length}
                 filteredCount={filteredRequests.length}
                 metrics={metrics}
+                myRequestsCount={myRequestsCount}
             />
 
             {/* Main operational Split pane workspace */}
@@ -380,6 +393,7 @@ const AdminDeadlineRequestsModal: React.FC<AdminDeadlineRequestsModalProps> = ({
                     toggleSelect={toggleSelect}
                     handleSelectAll={handleSelectAll}
                     setSelectedReq={setSelectedReq}
+                    currentUser={currentUser}
                 />
 
                 {/* Right Column Intelligence Inspector Card View */}
@@ -394,6 +408,7 @@ const AdminDeadlineRequestsModal: React.FC<AdminDeadlineRequestsModalProps> = ({
                     handleRejectWithTemplate={handleRejectWithTemplate}
                     setSelectedReq={setSelectedReq}
                     handleResolve={handleResolve}
+                    currentUser={currentUser}
                 />
             </div>
 
@@ -402,6 +417,8 @@ const AdminDeadlineRequestsModal: React.FC<AdminDeadlineRequestsModalProps> = ({
                 selectedIds={selectedIds}
                 isProcessingBatch={isProcessingBatch}
                 handleBatchResolve={handleBatchResolve}
+                hasUnauthorizedItems={unauthorizedSelected.length > 0}
+                unauthorizedCount={unauthorizedSelected.length}
             />
         </BaseModal>
     );

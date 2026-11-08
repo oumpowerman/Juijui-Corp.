@@ -174,13 +174,13 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
         fetchPendingExtension();
     }, [initialData?.id, getPendingRequestForTask]);
 
-    const handleRequestExtension = async (newDateStr: string, reason: string) => {
+    const handleRequestExtension = async (newDateStr: string, reason: string, approverId?: string) => {
         if (!initialData?.id) return;
         
-        const { success, data, error } = await createRequest(initialData.id, newDateStr, reason);
+        const { success, data, error } = await createRequest(initialData.id, newDateStr, reason, approverId);
         
         if (success && data) {
-            showToast('ส่งคำขอเลื่อน Deadline แล้ว รอ Admin อนุมัติ', 'success');
+            showToast('ส่งคำขอเลื่อน Deadline แล้ว รอหัวหน้าอนุมัติ', 'success');
             setIsExtensionModalOpen(false);
             setPendingExtension(data);
         } else {
@@ -367,9 +367,20 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
                                         <CalendarIcon className="w-5 h-5" />
                                     </div>
                                     <div>
-                                        <h4 className="text-sm font-bold text-indigo-900">
-                                            {isAdmin ? 'คำขอเลื่อน Deadline' : 'กำลังรออนุมัติเลื่อน Deadline'}
-                                        </h4>
+                                        <div className="flex items-center gap-2 flex-wrap">
+                                            <h4 className="text-sm font-bold text-indigo-900">
+                                                {isAdmin ? 'คำขอเลื่อน Deadline' : 'กำลังรออนุมัติเลื่อน Deadline'}
+                                            </h4>
+                                            {pendingExtension.approver?.name && (
+                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border ${
+                                                    pendingExtension.approverId === currentUser?.id 
+                                                        ? 'bg-emerald-100 text-emerald-800 border-emerald-200' 
+                                                        : 'bg-indigo-100 text-indigo-700 border-indigo-200'
+                                                }`}>
+                                                    {pendingExtension.approverId === currentUser?.id ? 'ส่งถึงคุณ (ผู้อนุมัติ)' : `ส่งถึง: ${pendingExtension.approver.name}`}
+                                                </span>
+                                            )}
+                                        </div>
                                         <p className="text-xs text-indigo-700 mt-1">
                                             <span className="font-semibold">{pendingExtension.user?.name || 'Member'}</span> ขอเลื่อนเป็นวันที่ <span className="font-bold">{pendingExtension.newDeadline.toLocaleDateString('th-TH')}</span>
                                         </p>
@@ -379,22 +390,30 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
                                     </div>
                                 </div>
                                 {isAdmin && (
-                                    <div className="flex flex-col gap-2 shrink-0 ml-4">
-                                        <button 
-                                            type="button"
-                                            onClick={() => handleResolveExtension(pendingExtension.id, true, pendingExtension.newDeadline)}
-                                            className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
-                                        >
-                                            <CheckCircle className="w-3.5 h-3.5" /> อนุมัติ
-                                        </button>
-                                        <button 
-                                            type="button"
-                                            onClick={() => handleResolveExtension(pendingExtension.id, false)}
-                                            className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
-                                        >
-                                            <XCircle className="w-3.5 h-3.5" /> ปฏิเสธ
-                                        </button>
-                                    </div>
+                                    (!pendingExtension.approverId || pendingExtension.approverId === currentUser?.id) ? (
+                                        <div className="flex flex-col gap-2 shrink-0 ml-4">
+                                            <button 
+                                                type="button"
+                                                onClick={() => handleResolveExtension(pendingExtension.id, true, pendingExtension.newDeadline)}
+                                                className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
+                                            >
+                                                <CheckCircle className="w-3.5 h-3.5" /> อนุมัติ
+                                            </button>
+                                            <button 
+                                                type="button"
+                                                onClick={() => handleResolveExtension(pendingExtension.id, false)}
+                                                className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
+                                            >
+                                                <XCircle className="w-3.5 h-3.5" /> ปฏิเสธ
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <div className="text-right shrink-0 ml-4">
+                                            <span className="inline-flex items-center gap-1 text-[10px] bg-slate-100 text-slate-500 border border-slate-200 px-2.5 py-1.5 rounded-xl font-bold">
+                                                🔒 เฉพาะ {pendingExtension.approver?.name} อนุมัติได้
+                                            </span>
+                                        </div>
+                                    )
                                 )}
                             </div>
                         </div>
@@ -507,7 +526,7 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
                     </fieldset>
                 </div>
                     
-                <div className="bg-white shrink-0 z-30 px-3 sm:px-6 pb-3 sm:pb-6 pt-1 sm:pt-2 border-t border-gray-100">
+                <div className="bg-white shrink-0 z-30 px-3 sm:px-5 py-2 sm:py-2.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:pb-2.5 border-t border-gray-100">
                     <ContentActionFooter 
                         mode={initialData ? 'EDIT' : 'CREATE'}
                         onCancel={onClose}
@@ -540,6 +559,9 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
                 onClose={() => setIsExtensionModalOpen(false)}
                 onSubmit={handleRequestExtension}
                 currentEndDate={endDate}
+                users={users}
+                masterOptions={masterOptions}
+                currentUser={currentUser}
             />
 
             {/* Premium QC Submission Modal */}

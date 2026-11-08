@@ -215,6 +215,8 @@ export interface DeadlineRequest {
     id: string;
     taskId: string;
     requestedBy: string;
+    approverId?: string;
+    approver?: { name: string; avatarUrl: string; position?: string };
     newDeadline: Date;
     reason: string;
     status: 'PENDING' | 'APPROVED' | 'REJECTED';

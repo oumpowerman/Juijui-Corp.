@@ -5,12 +5,16 @@ interface DeadlineRequestsBatchBarProps {
     selectedIds: string[];
     isProcessingBatch: boolean;
     handleBatchResolve: (isApproved: boolean) => void;
+    hasUnauthorizedItems?: boolean;
+    unauthorizedCount?: number;
 }
 
 const DeadlineRequestsBatchBar: React.FC<DeadlineRequestsBatchBarProps> = ({
     selectedIds,
     isProcessingBatch,
-    handleBatchResolve
+    handleBatchResolve,
+    hasUnauthorizedItems = false,
+    unauthorizedCount = 0
 }) => {
     return (
         <AnimatePresence>
@@ -23,27 +27,33 @@ const DeadlineRequestsBatchBar: React.FC<DeadlineRequestsBatchBarProps> = ({
                      className="absolute bottom-6 left-1/2 bg-slate-900 text-white rounded-2xl shadow-xl px-5 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3 z-50 w-[95%] max-w-lg border border-slate-800 text-left"
                 >
                     <div className="text-left flex items-center gap-2.5">
-                        <div className="w-7 h-7 rounded-lg bg-indigo-500/20 flex items-center justify-center text-indigo-400 text-xs font-bold">
+                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold ${
+                            hasUnauthorizedItems ? 'bg-amber-500/20 text-amber-400' : 'bg-indigo-500/20 text-indigo-400'
+                        }`}>
                             {selectedIds.length}
                         </div>
                         <div className="text-left">
                             <h4 className="text-[10px] text-slate-350 tracking-wider uppercase font-bold">การอนุมัติคำขอแบบหมู่คณะ (Batch Actions)</h4>
-                            <p className="text-[9px] text-slate-400">ประมวลผลคำขอเดดไลน์ {selectedIds.length} รายการพร้อมสุ่มแบบเรียลไทม์</p>
+                            {hasUnauthorizedItems ? (
+                                <p className="text-[9px] text-amber-400 font-medium">⚠️ มี {unauthorizedCount} รายการที่ส่งถึงหัวหน้าท่านอื่น (เลือกได้เฉพาะคำขอของคุณ)</p>
+                            ) : (
+                                <p className="text-[9px] text-slate-400">ประมวลผลคำขอเดดไลน์ {selectedIds.length} รายการพร้อมกัน</p>
+                            )}
                         </div>
                     </div>
 
                     <div className="flex justify-end gap-2 shrink-0">
                         <button
                             onClick={() => handleBatchResolve(false)}
-                            disabled={isProcessingBatch}
-                            className="px-3 py-1.5 bg-slate-800 hover:bg-rose-950 hover:text-rose-400 text-slate-350 text-[10px] rounded-lg transition-colors font-bold"
+                            disabled={isProcessingBatch || hasUnauthorizedItems}
+                            className="px-3 py-1.5 bg-slate-800 hover:bg-rose-950 hover:text-rose-400 text-slate-350 text-[10px] rounded-lg transition-colors font-bold disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                             ปฏิเสธชุดนี้
                         </button>
                         <button
                             onClick={() => handleBatchResolve(true)}
-                            disabled={isProcessingBatch}
-                            className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] rounded-lg shadow-sm transition-colors font-bold"
+                            disabled={isProcessingBatch || hasUnauthorizedItems}
+                            className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] rounded-lg shadow-sm transition-colors font-bold disabled:opacity-40 disabled:cursor-not-allowed"
                         >
                             อนุมัติชุดนี้ตามขอ
                         </button>

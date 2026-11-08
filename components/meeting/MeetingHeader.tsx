@@ -1,7 +1,6 @@
-import React, { useState, useRef, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, addDays, subMonths, addMonths } from 'date-fns';
 import {
     Calendar,
     Clock,
@@ -13,8 +12,6 @@ import {
     Check,
     ChevronDown,
     X,
-    ChevronLeft,
-    ChevronRight,
     ArrowLeft,
     Video,
     ExternalLink,
@@ -28,7 +25,8 @@ import {
 import { MeetingCategory, MeetingType, MeetingPlatform, User, MasterOption } from '../../types';
 import AttendeeSelectorModal from './AttendeeSelectorModal';
 import MeetingTagInput from './MeetingTagInput';
-import TimePickerModal from '../ui/TimePickerModal';
+import DatePickerModal, { formatDisplayDate } from '../common/DatePickerModal';
+import TimePickerModal from '../common/TimePickerModal';
 import {
     detectMeetingPlatform,
     getMeetingPlatformInfo,
@@ -84,105 +82,17 @@ interface MeetingHeaderProps {
     onSyncGoogleCalendar?: (options?: { createMeet?: boolean }) => Promise<void>;
 }
 
-const CalendarPortal: React.FC<{
-    isOpen: boolean;
-    onClose: () => void;
-    anchorRef: React.RefObject<HTMLElement>;
-    date: Date;
-    setDate: (d: Date) => void;
-    onBlurDate: (d: Date) => void;
-    viewDate: Date;
-    setViewDate: (d: Date) => void;
-}> = ({ isOpen, onClose, anchorRef, date, setDate, onBlurDate, viewDate, setViewDate }) => {
-    if (!isOpen || !anchorRef.current) return null;
-    
-    const rect = anchorRef.current.getBoundingClientRect();
-    const days = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
-    const start = startOfMonth(viewDate);
-    const end = endOfMonth(viewDate);
-    const startDate = startOfWeek(start);
-    const endDate = endOfWeek(end);
-    
-    const calendarDays = [];
-    let curr = startDate;
-    while (curr <= endDate) {
-        calendarDays.push(new Date(curr));
-        curr = addDays(curr, 1);
-    }
+const timeToMinutes = (t: string): number => {
+    const [h, m] = (t || '00:00').split(':').map(Number);
+    return (isNaN(h) ? 0 : h) * 60 + (isNaN(m) ? 0 : m);
+};
 
-    return createPortal(
-        <>
-            <div 
-                className="fixed inset-0 z-[10010]" 
-                onClick={(e) => {
-                    e.stopPropagation();
-                    onClose();
-                }} 
-            />
-            <motion.div 
-                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                style={{ 
-                    position: 'fixed',
-                    top: rect.bottom + 8,
-                    left: rect.left,
-                    zIndex: 10011
-                }}
-                className="bg-white rounded-3xl shadow-2xl border border-indigo-50 p-4 w-[280px]"
-                onClick={(e) => e.stopPropagation()}
-            >
-                <div className="flex items-center justify-between mb-4">
-                    <button 
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setViewDate(subMonths(viewDate, 1));
-                        }} 
-                        className="p-1.5 hover:bg-slate-50 rounded-full transition-colors text-slate-400"
-                    >
-                        <ChevronLeft className="w-4 h-4" />
-                    </button>
-                    <span className="text-sm font-bold text-slate-700">{format(viewDate, 'MMMM yyyy')}</span>
-                    <button 
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            setViewDate(addMonths(viewDate, 1));
-                        }} 
-                        className="p-1.5 hover:bg-slate-50 rounded-full transition-colors text-slate-400"
-                    >
-                        <ChevronRight className="w-4 h-4" />
-                    </button>
-                </div>
-                <div className="grid grid-cols-7 gap-1 mb-2">
-                    {days.map(d => <div key={d} className="text-[10px] font-bold text-slate-300 text-center uppercase">{d}</div>)}
-                </div>
-                <div className="grid grid-cols-7 gap-1">
-                    {calendarDays.map((d, i) => {
-                        const isCurrentMonth = d.getMonth() === viewDate.getMonth();
-                        const isSelected = format(d, 'yyyy-MM-dd') === format(date, 'yyyy-MM-dd');
-                        return (
-                            <button
-                                key={i}
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setDate(d);
-                                    onBlurDate(d);
-                                    onClose();
-                                }}
-                                className={`
-                                    h-8 w-8 rounded-xl text-[11px] font-bold transition-all
-                                    ${isSelected ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200' : 
-                                      isCurrentMonth ? 'text-slate-600 hover:bg-indigo-50' : 'text-slate-200 pointer-events-none'}
-                                `}
-                            >
-                                {format(d, 'd')}
-                            </button>
-                        );
-                    })}
-                </div>
-            </motion.div>
-        </>,
-        document.body
-    );
+const addOneHourToTime = (t: string): string => {
+    const [h, m] = (t || '09:00').split(':').map(Number);
+    const safeH = isNaN(h) ? 9 : h;
+    const safeM = isNaN(m) ? 0 : m;
+    const nextH = (safeH + 1) % 24;
+    return `${String(nextH).padStart(2, '0')}:${String(safeM).padStart(2, '0')}`;
 };
 
 const MeetingHeader: React.FC<MeetingHeaderProps> = React.memo(({
@@ -217,12 +127,7 @@ const MeetingHeader: React.FC<MeetingHeaderProps> = React.memo(({
     const [draftType, setDraftType] = useState<MeetingType>(meetingType || 'ONSITE');
     const [draftUrl, setDraftUrl] = useState<string>(meetUrl || '');
 
-    const dateBtnRef = useRef<HTMLDivElement>(null);
     const [showDatePicker, setShowDatePicker] = useState(false);
-    const [viewDate, setViewDate] = useState(date);
-
-    const startTimeRef = useRef<HTMLInputElement>(null);
-    const endTimeRef = useRef<HTMLInputElement>(null);
     const [showStartTimePicker, setShowStartTimePicker] = useState(false);
     const [showEndTimePicker, setShowEndTimePicker] = useState(false);
 
@@ -520,65 +425,68 @@ const MeetingHeader: React.FC<MeetingHeaderProps> = React.memo(({
 
             <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-2 md:gap-3">
 
-                {/* Custom Date Picker */}
-                <div 
-                    ref={dateBtnRef}
-                    onClick={() => {
-                        setViewDate(date);
-                        setShowDatePicker(true);
-                    }}
-                    className="flex items-center gap-3 bg-white/60 p-3 rounded-2xl border border-white/80 shadow-sm relative group hover:bg-white transition-all cursor-pointer"
+                {/* Common DatePickerModal Trigger */}
+                <button
+                    type="button"
+                    onClick={() => setShowDatePicker(true)}
+                    className="flex items-center gap-3 bg-white/60 p-3 rounded-2xl border border-white/80 shadow-sm relative group hover:bg-white hover:border-indigo-200 transition-all cursor-pointer text-left"
                 >
-                    <Calendar className="w-4 h-4 text-indigo-400" />
-                    <span className="text-xs font-bold text-slate-600">{format(date, 'd MMM yyyy')}</span>
-                    <CalendarPortal 
-                        isOpen={showDatePicker}
-                        onClose={() => setShowDatePicker(false)}
-                        anchorRef={dateBtnRef}
-                        date={date}
-                        setDate={setDate}
-                        onBlurDate={onBlurDate}
-                        viewDate={viewDate}
-                        setViewDate={setViewDate}
-                    />
-                </div>
+                    <Calendar className="w-4 h-4 text-indigo-400 shrink-0" />
+                    <span className="text-xs font-bold text-slate-600 truncate">
+                        {formatDisplayDate(date)}
+                    </span>
+                </button>
+                <DatePickerModal
+                    isOpen={showDatePicker}
+                    onClose={() => setShowDatePicker(false)}
+                    selectedDate={date}
+                    onSelect={(newDate) => {
+                        setDate(newDate);
+                        onBlurDate(newDate);
+                    }}
+                />
 
-                {/* Time Picker */}
+                {/* Common TimePickerModal Triggers */}
                 <div className="flex items-center gap-2 bg-white/60 p-2 rounded-2xl border border-white/80 shadow-sm relative">
-                    <Clock className="w-4 h-4 text-emerald-400 ml-2" />
+                    <Clock className="w-4 h-4 text-emerald-400 ml-2 shrink-0" />
                     <div className="flex items-center gap-1 tabular-nums">
-                        <input 
-                            ref={startTimeRef}
-                            type="text"
-                            value={startTime}
-                            onFocus={() => setShowStartTimePicker(true)}
-                            readOnly
-                            className="text-[13px] font-bold text-slate-600 bg-transparent border-none p-0 w-11 focus:ring-0 text-center cursor-pointer tabular-nums"
-                            placeholder="00:00"
-                        />
+                        <button
+                            type="button"
+                            onClick={() => setShowStartTimePicker(true)}
+                            className="text-[13px] font-bold text-slate-600 hover:text-indigo-600 hover:bg-indigo-50/70 rounded-lg px-1.5 py-0.5 transition-colors cursor-pointer tabular-nums"
+                            title="เลือกเวลาเริ่มประชุม"
+                        >
+                            {startTime || '09:00'}
+                        </button>
                         <TimePickerModal 
                             isOpen={showStartTimePicker} 
                             onClose={() => setShowStartTimePicker(false)} 
-                            initialTime={startTime} 
+                            initialTime={startTime}
+                            title="เลือกเวลาเริ่มประชุม"
                             onSelect={(val) => {
                                 setStartTime(val);
                                 onBlurStartTime(val);
+                                if (timeToMinutes(val) >= timeToMinutes(endTime)) {
+                                    const nextEnd = addOneHourToTime(val);
+                                    setEndTime(nextEnd);
+                                    onBlurEndTime(nextEnd);
+                                }
                             }} 
                         />
                         <span className="text-slate-300">-</span>
-                        <input 
-                            ref={endTimeRef}
-                            type="text"
-                            value={endTime}
-                            onFocus={() => setShowEndTimePicker(true)}
-                            readOnly
-                            className="text-[13px] font-bold text-slate-600 bg-transparent border-none p-0 w-11 focus:ring-0 text-center cursor-pointer tabular-nums"
-                            placeholder="00:00"
-                        />
+                        <button
+                            type="button"
+                            onClick={() => setShowEndTimePicker(true)}
+                            className="text-[13px] font-bold text-slate-600 hover:text-indigo-600 hover:bg-indigo-50/70 rounded-lg px-1.5 py-0.5 transition-colors cursor-pointer tabular-nums"
+                            title="เลือกเวลาสิ้นสุดการประชุม"
+                        >
+                            {endTime || '10:00'}
+                        </button>
                         <TimePickerModal 
                             isOpen={showEndTimePicker} 
                             onClose={() => setShowEndTimePicker(false)} 
-                            initialTime={endTime} 
+                            initialTime={endTime}
+                            title="เลือกเวลาสิ้นสุดการประชุม"
                             onSelect={(val) => {
                                 setEndTime(val);
                                 onBlurEndTime(val);

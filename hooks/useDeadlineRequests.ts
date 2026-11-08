@@ -15,8 +15,9 @@ export const useDeadlineRequests = (passedUser?: User) => {
             const { data, error } = await supabase
                 .from('task_deadline_requests')
                 .select(`
-                    id, task_id, requested_by, new_deadline, reason, status, created_at,
-                    profiles:requested_by (full_name, avatar_url)
+                    id, task_id, requested_by, resolved_by, new_deadline, reason, status, created_at,
+                    profiles:requested_by (full_name, avatar_url, position),
+                    approver:resolved_by (full_name, avatar_url, position)
                 `)
                 .eq('task_id', taskId)
                 .eq('status', 'PENDING')
@@ -26,16 +27,19 @@ export const useDeadlineRequests = (passedUser?: User) => {
             if (!data) return null;
 
             const profile = Array.isArray(data.profiles) ? data.profiles[0] : data.profiles;
+            const approverProfile = Array.isArray(data.approver) ? data.approver[0] : data.approver;
 
             return {
                 id: data.id,
                 taskId: data.task_id,
                 requestedBy: data.requested_by,
+                approverId: data.resolved_by || undefined,
                 newDeadline: new Date(data.new_deadline),
                 reason: data.reason,
                 status: data.status,
                 createdAt: new Date(data.created_at),
-                user: profile ? { name: profile.full_name, avatarUrl: profile.avatar_url } : undefined
+                user: profile ? { name: profile.full_name, avatarUrl: profile.avatar_url } : undefined,
+                approver: approverProfile ? { name: approverProfile.full_name, avatarUrl: approverProfile.avatar_url, position: approverProfile.position } : undefined
             };
         } catch (err) {
             console.error('Error fetching pending request:', err);
@@ -50,8 +54,9 @@ export const useDeadlineRequests = (passedUser?: User) => {
             const { data, error } = await supabase
                 .from('task_deadline_requests')
                 .select(`
-                    id, task_id, requested_by, new_deadline, reason, status, created_at,
-                    profiles:requested_by (full_name, avatar_url),
+                    id, task_id, requested_by, resolved_by, new_deadline, reason, status, created_at,
+                    profiles:requested_by (full_name, avatar_url, position),
+                    approver:resolved_by (full_name, avatar_url, position),
                     tasks:task_id (title)
                 `)
                 .eq('status', 'PENDING')
@@ -61,17 +66,20 @@ export const useDeadlineRequests = (passedUser?: User) => {
 
             return (data || []).map(req => {
                 const profile = Array.isArray(req.profiles) ? req.profiles[0] : req.profiles;
+                const approverProfile = Array.isArray(req.approver) ? req.approver[0] : req.approver;
                 const task = Array.isArray(req.tasks) ? req.tasks[0] : req.tasks;
                 
                 return {
                     id: req.id,
                     taskId: req.task_id,
                     requestedBy: req.requested_by,
+                    approverId: req.resolved_by || undefined,
                     newDeadline: new Date(req.new_deadline),
                     reason: req.reason,
                     status: req.status,
                     createdAt: new Date(req.created_at),
                     user: profile ? { name: profile.full_name, avatarUrl: profile.avatar_url } : undefined,
+                    approver: approverProfile ? { name: approverProfile.full_name, avatarUrl: approverProfile.avatar_url, position: approverProfile.position } : undefined,
                     taskTitle: task?.title // Add task title for admin view
                 } as DeadlineRequest & { taskTitle?: string };
             });
@@ -84,21 +92,29 @@ export const useDeadlineRequests = (passedUser?: User) => {
     }, []);
 
     // 3. Create a new Request (Member)
-    const createRequest = useCallback(async (taskId: string, newDateStr: string, reason: string): Promise<{ success: boolean; data?: DeadlineRequest; error?: string }> => {
+    const createRequest = useCallback(async (taskId: string, newDateStr: string, reason: string, approverId?: string): Promise<{ success: boolean; data?: DeadlineRequest; error?: string }> => {
         if (!currentUser) return { success: false, error: 'Not authenticated' };
         
         try {
             setIsLoading(true);
+            const insertPayload: any = {
+                task_id: taskId,
+                requested_by: currentUser.id,
+                new_deadline: new Date(newDateStr).toISOString(),
+                reason: reason,
+                status: 'PENDING'
+            };
+            if (approverId) {
+                insertPayload.resolved_by = approverId;
+            }
+
             const { data, error } = await supabase
                 .from('task_deadline_requests')
-                .insert({
-                    task_id: taskId,
-                    requested_by: currentUser.id,
-                    new_deadline: new Date(newDateStr).toISOString(),
-                    reason: reason,
-                    status: 'PENDING'
-                })
-                .select()
+                .insert(insertPayload)
+                .select(`
+                    id, task_id, requested_by, resolved_by, new_deadline, reason, status, created_at,
+                    approver:resolved_by (full_name, avatar_url, position)
+                `)
                 .single();
 
             if (error) throw error;
@@ -107,20 +123,21 @@ export const useDeadlineRequests = (passedUser?: User) => {
             await supabase.from('task_logs').insert({
                 task_id: taskId,
                 action: 'DEADLINE_EXTENSION_REQUESTED',
-                details: `ขอเลื่อนส่งงานเป็นวันที่ ${newDateStr} เหตุผล: ${reason}`,
+                details: `ขอเลื่อนส่งงานเป็นวันที่ ${newDateStr} เหตุผล: ${reason}${approverId ? ` (ส่งถึงผู้อนุมัติ)` : ''}`,
                 user_id: currentUser.id,
                 metadata: {
                     category: 'DATES',
                     newDate: newDateStr,
-                    reason
+                    reason,
+                    approverId
                 }
             });
 
-            // 🔔 Create Notification for Organization Admins
-            const adminIds = await fetchOrgAdminIds(currentUser.id);
-            if (adminIds.length > 0) {
-                const notifications = adminIds.map(adminId => ({
-                    user_id: adminId,
+            // 🔔 Create Notification specifically for the assigned approver, or fallback to Admins
+            const targetUserIds = approverId ? [approverId] : await fetchOrgAdminIds(currentUser.id);
+            if (targetUserIds.length > 0) {
+                const notifications = targetUserIds.map(targetId => ({
+                    user_id: targetId,
                     type: 'APPROVAL_REQ',
                     title: '📅 คำขอเลื่อน Deadline ใหม่',
                     message: `คุณ ${currentUser.name} ขอเลื่อนงาน: "${reason.substring(0, 50)}${reason.length > 50 ? '...' : ''}"`,
@@ -134,17 +151,21 @@ export const useDeadlineRequests = (passedUser?: User) => {
                 });
             }
 
+            const approverProfile = data.approver ? (Array.isArray(data.approver) ? data.approver[0] : data.approver) : undefined;
+
             return { 
                 success: true, 
                 data: {
                     id: data.id,
                     taskId: data.task_id,
                     requestedBy: data.requested_by,
+                    approverId: data.resolved_by || undefined,
                     newDeadline: new Date(data.new_deadline),
                     reason: data.reason,
                     status: data.status,
                     createdAt: new Date(data.created_at),
-                    user: { name: currentUser.name, avatarUrl: currentUser.avatarUrl || '' }
+                    user: { name: currentUser.name, avatarUrl: currentUser.avatarUrl || '' },
+                    approver: approverProfile ? { name: approverProfile.full_name, avatarUrl: approverProfile.avatar_url, position: approverProfile.position } : undefined
                 }
             };
         } catch (err: any) {

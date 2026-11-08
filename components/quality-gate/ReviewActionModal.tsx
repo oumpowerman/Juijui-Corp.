@@ -17,6 +17,7 @@ interface ReviewActionModalProps {
     onConfirm: (feedback?: string, adjustment?: number, qualityScore?: number, categories?: string[]) => void;
     masterOptions?: MasterOption[]; // New Prop
     isProcessing?: boolean;
+    originalReviewerName?: string;
 }
 
 const ReviewActionModal: React.FC<ReviewActionModalProps> = ({ 
@@ -27,7 +28,8 @@ const ReviewActionModal: React.FC<ReviewActionModalProps> = ({
     submissionDate,
     onConfirm, 
     masterOptions = [],
-    isProcessing = false
+    isProcessing = false,
+    originalReviewerName
 }) => {
     const { config } = useGameConfig();
     const [feedback, setFeedback] = useState('');
@@ -136,7 +138,15 @@ const ReviewActionModal: React.FC<ReviewActionModalProps> = ({
                         </div>
                         
                         <div className="p-6 space-y-5">
-                            
+                            {originalReviewerName && (
+                                <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl flex items-start gap-2.5">
+                                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                                    <div className="text-xs text-amber-800 leading-relaxed">
+                                        <span className="font-bold">ตรวจงานแทน {originalReviewerName}:</span> ระบบจะส่งแจ้งเตือนให้ผู้ตรวจเดิมทราบอัตโนมัติหลังยืนยันผล
+                                    </div>
+                                </div>
+                            )}
+
                             {/* --- PASS MODE: GRADING SYSTEM --- */}
                             {isPass && task ? (
                                 <div className="space-y-4">

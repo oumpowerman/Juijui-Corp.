@@ -5,6 +5,7 @@ import { Script, ScriptSummary, User, ScriptType } from '../types';
 import { useToast } from '../context/ToastContext';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
 import { GoogleGenAI } from "@google/genai";
+import { dispatchTaskAssignmentNotifications } from '../utils/assignmentNotifications';
 
 interface FetchScriptsOptions {
     page: number;
@@ -384,6 +385,24 @@ export const useScripts = (currentUser: User) => {
             await invalidateScripts();
             await queryClient.invalidateQueries({ queryKey: ['script_detail', scriptId] });
             await queryClient.invalidateQueries({ queryKey: ['script_by_content', newContent.id] });
+
+            try {
+                await dispatchTaskAssignmentNotifications({
+                    task: {
+                        id: newContent.id,
+                        title: newContent.title || contentData.title,
+                        type: 'CONTENT',
+                        endDate: newContent.end_date || contentData.end_date,
+                        ideaOwnerIds: newContent.idea_owner_ids || contentData.idea_owner_ids || [],
+                        editorIds: newContent.editor_ids || contentData.editor_ids || [],
+                        assigneeIds: newContent.assignee_ids || contentData.assignee_ids || [],
+                    },
+                    actorUserId: currentUser?.id || null,
+                    sourceLabel: 'PROMOTE_SCRIPT',
+                });
+            } catch (notifErr) {
+                console.warn('[useScripts] Promote assignment notification warning:', notifErr);
+            }
             
             showToast('ส่งเข้ากระบวนการผลิตเรียบร้อย! 🚀', 'success');
             return true;

@@ -10,6 +10,7 @@ import { format, isValid } from 'date-fns';
 
 import { sponsorshipService } from '../services/sponsorshipService';
 import { insertAndDispatchNotifications, fetchOrgAdminIds } from '../utils/pushDispatcher';
+import { dispatchTaskAssignmentNotifications } from '../utils/assignmentNotifications';
 
 // --- 1. SMART DIFF CONFIGURATION ---
 
@@ -476,27 +477,23 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
                 const { error } = await (supabase.from(table) as any).update(dbPayload).eq('id', task.id);
                 if (error) throw error;
                 
-                // --- NOTIFICATION: NEW ASSIGNMENT (ON UPDATE) ---
-                if (existingTask && task.assigneeIds) {
-                    const newAssignees = task.assigneeIds.filter(id => !existingTask.assigneeIds.includes(id));
-                    if (newAssignees.length > 0) {
-                        const notifications = newAssignees.map(uid => ({
-                            user_id: uid,
-                            type: 'NEW_ASSIGNMENT',
-                            title: `⚡ งานใหม่: ${task.title}`,
-                            message: `คุณได้รับมอบหมายงานใหม่: "${task.title}" กำหนดส่ง ${format(task.endDate, 'dd/MM/yyyy')}`,
-                            related_id: task.id,
-                            link_path: isContent ? 'ContentStock' : 'DASHBOARD',
-                            is_read: false
-                        }));
-                        await insertAndDispatchNotifications(notifications, {
-                            category: 'NEW_ASSIGNMENT'
+                const { data: { user } } = await supabase.auth.getUser();
+
+                // --- NOTIFICATION: NEW ASSIGNMENT (ON UPDATE — all roles, skip self) ---
+                if (existingTask) {
+                    try {
+                        await dispatchTaskAssignmentNotifications({
+                            task: taskToSave,
+                            previousTask: existingTask,
+                            actorUserId: user?.id || null,
+                            sourceLabel: 'TASK_MODAL_UPDATE',
                         });
+                    } catch (notifErr) {
+                        console.warn('[useTasks] Assignment update notification warning:', notifErr);
                     }
                 }
 
                 // --- SMART AUDIT LOGGING (V10) ---
-                const { data: { user } } = await supabase.auth.getUser();
                 if (user && existingTask) {
                     const { textDiffs, structuredChanges } = generateSmartDiff(existingTask, task, contextData);
                     
@@ -555,20 +552,17 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
                 
                 if (error) throw error;
                 
-                // --- NOTIFICATION: NEW ASSIGNMENT ---
-                if (taskToSave.assigneeIds && taskToSave.assigneeIds.length > 0) {
-                    const notifications = taskToSave.assigneeIds.map(uid => ({
-                        user_id: uid,
-                        type: 'NEW_ASSIGNMENT',
-                        title: `⚡ งานใหม่: ${taskToSave.title}`,
-                        message: `คุณได้รับมอบหมายงานใหม่: "${taskToSave.title}" กำหนดส่ง ${format(taskToSave.endDate, 'dd/MM/yyyy')}`,
-                        related_id: taskToSave.id,
-                        link_path: isContent ? 'ContentStock' : 'DASHBOARD',
-                        is_read: false
-                    }));
-                    await insertAndDispatchNotifications(notifications, {
-                        category: 'NEW_ASSIGNMENT'
+                const { data: { user } } = await supabase.auth.getUser();
+
+                // --- NOTIFICATION: NEW ASSIGNMENT (ON CREATE — all roles, skip self) ---
+                try {
+                    await dispatchTaskAssignmentNotifications({
+                        task: taskToSave,
+                        actorUserId: user?.id || null,
+                        sourceLabel: sourceTaskId ? 'TASK_MODAL_DUPLICATE' : 'TASK_MODAL_CREATE',
                     });
+                } catch (notifErr) {
+                    console.warn('[useTasks] Assignment create notification warning:', notifErr);
                 }
 
                 // Update Context State (if suitable for list)
@@ -578,7 +572,6 @@ export const useTasks = (setIsModalOpen?: (isOpen: boolean) => void) => {
                 }
 
                 // Log Creation (Always log creations)
-                const { data: { user } } = await supabase.auth.getUser();
                 const logPayload: any = {
                      action: 'CREATED',
                      details: sourceTaskId ? `คัดลอกงานใหม่: ${taskToSave.title}` : `สร้างใหม่: ${taskToSave.title}`,

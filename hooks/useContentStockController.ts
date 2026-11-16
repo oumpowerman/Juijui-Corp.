@@ -8,6 +8,7 @@ import { validateAndParseStockFile, StockCSVValidationResult, ParsedStockItemPre
 import { supabase } from '../lib/supabase';
 import { isStockTerminalStatus } from '../config/status';
 import { parseChannelTokens, copyTextToClipboard } from './content-stock/deepLinkUtils';
+import { dispatchBulkContentImportNotifications, BulkImportedContentItem } from '../utils/assignmentNotifications';
 import {
     SortKey,
     SortDirection,
@@ -445,11 +446,36 @@ export const useContentStockController = ({ globalTasks, channels, users, master
         try {
             const payloads = itemsToInsert.map(item => item.payload);
             const BATCH_SIZE = 100;
+            const insertedItems: BulkImportedContentItem[] = [];
 
             for (let i = 0; i < payloads.length; i += BATCH_SIZE) {
                 const chunk = payloads.slice(i, i + BATCH_SIZE);
-                const { error } = await supabase.from('contents').insert(chunk);
+                const { data, error } = await supabase
+                    .from('contents')
+                    .insert(chunk)
+                    .select('id, title, end_date, idea_owner_ids, editor_ids, assignee_ids');
                 if (error) throw error;
+
+                if (Array.isArray(data)) {
+                    data.forEach((row: any) => {
+                        insertedItems.push({
+                            id: row.id,
+                            title: row.title,
+                            endDate: row.end_date,
+                            ideaOwnerIds: row.idea_owner_ids || [],
+                            editorIds: row.editor_ids || [],
+                            assigneeIds: row.assignee_ids || [],
+                        });
+                    });
+                }
+            }
+
+            if (insertedItems.length > 0) {
+                try {
+                    await dispatchBulkContentImportNotifications(insertedItems);
+                } catch (notifErr) {
+                    console.warn('[useContentStockController] Bulk import notification warning:', notifErr);
+                }
             }
 
             showToast(`นำเข้าสำเร็จ ${itemsToInsert.length} รายการ`, 'success');

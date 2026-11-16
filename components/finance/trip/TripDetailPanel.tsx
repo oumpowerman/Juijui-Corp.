@@ -14,7 +14,10 @@ import { useToast } from '../../../context/ToastContext';
 import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 import TransactionModal from '../TransactionModal';
 import ContentPickerModal from './ContentPickerModal'; // Import New Component
+import QuickTripCrewPicker from './QuickTripCrewPicker';
 import DatePickerModal, { formatDisplayDate } from '../../ui/DatePickerModal';
+import { useUserSession } from '../../../context/UserSessionContext';
+import { dispatchTaskAssignmentNotifications } from '../../../utils/assignmentNotifications';
 
 interface Props {
     trip: ShootTrip;
@@ -29,12 +32,17 @@ interface Props {
 const TripDetailPanel: React.FC<Props> = ({ trip, onClose, onRefresh, onUpdate, onDelete, masterOptions, tasks }) => {
     const { showToast } = useToast();
     const { showConfirm } = useGlobalDialog();
+    const { activeUsers, currentUserProfile } = useUserSession();
     
     // UI State
     const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
     const [isQuickCreateMode, setIsQuickCreateMode] = useState(false);
     const [isPickerOpen, setIsPickerOpen] = useState(false); // Picker State
     const [newClipTitle, setNewClipTitle] = useState('');
+    const [quickIdeaOwnerIds, setQuickIdeaOwnerIds] = useState<string[]>([]);
+    const [quickEditorIds, setQuickEditorIds] = useState<string[]>([]);
+    const [quickAssigneeIds, setQuickAssigneeIds] = useState<string[]>([]);
+    const [isQuickCreating, setIsQuickCreating] = useState(false);
     
     // Editing State
     const [isEditing, setIsEditing] = useState(false);
@@ -83,26 +91,59 @@ const TripDetailPanel: React.FC<Props> = ({ trip, onClose, onRefresh, onUpdate, 
 
     // Path 2: Create New Directly inside Trip
     const handleQuickCreateContent = async () => {
-        if (!newClipTitle.trim()) return;
+        if (!newClipTitle.trim() || isQuickCreating) return;
+        setIsQuickCreating(true);
         try {
             const dateStr = format(new Date(trip.date), 'yyyy-MM-dd');
+            const trimmedTitle = newClipTitle.trim();
             const { data, error } = await supabase.from('contents').insert({
-                title: newClipTitle,
+                title: trimmedTitle,
                 status: 'TODO',
                 shoot_trip_id: trip.id,
                 shoot_location: trip.locationName,
                 shoot_date: dateStr,
                 start_date: dateStr,
-                end_date: dateStr
+                end_date: dateStr,
+                idea_owner_ids: quickIdeaOwnerIds,
+                editor_ids: quickEditorIds,
+                assignee_ids: quickAssigneeIds,
             }).select().single();
 
             if (error) throw error;
+
+            if (data?.id) {
+                try {
+                    await dispatchTaskAssignmentNotifications({
+                        task: {
+                            id: data.id,
+                            title: data.title || trimmedTitle,
+                            type: 'CONTENT',
+                            endDate: dateStr,
+                            ideaOwnerIds: quickIdeaOwnerIds,
+                            editorIds: quickEditorIds,
+                            assigneeIds: quickAssigneeIds,
+                        },
+                        actorUserId: currentUserProfile?.id || null,
+                        sourceLabel: 'SHOOT_TRIP_QUICK',
+                    });
+                } catch (notifErr) {
+                    console.warn('[TripDetailPanel] Quick create notification warning:', notifErr);
+                }
+            }
             
             setNewClipTitle('');
+            setQuickIdeaOwnerIds([]);
+            setQuickEditorIds([]);
+            setQuickAssigneeIds([]);
             setIsQuickCreateMode(false);
             onRefresh();
             showToast(`สร้างคลิปใหม่ในกอง ${trip.locationName} แล้ว ✨`, 'success');
-        } catch (err) { console.error(err); }
+        } catch (err) {
+            console.error(err);
+            showToast('สร้างคลิปไม่สำเร็จ', 'error');
+        } finally {
+            setIsQuickCreating(false);
+        }
     };
 
     const handleAddExpense = async (data: any) => {
@@ -375,13 +416,24 @@ const TripDetailPanel: React.FC<Props> = ({ trip, onClose, onRefresh, onUpdate, 
                                             onKeyDown={e => e.key === 'Enter' && handleQuickCreateContent()}
                                         />
                                         <button 
+                                            type="button"
+                                            disabled={isQuickCreating || !newClipTitle.trim()}
                                             onClick={handleQuickCreateContent}
-                                            className="p-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 shadow-md active:scale-95 transition-all"
+                                            className="p-3 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 shadow-md active:scale-95 transition-all disabled:opacity-50"
                                         >
                                             <Video className="w-6 h-6" />
                                         </button>
                                     </div>
-                                    <p className="text-[9px] text-indigo-400 mt-2 ml-1">* จะระบุ Location: {trip.locationName} และวันที่อัตโนมัติ</p>
+                                    <QuickTripCrewPicker
+                                        users={activeUsers}
+                                        ideaOwnerIds={quickIdeaOwnerIds}
+                                        editorIds={quickEditorIds}
+                                        assigneeIds={quickAssigneeIds}
+                                        onChangeIdeaOwnerIds={setQuickIdeaOwnerIds}
+                                        onChangeEditorIds={setQuickEditorIds}
+                                        onChangeAssigneeIds={setQuickAssigneeIds}
+                                    />
+                                    <p className="text-[11px] text-indigo-500 mt-2 ml-1">* จะระบุ Location: {trip.locationName} และวันที่อัตโนมัติ</p>
                                 </div>
                             )}
 

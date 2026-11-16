@@ -35,6 +35,7 @@ interface GoalCardProps {
     onEdit: (goal: Goal) => void;
     onRedeem: (id: string) => void;
     onRequestExtensionClick: (goal: Goal, onSubmitted: () => void) => void;
+    isHighlighted?: boolean;
 }
 
 const GoalCard: React.FC<GoalCardProps> = ({
@@ -50,6 +51,7 @@ const GoalCard: React.FC<GoalCardProps> = ({
     onEdit,
     onRedeem,
     onRequestExtensionClick,
+    isHighlighted = false,
 }) => {
     const { showConfirm } = useGlobalDialog();
     const [pendingRequest, setPendingRequest] = useState<any | null>(null);
@@ -152,7 +154,9 @@ const GoalCard: React.FC<GoalCardProps> = ({
             className={`
                 bg-slate-900/40 backdrop-blur-xl rounded-[1.5rem] sm:rounded-[2.5rem] border transition-all flex flex-col h-full group relative overflow-hidden cursor-pointer
                 ${
-                    isCompleted
+                    isHighlighted
+                        ? 'border-amber-300 ring-4 ring-amber-300/60 shadow-2xl shadow-amber-500/30 -translate-y-1'
+                        : isCompleted
                         ? 'border-emerald-500/30 shadow-lg shadow-emerald-900/20 hover:border-emerald-500/50'
                         : isNearCompletion
                         ? 'border-amber-500/50 shadow-2xl shadow-amber-900/30 ring-2 ring-amber-500/20 hover:-translate-y-1'

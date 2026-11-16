@@ -28,23 +28,31 @@ export function useTaskDeepLink({
   const handleOpenTaskById = useCallback(async (taskOrId: any, currentViewMode?: string) => {
     if (!taskOrId) return;
 
+    // Backwards-compatible recovery for legacy SLA_WARN:<uuid>:<date> strings
+    let normalizedInput = taskOrId;
+    if (typeof taskOrId === 'string' && taskOrId.startsWith('SLA_WARN:')) {
+      const parts = taskOrId.split(':');
+      normalizedInput = parts[1] || '';
+      if (!normalizedInput) return;
+    }
+
     let finalTask: Task | undefined;
     
     // 1. Resolve from input or local state
-    if (typeof taskOrId === 'string') {
-      finalTask = tasks.find(t => t.id === taskOrId);
-    } else if (taskOrId.title && taskOrId.type && taskOrId.status) {
+    if (typeof normalizedInput === 'string') {
+      finalTask = tasks.find(t => t.id === normalizedInput);
+    } else if (normalizedInput.title && normalizedInput.type && normalizedInput.status) {
       // It's already a full Task object
-      finalTask = taskOrId as Task;
-    } else if (taskOrId.id) {
+      finalTask = normalizedInput as Task;
+    } else if (normalizedInput.id) {
       // It's a partial object (likely from TaskDetail's Linked Content)
-      finalTask = tasks.find(t => t.id === taskOrId.id);
+      finalTask = tasks.find(t => t.id === normalizedInput.id);
     }
 
     // 2. Fetch from Supabase if not found locally
-    if (!finalTask && taskOrId) {
-      const targetId = typeof taskOrId === 'string' ? taskOrId : taskOrId.id;
-      const targetType = (typeof taskOrId !== 'string' && taskOrId.type) ? taskOrId.type : undefined;
+    if (!finalTask && normalizedInput) {
+      const targetId = typeof normalizedInput === 'string' ? normalizedInput : normalizedInput.id;
+      const targetType = (typeof normalizedInput !== 'string' && normalizedInput.type) ? normalizedInput.type : undefined;
       
       if (targetId) {
         showToast('กำลังโหลดข้อมูล...', 'info');
@@ -66,6 +74,19 @@ export function useTaskDeepLink({
     }
   }, [tasks, handleEditTask, fetchTaskById, showToast]);
 
+  const inferTargetViewFromParams = useCallback((params: URLSearchParams): ViewMode | null => {
+    return (
+      (params.get('view') as ViewMode) ||
+      (params.get('tab') || params.get('highlightReqId') ? 'ATTENDANCE' : null) ||
+      (params.get('presetId') ? 'COMPANY_CHECKLIST' : null) ||
+      (params.get('swapId') || params.get('expandSwap') ? 'DUTY' : null) ||
+      (params.get('meetingId') ? 'MEETINGS' : null) ||
+      (params.get('goalId') ? 'GOALS' : null) ||
+      (params.get('channels') || params.get('channel') || params.get('stockTab') || params.get('stockMode') ? 'ContentStock' : null) ||
+      (params.get('taskId') || params.get('contentId') || params.get('highlightTaskId') || params.get('openTaskId') ? 'CALENDAR' : null)
+    );
+  }, []);
+
   // --- DEEP LINK RESTORE FROM SESSIONSTORAGE ---
   useEffect(() => {
     if (isManagerLoading) return;
@@ -74,11 +95,8 @@ export function useTaskDeepLink({
     if (pendingDeepLink) {
       sessionStorage.removeItem('juijui_pending_deep_link');
       const params = new URLSearchParams(pendingDeepLink);
-      const targetView = (params.get('view') as ViewMode) 
-        || (params.get('channels') || params.get('channel') || params.get('stockTab') || params.get('stockMode') ? 'ContentStock' : null)
-        || (params.get('taskId') || params.get('contentId') || params.get('highlightTaskId') || params.get('openTaskId') ? 'CALENDAR' : null);
+      const targetView = inferTargetViewFromParams(params);
       if (targetView) {
-        // Check if the current search parameters are already identical to the deep link parameters
         let isIdentical = true;
         const targetMap = new Map<string, string>();
         params.forEach((val, key) => {
@@ -116,7 +134,7 @@ export function useTaskDeepLink({
         }
       }
     }
-  }, [isManagerLoading, handleNavigate, searchParams]);
+  }, [isManagerLoading, handleNavigate, searchParams, inferTargetViewFromParams]);
 
   // --- AUTO-OPEN TASK FROM URL PARAM (taskId / contentId / highlightTaskId / openTaskId) ---
   const initialTaskOpenedRef = useRef<string | null>(null);
@@ -153,10 +171,7 @@ export function useTaskDeepLink({
       try {
         const parsed = new URL(rawUrl, window.location.origin);
         const params = parsed.searchParams;
-        const targetView = (params.get('view') as ViewMode)
-          || (params.get('tab') || params.get('highlightReqId') ? 'ATTENDANCE' : null)
-          || (params.get('presetId') ? 'COMPANY_CHECKLIST' : null)
-          || (params.get('channels') || params.get('channel') || params.get('stockTab') || params.get('stockMode') ? 'ContentStock' : null);
+        const targetView = inferTargetViewFromParams(params);
 
         const queryObj: Record<string, string> = {};
         params.forEach((val, key) => {
@@ -166,12 +181,13 @@ export function useTaskDeepLink({
         });
 
         const taskToOpen = params.get('openTaskId') || params.get('taskId') || params.get('contentId') || params.get('highlightTaskId');
+        const taskModalViews = new Set<string>(['ContentStock', 'DASHBOARD', 'QUALITY_GATE', 'CALENDAR']);
 
         if (targetView) {
           handleNavigate(targetView, queryObj);
         }
 
-        if (taskToOpen) {
+        if (taskToOpen && (!targetView || taskModalViews.has(targetView))) {
           initialTaskOpenedRef.current = taskToOpen;
           handleOpenTaskById(taskToOpen);
         }
@@ -184,7 +200,7 @@ export function useTaskDeepLink({
     return () => {
       navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
     };
-  }, [handleNavigate, handleOpenTaskById]);
+  }, [handleNavigate, handleOpenTaskById, inferTargetViewFromParams]);
 
   return {
     handleOpenTaskById,

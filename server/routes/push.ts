@@ -84,39 +84,94 @@ function wasNotificationRecentlyDispatched(userId: string, title?: string, messa
 }
 
 /**
- * Resolves a notification row's link_path + related_id + type into a browser deep-link URL
+ * Resolves a notification row's link_path + related_id + type + metadata into a browser deep-link URL
  */
-function resolveServerDeepLinkUrl(linkPath?: string | null, relatedId?: string | null, notifType?: string | null): string {
+function resolveServerDeepLinkUrl(
+    linkPath?: string | null,
+    relatedId?: string | null,
+    notifType?: string | null,
+    metadata?: Record<string, any> | null
+): string {
     const rawLink = (linkPath || '').trim();
     const upperType = (notifType || '').toUpperCase();
 
-    if (rawLink === 'ATTENDANCE') {
-        if (relatedId && upperType === 'APPROVAL_REQ') {
-            return `/?view=ATTENDANCE&tab=APPROVALS&highlightReqId=${encodeURIComponent(relatedId)}`;
+    if (rawLink === 'ATTENDANCE' || rawLink === 'ADMIN_APPROVALS' || rawLink === 'LEAVE') {
+        const isApproval = rawLink === 'ADMIN_APPROVALS' || upperType === 'APPROVAL_REQ';
+        if (isApproval) {
+            return relatedId
+                ? `/?view=ATTENDANCE&tab=APPROVALS&highlightReqId=${encodeURIComponent(relatedId)}`
+                : '/?view=ATTENDANCE&tab=APPROVALS';
         }
-        if (upperType === 'APPROVAL_REQ') {
-            return '/?view=ATTENDANCE&tab=APPROVALS';
+        if (relatedId) {
+            return `/?view=ATTENDANCE&tab=HISTORY&highlightReqId=${encodeURIComponent(relatedId)}`;
+        }
+        if (rawLink === 'LEAVE') {
+            return '/?view=ATTENDANCE&tab=HISTORY';
         }
         return '/?view=ATTENDANCE';
     }
 
+    if (rawLink === 'COMPANY_CHECKLIST') {
+        const presetId = relatedId || metadata?.checklistId;
+        if (presetId) {
+            return `/?view=COMPANY_CHECKLIST&presetId=${encodeURIComponent(presetId)}`;
+        }
+        return '/?view=COMPANY_CHECKLIST';
+    }
+
+    if (rawLink === 'DUTY') {
+        const swapId = relatedId || metadata?.swapId;
+        if (swapId || upperType === 'APPROVAL_REQ' || metadata?.isSwap) {
+            return swapId
+                ? `/?view=DUTY&expandSwap=1&swapId=${encodeURIComponent(swapId)}`
+                : '/?view=DUTY&expandSwap=1';
+        }
+        return '/?view=DUTY';
+    }
+
+    if (rawLink === 'MEETING' || rawLink === 'MEETINGS') {
+        const meetingId = relatedId || metadata?.meetingId;
+        return meetingId
+            ? `/?view=MEETINGS&meetingId=${encodeURIComponent(meetingId)}`
+            : '/?view=MEETINGS';
+    }
+
+    if (rawLink === 'GOALS') {
+        const goalId = relatedId || metadata?.goalId;
+        return goalId
+            ? `/?view=GOALS&goalId=${encodeURIComponent(goalId)}`
+            : '/?view=GOALS';
+    }
+
     const viewKeyMap: Record<string, string> = {
-        ContentStock: '/?view=STOCK',
-        STOCK: '/?view=STOCK',
+        ContentStock: '/?view=ContentStock',
+        STOCK: '/?view=ContentStock',
         QUALITY_GATE: '/?view=QUALITY_GATE',
         ADMIN_DASHBOARD: '/?view=DASHBOARD',
         DASHBOARD: '/?view=DASHBOARD',
         TEAM_CHAT: '/?view=CHAT',
         CHAT: '/?view=CHAT',
         CALENDAR: '/?view=CALENDAR',
-        MEETING: '/?view=MEETINGS',
+        FINANCE: '/?view=FINANCE',
+        FEEDBACK: '/?view=FEEDBACK',
         KPI: '/?view=KPI',
-        DUTY: '/?view=DUTY',
+        WEEKLY: '/?view=WEEKLY',
+        WIKI: '/?view=WIKI',
+        LEADERBOARD: '/?view=LEADERBOARD',
+        TEAM: '/?view=TEAM',
+        SCRIPT_HUB: '/?view=SCRIPT_HUB',
+        CHECKLIST: '/?view=CHECKLIST',
+        CHANNELS: '/?view=CHANNELS',
+        ASSETS: '/?view=ASSETS',
+        NEXUS: '/?view=NEXUS',
+        ROADMAP: '/?view=ROADMAP',
+        ANALYTICS: '/?view=ANALYTICS',
     };
 
     if (rawLink && viewKeyMap[rawLink]) {
         let url = viewKeyMap[rawLink];
-        if (relatedId && (rawLink === 'ContentStock' || rawLink === 'DASHBOARD')) {
+        const supportsTaskModal = ['ContentStock', 'STOCK', 'DASHBOARD', 'ADMIN_DASHBOARD', 'QUALITY_GATE', 'CALENDAR'].includes(rawLink);
+        if (relatedId && supportsTaskModal) {
             url += `&openTaskId=${encodeURIComponent(relatedId)}`;
         }
         return url;
@@ -541,7 +596,7 @@ router.post('/api/push/send', async (req, res) => {
         // Enforce Multi-Tenant boundary
         const verifiedTargetIds = await filterUsersByOrganization(rawTargets, orgId);
 
-        const resolvedUrl = url || resolveServerDeepLinkUrl(actionLink, data?.relatedId || data?.taskId, category);
+        const resolvedUrl = url || resolveServerDeepLinkUrl(actionLink, data?.relatedId || data?.taskId, category, data?.metadata);
 
         const payload = {
             title: title || 'Kontent OS',
@@ -611,7 +666,7 @@ router.post('/api/push/webhook', async (req, res) => {
 
         const relatedId = record.related_id || record.task_id;
         const rawLinkPath = record.link_path || record.action_link || '/';
-        const resolvedDeepLink = resolveServerDeepLinkUrl(rawLinkPath, relatedId, record.type);
+        const resolvedDeepLink = resolveServerDeepLinkUrl(rawLinkPath, relatedId, record.type, record.metadata);
 
         // Build deterministic tag so multiple background reminders replace cleanly without spamming lock screen
         const pushTag = record.id

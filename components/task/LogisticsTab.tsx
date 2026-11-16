@@ -6,6 +6,7 @@ import { AnimatePresence } from 'framer-motion';
 import { useToast } from '../../context/ToastContext';
 import { supabase } from '../../lib/supabase';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
+import { insertAndDispatchNotifications } from '../../utils/pushDispatcher';
 import LogisticsForm from './logistics/LogisticsForm';
 import LogisticsList from './logistics/LogisticsList';
 import UserPickerModal from './logistics/UserPickerModal';
@@ -160,12 +161,17 @@ const LogisticsTab: React.FC<LogisticsTabProps> = ({ parentTask, users, currentU
 
             // Notification for Assignee
             if (actionTask.assigneeIds.length > 0) {
-                 await supabase.from('notifications').insert({
+                await insertAndDispatchNotifications({
                     user_id: actionTask.assigneeIds[0],
                     type: 'GAME_REWARD',
                     title: '✅ งานย่อยได้รับอนุมัติ (Quick Pass)',
                     message: `Admin อนุมัติ "${actionTask.title}" โดยไม่ต้องตรวจ: "${reason}"`,
+                    related_id: actionTask.id,
+                    link_path: actionTask.type === 'CONTENT' ? 'ContentStock' : 'CALENDAR',
                     is_read: false
+                }, {
+                    category: 'TASK_COMPLETE',
+                    senderId: currentUser.id
                 });
             }
 

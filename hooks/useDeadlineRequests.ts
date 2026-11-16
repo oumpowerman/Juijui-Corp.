@@ -3,13 +3,38 @@ import { supabase } from '../lib/supabase';
 import { DeadlineRequest, User } from '../types';
 import { useUserSession } from '../context/UserSessionContext';
 import { fetchOrgAdminIds, insertAndDispatchNotifications } from '../utils/pushDispatcher';
+import { toLocalMidnightISO, toLocalYMD } from '../utils/dateUtils';
+
+const mapTaskRequestRow = (req: any): DeadlineRequest => {
+    const profile = Array.isArray(req.profiles) ? req.profiles[0] : req.profiles;
+    const approverProfile = Array.isArray(req.approver) ? req.approver[0] : req.approver;
+    const task = Array.isArray(req.tasks) ? req.tasks[0] : req.tasks;
+
+    return {
+        id: req.id,
+        taskId: req.task_id,
+        requestedBy: req.requested_by,
+        approverId: req.resolved_by || undefined,
+        newDeadline: new Date(req.new_deadline),
+        reason: req.reason,
+        status: req.status,
+        createdAt: new Date(req.created_at),
+        user: profile ? { name: profile.full_name, avatarUrl: profile.avatar_url } : undefined,
+        approver: approverProfile
+            ? { name: approverProfile.full_name, avatarUrl: approverProfile.avatar_url, position: approverProfile.position }
+            : undefined,
+        taskTitle: task?.title,
+        originalDeadline: task?.end_date ? new Date(task.end_date) : undefined,
+        requestType: 'TASK'
+    };
+};
 
 export const useDeadlineRequests = (passedUser?: User) => {
     const { currentUserProfile } = useUserSession();
     const currentUser = passedUser || currentUserProfile || undefined;
     const [isLoading, setIsLoading] = useState(false);
 
-    // 1. Fetch Pending Requests for a specific Task
+    // 1. Fetch Latest Pending Request for a specific Task (safe against legacy duplicates)
     const getPendingRequestForTask = useCallback(async (taskId: string): Promise<DeadlineRequest | null> => {
         try {
             const { data, error } = await supabase
@@ -21,26 +46,13 @@ export const useDeadlineRequests = (passedUser?: User) => {
                 `)
                 .eq('task_id', taskId)
                 .eq('status', 'PENDING')
-                .maybeSingle();
-            
+                .order('created_at', { ascending: false })
+                .limit(1);
+
             if (error) throw error;
-            if (!data) return null;
+            if (!data || data.length === 0) return null;
 
-            const profile = Array.isArray(data.profiles) ? data.profiles[0] : data.profiles;
-            const approverProfile = Array.isArray(data.approver) ? data.approver[0] : data.approver;
-
-            return {
-                id: data.id,
-                taskId: data.task_id,
-                requestedBy: data.requested_by,
-                approverId: data.resolved_by || undefined,
-                newDeadline: new Date(data.new_deadline),
-                reason: data.reason,
-                status: data.status,
-                createdAt: new Date(data.created_at),
-                user: profile ? { name: profile.full_name, avatarUrl: profile.avatar_url } : undefined,
-                approver: approverProfile ? { name: approverProfile.full_name, avatarUrl: approverProfile.avatar_url, position: approverProfile.position } : undefined
-            };
+            return mapTaskRequestRow(data[0]);
         } catch (err) {
             console.error('Error fetching pending request:', err);
             return null;
@@ -57,32 +69,14 @@ export const useDeadlineRequests = (passedUser?: User) => {
                     id, task_id, requested_by, resolved_by, new_deadline, reason, status, created_at,
                     profiles:requested_by (full_name, avatar_url, position),
                     approver:resolved_by (full_name, avatar_url, position),
-                    tasks:task_id (title)
+                    tasks:task_id (title, end_date)
                 `)
                 .eq('status', 'PENDING')
                 .order('created_at', { ascending: false });
-            
+
             if (error) throw error;
 
-            return (data || []).map(req => {
-                const profile = Array.isArray(req.profiles) ? req.profiles[0] : req.profiles;
-                const approverProfile = Array.isArray(req.approver) ? req.approver[0] : req.approver;
-                const task = Array.isArray(req.tasks) ? req.tasks[0] : req.tasks;
-                
-                return {
-                    id: req.id,
-                    taskId: req.task_id,
-                    requestedBy: req.requested_by,
-                    approverId: req.resolved_by || undefined,
-                    newDeadline: new Date(req.new_deadline),
-                    reason: req.reason,
-                    status: req.status,
-                    createdAt: new Date(req.created_at),
-                    user: profile ? { name: profile.full_name, avatarUrl: profile.avatar_url } : undefined,
-                    approver: approverProfile ? { name: approverProfile.full_name, avatarUrl: approverProfile.avatar_url, position: approverProfile.position } : undefined,
-                    taskTitle: task?.title // Add task title for admin view
-                } as DeadlineRequest & { taskTitle?: string };
-            });
+            return (data || []).map(mapTaskRequestRow);
         } catch (err) {
             console.error('Error fetching all pending requests:', err);
             return [];
@@ -91,17 +85,39 @@ export const useDeadlineRequests = (passedUser?: User) => {
         }
     }, []);
 
-    // 3. Create a new Request (Member)
-    const createRequest = useCallback(async (taskId: string, newDateStr: string, reason: string, approverId?: string): Promise<{ success: boolean; data?: DeadlineRequest; error?: string }> => {
-        if (!currentUser) return { success: false, error: 'Not authenticated' };
-        
+    // 3. Create a new Request (Member) with Duplicate Guard
+    const createRequest = useCallback(async (
+        taskId: string,
+        newDateStr: string,
+        reason: string,
+        approverId?: string
+    ): Promise<{ success: boolean; data?: DeadlineRequest; error?: string }> => {
+        if (!currentUser) return { success: false, error: 'ไม่พบข้อมูลผู้ใช้งาน' };
+
         try {
             setIsLoading(true);
+
+            // Guard against duplicate PENDING requests for the same task
+            const { data: existingPending, error: checkError } = await supabase
+                .from('task_deadline_requests')
+                .select('id')
+                .eq('task_id', taskId)
+                .eq('status', 'PENDING')
+                .limit(1);
+
+            if (checkError) throw checkError;
+            if (existingPending && existingPending.length > 0) {
+                return {
+                    success: false,
+                    error: 'งานนี้มีคำขอเลื่อนที่รอพิจารณาอยู่แล้ว สามารถแก้ไขหรือยกเลิกคำขอเดิมได้'
+                };
+            }
+
             const insertPayload: any = {
                 task_id: taskId,
                 requested_by: currentUser.id,
-                new_deadline: new Date(newDateStr).toISOString(),
-                reason: reason,
+                new_deadline: toLocalMidnightISO(newDateStr),
+                reason: reason.trim(),
                 status: 'PENDING'
             };
             if (approverId) {
@@ -123,24 +139,25 @@ export const useDeadlineRequests = (passedUser?: User) => {
             await supabase.from('task_logs').insert({
                 task_id: taskId,
                 action: 'DEADLINE_EXTENSION_REQUESTED',
-                details: `ขอเลื่อนส่งงานเป็นวันที่ ${newDateStr} เหตุผล: ${reason}${approverId ? ` (ส่งถึงผู้อนุมัติ)` : ''}`,
+                details: `ขอเลื่อนกำหนดส่งงานเป็นวันที่ ${newDateStr} เหตุผล: ${reason.trim()}`,
                 user_id: currentUser.id,
                 metadata: {
                     category: 'DATES',
                     newDate: newDateStr,
-                    reason,
+                    reason: reason.trim(),
                     approverId
                 }
             });
 
-            // 🔔 Create Notification specifically for the assigned approver, or fallback to Admins
+            // Notify chosen Admin or all org Admins
             const targetUserIds = approverId ? [approverId] : await fetchOrgAdminIds(currentUser.id);
             if (targetUserIds.length > 0) {
+                const trimmedReason = reason.trim();
                 const notifications = targetUserIds.map(targetId => ({
                     user_id: targetId,
                     type: 'APPROVAL_REQ',
-                    title: '📅 คำขอเลื่อน Deadline ใหม่',
-                    message: `คุณ ${currentUser.name} ขอเลื่อนงาน: "${reason.substring(0, 50)}${reason.length > 50 ? '...' : ''}"`,
+                    title: '📅 คำขอเลื่อนกำหนดส่งงานใหม่',
+                    message: `คุณ ${currentUser.name} ขอเลื่อนกำหนดส่งเป็นวันที่ ${newDateStr}: "${trimmedReason.substring(0, 60)}${trimmedReason.length > 60 ? '...' : ''}"`,
                     related_id: taskId,
                     link_path: 'ADMIN_DASHBOARD',
                     is_read: false
@@ -151,23 +168,12 @@ export const useDeadlineRequests = (passedUser?: User) => {
                 });
             }
 
-            const approverProfile = data.approver ? (Array.isArray(data.approver) ? data.approver[0] : data.approver) : undefined;
+            const mapped = mapTaskRequestRow({
+                ...data,
+                profiles: { full_name: currentUser.name, avatar_url: currentUser.avatarUrl || '' }
+            });
 
-            return { 
-                success: true, 
-                data: {
-                    id: data.id,
-                    taskId: data.task_id,
-                    requestedBy: data.requested_by,
-                    approverId: data.resolved_by || undefined,
-                    newDeadline: new Date(data.new_deadline),
-                    reason: data.reason,
-                    status: data.status,
-                    createdAt: new Date(data.created_at),
-                    user: { name: currentUser.name, avatarUrl: currentUser.avatarUrl || '' },
-                    approver: approverProfile ? { name: approverProfile.full_name, avatarUrl: approverProfile.avatar_url, position: approverProfile.position } : undefined
-                }
-            };
+            return { success: true, data: mapped };
         } catch (err: any) {
             console.error('Error creating request:', err);
             return { success: false, error: err.message };
@@ -176,8 +182,141 @@ export const useDeadlineRequests = (passedUser?: User) => {
         }
     }, [currentUser]);
 
-    // 4. Resolve a Request (Admin)
-    const resolveRequest = useCallback(async (requestId: string, taskIdOrGoalId: string, isApproved: boolean, newDate?: Date, requestType: 'TASK' | 'GOAL' = 'TASK'): Promise<{ success: boolean; error?: string }> => {
+    // 4. Update an existing PENDING Request (Requester)
+    const updateRequest = useCallback(async (
+        requestId: string,
+        taskId: string,
+        newDateStr: string,
+        reason: string,
+        approverId?: string
+    ): Promise<{ success: boolean; data?: DeadlineRequest; error?: string }> => {
+        if (!currentUser) return { success: false, error: 'ไม่พบข้อมูลผู้ใช้งาน' };
+
+        try {
+            setIsLoading(true);
+            const updatePayload: any = {
+                new_deadline: toLocalMidnightISO(newDateStr),
+                reason: reason.trim(),
+                resolved_by: approverId || null
+            };
+
+            const { data, error } = await supabase
+                .from('task_deadline_requests')
+                .update(updatePayload)
+                .eq('id', requestId)
+                .eq('status', 'PENDING')
+                .select(`
+                    id, task_id, requested_by, resolved_by, new_deadline, reason, status, created_at,
+                    profiles:requested_by (full_name, avatar_url, position),
+                    approver:resolved_by (full_name, avatar_url, position)
+                `)
+                .single();
+
+            if (error) throw error;
+
+            await supabase.from('task_logs').insert({
+                task_id: taskId,
+                action: 'DEADLINE_EXTENSION_UPDATED',
+                details: `แก้ไขคำขอเลื่อนกำหนดส่งเป็นวันที่ ${newDateStr} เหตุผล: ${reason.trim()}`,
+                user_id: currentUser.id,
+                metadata: {
+                    category: 'DATES',
+                    requestId,
+                    newDate: newDateStr,
+                    reason: reason.trim(),
+                    approverId
+                }
+            });
+
+            const targetUserIds = approverId ? [approverId] : await fetchOrgAdminIds(currentUser.id);
+            if (targetUserIds.length > 0) {
+                const trimmedReason = reason.trim();
+                const notifications = targetUserIds.map(targetId => ({
+                    user_id: targetId,
+                    type: 'APPROVAL_REQ',
+                    title: '✏️ แก้ไขคำขอเลื่อนกำหนดส่งงาน',
+                    message: `คุณ ${currentUser.name} อัปเดตคำขอเลื่อนเป็นวันที่ ${newDateStr}: "${trimmedReason.substring(0, 60)}${trimmedReason.length > 60 ? '...' : ''}"`,
+                    related_id: taskId,
+                    link_path: 'ADMIN_DASHBOARD',
+                    is_read: false
+                }));
+                await insertAndDispatchNotifications(notifications, {
+                    category: 'DEADLINE_REQ',
+                    senderId: currentUser.id
+                });
+            }
+
+            return { success: true, data: mapTaskRequestRow(data) };
+        } catch (err: any) {
+            console.error('Error updating request:', err);
+            return { success: false, error: err.message };
+        } finally {
+            setIsLoading(false);
+        }
+    }, [currentUser]);
+
+    // 5. Cancel a PENDING Request (Requester or Admin) - cleans up any legacy duplicates on same task
+    const cancelRequest = useCallback(async (
+        requestId: string,
+        taskId: string
+    ): Promise<{ success: boolean; error?: string }> => {
+        if (!currentUser) return { success: false, error: 'ไม่พบข้อมูลผู้ใช้งาน' };
+
+        try {
+            setIsLoading(true);
+
+            // Attempt delete of pending rows on this task first
+            const { data: deletedRows, error: deleteError } = await supabase
+                .from('task_deadline_requests')
+                .delete()
+                .eq('task_id', taskId)
+                .eq('status', 'PENDING')
+                .select('id');
+
+            // Fallback if RLS blocks DELETE: mark as REJECTED so it leaves PENDING state
+            if (deleteError || !deletedRows || deletedRows.length === 0) {
+                const { error: fallbackError } = await supabase
+                    .from('task_deadline_requests')
+                    .update({
+                        status: 'REJECTED',
+                        resolved_at: new Date().toISOString(),
+                        resolved_by: currentUser.id
+                    })
+                    .eq('id', requestId)
+                    .eq('status', 'PENDING');
+
+                if (fallbackError) throw fallbackError;
+            }
+
+            await supabase.from('task_logs').insert({
+                task_id: taskId,
+                action: 'DEADLINE_EXTENSION_CANCELLED',
+                details: 'ผู้ขอยกเลิกคำขอเลื่อนกำหนดส่งงาน',
+                user_id: currentUser.id,
+                metadata: {
+                    category: 'DATES',
+                    requestId
+                }
+            });
+
+            return { success: true };
+        } catch (err: any) {
+            console.error('Error cancelling request:', err);
+            return { success: false, error: err.message };
+        } finally {
+            setIsLoading(false);
+        }
+    }, [currentUser]);
+
+    // 6. Resolve a Request (Any Admin can resolve; cascades to duplicate pending rows on same target)
+    const resolveRequest = useCallback(async (
+        requestId: string,
+        taskIdOrGoalId: string,
+        isApproved: boolean,
+        newDate?: Date,
+        requestType: 'TASK' | 'GOAL' = 'TASK',
+        feedback?: string
+    ): Promise<{ success: boolean; error?: string }> => {
         let userRole = currentUser?.role;
         let userId = currentUser?.id;
 
@@ -201,103 +340,159 @@ export const useDeadlineRequests = (passedUser?: User) => {
         }
 
         if (!userRole || userRole.toUpperCase() !== 'ADMIN' || !userId) {
-            return { success: false, error: `Unauthorized (User Role: ${userRole || 'NONE'})` };
+            return { success: false, error: `ไม่มีสิทธิ์ดำเนินการ (Role: ${userRole || 'NONE'})` };
         }
 
         try {
             setIsLoading(true);
             const status = isApproved ? 'APPROVED' : 'REJECTED';
-            
+            const trimmedFeedback = feedback?.trim() || '';
+            const resolvedAtIso = new Date().toISOString();
+
             if (requestType === 'GOAL') {
-                // Update Request Status
+                // Collect pending requesters on this goal before closing duplicates
+                const { data: pendingGoalRows } = await supabase
+                    .from('goal_deadline_requests')
+                    .select('id, requested_by')
+                    .eq('goal_id', taskIdOrGoalId)
+                    .eq('status', 'PENDING');
+
                 const { error: reqError } = await supabase
                     .from('goal_deadline_requests')
-                    .update({ 
+                    .update({
                         status,
-                        resolved_at: new Date().toISOString(),
+                        resolved_at: resolvedAtIso,
                         resolved_by: userId
                     })
-                    .eq('id', requestId);
-                    
+                    .eq('goal_id', taskIdOrGoalId)
+                    .eq('status', 'PENDING');
+
                 if (reqError) throw reqError;
 
-                // If Approved, update Goal Deadline and increment extension count
+                const { data: goalData } = await supabase
+                    .from('goals')
+                    .select('title, extension_count')
+                    .eq('id', taskIdOrGoalId)
+                    .maybeSingle();
+
                 if (isApproved && newDate) {
-                    // First get current extension_count
-                    const { data: goalData } = await supabase
-                        .from('goals')
-                        .select('extension_count')
-                        .eq('id', taskIdOrGoalId)
-                        .maybeSingle();
-
                     const currentCount = goalData?.extension_count || 0;
-
                     const { error: goalError } = await supabase
                         .from('goals')
-                        .update({ 
-                            deadline: newDate.toISOString(),
+                        .update({
+                            deadline: toLocalMidnightISO(newDate),
                             extension_count: currentCount + 1
                         })
                         .eq('id', taskIdOrGoalId);
-                    
+
                     if (goalError) throw goalError;
                 }
+
+                // Notify requester(s) about GOAL decision
+                const requesterIds: string[] = Array.from(
+                    new Set(
+                        (pendingGoalRows || [])
+                            .map((r: any) => r.requested_by)
+                            .filter((id: string) => id && id !== userId)
+                    )
+                );
+
+                if (requesterIds.length > 0) {
+                    const newDateFormatted = newDate ? toLocalYMD(newDate) : '';
+                    const goalLabel = goalData?.title ? `"${goalData.title}"` : 'เป้าหมาย';
+                    const notifications = requesterIds.map(uid => ({
+                        user_id: uid,
+                        type: 'INFO',
+                        title: isApproved ? '✅ อนุมัติเลื่อนกำหนดเป้าหมายแล้ว' : '❌ ไม่อนุมัติคำขอเลื่อนกำหนดเป้าหมาย',
+                        message: isApproved
+                            ? `คำขอเลื่อนกำหนด${goalLabel} ได้รับอนุมัติเป็นวันที่ ${newDateFormatted}`
+                            : trimmedFeedback
+                                ? `คำขอเลื่อนกำหนด${goalLabel} ไม่ได้รับอนุมัติ · เหตุผล: ${trimmedFeedback}`
+                                : `คำขอเลื่อนกำหนด${goalLabel} ไม่ได้รับอนุมัติ`,
+                        related_id: taskIdOrGoalId,
+                        link_path: 'GOALS',
+                        metadata: { goalId: taskIdOrGoalId, feedback: trimmedFeedback || undefined },
+                        is_read: false
+                    }));
+                    await insertAndDispatchNotifications(notifications, {
+                        category: 'DEADLINE_REQ',
+                        senderId: userId
+                    });
+                }
             } else {
-                // Update Request Status
+                // Collect pending requesters on this task before closing all pending sibling rows
+                const { data: pendingTaskRows } = await supabase
+                    .from('task_deadline_requests')
+                    .select('id, requested_by')
+                    .eq('task_id', taskIdOrGoalId)
+                    .eq('status', 'PENDING');
+
                 const { error: reqError } = await supabase
                     .from('task_deadline_requests')
-                    .update({ 
+                    .update({
                         status,
-                        resolved_at: new Date().toISOString(),
+                        resolved_at: resolvedAtIso,
                         resolved_by: userId
                     })
-                    .eq('id', requestId);
-                    
+                    .eq('task_id', taskIdOrGoalId)
+                    .eq('status', 'PENDING');
+
                 if (reqError) throw reqError;
 
-                // If Approved, update Task End Date
                 if (isApproved && newDate) {
                     const { error: taskError } = await supabase
                         .from('tasks')
-                        .update({ end_date: newDate.toISOString() })
+                        .update({ end_date: toLocalMidnightISO(newDate) })
                         .eq('id', taskIdOrGoalId);
-                    
+
                     if (taskError) throw taskError;
                 }
 
-                // Add Log
+                const newDateStr = newDate ? toLocalYMD(newDate) : '';
+                const logDetails = isApproved
+                    ? `อนุมัติการเลื่อนกำหนดส่งเป็นวันที่ ${newDateStr}`
+                    : trimmedFeedback
+                        ? `ปฏิเสธคำขอเลื่อนกำหนดส่ง · เหตุผล: ${trimmedFeedback}`
+                        : `ปฏิเสธคำขอเลื่อนกำหนดส่ง`;
+
                 await supabase.from('task_logs').insert({
                     task_id: taskIdOrGoalId,
                     action: isApproved ? 'DEADLINE_EXTENSION_APPROVED' : 'DEADLINE_EXTENSION_REJECTED',
-                    details: isApproved ? `อนุมัติการเลื่อน Deadline เป็นวันที่ ${newDate?.toISOString().split('T')[0]}` : `ปฏิเสธคำขอเลื่อน Deadline`,
+                    details: logDetails,
                     user_id: userId,
                     metadata: {
                         category: 'DATES',
+                        requestId,
                         isApproved,
-                        newDate: newDate ? newDate.toISOString().split('T')[0] : null
+                        newDate: newDateStr || null,
+                        feedback: trimmedFeedback || null
                     }
                 });
 
-                // Notify the requesting employee of the decision
-                const { data: reqRow } = await supabase
-                    .from('task_deadline_requests')
-                    .select('requested_by')
-                    .eq('id', requestId)
-                    .maybeSingle();
+                const requesterIds: string[] = Array.from(
+                    new Set(
+                        (pendingTaskRows || [])
+                            .map((r: any) => r.requested_by)
+                            .filter((id: string) => id && id !== userId)
+                    )
+                );
 
-                if (reqRow?.requested_by && reqRow.requested_by !== userId) {
-                    const newDateFormatted = newDate ? newDate.toISOString().split('T')[0] : '';
-                    await insertAndDispatchNotifications({
-                        user_id: reqRow.requested_by,
+                if (requesterIds.length > 0) {
+                    const notifications = requesterIds.map(uid => ({
+                        user_id: uid,
                         type: 'INFO',
-                        title: isApproved ? '✅ อนุมัติการเลื่อนกำหนดส่งงาน' : '❌ ปฏิเสธคำขอเลื่อนกำหนดส่งงาน',
+                        title: isApproved ? '✅ อนุมัติการเลื่อนกำหนดส่งงาน' : '❌ ไม่อนุมัติคำขอเลื่อนกำหนดส่งงาน',
                         message: isApproved
-                            ? `คำขอเลื่อนกำหนดส่งงานของคุณได้รับอนุมัติเป็นวันที่ ${newDateFormatted}`
-                            : 'คำขอเลื่อนกำหนดส่งงานของคุณไม่ได้รับการอนุมัติ',
+                            ? `คำขอเลื่อนกำหนดส่งงานของคุณได้รับอนุมัติเป็นวันที่ ${newDateStr}`
+                            : trimmedFeedback
+                                ? `คำขอเลื่อนกำหนดส่งงานของคุณไม่ได้รับอนุมัติ · เหตุผล: ${trimmedFeedback}`
+                                : 'คำขอเลื่อนกำหนดส่งงานของคุณไม่ได้รับอนุมัติ',
                         related_id: taskIdOrGoalId,
                         link_path: 'DASHBOARD',
+                        metadata: { taskId: taskIdOrGoalId, feedback: trimmedFeedback || undefined },
                         is_read: false
-                    }, {
+                    }));
+                    await insertAndDispatchNotifications(notifications, {
                         category: 'DEADLINE_REQ',
                         senderId: userId
                     });
@@ -318,6 +513,8 @@ export const useDeadlineRequests = (passedUser?: User) => {
         getPendingRequestForTask,
         getAllPendingRequests,
         createRequest,
+        updateRequest,
+        cancelRequest,
         resolveRequest
     };
 };

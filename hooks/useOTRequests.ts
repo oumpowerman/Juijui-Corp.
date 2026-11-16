@@ -109,7 +109,7 @@ export const useOTRequests = () => {
             const multiplier = getMultiplier(type);
             const estimatedPayout = Number((hourlyRate * multiplier * durationHours).toFixed(2));
 
-            const { error } = await supabase
+            const { data: insertedOt, error } = await supabase
                 .from('ot_requests')
                 .insert({
                     user_id: currentUserProfile.id,
@@ -122,7 +122,9 @@ export const useOTRequests = () => {
                     status: 'PENDING',
                     base_salary_at_time: baseSalary,
                     computed_payout: estimatedPayout
-                });
+                })
+                .select('id')
+                .single();
 
             if (error) throw error;
 
@@ -135,8 +137,9 @@ export const useOTRequests = () => {
                         title: '⏰ คำขอ OT ใหม่',
                         message: `คุณ ${currentUserProfile.name || 'พนักงาน'} ส่งคำขอ OT (${durationHours} ชม.) วันที่ ${date}: "${reason}"`,
                         is_read: false,
+                        related_id: insertedOt?.id || null,
                         link_path: 'ATTENDANCE',
-                        metadata: { request_type: 'OT', date, duration: durationHours }
+                        metadata: { request_type: 'OT', request_id: insertedOt?.id || null, date, duration: durationHours }
                     }));
                     await insertAndDispatchNotifications(otNotifs, {
                         category: 'APPROVAL_REQ',

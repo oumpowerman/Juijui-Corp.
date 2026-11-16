@@ -189,12 +189,34 @@ export const MeetingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         await fetchHistoryMeetings(nextPage);
     }, [historyPage, fetchHistoryMeetings]);
 
-    // Fetch Full Detail when needed
+    // Fetch Full Detail when needed (including cross-month deep-link meetings)
     const fetchMeetingDetail = useCallback(async (id: string) => {
         const existing = meetings.find(m => m.id === id);
         if (existing && !existing.isPartial) return; // Already have full data
 
         try {
+            if (!existing) {
+                const { data: fullRow, error: fullError } = await supabase
+                    .from('meeting_logs')
+                    .select('*')
+                    .eq('id', id)
+                    .maybeSingle();
+
+                if (fullError) throw fullError;
+                if (fullRow) {
+                    const mappedFull: MeetingLog = {
+                        ...mapMeeting(fullRow),
+                        isPartial: false,
+                    };
+                    setMeetings(prev => (
+                        prev.some(m => m.id === id)
+                            ? prev.map(m => (m.id === id ? mappedFull : m))
+                            : [mappedFull, ...prev]
+                    ));
+                }
+                return;
+            }
+
             const { data, error } = await supabase
                 .from('meeting_logs')
                 .select('content, sheets, decisions, agenda, assets')
@@ -223,7 +245,7 @@ export const MeetingProvider: React.FC<{ children: React.ReactNode }> = ({ child
         } catch (err) {
             console.error('Fetch meeting detail failed:', err);
         }
-    }, [meetings]);
+    }, [meetings, mapMeeting]);
 
     // Listen for workspace switch to clear meetings and reload for the new organization
     useEffect(() => {

@@ -2,6 +2,7 @@ import { useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { User } from '../types';
 import { useUserSession } from '../context/UserSessionContext';
+import { insertAndDispatchNotifications, fetchOrgAdminIds } from '../utils/pushDispatcher';
 
 export interface GoalDeadlineRequest {
     id: string;
@@ -27,7 +28,7 @@ export const useGoalDeadlineRequests = (passedUser?: User) => {
     // 1. Fetch Pending Requests for a specific Goal
     const getPendingRequestForGoal = useCallback(async (goalId: string): Promise<GoalDeadlineRequest | null> => {
         try {
-            const { data, error } = await supabase
+            const { data: rows, error } = await supabase
                 .from('goal_deadline_requests')
                 .select(`
                     id, goal_id, requested_by, resolved_by, new_deadline, reason, status, created_at,
@@ -36,9 +37,11 @@ export const useGoalDeadlineRequests = (passedUser?: User) => {
                 `)
                 .eq('goal_id', goalId)
                 .eq('status', 'PENDING')
-                .maybeSingle();
-            
+                .order('created_at', { ascending: false })
+                .limit(1);
+
             if (error) throw error;
+            const data = rows?.[0];
             if (!data) return null;
 
             // Handle nested objects / arrays from supabase relations
@@ -135,13 +138,12 @@ export const useGoalDeadlineRequests = (passedUser?: User) => {
 
             if (error) throw error;
 
-            // 🔔 Create Notification for the assigned approver, or fallback to Admins
+            // 🔔 Create Notification for the assigned approver, or fallback to Org Admins
             let targetUserIds: string[] = [];
             if (approverId) {
                 targetUserIds = [approverId];
             } else {
-                const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'ADMIN');
-                targetUserIds = (admins || []).map(a => a.id);
+                targetUserIds = await fetchOrgAdminIds(currentUser.id);
             }
 
             if (targetUserIds.length > 0) {
@@ -151,9 +153,13 @@ export const useGoalDeadlineRequests = (passedUser?: User) => {
                     title: '📅 คำขอเลื่อน Deadline เป้าหมาย',
                     message: `คุณ ${currentUser.name} ขอเลื่อนเป้าหมาย: "${reason.substring(0, 50)}${reason.length > 50 ? '...' : ''}"`,
                     related_id: goalId,
-                    link_path: 'GOALS'
+                    link_path: 'GOALS',
+                    metadata: { goalId }
                 }));
-                await supabase.from('notifications').insert(notifications);
+                await insertAndDispatchNotifications(notifications, {
+                    category: 'APPROVAL_REQ',
+                    senderId: currentUser.id
+                });
             }
 
             const approverProfile = data.approver ? (Array.isArray(data.approver) ? data.approver[0] : data.approver) : undefined;

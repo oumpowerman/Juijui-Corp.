@@ -8,6 +8,7 @@ import { endOfMonth, format } from 'date-fns';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
 import { useMasterData } from './useMasterData';
 import { getOrgStoragePath } from '../lib/tenantStorage';
+import { insertAndDispatchNotifications } from '../utils/pushDispatcher';
 
 export const usePayroll = (currentUser: User) => {
     const { showToast } = useToast();
@@ -31,7 +32,10 @@ export const usePayroll = (currentUser: User) => {
             is_read: false,
             link_path: 'FINANCE' // Navigate to finance tab
         }));
-        await supabase.from('notifications').insert(notifications);
+        await insertAndDispatchNotifications(notifications, {
+            category: type === 'ACTION' ? 'APPROVAL_REQ' : 'SYSTEM',
+            senderId: currentUser.id
+        });
     };
 
     // --- FETCH CYCLES ---

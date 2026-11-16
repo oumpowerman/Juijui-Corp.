@@ -15,6 +15,7 @@ import { toValidUuid } from '../utils/gamificationUtils';
 import { useMasterData } from './useMasterData';
 import { useUserSession } from '../context/UserSessionContext';
 import { BRAND_CONFIG } from '../config/brand';
+import { insertAndDispatchNotifications } from '../utils/pushDispatcher';
 
 export const useAutoJudge = (currentUser: User | null) => {
     const { processAction } = useGamification(currentUser);
@@ -140,18 +141,18 @@ export const useAutoJudge = (currentUser: User | null) => {
                     }
 
                     // Create Resurrection Notification
-                    const { error: notifError } = await supabase.from('notifications').insert({
-                        user_id: currentUser.id,
-                        type: 'RESURRECTION',
-                        title: '🌟 ปาฏิหาริย์! คุณฟื้นคืนชีพแล้ว',
-                        message: 'หัวใจของคุณกลับมาเต้นอีกครั้ง! พลังชีวิตได้รับการฟื้นฟูแล้ว ขอให้วันนี้เป็นการเริ่มต้นใหม่ที่ยอดเยี่ยมนะ!',
-                        is_read: false
-                    });
-
-                    if (notifError) {
-                        console.error("[AutoJudge] Resurrection Notification Error:", notifError);
-                    } else {
+                    try {
+                        await insertAndDispatchNotifications({
+                            user_id: currentUser.id,
+                            type: 'RESURRECTION',
+                            title: '🌟 ปาฏิหาริย์! คุณฟื้นคืนชีพแล้ว',
+                            message: 'หัวใจของคุณกลับมาเต้นอีกครั้ง! พลังชีวิตได้รับการฟื้นฟูแล้ว ขอให้วันนี้เป็นการเริ่มต้นใหม่ที่ยอดเยี่ยมนะ!',
+                            link_path: 'DASHBOARD',
+                            is_read: false
+                        }, { category: 'SYSTEM' });
                         console.log("[AutoJudge] 🌟 Resurrection Notification Created Successfully");
+                    } catch (notifError) {
+                        console.error("[AutoJudge] Resurrection Notification Error:", notifError);
                     }
                 }
                 
@@ -272,14 +273,15 @@ export const useAutoJudge = (currentUser: User | null) => {
                             console.error("Error cleaning old death warning notifications:", cleanErr);
                         }
 
-                        await supabase.from('notifications').insert({
+                        await insertAndDispatchNotifications({
                             user_id: currentUser.id,
                             type: 'DEATH_WARNING',
                             title: '💀 คำเตือน: วิญญาณกำลังจะแตกสลาย',
                             message: `HP ของคุณเป็น 0 มาแล้ว ${workingDaysPassed} วันทำการ หากไม่ฟื้นฟูภายใน ${daysRemaining} วันสุดท้าย คุณจะเข้าสู่สถานะ DEATH (พ้นสภาพพนักงาน)`,
+                            link_path: 'DASHBOARD',
                             metadata: { daysRemaining, depletedAt: currentUser.hpDepletedAt },
                             is_read: false
-                        });
+                        }, { category: 'SYSTEM' });
                     }
                 }
             }

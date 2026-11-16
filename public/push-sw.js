@@ -15,7 +15,7 @@ self.addEventListener('activate', (event) => {
 function resolveNotificationTargetUrl(rawUrl, data) {
   const fallback = '/';
   const relatedId = data?.relatedId || data?.taskId || data?.metadata?.request_id || data?.metadata?.checklistId;
-  const notifType = data?.type || data?.category;
+  const notifType = (data?.type || data?.category || '').toUpperCase();
 
   if (!rawUrl && !relatedId) return fallback;
 
@@ -26,18 +26,50 @@ function resolveNotificationTargetUrl(rawUrl, data) {
 
   if (rawUrl === 'ATTENDANCE' || rawUrl === 'ADMIN_APPROVALS' || rawUrl === 'LEAVE') {
     const isApproval = rawUrl === 'ADMIN_APPROVALS' || notifType === 'APPROVAL_REQ';
-    const targetTab = isApproval ? 'APPROVALS' : 'HISTORY';
-    if (relatedId) {
-      return `/?view=ATTENDANCE&tab=${targetTab}&highlightReqId=${encodeURIComponent(relatedId)}`;
+    if (isApproval) {
+      return relatedId
+        ? `/?view=ATTENDANCE&tab=APPROVALS&highlightReqId=${encodeURIComponent(relatedId)}`
+        : '/?view=ATTENDANCE&tab=APPROVALS';
     }
-    return `/?view=ATTENDANCE&tab=${targetTab}`;
+    if (relatedId) {
+      return `/?view=ATTENDANCE&tab=HISTORY&highlightReqId=${encodeURIComponent(relatedId)}`;
+    }
+    if (rawUrl === 'LEAVE') {
+      return '/?view=ATTENDANCE&tab=HISTORY';
+    }
+    return '/?view=ATTENDANCE';
   }
 
   if (rawUrl === 'COMPANY_CHECKLIST') {
-    if (relatedId) {
-      return `/?view=COMPANY_CHECKLIST&presetId=${encodeURIComponent(relatedId)}`;
+    const presetId = relatedId || data?.metadata?.checklistId;
+    if (presetId) {
+      return `/?view=COMPANY_CHECKLIST&presetId=${encodeURIComponent(presetId)}`;
     }
     return '/?view=COMPANY_CHECKLIST';
+  }
+
+  if (rawUrl === 'DUTY') {
+    const swapId = relatedId || data?.metadata?.swapId;
+    if (swapId || notifType === 'APPROVAL_REQ' || data?.metadata?.isSwap) {
+      return swapId
+        ? `/?view=DUTY&expandSwap=1&swapId=${encodeURIComponent(swapId)}`
+        : '/?view=DUTY&expandSwap=1';
+    }
+    return '/?view=DUTY';
+  }
+
+  if (rawUrl === 'MEETING' || rawUrl === 'MEETINGS') {
+    const meetingId = relatedId || data?.metadata?.meetingId;
+    return meetingId
+      ? `/?view=MEETINGS&meetingId=${encodeURIComponent(meetingId)}`
+      : '/?view=MEETINGS';
+  }
+
+  if (rawUrl === 'GOALS') {
+    const goalId = relatedId || data?.metadata?.goalId;
+    return goalId
+      ? `/?view=GOALS&goalId=${encodeURIComponent(goalId)}`
+      : '/?view=GOALS';
   }
 
   const viewKeyMap = {
@@ -49,17 +81,20 @@ function resolveNotificationTargetUrl(rawUrl, data) {
     TEAM_CHAT: '/?view=CHAT',
     CHAT: '/?view=CHAT',
     CALENDAR: '/?view=CALENDAR',
-    MEETING: '/?view=MEETINGS',
-    MEETINGS: '/?view=MEETINGS',
-    DUTY: '/?view=DUTY',
     FINANCE: '/?view=FINANCE',
-    GOALS: '/?view=GOALS',
     FEEDBACK: '/?view=FEEDBACK',
     KPI: '/?view=KPI',
     WEEKLY: '/?view=WEEKLY',
     WIKI: '/?view=WIKI',
     LEADERBOARD: '/?view=LEADERBOARD',
-    TEAM: '/?view=TEAM'
+    TEAM: '/?view=TEAM',
+    SCRIPT_HUB: '/?view=SCRIPT_HUB',
+    CHECKLIST: '/?view=CHECKLIST',
+    CHANNELS: '/?view=CHANNELS',
+    ASSETS: '/?view=ASSETS',
+    NEXUS: '/?view=NEXUS',
+    ROADMAP: '/?view=ROADMAP',
+    ANALYTICS: '/?view=ANALYTICS'
   };
 
   if (rawUrl && viewKeyMap[rawUrl]) {

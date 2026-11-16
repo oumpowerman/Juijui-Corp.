@@ -339,7 +339,35 @@ export const NotificationProvider: React.FC<{ currentUser: User | null, children
                     if (payload.new.status !== 'PENDING') {
                         setDeadlineRequests(prev => prev.filter(r => r.id !== payload.new.id));
                     } else {
-                        setDeadlineRequests(prev => prev.map(r => r.id === payload.new.id ? { ...r, ...payload.new } : r));
+                        supabase
+                            .from('task_deadline_requests')
+                            .select(`
+                                id, task_id, requested_by, resolved_by, new_deadline, reason, status, created_at,
+                                profiles:requested_by (full_name, avatar_url, position),
+                                approver:resolved_by (full_name, avatar_url, position),
+                                tasks:task_id (title, end_date)
+                            `)
+                            .eq('id', payload.new.id)
+                            .maybeSingle()
+                            .then(({ data }) => {
+                                if (!data || data.status !== 'PENDING') return;
+                                const profile = Array.isArray(data.profiles) ? data.profiles[0] : data.profiles;
+                                const approverProfile = Array.isArray(data.approver) ? data.approver[0] : data.approver;
+                                const task = Array.isArray(data.tasks) ? data.tasks[0] : data.tasks;
+                                const mapped = {
+                                    ...data,
+                                    taskId: data.task_id,
+                                    approverId: data.resolved_by || undefined,
+                                    requestType: 'TASK' as const,
+                                    newDeadline: new Date(data.new_deadline),
+                                    createdAt: new Date(data.created_at),
+                                    user: profile ? { name: profile.full_name, avatarUrl: profile.avatar_url } : undefined,
+                                    approver: approverProfile ? { name: approverProfile.full_name, avatarUrl: approverProfile.avatar_url, position: approverProfile.position } : undefined,
+                                    taskTitle: task?.title,
+                                    originalDeadline: task?.end_date ? new Date(task.end_date) : undefined
+                                };
+                                setDeadlineRequests(prev => prev.map(r => r.id === data.id ? mapped : r));
+                            });
                     }
                 } else if (payload.eventType === 'DELETE') {
                     setDeadlineRequests(prev => prev.filter(r => r.id !== payload.old.id));
@@ -387,7 +415,37 @@ export const NotificationProvider: React.FC<{ currentUser: User | null, children
                     if (payload.new.status !== 'PENDING') {
                         setDeadlineRequests(prev => prev.filter(r => r.id !== payload.new.id));
                     } else {
-                        setDeadlineRequests(prev => prev.map(r => r.id === payload.new.id ? { ...r, ...payload.new } : r));
+                        supabase
+                            .from('goal_deadline_requests')
+                            .select(`
+                                id, goal_id, requested_by, resolved_by, new_deadline, reason, status, created_at,
+                                profiles:requested_by (full_name, avatar_url, position),
+                                approver:resolved_by (full_name, avatar_url, position),
+                                goals:goal_id (title, deadline)
+                            `)
+                            .eq('id', payload.new.id)
+                            .maybeSingle()
+                            .then(({ data }) => {
+                                if (!data || data.status !== 'PENDING') return;
+                                const profile = Array.isArray(data.profiles) ? data.profiles[0] : data.profiles;
+                                const approverProfile = Array.isArray(data.approver) ? data.approver[0] : data.approver;
+                                const goal = Array.isArray(data.goals) ? data.goals[0] : data.goals;
+                                const mapped = {
+                                    ...data,
+                                    taskId: data.goal_id,
+                                    goalId: data.goal_id,
+                                    approverId: data.resolved_by || undefined,
+                                    requestType: 'GOAL' as const,
+                                    newDeadline: new Date(data.new_deadline),
+                                    createdAt: new Date(data.created_at),
+                                    user: profile ? { name: profile.full_name, avatarUrl: profile.avatar_url } : undefined,
+                                    approver: approverProfile ? { name: approverProfile.full_name, avatarUrl: approverProfile.avatar_url, position: approverProfile.position } : undefined,
+                                    taskTitle: `🎯 เป้าหมาย: ${goal?.title || 'เป้าหมาย'}`,
+                                    goalTitle: goal?.title,
+                                    originalDeadline: goal?.deadline ? new Date(goal.deadline) : undefined
+                                };
+                                setDeadlineRequests(prev => prev.map(r => r.id === data.id ? mapped : r));
+                            });
                     }
                 } else if (payload.eventType === 'DELETE') {
                     setDeadlineRequests(prev => prev.filter(r => r.id !== payload.old.id));

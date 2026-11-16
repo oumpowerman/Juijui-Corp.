@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { insertAndDispatchNotifications } from '../utils/pushDispatcher';
 
 export interface ChecklistAlertTestResult {
     count: number;
@@ -102,8 +103,10 @@ export const checklistAlertTestService = {
             }
         };
 
-        const { error: insertErr } = await supabase.from('notifications').insert(testPayload);
-        if (insertErr) throw insertErr;
+        await insertAndDispatchNotifications(testPayload, {
+            category: 'UPCOMING_DEADLINE',
+            senderId: adminUserId
+        });
 
         return { count: 2, triggered: true, isMockFallback: true };
     }

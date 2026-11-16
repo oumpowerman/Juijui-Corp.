@@ -5,57 +5,57 @@ interface DeadlineRequestsBatchBarProps {
     selectedIds: string[];
     isProcessingBatch: boolean;
     handleBatchResolve: (isApproved: boolean) => void;
-    hasUnauthorizedItems?: boolean;
-    unauthorizedCount?: number;
+    otherAdminCount?: number;
 }
 
 const DeadlineRequestsBatchBar: React.FC<DeadlineRequestsBatchBarProps> = ({
     selectedIds,
     isProcessingBatch,
     handleBatchResolve,
-    hasUnauthorizedItems = false,
-    unauthorizedCount = 0
+    otherAdminCount = 0
 }) => {
     return (
         <AnimatePresence>
             {selectedIds.length > 0 && (
                 <motion.div
-                     initial={{ y: 50, opacity: 0, x: '-50%' }}
-                     animate={{ y: 0, opacity: 1, x: '-50%' }}
-                     exit={{ y: 50, opacity: 0, x: '-50%' }}
-                     transition={{ type: 'spring', damping: 22, stiffness: 200 }}
-                     className="absolute bottom-6 left-1/2 bg-slate-900 text-white rounded-2xl shadow-xl px-5 py-3 flex flex-col md:flex-row md:items-center justify-between gap-3 z-50 w-[95%] max-w-lg border border-slate-800 text-left"
+                    initial={{ y: 24, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: 24, opacity: 0 }}
+                    transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] as const }}
+                    className="shrink-0 bg-slate-800 text-white px-4 sm:px-6 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 border-t border-slate-700 pb-[max(0.75rem,env(safe-area-inset-bottom))]"
                 >
-                    <div className="text-left flex items-center gap-2.5">
-                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-bold ${
-                            hasUnauthorizedItems ? 'bg-amber-500/20 text-amber-400' : 'bg-indigo-500/20 text-indigo-400'
-                        }`}>
+                    <div className="flex items-center gap-3 text-left">
+                        <div className="w-7 h-7 rounded-xl bg-indigo-500/30 text-indigo-200 border border-indigo-400/30 flex items-center justify-center text-xs font-bold tabular-nums shrink-0">
                             {selectedIds.length}
                         </div>
-                        <div className="text-left">
-                            <h4 className="text-[10px] text-slate-350 tracking-wider uppercase font-bold">การอนุมัติคำขอแบบหมู่คณะ (Batch Actions)</h4>
-                            {hasUnauthorizedItems ? (
-                                <p className="text-[9px] text-amber-400 font-medium">⚠️ มี {unauthorizedCount} รายการที่ส่งถึงหัวหน้าท่านอื่น (เลือกได้เฉพาะคำขอของคุณ)</p>
-                            ) : (
-                                <p className="text-[9px] text-slate-400">ประมวลผลคำขอเดดไลน์ {selectedIds.length} รายการพร้อมกัน</p>
-                            )}
+                        <div>
+                            <h4 className="text-xs font-bold text-white">
+                                ดำเนินการพร้อมกัน {selectedIds.length} รายการ
+                            </h4>
+                            <p className="text-[11px] text-slate-300">
+                                {otherAdminCount > 0
+                                    ? `มี ${otherAdminCount} รายการที่ระบุถึง Admin ท่านอื่น (คุณอนุมัติ/ปฏิเสธแทนได้)`
+                                    : 'อนุมัติตามวันที่พนักงานร้องขอ หรือปฏิเสธทั้งหมดที่เลือก'}
+                            </p>
                         </div>
                     </div>
 
-                    <div className="flex justify-end gap-2 shrink-0">
+                    <div className="flex items-center justify-end gap-2 shrink-0">
                         <button
+                            type="button"
                             onClick={() => handleBatchResolve(false)}
-                            disabled={isProcessingBatch || hasUnauthorizedItems}
-                            className="px-3 py-1.5 bg-slate-800 hover:bg-rose-950 hover:text-rose-400 text-slate-350 text-[10px] rounded-lg transition-colors font-bold disabled:opacity-40 disabled:cursor-not-allowed"
+                            disabled={isProcessingBatch}
+                            className="px-3.5 py-2 bg-slate-700 hover:bg-rose-600 text-slate-100 text-xs rounded-xl transition-colors font-bold disabled:opacity-50"
                         >
-                            ปฏิเสธชุดนี้
+                            ปฏิเสธที่เลือก
                         </button>
                         <button
+                            type="button"
                             onClick={() => handleBatchResolve(true)}
-                            disabled={isProcessingBatch || hasUnauthorizedItems}
-                            className="px-4 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] rounded-lg shadow-sm transition-colors font-bold disabled:opacity-40 disabled:cursor-not-allowed"
+                            disabled={isProcessingBatch}
+                            className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white text-xs rounded-xl transition-colors font-bold disabled:opacity-50"
                         >
-                            อนุมัติชุดนี้ตามขอ
+                            อนุมัติที่เลือกทั้งหมด
                         </button>
                     </div>
                 </motion.div>

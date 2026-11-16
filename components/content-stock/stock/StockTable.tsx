@@ -42,6 +42,7 @@ interface StockTableProps {
     onTagClick?: (tag: string) => void;
     onUpdateLocalTask?: (task: Task, isDelete?: boolean) => void;
     onUpdateSubChecklist?: (id: string, progress: Record<string, boolean>) => Promise<boolean>;
+    onTaskContextMenu?: (e: React.MouseEvent, task: Task) => void;
 }
 
 const StockTable: React.FC<StockTableProps> = React.memo(({ 
@@ -49,7 +50,7 @@ const StockTable: React.FC<StockTableProps> = React.memo(({
     sortConfig, onSort,
     totalCount, currentPage, onPageChange, itemsPerPage,
     onEdit, onSchedule, onToggleQueue, onAddToWorkbox, onEditScript, onOpenAnalytics,
-    onTagClick, onUpdateLocalTask, onUpdateSubChecklist
+    onTagClick, onUpdateLocalTask, onUpdateSubChecklist, onTaskContextMenu
 }) => {
     const { setIsDragging, items: workboxItems } = useWorkboxContext();
     
@@ -278,6 +279,7 @@ const StockTable: React.FC<StockTableProps> = React.memo(({
                                 onUpdateLocalTask={onUpdateLocalTask}
                                 onUpdateSubChecklist={onUpdateSubChecklist}
                                 masterOptions={masterOptions}
+                                onTaskContextMenu={onTaskContextMenu}
                             />
                         ))}
                         </AnimatePresence>

@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { FeedbackItem, FeedbackType, FeedbackStatus, User, FeedbackComment } from '../types';
 import { useToast } from '../context/ToastContext';
+import { insertAndDispatchNotifications, fetchOrgAdminIds } from '../utils/pushDispatcher';
 
 export const useFeedback = (currentUser: User) => {
     const [feedbacks, setFeedbacks] = useState<FeedbackItem[]>([]);
@@ -172,18 +173,21 @@ export const useFeedback = (currentUser: User) => {
             if (error) throw error;
 
             // --- NOTIFY ADMINS ---
-            const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'ADMIN');
-            if (admins && admins.length > 0) {
-                 const notifTitle = type === 'ISSUE' ? '🚨 รายงานปัญหา (Private)' : '💡 ความคิดเห็นใหม่';
-                 const notifications = admins.map(admin => ({
-                    user_id: admin.id,
+            const adminIds = await fetchOrgAdminIds();
+            if (adminIds.length > 0) {
+                const notifTitle = type === 'ISSUE' ? '🚨 รายงานปัญหา (Private)' : '💡 ความคิดเห็นใหม่';
+                const notifications = adminIds.map(adminId => ({
+                    user_id: adminId,
                     type: 'INFO',
                     title: notifTitle,
                     message: `${isAnonymous ? 'Anonymous' : currentUser.name}: ${content.substring(0, 50)}...`,
                     is_read: false,
                     link_path: 'FEEDBACK'
                 }));
-                await supabase.from('notifications').insert(notifications);
+                await insertAndDispatchNotifications(notifications, {
+                    category: 'SYSTEM',
+                    senderId: isAnonymous ? null : currentUser.id
+                });
             }
 
             showToast('ส่งความคิดเห็นแล้ว! รอแอดมินตรวจสอบครับ 📨', 'success');

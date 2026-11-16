@@ -38,6 +38,7 @@ interface StockTableRowProps {
     onUpdateLocalTask?: (task: Task, isDelete?: boolean) => void;
     onUpdateSubChecklist?: (id: string, progress: Record<string, boolean>) => Promise<boolean>;
     masterOptions?: MasterOption[];
+    onTaskContextMenu?: (e: React.MouseEvent, task: Task) => void;
 }
 
 const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTableRowProps>(({
@@ -64,7 +65,8 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
     onTagClick,
     onUpdateLocalTask,
     onUpdateSubChecklist,
-    masterOptions = []
+    masterOptions = [],
+    onTaskContextMenu,
 }, ref) => {
     
     const isInsightOverdue = useMemo(() => {
@@ -99,6 +101,12 @@ const StockTableRow = React.memo(React.forwardRef<HTMLTableRowElement, StockTabl
             exit={{ opacity: 0, scale: 0.98 }}
             transition={{ duration: 0.2 }}
             onClick={() => onEdit(task)} 
+            onContextMenu={(e) => {
+                e.preventDefault();
+                if (onTaskContextMenu) {
+                    onTaskContextMenu(e, task);
+                }
+            }}
             draggable
             onDragStartCapture={handleDragStart}
             onDragEndCapture={() => setIsDragging(false)}

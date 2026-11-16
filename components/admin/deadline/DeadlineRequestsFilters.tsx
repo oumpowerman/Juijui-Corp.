@@ -30,45 +30,45 @@ const DeadlineRequestsFilters: React.FC<DeadlineRequestsFiltersProps> = ({
     myRequestsCount = 0
 }) => {
     return (
-        <div className="bg-slate-100/70 border-b border-slate-200 px-5 md:px-8 py-3 flex flex-wrap gap-2 md:items-center justify-between shrink-0">
-            <div className="flex flex-wrap items-center gap-2">
-                <div className="relative">
-                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                    <input 
+        <div className="bg-slate-50/80 border-b border-slate-200/80 px-4 sm:px-6 py-2.5 flex flex-wrap gap-2 items-center justify-between shrink-0">
+            <div className="flex flex-wrap items-center gap-2 flex-1 min-w-0">
+                <div className="relative flex-1 sm:flex-initial min-w-[180px] sm:w-60">
+                    <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+                    <input
                         type="text"
-                        placeholder="พิมพ์ค้นหาพนักงาน ปัญหางาน ชื่องาน..."
+                        placeholder="ค้นหาชื่อพนักงาน, ชื่องาน, เหตุผล..."
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
-                        className="pl-9 pr-3 py-1.5 border border-slate-200 rounded-xl text-[11px] bg-white text-slate-800 placeholder-slate-400 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 w-52 sm:w-64"
+                        className="w-full pl-8 pr-3 py-1.5 border border-slate-200 rounded-xl text-xs bg-white text-slate-800 placeholder-slate-400 hover:border-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-300"
                     />
                 </div>
 
                 <select
                     value={filterCategory}
                     onChange={(e) => setFilterCategory(e.target.value as any)}
-                    className="bg-white border text-[11px] rounded-xl px-2.5 py-1.5 text-slate-600 font-medium focus:none"
+                    className="bg-white border border-slate-200 text-xs rounded-xl px-2.5 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 >
-                    <option value="ALL">🔍 ทุกประเภทเลื่อน ({requestsLength})</option>
-                    <option value="ASSIGNED_TO_ME">👤 คำขอถึงฉัน ({myRequestsCount})</option>
-                    <option value="URGENT">⚠️ เดดไลน์กระชั้นชิด ({metrics.urgent})</option>
-                    <option value="LONG">⏱️ ยาวเกิน 7 วัน ({metrics.longExtensions})</option>
-                    <option value="CRITICAL">📊 งานเดิมกองสะสมเยอะ</option>
+                    <option value="ALL">ทั้งหมด ({requestsLength})</option>
+                    <option value="ASSIGNED_TO_ME">ส่งถึงฉัน ({myRequestsCount})</option>
+                    <option value="URGENT">เร่งด่วนใน 24 ชม. ({metrics.urgent})</option>
+                    <option value="LONG">ขอเลื่อน 7 วันขึ้นไป ({metrics.longExtensions})</option>
+                    <option value="CRITICAL">พนักงานมีงานค้าง ≥ 3 งาน</option>
                 </select>
 
                 <select
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value as any)}
-                    className="bg-white border text-[11px] rounded-xl px-2.5 py-1.5 text-slate-600 font-medium focus:none"
+                    className="bg-white border border-slate-200 text-xs rounded-xl px-2.5 py-1.5 text-slate-700 font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                 >
-                    <option value="NEWEST">⏳ วันที่ร้องขอล่าสุด</option>
-                    <option value="OLDEST">⏳ วันที่เก่าสุด</option>
-                    <option value="NEW_DEADLINE">📅 เดดไลน์ใหม่สุดก่อน</option>
-                    <option value="EMPLOYEE">👤 เรียงตามชื่อพนักงาน</option>
+                    <option value="NEWEST">ส่งขอล่าสุด</option>
+                    <option value="OLDEST">ส่งขอเก่าสุด</option>
+                    <option value="NEW_DEADLINE">วันส่งใหม่ใกล้สุด</option>
+                    <option value="EMPLOYEE">เรียงตามชื่อพนักงาน</option>
                 </select>
             </div>
 
-            <div className="text-[11px] text-slate-500 font-medium">
-                ค้นเจอยื่นทั้งหมด <strong className="text-slate-850" style={{ fontWeight: 700 }}>{filteredCount}</strong> ในระบบควบคุม
+            <div className="text-xs text-slate-500 font-medium tabular-nums whitespace-nowrap">
+                แสดง <strong className="text-slate-800 font-bold">{filteredCount}</strong> รายการ
             </div>
         </div>
     );

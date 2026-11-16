@@ -4,6 +4,7 @@ import { useGameConfig } from '../context/GameConfigContext';
 import { AnnualHoliday } from '../types';
 import { isHolidayOrException, isWorkingDay } from '../utils/judgeUtils';
 import { useQueryClient } from '@tanstack/react-query';
+import { insertAndDispatchNotifications } from '../utils/pushDispatcher';
 
 export const useReviewJudge = () => {
     const { config, updateConfigValue } = useGameConfig();
@@ -108,17 +109,19 @@ export const useReviewJudge = () => {
 
                 // Notify User (Assignee)
                 const sourceData = review.tasks || review.contents;
-                if (sourceData?.assignee_ids) {
-                    for (const uid of sourceData.assignee_ids) {
-                        await supabase.from('notifications').insert({
+                if (sourceData?.assignee_ids?.length) {
+                    const targetLink = review.content_id ? 'ContentStock' : 'CALENDAR';
+                    await insertAndDispatchNotifications(
+                        sourceData.assignee_ids.map((uid: string) => ({
                             user_id: uid,
                             title: 'งานถูกตีกลับ (SLA Expired)',
                             message: `งาน "${sourceData.title}" ถูกตีกลับเป็น ${revertStatus} เนื่องจาก Admin ตรวจไม่ทันภายในกำหนด (ขยายเวลาให้ถึงพรุ่งนี้)`,
                             type: 'SYSTEM',
                             related_id: targetId,
-                            created_at: new Date().toISOString()
-                        });
-                    }
+                            link_path: targetLink,
+                        })),
+                        { category: 'SYSTEM' }
+                    );
                 }
             }
         }
@@ -168,23 +171,27 @@ export const useReviewJudge = () => {
             if (workingDaysPassed === 2) {
                 // Check if already notified today for this specific task warning
                 const warningKey = `SLA_WARN:${review.task_id}:${todayStr}`;
-                
+                const targetTaskId = review.task_id || review.content_id;
+                const targetLink = review.content_id ? 'ContentStock' : 'CALENDAR';
+
                 const { data: existingNoti } = await supabase
                     .from('notifications')
                     .select('id')
                     .eq('user_id', userId)
-                    .eq('related_id', warningKey)
+                    .eq('type', 'SYSTEM')
+                    .or(`related_id.eq.${warningKey},metadata->>slaWarningKey.eq.${warningKey}`)
                     .limit(1);
 
                 if (!existingNoti || existingNoti.length === 0) {
-                    await supabase.from('notifications').insert({
+                    await insertAndDispatchNotifications({
                         user_id: userId,
                         title: '⚠️ งานใกล้ถูกตีกลับ (SLA Warning)',
                         message: `งาน "${review.tasks?.title}" ค้างตรวจมา 2 วันแล้ว จะถูกดีดกลับพรุ่งนี้ อย่าลืมตาม Admin นะ!`,
                         type: 'SYSTEM',
-                        related_id: warningKey,
-                        created_at: new Date().toISOString()
-                    });
+                        related_id: targetTaskId || null,
+                        link_path: targetLink,
+                        metadata: { slaWarningKey: warningKey }
+                    }, { category: 'SYSTEM' });
                 }
             }
         }

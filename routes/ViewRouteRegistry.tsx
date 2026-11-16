@@ -312,6 +312,8 @@ export const ViewRouteRegistry: React.FC<ViewRouteRegistryProps> = ({
                     return next;
                   }, { replace: true });
                 }}
+                onSaveTask={handleSaveTask}
+                onDeleteTask={handleDeleteTask}
               />
             );
           case 'CHECKLIST':

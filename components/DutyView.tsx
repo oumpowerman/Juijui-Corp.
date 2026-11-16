@@ -1,5 +1,6 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { User, DutyConfig, Duty } from '../types';
 import { useDuty } from '../hooks/useDuty';
@@ -50,6 +51,25 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
     const { processAction } = useGamification(currentUser);
     const { config: gameConfig } = useGameConfig(); // Get global game config
     const { showAlert, showConfirm } = useGlobalDialog();
+    const [searchParams, setSearchParams] = useSearchParams();
+    const expandSwapParam = searchParams.get('expandSwap') === '1';
+    const swapIdParam = searchParams.get('swapId');
+
+    const handleConsumeSwapDeepLink = useCallback(() => {
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            let changed = false;
+            if (next.has('expandSwap')) {
+                next.delete('expandSwap');
+                changed = true;
+            }
+            if (next.has('swapId')) {
+                next.delete('swapId');
+                changed = true;
+            }
+            return changed ? next : prev;
+        }, { replace: true });
+    }, [setSearchParams]);
 
     // View State
     const [currentDate, setCurrentDate] = useState(new Date());
@@ -346,7 +366,16 @@ const DutyView: React.FC<DutyViewProps> = ({ users, currentUser }) => {
                 {/* --- HERO SECTION --- */}
                 <div>
                     {/* 1. Alerts */}
-                    {currentUser && <SwapInbox requests={swapRequests} currentUser={currentUser} onRespond={respondSwap} />}
+                    {currentUser && (
+                        <SwapInbox
+                            requests={swapRequests}
+                            currentUser={currentUser}
+                            onRespond={respondSwap}
+                            defaultExpand={expandSwapParam || Boolean(swapIdParam)}
+                            highlightSwapId={swapIdParam}
+                            onConsumeDeepLink={handleConsumeSwapDeepLink}
+                        />
+                    )}
                 </div>
 
                 {/* --- CONTROL DOCK --- */}

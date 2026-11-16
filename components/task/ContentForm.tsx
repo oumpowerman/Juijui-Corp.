@@ -11,6 +11,7 @@ import { useScripts } from '../../hooks/useScripts';
 import { useSponsorship } from '../../hooks/useSponsorship';
 import { SponsorshipDetail } from '../../types/task';
 import CollapsibleTagInput, { CollapsibleTagInputRef } from '../shared/CollapsibleTagInput';
+import { insertAndDispatchNotifications } from '../../utils/pushDispatcher';
 
 // Import Refactored Parts
 import CFHeader from './content-parts/CFHeader';
@@ -365,16 +366,19 @@ const ContentForm: React.FC<ContentFormProps> = ({
             // --- NOTIFY ADMINS ---
             const admins = users.filter(u => u.role === 'ADMIN');
             if (admins.length > 0) {
-                 const notifications = admins.map(admin => ({
-                     user_id: admin.id,
-                     type: 'REVIEW',
-                     title: `🔍 งานส่งตรวจใหม่: ${title}`,
-                     message: `ส่งโดย ${currentUser?.name || 'Unknown'} (Draft ${nextRound})`,
-                     related_id: initialData.id,
-                     link_path: 'QUALITY_GATE',
-                     is_read: false
-                 }));
-                 await supabase.from('notifications').insert(notifications);
+                const notifications = admins.map(admin => ({
+                    user_id: admin.id,
+                    type: 'REVIEW',
+                    title: `🔍 งานส่งตรวจใหม่: ${title}`,
+                    message: `ส่งโดย ${currentUser?.name || 'Unknown'} (Draft ${nextRound})`,
+                    related_id: initialData.id,
+                    link_path: 'QUALITY_GATE',
+                    is_read: false
+                }));
+                await insertAndDispatchNotifications(notifications, {
+                    category: 'QC_REQUEST',
+                    senderId: currentUser?.id
+                });
             }
             
             showToast(`ส่ง Draft ${nextRound} เรียบร้อย! 🚀`, 'success');

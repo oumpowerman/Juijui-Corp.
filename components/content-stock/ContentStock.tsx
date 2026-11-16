@@ -1,4 +1,4 @@
-import React, { useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from 'react';
 import { Task, Channel, User, MasterOption } from '../../types';
 import { motion, AnimatePresence } from 'framer-motion';
 import MentorTip from '../MentorTip';
@@ -6,6 +6,9 @@ import { useStockSync } from '../../hooks/useStockSync';
 import AppBackground, { BackgroundTheme } from '../common/AppBackground';
 import { useContentStockController } from '../../hooks/useContentStockController';
 import { useShootQueueContext } from '../../context/ShootQueueContext';
+import { useGlobalDialog } from '../../context/GlobalDialogContext';
+import TeamTaskContextMenu, { TeamTaskContextMenuState } from '../team/modals/TeamTaskContextMenu';
+import TeamTaskDuplicateModal, { TeamTaskDuplicateRequest } from '../team/modals/TeamTaskDuplicateModal';
 
 // Sub-Components
 import StockHeader from './stock/StockHeader';
@@ -28,6 +31,8 @@ interface ContentStockProps {
   onOpenSettings: () => void;
   onAddToWorkbox?: (task: Task) => void;
   onEditScript?: (scriptId: string) => void;
+  onDeleteTask?: (taskId: string, type?: string) => void;
+  onSaveTask?: (task: Task) => Promise<any> | void;
 }
 
 const ContentStock: React.FC<ContentStockProps> = ({
@@ -40,8 +45,16 @@ const ContentStock: React.FC<ContentStockProps> = ({
   onAdd,
   onOpenSettings,
   onAddToWorkbox,
-  onEditScript
+  onEditScript,
+  onDeleteTask,
+  onSaveTask
 }) => {
+  const { showConfirm } = useGlobalDialog();
+
+  // Context Menu & Duplicate State
+  const [taskContextMenu, setTaskContextMenu] = useState<TeamTaskContextMenuState | null>(null);
+  const [duplicateRequest, setDuplicateRequest] = useState<TeamTaskDuplicateRequest | null>(null);
+
   // 1. Grouped Controller Hooks
   const { filters, view, data, modals, importActions } = useContentStockController({
     globalTasks,
@@ -56,6 +69,44 @@ const ContentStock: React.FC<ContentStockProps> = ({
   const handleJumpToPage1 = useCallback(() => {
     view.setCurrentPage(1);
   }, [view]);
+
+  // Context menu handlers
+  const handleTaskContextMenu = useCallback((e: React.MouseEvent, task: Task) => {
+    setTaskContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      task,
+      userId: task.assigneeIds?.[0] || '',
+      date: task.endDate instanceof Date ? task.endDate : task.endDate ? new Date(task.endDate) : new Date(),
+    });
+  }, []);
+
+  const handleContextDuplicate = useCallback((task: Task, userId: string, _clickedDate: Date) => {
+    const start = task.startDate instanceof Date ? task.startDate : task.startDate ? new Date(task.startDate) : new Date();
+    const end = task.endDate instanceof Date ? task.endDate : task.endDate ? new Date(task.endDate) : new Date();
+    const resolvedUserId = userId || task.assigneeIds?.[0] || '';
+    const targetUser = users.find(u => u.id === resolvedUserId);
+
+    setDuplicateRequest({
+      sourceTask: task,
+      targetUserId: resolvedUserId,
+      targetUser,
+      startDate: start,
+      endDate: end,
+    });
+  }, [users]);
+
+  const handleContextDelete = useCallback(async (task: Task) => {
+    if (!onDeleteTask) return;
+    const confirmed = await showConfirm(
+      `คุณต้องการลบงาน "${task.title}" ใช่หรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้`,
+      'ยืนยันการลบงาน'
+    );
+    if (confirmed) {
+      data.updateLocalItem(task, true);
+      onDeleteTask(task.id, task.type === 'CONTENT' ? 'CONTENT' : 'TASK');
+    }
+  }, [onDeleteTask, showConfirm, data]);
 
   // --- HYBRID SYNC: Watch Global Tasks ---
   useStockSync(globalTasks, data.paginatedTasks, data.updateLocalItem, handleJumpToPage1);
@@ -166,6 +217,7 @@ const ContentStock: React.FC<ContentStockProps> = ({
                   onTagClick={(tag) => filters.setSearchQuery(`#${tag} `)}
                   onUpdateLocalTask={data.updateLocalItem}
                   onUpdateSubChecklist={data.updateSubChecklistProgress}
+                  onTaskContextMenu={handleTaskContextMenu}
                 />
 
                 {/* Scanning Ray effect during transitions */}
@@ -240,6 +292,31 @@ const ContentStock: React.FC<ContentStockProps> = ({
             onSave={() => {}}
           />
         )}
+
+        {/* Right-Click Task Context Menu */}
+        <TeamTaskContextMenu
+          menuState={taskContextMenu}
+          onClose={() => setTaskContextMenu(null)}
+          onEdit={(task) => onEdit({ ...task, _openInEditMode: true } as Task)}
+          onDuplicate={handleContextDuplicate}
+          onDelete={handleContextDelete}
+        />
+
+        {/* Task Duplicate Modal */}
+        <TeamTaskDuplicateModal
+          isOpen={!!duplicateRequest}
+          request={duplicateRequest}
+          users={users}
+          channels={channels}
+          masterOptions={masterOptions}
+          onClose={() => setDuplicateRequest(null)}
+          onConfirm={async (duplicatedTask) => {
+            data.updateLocalItem(duplicatedTask, false);
+            if (onSaveTask) {
+              await onSaveTask(duplicatedTask);
+            }
+          }}
+        />
       </div>
     </AppBackground>
   );

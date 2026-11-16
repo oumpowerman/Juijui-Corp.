@@ -1,8 +1,9 @@
 
 import { supabase } from '../../lib/supabase';
-import { Duty, User, DutySwap } from '../../types';
+import { Duty, User } from '../../types';
 import { useToast } from '../../context/ToastContext';
 import { format } from 'date-fns';
+import { insertAndDispatchNotifications } from '../../utils/pushDispatcher';
 
 export const useDutySwap = (currentUser?: User, duties: Duty[] = []) => {
     const { showToast } = useToast();
@@ -24,21 +25,30 @@ export const useDutySwap = (currentUser?: User, duties: Duty[] = []) => {
             if (new Date(ownDuty.date) < today) throw new Error("ไม่สามารถแลกเวรที่ผ่านมาแล้วได้");
             if (new Date(targetDuty.date) < today) throw new Error("ไม่สามารถแลกเวรเป้าหมายที่ผ่านมาแล้วได้");
 
-            const { error } = await supabase.from('duty_swaps').insert({
-                requestor_id: currentUser.id,
-                own_duty_id: ownDutyId,
-                target_duty_id: targetDutyId,
-                status: 'PENDING'
-            });
+            const { data: insertedSwap, error } = await supabase
+                .from('duty_swaps')
+                .insert({
+                    requestor_id: currentUser.id,
+                    own_duty_id: ownDutyId,
+                    target_duty_id: targetDutyId,
+                    status: 'PENDING'
+                })
+                .select('id')
+                .single();
             if (error) throw error;
 
-            await supabase.from('notifications').insert({
+            await insertAndDispatchNotifications({
                 user_id: targetDuty.assigneeId,
                 type: 'APPROVAL_REQ',
                 title: '🔄 มีคำขอแลกเวร',
                 message: `คุณ ${currentUser.name} ขอแลกเวร "${ownDuty.title}" (${format(new Date(ownDuty.date), 'd MMM')}) กับเวรของคุณ`,
                 is_read: false,
-                link_path: 'DUTY'
+                related_id: insertedSwap?.id || null,
+                link_path: 'DUTY',
+                metadata: { swapId: insertedSwap?.id || null, isSwap: true }
+            }, {
+                category: 'APPROVAL_REQ',
+                senderId: currentUser.id
             });
 
             showToast('ส่งคำขอแลกเวรแล้ว รออีกฝั่งตอบรับนะครับ 🔄', 'success');
@@ -59,13 +69,18 @@ export const useDutySwap = (currentUser?: User, duties: Duty[] = []) => {
 
             if (!accept) {
                 await supabase.from('duty_swaps').update({ status: 'REJECTED' }).eq('id', swapId);
-                await supabase.from('notifications').insert({
+                await insertAndDispatchNotifications({
                     user_id: swap.requestor_id,
                     type: 'INFO',
                     title: '❌ คำขอแลกเวรถูกปฏิเสธ',
                     message: 'เพื่อนไม่สะดวกแลกเวรในครั้งนี้',
                     is_read: false,
-                    link_path: 'DUTY'
+                    related_id: swapId,
+                    link_path: 'DUTY',
+                    metadata: { swapId }
+                }, {
+                    category: 'SYSTEM',
+                    senderId: currentUser?.id
                 });
                 showToast('ปฏิเสธการแลกเวรแล้ว', 'info');
                 return;
@@ -112,13 +127,18 @@ export const useDutySwap = (currentUser?: User, duties: Duty[] = []) => {
             const { error: finalError } = await supabase.from('duty_swaps').update({ status: 'APPROVED' }).eq('id', swapId);
             if (finalError) throw finalError;
             
-            await supabase.from('notifications').insert({
+            await insertAndDispatchNotifications({
                 user_id: swap.requestor_id,
                 type: 'INFO',
                 title: '✅ คำขอแลกเวรสำเร็จ',
                 message: 'เวรของคุณถูกสลับเรียบร้อยแล้ว',
                 is_read: false,
-                link_path: 'DUTY'
+                related_id: swapId,
+                link_path: 'DUTY',
+                metadata: { swapId }
+            }, {
+                category: 'SYSTEM',
+                senderId: currentUser?.id
             });
 
             showToast('แลกเวรสำเร็จ! อัปเดตตารางแล้ว ✅', 'success');

@@ -49,51 +49,16 @@ const GoalDeadlineExtensionModal: React.FC<GoalDeadlineExtensionModalProps> = ({
     const [selectedApproverId, setSelectedApproverId] = useState<string>('');
     const [isApproverDropdownOpen, setIsApproverDropdownOpen] = useState(false);
 
-    // Candidates calculation following QC resolver rules
+    // Filter strictly to active ADMIN users so requests never stall on non-Admin members
     const candidates = useMemo(() => {
         if (!users || users.length === 0) return [];
-        const userPos = currentUser?.position || '';
-        const userPosOpt = masterOptions.find(o => 
-            o.type === 'POSITION' && 
-            (o.label.toLowerCase().trim() === userPos.toLowerCase().trim() || 
-             o.key.toLowerCase().trim() === userPos.toLowerCase().trim())
+        return users.filter(
+            (u) =>
+                u.isActive &&
+                u.role === 'ADMIN' &&
+                u.id !== currentUser?.id
         );
-
-        let parentUsers: User[] = [];
-        if (userPosOpt && userPosOpt.parentKey) {
-            const parentPosOpt = masterOptions.find(o => 
-                o.type === 'POSITION' && 
-                o.key === userPosOpt.parentKey
-            );
-            if (parentPosOpt) {
-                parentUsers = users.filter(u => 
-                    u.isActive && 
-                    u.id !== currentUser?.id &&
-                    (u.position?.toLowerCase().trim() === parentPosOpt?.label.toLowerCase().trim() || 
-                     u.position?.toLowerCase().trim() === parentPosOpt?.key.toLowerCase().trim())
-                );
-            }
-        }
-
-        const adminsAndManagers = users.filter(u => 
-            u.isActive && 
-            u.id !== currentUser?.id && (
-                u.role === 'ADMIN' || 
-                u.position?.toLowerCase().includes('qc') || 
-                u.position?.toLowerCase().includes('manager') || 
-                u.position?.toLowerCase().includes('director') || 
-                u.position?.toLowerCase().includes('head') || 
-                u.position?.toLowerCase().includes('senior') ||
-                u.position?.toLowerCase().includes('หัวหน้า') ||
-                u.position?.toLowerCase().includes('ผู้ตรวจ')
-            )
-        );
-
-        const combinedMap = new Map<string, User>();
-        parentUsers.forEach(u => combinedMap.set(u.id, u));
-        adminsAndManagers.forEach(u => combinedMap.set(u.id, u));
-        return Array.from(combinedMap.values());
-    }, [users, masterOptions, currentUser]);
+    }, [users, currentUser?.id]);
 
     useEffect(() => {
         if (isOpen && candidates.length > 0 && !selectedApproverId) {

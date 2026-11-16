@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { User, MeetingLog, Task, MeetingCategory, MeetingType, MeetingPlatform, MasterOption, MeetingNoteSheet } from '../types';
 import { useMeetings } from '../hooks/useMeetings';
 import { useTasks } from '../hooks/useTasks';
@@ -9,6 +10,7 @@ import { supabase } from '../lib/supabase';
 import { useGlobalDialog } from '../context/GlobalDialogContext';
 import { useToast } from '../context/ToastContext';
 import { useGoogleDriveContext } from '../context/GoogleDriveContext';
+import { insertAndDispatchNotifications } from '../utils/pushDispatcher';
 import {
     detectMeetingPlatform,
     createGoogleCalendarEventApi,
@@ -56,6 +58,7 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks, ma
     const { showConfirm } = useGlobalDialog();
     const { showToast } = useToast();
     const { accessToken, login: connectGoogle } = useGoogleDriveContext();
+    const [searchParams, setSearchParams] = useSearchParams();
     const [selectedId, setSelectedId] = useState<string | null>(null);
     const [searchQuery, setSearchQuery] = useState('');
     const [activeTab, setActiveTab] = useState<MeetingTab>('NOTES');
@@ -68,6 +71,26 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks, ma
     const [isCalendarSyncing, setIsCalendarSyncing] = useState(false);
     const [originalMeetingId, setOriginalMeetingId] = useState<string | null>(null);
     const [isMobile, setIsMobile] = useState(false);
+
+    // Deep-link auto-select meeting when ?meetingId=... is provided
+    useEffect(() => {
+        const targetMeetingId = searchParams.get('meetingId');
+        if (!targetMeetingId) return;
+
+        setSelectedId(targetMeetingId);
+        setActiveTab('NOTES');
+        setIsSidebarCollapsed(true);
+        setIsHeaderCollapsed(true);
+
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            if (next.has('meetingId')) {
+                next.delete('meetingId');
+                return next;
+            }
+            return prev;
+        }, { replace: true });
+    }, [searchParams, setSearchParams]);
 
     // Mobile Detection
     useEffect(() => {
@@ -264,11 +287,15 @@ const MeetingView: React.FC<MeetingViewProps> = ({ users, currentUser, tasks, ma
                             type: 'INFO',
                             title: 'การประชุมใหม่! 🗓️',
                             message: `${currentUser.name} เริ่มประชุม: ${data.title}${onlineSuffix}`,
-                            created_at: new Date().toISOString(),
                             is_read: false,
+                            related_id: id,
+                            link_path: 'MEETINGS',
                             metadata: { meetingId: id, meetUrl: finalMeetUrl }
                         }));
-                        await supabase.from('notifications').insert(notifs);
+                        await insertAndDispatchNotifications(notifs, {
+                            category: 'NEW_ASSIGNMENT',
+                            senderId: currentUser.id
+                        });
                     }
                 }
             } finally {

@@ -85,9 +85,15 @@ const NotificationPopover: React.FC<NotificationPopoverProps> = ({
                 actionLink === 'ADMIN_APPROVALS' ||
                 notifId.startsWith('leave_') ||
                 notifId.startsWith('ot_');
-            const targetTab = isApproval ? 'APPROVALS' : 'HISTORY';
-
-            onNavigate('ATTENDANCE', rawId ? { tab: targetTab, highlightReqId: rawId } : { tab: targetTab });
+            if (isApproval) {
+                onNavigate('ATTENDANCE', rawId ? { tab: 'APPROVALS', highlightReqId: rawId } : { tab: 'APPROVALS' });
+            } else if (rawId) {
+                onNavigate('ATTENDANCE', { tab: 'HISTORY', highlightReqId: rawId });
+            } else if (actionLink === 'LEAVE') {
+                onNavigate('ATTENDANCE', { tab: 'HISTORY' });
+            } else {
+                onNavigate('ATTENDANCE');
+            }
             onClose();
             return;
         }
@@ -102,14 +108,22 @@ const NotificationPopover: React.FC<NotificationPopoverProps> = ({
 
         // 4. Duty Swap / Duty Alerts
         if (actionLink === 'DUTY') {
-            onNavigate('DUTY');
+            const swapId = notification.relatedId || notification.related_id || notification.metadata?.swapId || '';
+            const isSwapNotif = Boolean(swapId || notification.type === 'APPROVAL_REQ' || notification.metadata?.isSwap);
+            onNavigate(
+                'DUTY',
+                isSwapNotif
+                    ? (swapId ? { expandSwap: '1', swapId } : { expandSwap: '1' })
+                    : undefined
+            );
             onClose();
             return;
         }
 
         // 5. Goals & Goal Deadline Requests
         if (actionLink === 'GOALS') {
-            onNavigate('GOALS');
+            const goalId = notification.relatedId || notification.related_id || notification.metadata?.goalId || '';
+            onNavigate('GOALS', goalId ? { goalId } : undefined);
             onClose();
             return;
         }
@@ -137,7 +151,8 @@ const NotificationPopover: React.FC<NotificationPopoverProps> = ({
 
         // 9. Meetings
         if (actionLink === 'MEETING' || actionLink === 'MEETINGS') {
-            onNavigate('MEETINGS');
+            const meetingId = notification.relatedId || notification.related_id || notification.metadata?.meetingId || '';
+            onNavigate('MEETINGS', meetingId ? { meetingId } : undefined);
             onClose();
             return;
         }

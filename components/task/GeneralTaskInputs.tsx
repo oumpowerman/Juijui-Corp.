@@ -2,16 +2,20 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Task, User, MasterOption, ScriptSummary, Channel, DeadlineRequest, ReviewSession } from '../../types';
 import { useGeneralTaskForm } from '../../hooks/useGeneralTaskForm';
-import { AlertTriangle, Trash2, Send, Loader2, Lock, Eye, CheckCircle, XCircle, Calendar as CalendarIcon, Tag } from 'lucide-react';
+import { AlertTriangle, Trash2, Send, Loader2, Lock, Eye, CheckCircle, XCircle, Calendar as CalendarIcon, Tag, Pencil } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { useToast } from '../../context/ToastContext';
 import { useGlobalDialog } from '../../context/GlobalDialogContext';
+import { useNotificationContext } from '../../context/NotificationContext';
+import { useTaskContext } from '../../context/TaskContext';
 import TaskAssets from '../TaskAssets'; 
 import { isTaskCompleted } from '../../constants';
 import { format } from 'date-fns';
 import { useScripts } from '../../hooks/useScripts'; 
 import { useDeadlineRequests } from '../../hooks/useDeadlineRequests';
 import { useTasks } from '../../hooks/useTasks';
+import { toLocalYMD } from '../../utils/dateUtils';
+import { formatDisplayDate } from '../ui/DatePickerModal';
 import CollapsibleTagInput, { CollapsibleTagInputRef } from '../shared/CollapsibleTagInput';
 
 // Import Form Parts
@@ -135,7 +139,16 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
     // --- Deadline Extension Logic ---
     const [isExtensionModalOpen, setIsExtensionModalOpen] = useState(false);
     const [pendingExtension, setPendingExtension] = useState<DeadlineRequest | null>(null);
-    const { getPendingRequestForTask, createRequest, resolveRequest, isLoading: isProcessingExtension } = useDeadlineRequests(currentUser);
+    const {
+        getPendingRequestForTask,
+        createRequest,
+        updateRequest,
+        cancelRequest,
+        resolveRequest,
+        isLoading: isProcessingExtension
+    } = useDeadlineRequests(currentUser);
+    const { refreshData: refreshNotifications } = useNotificationContext();
+    const { fetchTasks } = useTaskContext();
     
     // --- QC Submission Modal State & Handlers ---
     const [isQCModalOpen, setIsQCModalOpen] = useState(false);
@@ -176,37 +189,80 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
 
     const handleRequestExtension = async (newDateStr: string, reason: string, approverId?: string) => {
         if (!initialData?.id) return;
-        
+        if (pendingExtension) {
+            showToast('งานนี้มีคำขอเลื่อนที่รออนุมัติอยู่แล้ว', 'info');
+            return;
+        }
+
         const { success, data, error } = await createRequest(initialData.id, newDateStr, reason, approverId);
-        
+
         if (success && data) {
-            showToast('ส่งคำขอเลื่อน Deadline แล้ว รอหัวหน้าอนุมัติ', 'success');
+            showToast('ส่งคำขอเลื่อนกำหนดส่งแล้ว รอ Admin พิจารณา', 'success');
             setIsExtensionModalOpen(false);
             setPendingExtension(data);
+            refreshNotifications().catch(() => {});
         } else {
             showToast('เกิดข้อผิดพลาดในการส่งคำขอ: ' + error, 'error');
         }
     };
 
-    const handleResolveExtension = async (requestId: string, isApproved: boolean, newDate?: Date) => {
+    const handleUpdateExtension = async (requestId: string, newDateStr: string, reason: string, approverId?: string) => {
         if (!initialData?.id) return;
-        
+        const { success, data, error } = await updateRequest(requestId, initialData.id, newDateStr, reason, approverId);
+
+        if (success && data) {
+            showToast('อัปเดตคำขอเลื่อนกำหนดส่งแล้ว', 'success');
+            setIsExtensionModalOpen(false);
+            setPendingExtension(data);
+            refreshNotifications().catch(() => {});
+        } else {
+            showToast('ไม่สามารถแก้ไขคำขอได้: ' + error, 'error');
+        }
+    };
+
+    const handleCancelExtension = async (requestId: string) => {
+        if (!initialData?.id) return;
+        const confirmed = await showConfirm('ต้องการยกเลิกคำขอเลื่อนกำหนดส่งนี้หรือไม่?', 'ยืนยันการยกเลิกคำขอ', true);
+        if (!confirmed) return;
+
+        const { success, error } = await cancelRequest(requestId, initialData.id);
+        if (success) {
+            showToast('ยกเลิกคำขอเลื่อนกำหนดส่งแล้ว', 'info');
+            setPendingExtension(null);
+            setIsExtensionModalOpen(false);
+            refreshNotifications().catch(() => {});
+        } else {
+            showToast('ไม่สามารถยกเลิกคำขอได้: ' + error, 'error');
+        }
+    };
+
+    const handleResolveExtension = async (requestId: string, isApproved: boolean, newDate?: Date) => {
+        if (!initialData?.id || isProcessingExtension) return;
+
+        let feedback: string | undefined;
+        if (!isApproved) {
+            const reasonInput = await showPrompt('ระบุเหตุผลที่ไม่อนุมัติ (ไม่บังคับ)', '', 'ปฏิเสธคำขอเลื่อนกำหนดส่ง');
+            if (reasonInput === null) return;
+            feedback = reasonInput.trim() || undefined;
+        }
+
         // Optimistic Update: Remove pending banner and update end date
         const previousExtension = pendingExtension;
         const previousEndDate = endDate;
-        
+
         setPendingExtension(null);
         if (isApproved && newDate) {
-            setEndDate(newDate.toISOString().split('T')[0]);
+            setEndDate(toLocalYMD(newDate));
         }
-        
-        // Background API Call
-        const { success, error } = await resolveRequest(requestId, initialData.id, isApproved, newDate);
-        
+
+        const { success, error } = await resolveRequest(requestId, initialData.id, isApproved, newDate, 'TASK', feedback);
+
         if (success) {
-            showToast(isApproved ? 'อนุมัติการเลื่อน Deadline แล้ว' : 'ปฏิเสธคำขอแล้ว', 'success');
+            showToast(isApproved ? 'อนุมัติการเลื่อนกำหนดส่งแล้ว' : 'ปฏิเสธคำขอแล้ว', isApproved ? 'success' : 'warning');
+            Promise.all([fetchTasks(), refreshNotifications()]).catch((err) =>
+                console.error('Error syncing task/notifications after resolve:', err)
+            );
         } else {
-            // Revert on failure
             setPendingExtension(previousExtension);
             setEndDate(previousEndDate);
             showToast('เกิดข้อผิดพลาด: ' + error, 'error');
@@ -360,61 +416,83 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
 
                     {/* Pending Extension Banner */}
                     {pendingExtension && (
-                        <div className="bg-indigo-50 border border-indigo-100 p-4 rounded-2xl animate-in slide-in-from-top-2">
-                            <div className="flex items-start justify-between">
-                                <div className="flex items-start gap-3">
-                                    <div className="p-2 bg-indigo-100 text-indigo-600 rounded-xl shrink-0 mt-0.5">
+                        <div className="bg-amber-50/70 border border-amber-200/80 p-4 rounded-2xl animate-in slide-in-from-top-2">
+                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                                <div className="flex items-start gap-3 min-w-0">
+                                    <div className="p-2 bg-amber-100/80 text-amber-700 rounded-xl shrink-0 mt-0.5">
                                         <CalendarIcon className="w-5 h-5" />
                                     </div>
-                                    <div>
+                                    <div className="min-w-0">
                                         <div className="flex items-center gap-2 flex-wrap">
-                                            <h4 className="text-sm font-bold text-indigo-900">
-                                                {isAdmin ? 'คำขอเลื่อน Deadline' : 'กำลังรออนุมัติเลื่อน Deadline'}
+                                            <h4 className="text-sm font-bold text-slate-800">
+                                                {isAdmin ? 'มีคำขอเลื่อนกำหนดส่งรออนุมัติ' : 'กำลังรออนุมัติเลื่อนกำหนดส่ง'}
                                             </h4>
                                             {pendingExtension.approver?.name && (
-                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-lg border ${
-                                                    pendingExtension.approverId === currentUser?.id 
-                                                        ? 'bg-emerald-100 text-emerald-800 border-emerald-200' 
-                                                        : 'bg-indigo-100 text-indigo-700 border-indigo-200'
+                                                <span className={`text-[11px] font-semibold px-2 py-0.5 rounded-lg border ${
+                                                    pendingExtension.approverId === currentUser?.id
+                                                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                        : 'bg-white text-slate-600 border-slate-200'
                                                 }`}>
-                                                    {pendingExtension.approverId === currentUser?.id ? 'ส่งถึงคุณ (ผู้อนุมัติ)' : `ส่งถึง: ${pendingExtension.approver.name}`}
+                                                    {pendingExtension.approverId === currentUser?.id
+                                                        ? 'ส่งถึงคุณ'
+                                                        : `ส่งถึง: ${pendingExtension.approver.name}${isAdmin ? ' (พิจารณาแทนได้)' : ''}`}
                                                 </span>
                                             )}
                                         </div>
-                                        <p className="text-xs text-indigo-700 mt-1">
-                                            <span className="font-semibold">{pendingExtension.user?.name || 'Member'}</span> ขอเลื่อนเป็นวันที่ <span className="font-bold">{pendingExtension.newDeadline.toLocaleDateString('th-TH')}</span>
+                                        <p className="text-xs text-slate-700 mt-1">
+                                            <span className="font-semibold">{pendingExtension.user?.name || 'ผู้รับผิดชอบงาน'}</span>{' '}
+                                            ขอเลื่อนเป็นวันที่{' '}
+                                            <span className="font-bold text-indigo-700 tabular-nums">
+                                                {formatDisplayDate(pendingExtension.newDeadline)}
+                                            </span>
                                         </p>
-                                        <div className="mt-2 text-xs text-indigo-600/80 bg-white/50 p-2 rounded-lg italic">
+                                        <div className="mt-2 text-xs text-slate-600 bg-white/80 border border-amber-100 px-3 py-2 rounded-xl italic">
                                             "{pendingExtension.reason}"
                                         </div>
                                     </div>
                                 </div>
-                                {isAdmin && (
-                                    (!pendingExtension.approverId || pendingExtension.approverId === currentUser?.id) ? (
-                                        <div className="flex flex-col gap-2 shrink-0 ml-4">
-                                            <button 
+
+                                <div className="flex sm:flex-col gap-2 shrink-0 sm:ml-2">
+                                    {isAdmin ? (
+                                        <>
+                                            <button
                                                 type="button"
+                                                disabled={isProcessingExtension}
                                                 onClick={() => handleResolveExtension(pendingExtension.id, true, pendingExtension.newDeadline)}
-                                                className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
+                                                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors disabled:opacity-50"
                                             >
                                                 <CheckCircle className="w-3.5 h-3.5" /> อนุมัติ
                                             </button>
-                                            <button 
+                                            <button
                                                 type="button"
+                                                disabled={isProcessingExtension}
                                                 onClick={() => handleResolveExtension(pendingExtension.id, false)}
-                                                className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 text-xs font-bold rounded-lg transition-colors disabled:opacity-50"
+                                                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2 bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 text-xs font-bold rounded-xl transition-colors disabled:opacity-50"
                                             >
                                                 <XCircle className="w-3.5 h-3.5" /> ปฏิเสธ
                                             </button>
-                                        </div>
+                                        </>
                                     ) : (
-                                        <div className="text-right shrink-0 ml-4">
-                                            <span className="inline-flex items-center gap-1 text-[10px] bg-slate-100 text-slate-500 border border-slate-200 px-2.5 py-1.5 rounded-xl font-bold">
-                                                🔒 เฉพาะ {pendingExtension.approver?.name} อนุมัติได้
-                                            </span>
-                                        </div>
-                                    )
-                                )}
+                                        <>
+                                            <button
+                                                type="button"
+                                                disabled={isProcessingExtension}
+                                                onClick={() => setIsExtensionModalOpen(true)}
+                                                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-white hover:bg-indigo-50 text-indigo-700 border border-indigo-200 text-xs font-bold rounded-xl transition-colors disabled:opacity-50"
+                                            >
+                                                <Pencil className="w-3.5 h-3.5" /> แก้ไขคำขอ
+                                            </button>
+                                            <button
+                                                type="button"
+                                                disabled={isProcessingExtension}
+                                                onClick={() => handleCancelExtension(pendingExtension.id)}
+                                                className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-3 py-1.5 bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 text-xs font-bold rounded-xl transition-colors disabled:opacity-50"
+                                            >
+                                                <Trash2 className="w-3.5 h-3.5" /> ยกเลิกคำขอ
+                                            </button>
+                                        </>
+                                    )}
+                                </div>
                             </div>
                         </div>
                     )}
@@ -521,6 +599,7 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
                             scheduledTime={scheduledTime}
                             setScheduledTime={setScheduledTime}
                             isEndDateLocked={!!initialData && !isAdmin}
+                            pendingExtension={pendingExtension}
                             onRequestExtension={() => setIsExtensionModalOpen(true)}
                         />
                     </fieldset>
@@ -558,6 +637,10 @@ const GeneralTaskInputs: React.FC<GeneralTaskInputsProps> = ({
                 isOpen={isExtensionModalOpen}
                 onClose={() => setIsExtensionModalOpen(false)}
                 onSubmit={handleRequestExtension}
+                onUpdate={handleUpdateExtension}
+                onCancelRequest={handleCancelExtension}
+                existingRequest={pendingExtension}
+                isSubmitting={isProcessingExtension}
                 currentEndDate={endDate}
                 users={users}
                 masterOptions={masterOptions}

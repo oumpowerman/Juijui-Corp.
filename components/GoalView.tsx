@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Goal, Channel, User, MasterOption } from '../types';
 import { useGoals, getGoalLastSyncedAt, GoalLiveSyncResult } from '../hooks/useGoals';
 import GoalStatsHeader from './goal/GoalStatsHeader';
@@ -58,6 +59,12 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser, maste
 
     // Pagination
     const [page, setPage] = useState(1);
+
+    // Deep-link focus state
+    const [searchParams, setSearchParams] = useSearchParams();
+    const [highlightedGoalId, setHighlightedGoalId] = useState<string | null>(null);
+    const goalCardRefs = useRef<Record<string, HTMLDivElement | null>>({});
+    const skipPageResetRef = useRef(false);
 
     // Channel Options for FilterDropdown
     const channelOptions = useMemo(() => {
@@ -148,8 +155,95 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser, maste
 
     // Reset page when filters change
     React.useEffect(() => {
+        if (skipPageResetRef.current) {
+            skipPageResetRef.current = false;
+            return;
+        }
         setPage(1);
     }, [filterTab, filterChannel, dateRange]);
+
+    // Deep-link focus for ?goalId=...
+    useEffect(() => {
+        const targetGoalId = searchParams.get('goalId');
+        if (!targetGoalId || isLoading || goals.length === 0) return;
+
+        const targetGoal = goals.find(g => g.id === targetGoalId && !g.isArchived);
+        if (!targetGoal) {
+            setSearchParams(prev => {
+                const next = new URLSearchParams(prev);
+                next.delete('goalId');
+                return next;
+            }, { replace: true });
+            return;
+        }
+
+        const now = new Date();
+        const isCompleted = targetGoal.currentValue >= targetGoal.targetValue;
+        const isFailed = !isCompleted && now > new Date(targetGoal.deadline);
+        const targetTab: 'ACTIVE' | 'COMPLETED' | 'FAILED' = isCompleted ? 'COMPLETED' : isFailed ? 'FAILED' : 'ACTIVE';
+
+        const willChangeFilter =
+            (filterTab !== targetTab && filterTab !== 'ALL') ||
+            (filterChannel !== 'ALL' && targetGoal.channelId !== filterChannel) ||
+            Boolean(dateRange.start && dateRange.end && !isWithinInterval(new Date(targetGoal.deadline), { start: startOfDay(dateRange.start), end: endOfDay(dateRange.end) }));
+
+        if (willChangeFilter) {
+            skipPageResetRef.current = true;
+        }
+
+        if (filterTab !== targetTab && filterTab !== 'ALL') {
+            setFilterTab(targetTab);
+        }
+        if (filterChannel !== 'ALL' && targetGoal.channelId !== filterChannel) {
+            setFilterChannel('ALL');
+        }
+        if (dateRange.start && dateRange.end) {
+            const d = new Date(targetGoal.deadline);
+            if (!isWithinInterval(d, { start: startOfDay(dateRange.start), end: endOfDay(dateRange.end) })) {
+                setDateRange({ start: null, end: null });
+            }
+        }
+
+        // Compute page within target tab once filters align
+        const tabGoals = goals
+            .filter(g => {
+                if (g.isArchived) return false;
+                const gComp = g.currentValue >= g.targetValue;
+                const gFail = !gComp && now > new Date(g.deadline);
+                if (targetTab === 'COMPLETED' && !gComp) return false;
+                if (targetTab === 'ACTIVE' && (gComp || gFail)) return false;
+                if (targetTab === 'FAILED' && !gFail) return false;
+                return true;
+            })
+            .sort((a, b) => new Date(a.deadline).getTime() - new Date(b.deadline).getTime());
+
+        const idx = tabGoals.findIndex(g => g.id === targetGoalId);
+        if (idx !== -1) {
+            const targetPage = Math.floor(idx / ITEMS_PER_PAGE) + 1;
+            setPage(targetPage);
+        }
+
+        setHighlightedGoalId(targetGoalId);
+
+        const scrollTimer = setTimeout(() => {
+            goalCardRefs.current[targetGoalId]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 250);
+
+        const clearTimer = setTimeout(() => {
+            setHighlightedGoalId(prev => (prev === targetGoalId ? null : prev));
+        }, 4500);
+
+        setSearchParams(prev => {
+            const next = new URLSearchParams(prev);
+            next.delete('goalId');
+            return next;
+        }, { replace: true });
+
+        return () => {
+            clearTimeout(scrollTimer);
+            clearTimeout(clearTimer);
+        };
+    }, [searchParams, isLoading, goals, filterTab, filterChannel, dateRange, setSearchParams]);
 
     const handleQuickDateSelect = (type: 'THIS_MONTH' | 'LAST_MONTH' | 'LAST_90' | 'ALL') => {
         const now = new Date();
@@ -482,6 +576,7 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser, maste
                             {paginatedGoals.map(goal => (
                                 <div
                                     key={goal.id}
+                                    ref={el => { goalCardRefs.current[goal.id] = el; }}
                                     className="h-full animate-in fade-in slide-in-from-bottom-8 duration-700"
                                 >
                                     <GoalCard
@@ -493,6 +588,7 @@ const GoalView: React.FC<GoalViewProps> = ({ channels, users, currentUser, maste
                                         )}
                                         users={users}
                                         currentUser={currentUser}
+                                        isHighlighted={highlightedGoalId === goal.id}
                                         onUpdate={g => setUpdatingGoal(g)}
                                         onToggleOwner={toggleOwner}
                                         onToggleBoost={toggleBoost}

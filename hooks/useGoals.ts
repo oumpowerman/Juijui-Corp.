@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { Goal, User, Channel, Platform } from '../types';
 import { useToast } from '../context/ToastContext';
 import { getActiveOrgIdSync, getOrgChannelName } from '../lib/tenantStorage';
+import { insertAndDispatchNotifications, fetchOrgAdminIds } from '../utils/pushDispatcher';
 
 const DEFAULT_EMPTY_CHANNELS: Channel[] = [];
 
@@ -634,6 +635,19 @@ export const useGoals = (currentUser?: User | null, externalChannels: Channel[] 
         }
 
         try {
+            const { data: existingPending, error: checkErr } = await supabase
+                .from('goal_deadline_requests')
+                .select('id')
+                .eq('goal_id', goalId)
+                .eq('status', 'PENDING')
+                .limit(1);
+
+            if (checkErr) throw checkErr;
+            if (existingPending && existingPending.length > 0) {
+                showToast('เป้าหมายนี้มีคำขอเลื่อนที่รออนุมัติอยู่แล้ว', 'info');
+                return false;
+            }
+
             const insertPayload: any = {
                 goal_id: goalId,
                 requested_by: user.id,
@@ -657,8 +671,7 @@ export const useGoals = (currentUser?: User | null, externalChannels: Channel[] 
             if (approverId) {
                 targetUserIds = [approverId];
             } else {
-                const { data: admins } = await supabase.from('profiles').select('id').eq('role', 'ADMIN');
-                targetUserIds = (admins || []).map(a => a.id);
+                targetUserIds = await fetchOrgAdminIds(user.id);
             }
 
             if (targetUserIds.length > 0) {
@@ -670,8 +683,12 @@ export const useGoals = (currentUser?: User | null, externalChannels: Channel[] 
                     related_id: goalId,
                     is_read: false,
                     link_path: 'GOALS',
+                    metadata: { goalId }
                 }));
-                await supabase.from('notifications').insert(notifications);
+                await insertAndDispatchNotifications(notifications, {
+                    category: 'APPROVAL_REQ',
+                    senderId: user.id
+                });
             }
             showToast('ส่งคำขอเลื่อน Deadline ของเป้าหมายให้หัวหน้า/แอดมินพิจารณาแล้ว!', 'success');
             return true;

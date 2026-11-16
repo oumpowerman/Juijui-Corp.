@@ -10,6 +10,7 @@ interface UseAppNavigationProps {
   isManagerLoading: boolean;
   globalWarpStage: WarpStage;
   triggerWarpTransition: (targetView: ViewMode, onPeakAction: () => void) => void;
+  showToast?: (msg: string, type: 'info' | 'success' | 'warning' | 'error') => void;
 }
 
 export function useAppNavigation({
@@ -18,9 +19,11 @@ export function useAppNavigation({
   isManagerLoading,
   globalWarpStage,
   triggerWarpTransition,
+  showToast,
 }: UseAppNavigationProps) {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
+  const lastDeniedViewRef = useRef<string | null>(null);
 
   // --- STABILITY GUARD: Memory for the last known valid view ---
   const lastValidView = useRef<ViewMode>((searchParams.get('view') as ViewMode) || 'DASHBOARD');
@@ -136,6 +139,16 @@ export function useAppNavigation({
       if (view !== 'COMPANY_CHECKLIST') {
         next.delete('presetId');
       }
+      if (view !== 'DUTY') {
+        next.delete('expandSwap');
+        next.delete('swapId');
+      }
+      if (view !== 'MEETINGS') {
+        next.delete('meetingId');
+      }
+      if (view !== 'GOALS') {
+        next.delete('goalId');
+      }
 
       // Always clear transient task deep link parameters on view switch unless explicitly passed
       if (!queryParams?.taskId) next.delete('taskId');
@@ -188,15 +201,22 @@ export function useAppNavigation({
       return;
     }
 
-    // If a view is specified in URL but it is NOT allowed, redirect to default view!
+    // If a view is specified in URL but it is NOT allowed, warn user & redirect to default view!
     // Never redirect away from ULTIMATE_WORKROOM which is a globally accessible standalone view
     if (view && view !== 'ULTIMATE_WORKROOM' && allowedViews.length > 0 && !allowedViews.includes(view)) {
+      if (lastDeniedViewRef.current !== view) {
+        lastDeniedViewRef.current = view;
+        showToast?.('คุณไม่มีสิทธิ์เข้าถึงหน้านี้ หรือเมนูนี้ถูกปิดใช้งานในองค์กร', 'warning');
+      }
       setSearchParams((next: any) => {
         next.set('view', defaultView);
+        ['taskId', 'contentId', 'highlightTaskId', 'openTaskId', 'tab', 'highlightReqId', 'presetId', 'expandSwap', 'swapId', 'meetingId', 'goalId'].forEach(k => next.delete(k));
         return next;
       }, { replace: true });
+    } else if (view && allowedViews.includes(view)) {
+      lastDeniedViewRef.current = null;
     }
-  }, [location.pathname, searchParams, setSearchParams, defaultView, isManagerLoading, allowedViews]);
+  }, [location.pathname, searchParams, setSearchParams, defaultView, isManagerLoading, allowedViews, showToast]);
 
   return {
     currentView,

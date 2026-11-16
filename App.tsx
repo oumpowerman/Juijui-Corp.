@@ -229,11 +229,25 @@ function App() {
       sessionStorage.setItem('juijui_pending_onboarding_code', joinOrgParam.trim().toUpperCase());
     }
 
-    const viewParam = queryParams.get('view');
-    const highlightReqIdParam = queryParams.get('highlightReqId');
-    const taskIdParam = queryParams.get('taskId') || queryParams.get('contentId') || queryParams.get('highlightTaskId') || queryParams.get('openTaskId');
-    const channelParam = queryParams.get('channels') || queryParams.get('channel');
-    if (viewParam || highlightReqIdParam || taskIdParam || channelParam) {
+    const hasDeepLinkParam = Boolean(
+      queryParams.get('view') ||
+      queryParams.get('tab') ||
+      queryParams.get('highlightReqId') ||
+      queryParams.get('taskId') ||
+      queryParams.get('contentId') ||
+      queryParams.get('highlightTaskId') ||
+      queryParams.get('openTaskId') ||
+      queryParams.get('presetId') ||
+      queryParams.get('swapId') ||
+      queryParams.get('expandSwap') ||
+      queryParams.get('meetingId') ||
+      queryParams.get('goalId') ||
+      queryParams.get('channels') ||
+      queryParams.get('channel') ||
+      queryParams.get('stockTab') ||
+      queryParams.get('stockMode')
+    );
+    if (hasDeepLinkParam) {
       sessionStorage.setItem('juijui_pending_deep_link', window.location.search);
     }
   }, []);

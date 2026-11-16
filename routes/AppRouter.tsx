@@ -136,6 +136,7 @@ const AppRouterInner: React.FC<AppRouterProps> = ({ user, onManagerReadyChange }
     isManagerLoading,
     globalWarpStage,
     triggerWarpTransition,
+    showToast,
   });
 
   // --- HOOK 6: DEEP LINK RESTORE & TASK OPENER ---

@@ -133,17 +133,31 @@ export const NotificationDetailModal: React.FC<NotificationDetailModalProps> = (
             (isApproval && (!actionLink || actionLink === 'ATTENDANCE' || actionLink === 'ADMIN_APPROVALS' || actionLink === 'LEAVE'));
 
         if (isAttendanceNotif) {
-            const targetTab = (isApproval || actionLink === 'ADMIN_APPROVALS' || notifId.startsWith('leave_') || notifId.startsWith('ot_'))
-                ? 'APPROVALS'
-                : 'HISTORY';
-            onNavigate('ATTENDANCE', rawId ? { tab: targetTab, highlightReqId: rawId } : { tab: targetTab });
+            const isApprovalTarget = isApproval || actionLink === 'ADMIN_APPROVALS' || notifId.startsWith('leave_') || notifId.startsWith('ot_');
+            if (isApprovalTarget) {
+                onNavigate('ATTENDANCE', rawId ? { tab: 'APPROVALS', highlightReqId: rawId } : { tab: 'APPROVALS' });
+            } else if (rawId) {
+                onNavigate('ATTENDANCE', { tab: 'HISTORY', highlightReqId: rawId });
+            } else if (actionLink === 'LEAVE') {
+                onNavigate('ATTENDANCE', { tab: 'HISTORY' });
+            } else {
+                onNavigate('ATTENDANCE');
+            }
         } else if (actionLink === 'COMPANY_CHECKLIST') {
             const presetId = notification.relatedId || notification.metadata?.checklistId || rawId || '';
             onNavigate('COMPANY_CHECKLIST', presetId ? { presetId } : undefined);
         } else if (actionLink === 'DUTY') {
-            onNavigate('DUTY');
+            const swapId = notification.relatedId || notification.related_id || notification.metadata?.swapId || '';
+            const isSwapNotif = Boolean(swapId || isApproval || notification.metadata?.isSwap);
+            onNavigate(
+                'DUTY',
+                isSwapNotif
+                    ? (swapId ? { expandSwap: '1', swapId } : { expandSwap: '1' })
+                    : undefined
+            );
         } else if (actionLink === 'GOALS') {
-            onNavigate('GOALS');
+            const goalId = notification.relatedId || notification.related_id || notification.metadata?.goalId || '';
+            onNavigate('GOALS', goalId ? { goalId } : undefined);
         } else if (actionLink === 'FINANCE' || isFinance) {
             onNavigate('FINANCE');
         } else if (actionLink === 'TEAM_CHAT' || actionLink === 'CHAT') {
@@ -151,7 +165,8 @@ export const NotificationDetailModal: React.FC<NotificationDetailModalProps> = (
         } else if (actionLink === 'FEEDBACK') {
             onNavigate('FEEDBACK');
         } else if (actionLink === 'MEETING' || actionLink === 'MEETINGS') {
-            onNavigate('MEETINGS');
+            const meetingId = notification.relatedId || notification.related_id || notification.metadata?.meetingId || '';
+            onNavigate('MEETINGS', meetingId ? { meetingId } : undefined);
         } else if (actionLink === 'ContentStock' || actionLink === 'STOCK') {
             onNavigate('ContentStock', rawId ? { openTaskId: rawId } : undefined);
             if (rawId) {

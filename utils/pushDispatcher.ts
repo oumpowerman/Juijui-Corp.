@@ -38,27 +38,63 @@ export interface TriggerPushParams {
 }
 
 /**
- * Resolves an internal view key + relatedId into a browser deep-link URL
+ * Resolves an internal view key + relatedId + type + metadata into a browser deep-link URL
  */
 export function buildNotificationDeepLink(
     linkPath?: string | null,
     relatedId?: string | null,
-    notifType?: string | null
+    notifType?: string | null,
+    metadata?: Record<string, any> | null
 ): string {
-    if (linkPath === 'ATTENDANCE' || linkPath === 'ADMIN_APPROVALS' || linkPath === 'LEAVE') {
-        const isApproval = linkPath === 'ADMIN_APPROVALS' || notifType === 'APPROVAL_REQ';
-        const targetTab = isApproval ? 'APPROVALS' : 'HISTORY';
-        if (relatedId) {
-            return `/?view=ATTENDANCE&tab=${targetTab}&highlightReqId=${encodeURIComponent(relatedId)}`;
+    const rawLink = (linkPath || '').trim();
+    const upperType = (notifType || '').toUpperCase();
+
+    if (rawLink === 'ATTENDANCE' || rawLink === 'ADMIN_APPROVALS' || rawLink === 'LEAVE') {
+        const isApproval = rawLink === 'ADMIN_APPROVALS' || upperType === 'APPROVAL_REQ';
+        if (isApproval) {
+            return relatedId
+                ? `/?view=ATTENDANCE&tab=APPROVALS&highlightReqId=${encodeURIComponent(relatedId)}`
+                : '/?view=ATTENDANCE&tab=APPROVALS';
         }
-        return `/?view=ATTENDANCE&tab=${targetTab}`;
+        if (relatedId) {
+            return `/?view=ATTENDANCE&tab=HISTORY&highlightReqId=${encodeURIComponent(relatedId)}`;
+        }
+        if (rawLink === 'LEAVE') {
+            return '/?view=ATTENDANCE&tab=HISTORY';
+        }
+        return '/?view=ATTENDANCE';
     }
 
-    if (linkPath === 'COMPANY_CHECKLIST') {
-        if (relatedId) {
-            return `/?view=COMPANY_CHECKLIST&presetId=${encodeURIComponent(relatedId)}`;
+    if (rawLink === 'COMPANY_CHECKLIST') {
+        const presetId = relatedId || metadata?.checklistId;
+        if (presetId) {
+            return `/?view=COMPANY_CHECKLIST&presetId=${encodeURIComponent(presetId)}`;
         }
         return '/?view=COMPANY_CHECKLIST';
+    }
+
+    if (rawLink === 'DUTY') {
+        const swapId = relatedId || metadata?.swapId;
+        if (swapId || upperType === 'APPROVAL_REQ' || metadata?.isSwap) {
+            return swapId
+                ? `/?view=DUTY&expandSwap=1&swapId=${encodeURIComponent(swapId)}`
+                : '/?view=DUTY&expandSwap=1';
+        }
+        return '/?view=DUTY';
+    }
+
+    if (rawLink === 'MEETING' || rawLink === 'MEETINGS') {
+        const meetingId = relatedId || metadata?.meetingId;
+        return meetingId
+            ? `/?view=MEETINGS&meetingId=${encodeURIComponent(meetingId)}`
+            : '/?view=MEETINGS';
+    }
+
+    if (rawLink === 'GOALS') {
+        const goalId = relatedId || metadata?.goalId;
+        return goalId
+            ? `/?view=GOALS&goalId=${encodeURIComponent(goalId)}`
+            : '/?view=GOALS';
     }
 
     const viewKeyMap: Record<string, string> = {
@@ -70,34 +106,37 @@ export function buildNotificationDeepLink(
         TEAM_CHAT: '/?view=CHAT',
         CHAT: '/?view=CHAT',
         CALENDAR: '/?view=CALENDAR',
-        MEETING: '/?view=MEETINGS',
-        MEETINGS: '/?view=MEETINGS',
-        DUTY: '/?view=DUTY',
         FINANCE: '/?view=FINANCE',
-        GOALS: '/?view=GOALS',
         FEEDBACK: '/?view=FEEDBACK',
         KPI: '/?view=KPI',
         WEEKLY: '/?view=WEEKLY',
         WIKI: '/?view=WIKI',
         LEADERBOARD: '/?view=LEADERBOARD',
         TEAM: '/?view=TEAM',
+        SCRIPT_HUB: '/?view=SCRIPT_HUB',
+        CHECKLIST: '/?view=CHECKLIST',
+        CHANNELS: '/?view=CHANNELS',
+        ASSETS: '/?view=ASSETS',
+        NEXUS: '/?view=NEXUS',
+        ROADMAP: '/?view=ROADMAP',
+        ANALYTICS: '/?view=ANALYTICS',
     };
 
-    if (linkPath && viewKeyMap[linkPath]) {
-        let url = viewKeyMap[linkPath];
-        const supportsTaskModal = ['ContentStock', 'STOCK', 'DASHBOARD', 'ADMIN_DASHBOARD', 'QUALITY_GATE', 'CALENDAR'].includes(linkPath);
+    if (rawLink && viewKeyMap[rawLink]) {
+        let url = viewKeyMap[rawLink];
+        const supportsTaskModal = ['ContentStock', 'STOCK', 'DASHBOARD', 'ADMIN_DASHBOARD', 'QUALITY_GATE', 'CALENDAR'].includes(rawLink);
         if (relatedId && supportsTaskModal) {
             url += `&openTaskId=${encodeURIComponent(relatedId)}`;
         }
         return url;
     }
 
-    if (relatedId && (!linkPath || linkPath === '/')) {
+    if (relatedId && (!rawLink || rawLink === '/')) {
         return `/?openTaskId=${encodeURIComponent(relatedId)}`;
     }
 
-    if (linkPath && linkPath.startsWith('/')) {
-        return linkPath;
+    if (rawLink && rawLink.startsWith('/')) {
+        return rawLink;
     }
 
     return '/';
@@ -120,7 +159,7 @@ export async function triggerPushNotification({
     if (uniqueIds.length === 0) return;
 
     const orgId = getActiveOrgIdSync();
-    const deepLinkUrl = buildNotificationDeepLink(linkPath, relatedId, category);
+    const deepLinkUrl = buildNotificationDeepLink(linkPath, relatedId, category, metadata);
 
     const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -186,10 +225,15 @@ export async function insertAndDispatchNotifications(
         console.warn('[pushDispatcher] Failed to insert DB notifications:', dbErr);
     }
 
-    // Group rows by identical title + message + link_path so we can batch push requests
+    // Group rows by identical title + message + link_path + related_id + type so we can batch push requests safely
     const first = rowList[0];
     const allSameMessage = rowList.every(
-        r => r.title === first.title && r.message === first.message && r.link_path === first.link_path
+        r =>
+            r.title === first.title &&
+            r.message === first.message &&
+            r.link_path === first.link_path &&
+            (r.related_id || null) === (first.related_id || null) &&
+            r.type === first.type
     );
 
     if (allSameMessage) {

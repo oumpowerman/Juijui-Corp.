@@ -57,7 +57,7 @@ export async function sendGroupSummaryNotification(
         message += `\nหมายเหตุ: ${reason}`;
     }
 
-    return supabase.from('notifications').insert({
+    return insertAndDispatchNotifications({
         user_id: employeeId,
         type: 'APPROVAL_SUMMARY',
         title: `อัปเดตคำขอ: ${compPrefix}${employeeName}`,
@@ -66,6 +66,8 @@ export async function sendGroupSummaryNotification(
         link_path: 'ATTENDANCE',
         related_id: relatedId || null,
         metadata: metadata || null
+    }, {
+        category: 'APPROVAL_SUMMARY'
     });
 }
 

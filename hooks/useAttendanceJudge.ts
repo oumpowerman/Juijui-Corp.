@@ -6,6 +6,7 @@ import { isWorkingDay, isUserOnLeave } from '../utils/judgeUtils';
 import { toValidUuid } from '../utils/gamificationUtils';
 import { mergeAttendanceNotes } from '../lib/attendanceUtils';
 import { useMasterData } from './useMasterData';
+import { insertAndDispatchNotifications } from '../utils/pushDispatcher';
 
 export const useAttendanceJudge = (
     currentUser: User | null,
@@ -147,14 +148,14 @@ export const useAttendanceJudge = (
                             isProcessingRef.current.add(lockKey);
                             try {
                                 const checkDateThai = format(checkDate, 'd MMM', { locale: th });
-                                await supabase.from('notifications').insert({
+                                await insertAndDispatchNotifications({
                                     user_id: currentUser.id,
                                     type: 'INFO',
                                     title: '⏳ รอดำเนินการ: ใบลาค้างตรวจสอบ',
                                     message: `วันที่ ${checkDateThai} ระบบตรวจพบว่าคุณขาดงาน แต่มีการส่งใบลาค้างไว้ ระบบจะระงับการหักคะแนนชั่วคราว เนื่องจากคุณมีใบลาที่รอการอนุมัติ หากใบลาถูกปฏิเสธ ระบบจะดำเนินการหักคะแนนตามปกติ`,
                                     is_read: false,
                                     link_path: 'LEAVE'
-                                });
+                                }, { category: 'SYSTEM' });
                             } catch (err) {
                                 console.error("[AttendanceJudge] Failed to insert pending leave notification:", err);
                                 isProcessingRef.current.delete(lockKey);
@@ -278,14 +279,15 @@ export const useAttendanceJudge = (
                         rejection_reason: 'ระบบยกเลิกอัตโนมัติ (เกินกำหนดเวลาตรวจสอบ 7 วัน)'
                     }).eq('id', req.id);
 
-                    await supabase.from('notifications').insert({
+                    await insertAndDispatchNotifications({
                         user_id: req.userId,
                         type: 'INFO',
                         title: '❌ คำขอถูกยกเลิกอัตโนมัติ',
                         message: `รายการ: ${req.type}\nเหตุผล: เกินกำหนดเวลาตรวจสอบ 7 วัน`,
                         is_read: false,
+                        related_id: req.id,
                         link_path: 'ATTENDANCE'
-                    });
+                    }, { category: 'SYSTEM' });
 
                     console.log(`[AutoJudge] Auto-rejected old request ${req.id}`);
                 } finally {

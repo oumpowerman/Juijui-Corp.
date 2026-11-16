@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import { MasterOption } from '../types';
+import { insertAndDispatchNotifications } from '../utils/pushDispatcher';
 
 export interface PreReleaseTestParams {
     leadMinutes: string;
@@ -85,6 +86,10 @@ export const contentAlertTestService = {
             ? targetContent.editor_ids.map((id: string) => profilesMap.get(id) || 'ผู้ตัดต่อ').join(', ')
             : '-';
 
+        if (!currentUserId) {
+            throw new Error('ไม่พบข้อมูลผู้ใช้ปัจจุบันสำหรับส่งข้อความทดสอบ');
+        }
+
         const testPayload = {
             user_id: currentUserId,
             type: 'CONTENT_PLANNER_ALERT',
@@ -93,7 +98,6 @@ export const contentAlertTestService = {
             related_id: targetContent.id,
             link_path: 'CALENDAR',
             is_read: false,
-            line_status: null,
             metadata: {
                 content_id: targetContent.id,
                 title: targetContent.title || 'ไม่มีชื่อคลิป',
@@ -110,8 +114,10 @@ export const contentAlertTestService = {
             },
         };
 
-        const { error } = await supabase.from('notifications').insert(testPayload);
-        if (error) throw error;
+        await insertAndDispatchNotifications(testPayload, {
+            category: 'UPCOMING_DEADLINE',
+            senderId: currentUserId
+        });
 
         return { title: targetContent.title || 'ไม่มีชื่อคลิป' };
     },

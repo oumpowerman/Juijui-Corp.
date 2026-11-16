@@ -12,7 +12,7 @@ import {
     parseOtDetailsFromReason,
     processHpRefundIfEligible
 } from '../../utils/adminApprovalHelpers';
-import { checkIsLate, getLateMinutes, mergeAttendanceNotes, resolveAttendanceLogStatus, getMaxShiftWithBuffer, getICTTime } from '../../lib/attendanceUtils';
+import { checkIsLate, getLateMinutes, mergeAttendanceNotes, resolveAttendanceLogStatus, getMaxShiftWithBuffer, getICTTime, sanitizeAttendanceNoteBrackets } from '../../lib/attendanceUtils';
 import { publishToTeamChannel } from './communicationHelpers';
 
 /**
@@ -683,11 +683,11 @@ export async function approveGpsSpoofAppealRequest({
             '[GPS_SPOOF_APPEAL_PENDING]'
         ]);
 
-        const cleanedReason = (request.reason || '')
-            .replace(/\[PROVISIONAL_GPS_SPOOF_APPEAL\]/g, '')
-            .replace(/\[GPS_SPOOF_APPEAL_PENDING\]/g, '')
-            .replace(/\s+/g, ' ')
-            .trim();
+        const cleanedReason = sanitizeAttendanceNoteBrackets(
+            (request.reason || '')
+                .replace(/\[PROVISIONAL_GPS_SPOOF_APPEAL\]/g, '')
+                .replace(/\[GPS_SPOOF_APPEAL_PENDING\]/g, '')
+        );
 
         const newNote = mergeAttendanceNotes(cleanedNoteStr, `[APPROVED GPS_SPOOF_APPEAL] อนุมัติการยื่นอุทธรณ์พิกัด GPS: ${cleanedReason}`);
 
@@ -747,11 +747,11 @@ export async function approveGpsSpoofOutAppealRequest({
             '[GPS_SPOOF_OUT_PENDING]'
         ]);
 
-        const cleanedReason = (request.reason || '')
-            .replace(/\[PROVISIONAL_GPS_SPOOF_OUT\]/g, '')
-            .replace(/\[GPS_SPOOF_OUT_PENDING\]/g, '')
-            .replace(/\s+/g, ' ')
-            .trim();
+        const cleanedReason = sanitizeAttendanceNoteBrackets(
+            (request.reason || '')
+                .replace(/\[PROVISIONAL_GPS_SPOOF_OUT\]/g, '')
+                .replace(/\[GPS_SPOOF_OUT_PENDING\]/g, '')
+        );
 
         const newNote = mergeAttendanceNotes(cleanedNoteStr, `[APPROVED GPS_SPOOF_OUT] อนุมัติการยื่นอุทธรณ์พิกัด GPS (ออกงาน): ${cleanedReason}`);
 

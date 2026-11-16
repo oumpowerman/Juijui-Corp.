@@ -4,6 +4,7 @@ import {
     Clock, Moon, Briefcase
 } from 'lucide-react';
 import { getRegistryItem } from '../../../../constants/attendanceRegistry';
+import { sanitizeAttendanceNoteBrackets } from '../../../../lib/attendanceUtils';
 
 export interface ParsedReason {
     cleanReason: string;
@@ -20,6 +21,10 @@ export interface ParsedReason {
     isProvisionalCheckout: boolean;
     isProvisionalLate: boolean;
     isProvisionalGps: boolean;
+    isProvisionalGpsIn?: boolean;
+    isProvisionalGpsOut?: boolean;
+    isGpsApproved?: boolean;
+    isGpsOutApproved?: boolean;
     isForgotBothPending: boolean;
     isEarlyLeaveAcceptPenalty: boolean;
     isEarlyLeaveApproved: boolean;
@@ -183,23 +188,72 @@ export const parseReason = (
     const isFixedOt = text.includes('[OT:FIXED]');
     text = text.replace(/\[OT:FIXED\]/g, '');
 
-    const isProvisionalWfh = text.includes('[PROVISIONAL_WFH]');
-    text = text.replace(/\[PROVISIONAL_WFH\]/g, '');
+    const isProvisionalWfhRaw = text.includes('[PROVISIONAL_WFH]');
+    const isWfhResolved = text.includes('[APPROVED WFH]') || text.includes('[REJECTED WFH]') || text.includes('[REJECTED_WFH]');
+    const isProvisionalWfh = isProvisionalWfhRaw && !isWfhResolved;
+    text = text.replace(/\[PROVISIONAL_WFH\]/g, '').replace(/\[APPROVED WFH\]/g, '').replace(/\[REJECTED[_ ]WFH\]/g, '');
 
-    const isProvisionalOnsite = text.includes('[PROVISIONAL_ONSITE]');
-    text = text.replace(/\[PROVISIONAL_ONSITE\]/g, '');
+    const isProvisionalOnsiteRaw = text.includes('[PROVISIONAL_ONSITE]');
+    const isOnsiteResolved = text.includes('[APPROVED ONSITE]') || text.includes('[REJECTED ONSITE]') || text.includes('[REJECTED_ONSITE]');
+    const isProvisionalOnsite = isProvisionalOnsiteRaw && !isOnsiteResolved;
+    text = text.replace(/\[PROVISIONAL_ONSITE\]/g, '').replace(/\[APPROVED ONSITE\]/g, '').replace(/\[REJECTED[_ ]ONSITE\]/g, '');
 
-    const isProvisionalForgotCheckin = text.includes('[PROVISIONAL_FORGOT_CHECKIN]');
-    text = text.replace(/\[PROVISIONAL_FORGOT_CHECKIN\]/g, '');
+    const isProvisionalForgotCheckinRaw = text.includes('[PROVISIONAL_FORGOT_CHECKIN]') || text.includes('[FORGOT_CHECKIN_PENDING]');
+    const isForgotCheckinResolved = text.includes('[APPROVED FORGOT_CHECKIN]') || text.includes('[REJECTED FORGOT_CHECKIN]');
+    const isProvisionalForgotCheckin = isProvisionalForgotCheckinRaw && !isForgotCheckinResolved;
+    text = text
+        .replace(/\[PROVISIONAL_FORGOT_CHECKIN\]/g, '')
+        .replace(/\[FORGOT_CHECKIN_PENDING\]/g, '')
+        .replace(/\[APPROVED FORGOT_CHECKIN\]/g, '')
+        .replace(/\[REJECTED FORGOT_CHECKIN\]/g, '');
 
-    const isProvisionalLate = text.includes('[PROVISIONAL_LATE_ENTRY]');
-    text = text.replace(/\[PROVISIONAL_LATE_ENTRY\]/g, '');
+    const isProvisionalLateRaw = text.includes('[PROVISIONAL_LATE_ENTRY]') || text.includes('[LATE_ENTRY_PENDING]');
+    const isLateResolved = text.includes('[APPROVED LATE_ENTRY]') || text.includes('[REJECTED LATE_ENTRY]');
+    const isProvisionalLate = isProvisionalLateRaw && !isLateResolved;
+    text = text
+        .replace(/\[PROVISIONAL_LATE_ENTRY\]/g, '')
+        .replace(/\[LATE_ENTRY_PENDING\]/g, '')
+        .replace(/\[APPROVED LATE_ENTRY\]/g, '')
+        .replace(/\[REJECTED LATE_ENTRY\]/g, '')
+        .replace(/\[APPEAL_PENDING\]/g, '')
+        .replace(/\[LATE\]/g, '');
 
-    const isProvisionalCheckout = text.includes('[PROVISIONAL_CHECKOUT]');
-    text = text.replace(/\[PROVISIONAL_CHECKOUT\]/g, '');
+    const isProvisionalCheckoutRaw =
+        text.includes('[PROVISIONAL_CHECKOUT]') ||
+        text.includes('[FORGOT_CHECKOUT_PENDING]') ||
+        text.includes('[EARLY_LEAVE_PENDING]') ||
+        text.includes('[OUT_OF_RANGE_CHECKOUT_PENDING]');
+    const isCheckoutResolved =
+        text.includes('[APPROVED FORGOT_CHECKOUT]') ||
+        text.includes('[REJECTED FORGOT_CHECKOUT]') ||
+        text.includes('[APPROVED OUT_OF_RANGE_CHECKOUT]') ||
+        text.includes('[REJECTED OUT_OF_RANGE_CHECKOUT]') ||
+        text.includes('[APPROVED EARLY_LEAVE_APPEAL]') ||
+        text.includes('[APPROVED EARLY_LEAVE]') ||
+        text.includes('[REJECTED EARLY_LEAVE_APPEAL]') ||
+        text.includes('[APPROVED FORGOT_BOTH]') ||
+        text.includes('[REJECTED FORGOT_BOTH]') ||
+        text.includes('[ACCEPT_PENALTY]');
+    const isProvisionalCheckout = isProvisionalCheckoutRaw && !isCheckoutResolved;
+    text = text
+        .replace(/\[PROVISIONAL_CHECKOUT\]/g, '')
+        .replace(/\[FORGOT_CHECKOUT_PENDING\]/g, '')
+        .replace(/\[EARLY_LEAVE_PENDING\]/g, '')
+        .replace(/\[OUT_OF_RANGE_CHECKOUT_PENDING\]/g, '')
+        .replace(/\[APPROVED FORGOT_CHECKOUT\]/g, '')
+        .replace(/\[REJECTED FORGOT_CHECKOUT\]/g, '')
+        .replace(/\[APPROVED OUT_OF_RANGE_CHECKOUT\]/g, '')
+        .replace(/\[REJECTED OUT_OF_RANGE_CHECKOUT\]/g, '')
+        .replace(/\[PROVISIONAL_HALF_DAY_LEAVE\]/g, '')
+        .replace(/\[ADJUSTED_CHECKOUT:[^\]]+\]/g, '');
 
-    const isForgotBothPending = text.includes('[FORGOT_BOTH_PENDING]');
-    text = text.replace(/\[FORGOT_BOTH_PENDING\]/g, '');
+    const isForgotBothPendingRaw = text.includes('[FORGOT_BOTH_PENDING]');
+    const isForgotBothResolved = text.includes('[APPROVED FORGOT_BOTH]') || text.includes('[REJECTED FORGOT_BOTH]');
+    const isForgotBothPending = isForgotBothPendingRaw && !isForgotBothResolved;
+    text = text
+        .replace(/\[FORGOT_BOTH_PENDING\]/g, '')
+        .replace(/\[APPROVED FORGOT_BOTH\]/g, '')
+        .replace(/\[REJECTED FORGOT_BOTH\]/g, '');
 
     // Extract Early Leave Penalty Acceptance
     const isEarlyLeaveAcceptPenalty = text.includes('[ACCEPT_PENALTY]') || text.includes('[ACCEPTED_PENALTY]') || text.includes('ACCEPT_PENALTY');
@@ -225,13 +279,29 @@ export const parseReason = (
     text = text.replace(/ยอมรับบทลงโทษกลับก่อนเวลา/gi, '');
     text = text.replace(/\[REJECTED EARLY_LEAVE_APPEAL\]/gi, '');
 
-    const isProvisionalGps = text.includes('[PROVISIONAL_GPS_SPOOF_APPEAL]') || text.includes('[GPS_SPOOF_APPEAL_PENDING]');
-    text = text.replace(/\[PROVISIONAL_GPS_SPOOF_APPEAL\]/g, '');
-    text = text.replace(/\[GPS_SPOOF_APPEAL_PENDING\]/g, '');
+    // Extract GPS Spoof Appeal (Check-in and Check-out) with resolution checks
+    const isGpsApproved = text.includes('[APPROVED GPS_SPOOF_APPEAL]');
+    const isGpsInRejected = !isGpsApproved && (text.includes('[REJECTED GPS_SPOOF_APPEAL]') || text.includes('[REJECTED_GPS_SPOOF_APPEAL]'));
+    const hasPendingGpsIn = text.includes('[PROVISIONAL_GPS_SPOOF_APPEAL]') || text.includes('[GPS_SPOOF_APPEAL_PENDING]');
+    const isProvisionalGpsIn = hasPendingGpsIn && !isGpsApproved && !isGpsInRejected;
 
-    // Beautify reason tag formatting - now that system tags inside/around are cleaned up
-    text = text.replace(/\[REASON:\s*(.*?)\]/gi, '($1)');
-    
+    const isGpsOutApproved = text.includes('[APPROVED GPS_SPOOF_OUT]');
+    const isGpsOutRejected = !isGpsOutApproved && (text.includes('[REJECTED GPS_SPOOF_OUT]') || text.includes('[REJECTED_GPS_SPOOF_OUT]'));
+    const hasPendingGpsOut = text.includes('[PROVISIONAL_GPS_SPOOF_OUT]') || text.includes('[GPS_SPOOF_OUT_PENDING]');
+    const isProvisionalGpsOut = hasPendingGpsOut && !isGpsOutApproved && !isGpsOutRejected;
+
+    const isProvisionalGps = isProvisionalGpsIn || isProvisionalGpsOut;
+
+    text = text
+        .replace(/\[PROVISIONAL_GPS_SPOOF_APPEAL\]/g, '')
+        .replace(/\[GPS_SPOOF_APPEAL_PENDING\]/g, '')
+        .replace(/\[PROVISIONAL_GPS_SPOOF_OUT\]/g, '')
+        .replace(/\[GPS_SPOOF_OUT_PENDING\]/g, '')
+        .replace(/\[APPROVED GPS_SPOOF_APPEAL\]/g, '')
+        .replace(/\[APPROVED GPS_SPOOF_OUT\]/g, '')
+        .replace(/\[REJECTED[_ ]GPS_SPOOF_APPEAL\]/g, '')
+        .replace(/\[REJECTED[_ ]GPS_SPOOF_OUT\]/g, '');
+
     const targetShiftMatch = text.match(/\[TARGET_SHIFT:(\d{2}:\d{2})\]/);
     let targetShift: string | null = null;
     if (targetShiftMatch) {
@@ -278,9 +348,12 @@ export const parseReason = (
     text = text.replace(/\([\d\.]+hr\)/g, '');
     text = text.replace(/\[OT_MINUTES:\d+\]/g, '');
     text = text.replace(/\[OT:[\d\.]+hr\]/g, '');
+    text = text.replace(/\[OT_PENDING:[^\]]+\]/g, '');
 
-    text = text.replace(/\(\s*\)/g, '');
-    text = text.replace(/\[\s*\]/g, '');
+    // Sanitize broken nested brackets (`]]`, empty `[REASON: ]`) BEFORE beautifying [REASON: ...]
+    text = sanitizeAttendanceNoteBrackets(text);
+    text = text.replace(/\[REASON:\s*(.*?)\]/gi, '($1)');
+    text = sanitizeAttendanceNoteBrackets(text);
     text = removeOrphanedParentheses(text);
     text = text.replace(/\s+/g, ' ').trim();
 
@@ -333,6 +406,10 @@ export const parseReason = (
         isProvisionalCheckout,
         isProvisionalLate,
         isProvisionalGps,
+        isProvisionalGpsIn,
+        isProvisionalGpsOut,
+        isGpsApproved,
+        isGpsOutApproved,
         isForgotBothPending,
         isEarlyLeaveAcceptPenalty,
         isEarlyLeaveApproved,

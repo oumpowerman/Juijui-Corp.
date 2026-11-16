@@ -7,7 +7,7 @@ import {
     isToday, startOfMonth, endOfMonth, addMonths, isWeekend
 } from 'date-fns';
 import th from 'date-fns/locale/th';
-import { checkIsLate } from '../../../lib/attendanceUtils';
+import { checkIsLate, hasPendingProvisionalTags } from '../../../lib/attendanceUtils';
 import { useAnnualHolidays } from '../../../hooks/useAnnualHolidays';
 import { useCalendarExceptions } from '../../../hooks/useCalendarExceptions';
 
@@ -79,22 +79,14 @@ const AdminWeeklyTimesheet: React.FC<{
 
     // Compute Provisional Count
     const provisionalCount = useMemo(() => {
-        return logs.filter(l => 
-            l.note?.includes('[PROVISIONAL_FORGOT_CHECKIN]') || 
-            l.note?.includes('[PROVISIONAL_LATE_ENTRY]') || 
-            l.note?.includes('[PROVISIONAL_WFH]') || 
-            l.note?.includes('[PROVISIONAL_ONSITE]') ||
-            l.note?.includes('[PROVISIONAL_CHECKOUT]') ||
-            l.note?.includes('[PROVISIONAL_GPS_SPOOF_APPEAL]') ||
-            l.note?.includes('[GPS_SPOOF_APPEAL_PENDING]') ||
-            l.note?.includes('[APPEAL_PENDING]')
-        ).length;
+        return logs.filter(l => hasPendingProvisionalTags(l.note)).length;
     }, [logs]);
     const [leaveRequests, setLeaveRequests] = useState<any[]>([]);
     const [otRequests, setOtRequests] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [selectedLog, setSelectedLog] = useState<AttendanceLog | null>(null);
     const [selectedLeaveRequest, setSelectedLeaveRequest] = useState<any | null>(null);
+    const [selectedLeaveRequests, setSelectedLeaveRequests] = useState<any[]>([]);
     const [selectedOtRequest, setSelectedOtRequest] = useState<any | null>(null);
     const [selectedUser, setSelectedUser] = useState<any | null>(null);
 
@@ -245,16 +237,7 @@ const AdminWeeklyTimesheet: React.FC<{
 
             if (filterProvisionalOnly) {
                 const userLogs = logs.filter(l => l.userId === u.id);
-                const hasProv = userLogs.some(l => 
-                    l.note?.includes('[PROVISIONAL_FORGOT_CHECKIN]') || 
-                    l.note?.includes('[PROVISIONAL_LATE_ENTRY]') || 
-                    l.note?.includes('[PROVISIONAL_WFH]') || 
-                    l.note?.includes('[PROVISIONAL_ONSITE]') ||
-                    l.note?.includes('[PROVISIONAL_CHECKOUT]') ||
-                    l.note?.includes('[PROVISIONAL_GPS_SPOOF_APPEAL]') ||
-                    l.note?.includes('[GPS_SPOOF_APPEAL_PENDING]') ||
-                    l.note?.includes('[APPEAL_PENDING]')
-                );
+                const hasProv = userLogs.some(l => hasPendingProvisionalTags(l.note));
                 if (!hasProv) return false;
             }
             
@@ -350,9 +333,10 @@ const AdminWeeklyTimesheet: React.FC<{
                 otRequests={otRequests}
                 getEffectiveDayStatus={getEffectiveDayStatus}
                 workConfig={workConfig}
-                onCellClick={(log, leaveReq, otReq, user) => {
+                onCellClick={(log, leaveReq, otReq, user, allReqs) => {
                     setSelectedLog(log);
                     setSelectedLeaveRequest(leaveReq);
+                    setSelectedLeaveRequests(allReqs || (leaveReq ? [leaveReq] : []));
                     setSelectedOtRequest(otReq);
                     setSelectedUser(user);
                 }}
@@ -361,32 +345,24 @@ const AdminWeeklyTimesheet: React.FC<{
             <AnimatePresence>
                 {(selectedLog || selectedLeaveRequest || selectedOtRequest) && (
                     <TimesheetDetailModal 
+                        key="timesheet-detail-modal"
                         log={selectedLog}
                         leaveRequest={selectedLeaveRequest}
+                        leaveRequests={selectedLeaveRequests}
                         otRequest={selectedOtRequest}
                         user={selectedUser}
                         onClose={() => {
                             setSelectedLog(null);
                             setSelectedLeaveRequest(null);
+                            setSelectedLeaveRequests([]);
                             setSelectedOtRequest(null);
                             setSelectedUser(null);
                         }}
                     />
                 )}
-                <ExportSettingsModal 
-                    isOpen={showExportSettings}
-                    onClose={() => setShowExportSettings(false)}
-                    dateRange={dateRange}
-                    filteredAndGroupedUsers={filteredAndGroupedUsers}
-                    logs={logs}
-                    leaveRequests={leaveRequests}
-                    getEffectiveDayStatus={getEffectiveDayStatus}
-                    workConfig={workConfig}
-                    viewMode={viewMode}
-                    onExportSuccess={(filename) => setExportToast({ filename, id: Date.now().toString() })}
-                />
                 {exportToast && (
                     <motion.div
+                        key={exportToast.id}
                         initial={{ opacity: 0, y: -20, scale: 0.95 }}
                         animate={{ opacity: 1, y: 0, scale: 1 }}
                         exit={{ opacity: 0, y: -20, scale: 0.95 }}
@@ -411,6 +387,19 @@ const AdminWeeklyTimesheet: React.FC<{
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            <ExportSettingsModal 
+                isOpen={showExportSettings}
+                onClose={() => setShowExportSettings(false)}
+                dateRange={dateRange}
+                filteredAndGroupedUsers={filteredAndGroupedUsers}
+                logs={logs}
+                leaveRequests={leaveRequests}
+                getEffectiveDayStatus={getEffectiveDayStatus}
+                workConfig={workConfig}
+                viewMode={viewMode}
+                onExportSuccess={(filename) => setExportToast({ filename, id: Date.now().toString() })}
+            />
         </div>
     );
 };

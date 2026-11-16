@@ -17,7 +17,7 @@ interface TimesheetTableProps {
     leaveRequests?: any[];
     otRequests?: any[];
     getEffectiveDayStatus: (date: Date) => { status: 'WORK_DAY' | 'HOLIDAY', source: string, desc: string };
-    onCellClick: (log: AttendanceLog | null, leaveRequest?: any, otRequest?: any, user?: any) => void;
+    onCellClick: (log: AttendanceLog | null, leaveRequest?: any, otRequest?: any, user?: any, leaveRequests?: any[]) => void;
     workConfig: { 
         startTime: string; 
         buffer: number;
@@ -66,21 +66,39 @@ const TimesheetTable: React.FC<TimesheetTableProps> = ({
         return map;
     }, [logs]);
 
-    // 2. Client-Side Indexing for Leave Requests: Map<`${userId}_${dateStr}`, LeaveRequest>
-    const leaveRequestsMap = React.useMemo(() => {
-        const map = new Map<string, any>();
+    // 2. Client-Side Indexing for Leave Requests: Map<`${userId}_${dateStr}`, LeaveRequest[]>
+    const leaveRequestsListMap = React.useMemo(() => {
+        const map = new Map<string, any[]>();
         leaveRequests.forEach(req => {
             if (!req.user_id) return;
             // Pre-expand to save comparisons in loop
             dateRange.forEach(day => {
                 const dateStr = format(day, 'yyyy-MM-dd');
                 if (dateStr >= req.start_date && dateStr <= req.end_date) {
-                    map.set(`${req.user_id}_${dateStr}`, req);
+                    const key = `${req.user_id}_${dateStr}`;
+                    const existing = map.get(key);
+                    if (existing) {
+                        existing.push(req);
+                    } else {
+                        map.set(key, [req]);
+                    }
                 }
             });
         });
         return map;
     }, [leaveRequests, dateRange]);
+
+    const pickPrimaryDayRequest = (requests?: any[]) => {
+        if (!requests || requests.length === 0) return undefined;
+        if (requests.length === 1) return requests[0];
+        const statusRank = (status?: string) => {
+            if (status === 'PENDING') return 3;
+            if (status === 'REJECTED') return 2;
+            if (status === 'APPROVED') return 1;
+            return 0;
+        };
+        return [...requests].sort((a, b) => statusRank(b.status) - statusRank(a.status))[0];
+    };
 
     // 3. Client-Side Indexing for OT Requests: Map<`${userId}_${dateStr}`, OtRequest>
     const otRequestsMap = React.useMemo(() => {
@@ -220,28 +238,25 @@ const TimesheetTable: React.FC<TimesheetTableProps> = ({
                                                 </td>
                                                 {dateRange.map(day => {
                                                     const dateStr = format(day, 'yyyy-MM-dd');
-                                                    const log = logsMap.get(`${user.id}_dateStr`);
+                                                    const cellKey = `${user.id}_${dateStr}`;
                                                     const dayStatus = getEffectiveDayStatus(day);
-                                                    
-                                                    // Find relevant leave request in O(1) time
-                                                    const relevantRequest = leaveRequestsMap.get(`${user.id}_dateStr`);
-                                                    
-                                                    // Find relevant OT request in O(1) time
-                                                    const relevantOtRequest = otRequestsMap.get(`${user.id}_dateStr`);
+                                                    const dayLeaveRequests = leaveRequestsListMap.get(cellKey);
+                                                    const primaryLeaveRequest = pickPrimaryDayRequest(dayLeaveRequests);
 
                                                     return (
                                                         <td key={day.toString()} className="p-0">
                                                             <TimesheetCell 
                                                                 date={day}
-                                                                log={logsMap.get(`${user.id}_${dateStr}`)} 
-                                                                leaveRequest={leaveRequestsMap.get(`${user.id}_${dateStr}`)}
-                                                                otRequest={otRequestsMap.get(`${user.id}_${dateStr}`)}
+                                                                log={logsMap.get(cellKey)} 
+                                                                leaveRequest={primaryLeaveRequest}
+                                                                leaveRequests={dayLeaveRequests}
+                                                                otRequest={otRequestsMap.get(cellKey)}
                                                                 dayStatus={dayStatus}
                                                                 isToday={isToday(day)}
                                                                 workConfig={workConfig}
                                                                 userStartDate={user.startDate}
                                                                 positionY={currentGlobalIdx < 2 ? 'bottom' : 'top'}
-                                                                onCellClick={(log, leaveReq, otReq) => onCellClick(log, leaveReq, otReq, user)}
+                                                                onCellClick={(log, leaveReq, otReq, reqs) => onCellClick(log, leaveReq, otReq, user, reqs)}
                                                             />
                                                         </td>
                                                     );

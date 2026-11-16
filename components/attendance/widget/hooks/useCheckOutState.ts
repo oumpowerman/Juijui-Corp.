@@ -10,6 +10,7 @@ import { compressImage } from '../../../../lib/imageUtils';
 import { googleDriveService } from '../../../../services/googleDriveService';
 import { supabase } from '../../../../lib/supabase';
 import { useUserSession } from '../../../../context/UserSessionContext';
+import { getActiveOrgIdSync } from '../../../../lib/tenantStorage';
 
 interface UseCheckOutStateProps {
     isOpen: boolean;
@@ -151,6 +152,7 @@ export const useCheckOutState = ({
     const [isUploading, setIsUploading] = useState(false);
     const [isDriveConnected, setIsDriveConnected] = useState(false);
     const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+    const [pendingDutiesToday, setPendingDutiesToday] = useState<{ id: string; title: string }[]>([]);
 
     const checkDriveStatus = async () => {
         try {
@@ -310,6 +312,50 @@ export const useCheckOutState = ({
             setForgetCheckOutTime(format(new Date(), 'HH:mm'));
         }
     }, [isOpen]);
+
+    // Check if the user has unfinished duties scheduled for today (org-scoped)
+    useEffect(() => {
+        if (!isOpen || !currentUserProfile?.id) {
+            setPendingDutiesToday([]);
+            return;
+        }
+
+        let isCancelled = false;
+        const fetchPendingDutiesToday = async () => {
+            try {
+                const todayStr = format(new Date(), 'yyyy-MM-dd');
+                const activeOrgId = getActiveOrgIdSync();
+
+                let query = supabase
+                    .from('duties')
+                    .select('id, title')
+                    .eq('assignee_id', currentUserProfile.id)
+                    .eq('date', todayStr)
+                    .eq('is_done', false);
+
+                if (activeOrgId) {
+                    query = query.eq('org_id', activeOrgId);
+                }
+
+                const { data, error } = await query;
+                if (!isCancelled && !error && Array.isArray(data)) {
+                    setPendingDutiesToday(
+                        data.map((d: any) => ({
+                            id: d.id,
+                            title: d.title || 'เวรประจำวัน',
+                        }))
+                    );
+                }
+            } catch (err) {
+                console.warn('[CheckOutState] Failed to check today pending duties:', err);
+            }
+        };
+
+        fetchPendingDutiesToday();
+        return () => {
+            isCancelled = true;
+        };
+    }, [isOpen, currentUserProfile?.id]);
 
     const handleNormalSubmit = async () => {
         if (!isGpsSecure && !isGpsAppealActive) {
@@ -557,8 +603,8 @@ export const useCheckOutState = ({
         const timeTag = checkOutStatus === 'EARLY_LEAVE' ? `[EARLY:${finalTime}]` : `[TIME:${finalTime}]`;
         
         // เพิ่มแท็ก (Location Mismatch) เข้าไปในกรณีที่เป็นการเช็คเอาท์นอกพื้นที่
-        const locationMismatchTag = (!isGpsAppealActive && (checkOutStatus !== 'EARLY_LEAVE' || status === 'OUT_OF_RANGE')) ? ' (Location Mismatch)' : '';
-        const reasonWithProv = `${timeTag} ${finalReason}${locationMismatchTag} ${provTag}`;
+        const locationMismatchTag = (!isGpsAppealActive && (checkOutStatus !== 'EARLY_LEAVE' || status === 'OUT_OF_RANGE')) ? '(Location Mismatch)' : '';
+        const reasonWithProv = [provTag, timeTag, locationMismatchTag, finalReason.trim()].filter(Boolean).join(' ');
         
         await onConfirm(
             { lat: currentLat, lng: currentLng }, 
@@ -671,5 +717,6 @@ export const useCheckOutState = ({
         showAlert,
         hasPendingHalfDayLeave,
         pendingHalfDayLeave,
+        pendingDutiesToday,
     };
 };

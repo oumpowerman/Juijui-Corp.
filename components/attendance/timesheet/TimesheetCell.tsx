@@ -4,17 +4,18 @@ import { format, isPast } from 'date-fns';
 import { Coffee, UserX } from 'lucide-react';
 import { AttendanceLog } from '../../../types/attendance';
 import { getRegistryItem, findPendingRegistryItemByNote } from '../../../constants/attendanceRegistry';
-import { checkIsLate } from '../../../lib/attendanceUtils';
+import { checkIsLate, resolveAttendanceLogStatus } from '../../../lib/attendanceUtils';
 import { CellTooltip } from './CellTooltip';
 
 interface TimesheetCellProps {
     date: Date;
     log?: AttendanceLog;
     leaveRequest?: any;
+    leaveRequests?: any[];
     otRequest?: any;
     dayStatus: { status: 'WORK_DAY' | 'HOLIDAY', source: string, desc: string };
     isToday: boolean;
-    onCellClick: (log: AttendanceLog | null, leaveRequest?: any, otRequest?: any) => void;
+    onCellClick: (log: AttendanceLog | null, leaveRequest?: any, otRequest?: any, leaveRequests?: any[]) => void;
     workConfig: { 
         startTime: string; 
         buffer: number;
@@ -31,6 +32,7 @@ const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({
     date,
     log, 
     leaveRequest,
+    leaveRequests,
     otRequest,
     dayStatus,
     isToday, 
@@ -44,9 +46,14 @@ const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({
 
     const [isShaking, setIsShaking] = React.useState(false);
 
+    const allDayRequests = React.useMemo(
+        () => (leaveRequests && leaveRequests.length > 0 ? leaveRequests : (leaveRequest ? [leaveRequest] : [])),
+        [leaveRequests, leaveRequest]
+    );
+
     const handleClick = () => {
         if (log || leaveRequest || otRequest) {
-            onCellClick(log || null, leaveRequest, otRequest);
+            onCellClick(log || null, leaveRequest, otRequest, allDayRequests);
         }
     };
 
@@ -263,25 +270,69 @@ const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({
         );
     }
 
-    const isHalfDay = leaveRequest?.is_half_day || leaveRequest?.isHalfDay;
-    const halfDaySession = leaveRequest?.half_day_session || leaveRequest?.halfDaySession;
-    const isAMLeave = isHalfDay && halfDaySession === 'AM' && leaveRequest?.status === 'APPROVED';
-    const isPMLeave = isHalfDay && halfDaySession === 'PM' && leaveRequest?.status === 'APPROVED';
+    const isAMLeave = allDayRequests.some(r =>
+        (r.is_half_day || r.isHalfDay) &&
+        (r.half_day_session || r.halfDaySession) === 'AM' &&
+        r.status === 'APPROVED'
+    );
+    const isPMLeave = allDayRequests.some(r =>
+        (r.is_half_day || r.isHalfDay) &&
+        (r.half_day_session || r.halfDaySession) === 'PM' &&
+        r.status === 'APPROVED'
+    );
+
+    const noteText = log.note || '';
+    const effectiveStatus = log.status === 'APPEAL'
+        ? 'APPEAL'
+        : resolveAttendanceLogStatus(
+            log.checkInTime ? new Date(log.checkInTime).toISOString() : null,
+            log.checkOutTime ? new Date(log.checkOutTime).toISOString() : null,
+            noteText,
+            log.status
+        );
 
     const late = isAMLeave ? false : (log.checkInTime && checkIsLate(log.checkInTime, workConfig.startTime, workConfig.buffer, log.note, workConfig.multipleShifts));
-    const isLeave = log.status === 'LEAVE' || log.workType === 'LEAVE';
-    const isPendingVerify = log.status === 'PENDING_VERIFY';
-    const isHardAbsent = log.status === 'ABSENT' || log.status === 'NO_SHOW';
+    const isLeave = effectiveStatus === 'LEAVE' || log.workType === 'LEAVE';
+    const isPendingVerify = effectiveStatus === 'PENDING_VERIFY';
+    const isHardAbsent = effectiveStatus === 'ABSENT' || log.status === 'NO_SHOW';
     const isNoCheckIn = !log.checkInTime && !isLeave && !isHardAbsent;
-    const leaveTypeMatch = log.note?.match(/\[APPROVED LEAVE: (.*?)\]/);
+    const leaveTypeMatch = noteText.match(/\[APPROVED LEAVE: (.*?)\]/);
     const leaveType = leaveTypeMatch ? leaveTypeMatch[1] : null;
     
-    const pendingItem = findPendingRegistryItemByNote(log.note || '');
-    const isGpsRejected = log.status === 'ACTION_REQUIRED' && ((log.note || '').includes('[REJECTED GPS_SPOOF_APPEAL]') || (log.note || '').includes('[REJECTED_GPS_SPOOF_APPEAL]'));
-    const isAnyProvisional = !!pendingItem && !isGpsRejected;
-    const isProvisionalLate = (pendingItem?.id === 'LATE_ENTRY' || log.status === 'APPEAL') && !isGpsRejected;
-    const isProvisionalGps = (pendingItem?.id === 'GPS_SPOOF_APPEAL' || (log.note || '').includes('[PROVISIONAL_GPS_SPOOF_APPEAL]') || (log.note || '').includes('[GPS_SPOOF_APPEAL_PENDING]') || (leaveRequest?.type === 'GPS_SPOOF_APPEAL' && leaveRequest?.status === 'PENDING')) && !isGpsRejected;
-    const isAppealState = (log.status === 'APPEAL' || isProvisionalLate || isProvisionalGps) && !isGpsRejected;
+    const pendingItem = findPendingRegistryItemByNote(noteText);
+
+    const isGpsInApproved = noteText.includes('[APPROVED GPS_SPOOF_APPEAL]') || allDayRequests.some(r => r.type === 'GPS_SPOOF_APPEAL' && r.status === 'APPROVED');
+    const isGpsOutApproved = noteText.includes('[APPROVED GPS_SPOOF_OUT]') || allDayRequests.some(r => r.type === 'GPS_SPOOF_OUT_APPEAL' && r.status === 'APPROVED');
+
+    const isGpsInRejected = !isGpsInApproved && (
+        noteText.includes('[REJECTED GPS_SPOOF_APPEAL]') ||
+        noteText.includes('[REJECTED_GPS_SPOOF_APPEAL]') ||
+        allDayRequests.some(r => r.type === 'GPS_SPOOF_APPEAL' && r.status === 'REJECTED')
+    );
+    const isGpsOutRejected = !isGpsOutApproved && (
+        noteText.includes('[REJECTED GPS_SPOOF_OUT]') ||
+        noteText.includes('[REJECTED_GPS_SPOOF_OUT]') ||
+        allDayRequests.some(r => r.type === 'GPS_SPOOF_OUT_APPEAL' && r.status === 'REJECTED')
+    );
+    const isGpsRejected = effectiveStatus === 'ACTION_REQUIRED' && (isGpsInRejected || isGpsOutRejected);
+
+    const isGpsInPending = !isGpsInApproved && !isGpsInRejected && (
+        pendingItem?.id === 'GPS_SPOOF_APPEAL' ||
+        noteText.includes('[PROVISIONAL_GPS_SPOOF_APPEAL]') ||
+        noteText.includes('[GPS_SPOOF_APPEAL_PENDING]') ||
+        allDayRequests.some(r => r.type === 'GPS_SPOOF_APPEAL' && r.status === 'PENDING')
+    );
+    const isGpsOutPending = !isGpsOutApproved && !isGpsOutRejected && (
+        pendingItem?.id === 'GPS_SPOOF_OUT_APPEAL' ||
+        noteText.includes('[PROVISIONAL_GPS_SPOOF_OUT]') ||
+        noteText.includes('[GPS_SPOOF_OUT_PENDING]') ||
+        allDayRequests.some(r => r.type === 'GPS_SPOOF_OUT_APPEAL' && r.status === 'PENDING')
+    );
+
+    const isProvisionalGps = (isGpsInPending || isGpsOutPending) && !isGpsRejected;
+    const isAnyProvisional = (!!pendingItem || isProvisionalGps) && !isGpsRejected;
+    const isProvisionalLate = (pendingItem?.id === 'LATE_ENTRY' || effectiveStatus === 'APPEAL') && !isGpsRejected;
+    const isAppealState = (effectiveStatus === 'APPEAL' || isProvisionalLate || isProvisionalGps) && !isGpsRejected;
 
     if (isHardAbsent) {
         return (
@@ -383,7 +434,7 @@ const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({
                     </>
                 )}
                 
-                {((log.attachmentUrls && log.attachmentUrls.length > 0) || (leaveRequest?.attachmentUrls && leaveRequest.attachmentUrls.length > 0)) && (
+                {((log.attachmentUrls && log.attachmentUrls.length > 0) || allDayRequests.some(r => r.attachmentUrls && r.attachmentUrls.length > 0)) && (
                     <div className="absolute top-1 right-1">
                         <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse"></div>
                     </div>
@@ -405,6 +456,7 @@ const TimesheetCellComponent: React.FC<TimesheetCellProps> = ({
             <CellTooltip 
                 log={log}
                 leaveRequest={leaveRequest}
+                leaveRequests={allDayRequests}
                 otRequest={otRequest}
                 positionY={positionY}
             />
@@ -442,6 +494,8 @@ const areEqual = (prevProps: TimesheetCellProps, nextProps: TimesheetCellProps) 
         prevProps.leaveRequest?.reason === nextProps.leaveRequest?.reason &&
         (prevProps.leaveRequest?.is_half_day || prevProps.leaveRequest?.isHalfDay) === (nextProps.leaveRequest?.is_half_day || nextProps.leaveRequest?.isHalfDay) &&
         (prevProps.leaveRequest?.half_day_session || prevProps.leaveRequest?.halfDaySession) === (nextProps.leaveRequest?.half_day_session || nextProps.leaveRequest?.halfDaySession) &&
+        (prevProps.leaveRequests?.length || 0) === (nextProps.leaveRequests?.length || 0) &&
+        (prevProps.leaveRequests || []).map(r => `${r.id}:${r.status}`).join(',') === (nextProps.leaveRequests || []).map(r => `${r.id}:${r.status}`).join(',') &&
         // Compare otRequest properties
         prevProps.otRequest?.id === nextProps.otRequest?.id &&
         prevProps.otRequest?.status === nextProps.otRequest?.status &&

@@ -203,6 +203,7 @@ interface AttendanceProvisionalBannerProps {
     parsed: ParsedReason;
     isApproved?: boolean;
     isGpsApproved?: boolean;
+    isGpsOutApproved?: boolean;
     isOutOfRangeApproved?: boolean;
     className?: string;
 }
@@ -211,6 +212,7 @@ export const AttendanceProvisionalBanner: React.FC<AttendanceProvisionalBannerPr
     parsed,
     isApproved = false,
     isGpsApproved = false,
+    isGpsOutApproved = false,
     isOutOfRangeApproved = false,
     className = ''
 }) => {
@@ -219,7 +221,10 @@ export const AttendanceProvisionalBanner: React.FC<AttendanceProvisionalBannerPr
     const isProvisionalForgotCheckin = parsed.isProvisionalForgotCheckin && !isApproved;
     const isProvisionalCheckout = parsed.isProvisionalCheckout && !isOutOfRangeApproved && !isApproved;
     const isProvisionalLate = parsed.isProvisionalLate && !isApproved;
-    const isProvisionalGps = parsed.isProvisionalGps && !isGpsApproved;
+    const hasDirectionalGps = parsed.isProvisionalGpsIn !== undefined || parsed.isProvisionalGpsOut !== undefined;
+    const isProvisionalGps = hasDirectionalGps
+        ? ((!!parsed.isProvisionalGpsIn && !isGpsApproved) || (!!parsed.isProvisionalGpsOut && !isGpsOutApproved))
+        : (parsed.isProvisionalGps && !isGpsApproved && !isGpsOutApproved);
     const isForgotBothPending = parsed.isForgotBothPending && !isApproved;
     const isEarlyLeaveAcceptPenalty = parsed.isEarlyLeaveAcceptPenalty;
 

@@ -1,10 +1,12 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { AttendanceLog } from '../../../types/attendance';
+import { parseReason } from '../leave-request/request-detail/utils';
 
 interface CellTooltipProps {
     log?: AttendanceLog;
     leaveRequest?: any;
+    leaveRequests?: any[];
     otRequest?: any;
     isAbsent?: boolean;
     isHoliday?: boolean;
@@ -17,6 +19,7 @@ interface CellTooltipProps {
 export const CellTooltip: React.FC<CellTooltipProps> = ({
     log,
     leaveRequest,
+    leaveRequests,
     otRequest,
     isAbsent,
     isHoliday,
@@ -25,6 +28,9 @@ export const CellTooltip: React.FC<CellTooltipProps> = ({
     userStartDate,
     positionY
 }) => {
+    const allDayRequests = (leaveRequests && leaveRequests.length > 0)
+        ? leaveRequests
+        : (leaveRequest ? [leaveRequest] : []);
     // Format helper
     const formatTime = (timeStr?: Date | string | null) => {
         if (!timeStr) return '--:-- น.';
@@ -62,10 +68,16 @@ export const CellTooltip: React.FC<CellTooltipProps> = ({
 
         // 2. Active Log (Work Record Exists)
         if (log) {
-            const isHalfDay = leaveRequest?.is_half_day || leaveRequest?.isHalfDay;
-            const halfDaySession = leaveRequest?.half_day_session || leaveRequest?.halfDaySession;
-            const isAMLeave = isHalfDay && halfDaySession === 'AM' && leaveRequest?.status === 'APPROVED';
-            const isPMLeave = isHalfDay && halfDaySession === 'PM' && leaveRequest?.status === 'APPROVED';
+            const isAMLeave = allDayRequests.some(r =>
+                (r.is_half_day || r.isHalfDay) &&
+                (r.half_day_session || r.halfDaySession) === 'AM' &&
+                r.status === 'APPROVED'
+            );
+            const isPMLeave = allDayRequests.some(r =>
+                (r.is_half_day || r.isHalfDay) &&
+                (r.half_day_session || r.halfDaySession) === 'PM' &&
+                r.status === 'APPROVED'
+            );
             
             const isLeave = log.status === 'LEAVE' || log.workType === 'LEAVE';
             const isHardAbsent = log.status === 'ABSENT' || log.status === 'NO_SHOW';
@@ -133,11 +145,16 @@ export const CellTooltip: React.FC<CellTooltipProps> = ({
                             </p>
                         )}
                         
-                        {log.note && (
-                            <p className="text-[9px] text-slate-500 bg-slate-50 p-1 rounded border border-slate-100 line-clamp-2 leading-snug">
-                                📝 {log.note}
-                            </p>
-                        )}
+                        {log.note && (() => {
+                            const parsedNote = parseReason(log.note, log.checkInTime, log.checkOutTime);
+                            const previewText = parsedNote.cleanReason || parsedNote.okFormatted;
+                            if (!previewText) return null;
+                            return (
+                                <p className="text-[9px] text-slate-500 bg-slate-50 p-1 rounded border border-slate-100 line-clamp-2 leading-snug">
+                                    📝 {previewText}
+                                </p>
+                            );
+                        })()}
                     </div>
                 </div>
             );
@@ -176,11 +193,15 @@ export const CellTooltip: React.FC<CellTooltipProps> = ({
                                 {isPending ? '⏳ รออนุมัติ' : '✅ อนุมัติแล้ว'}
                             </span>
                         </p>
-                        {leaveRequest.reason && (
-                            <p className="text-[9px] text-slate-500 bg-slate-50 p-1 rounded border border-slate-100">
-                                💬 เหตุผล: {leaveRequest.reason}
-                            </p>
-                        )}
+                        {leaveRequest.reason && (() => {
+                            const parsedReq = parseReason(leaveRequest.reason);
+                            const previewReason = parsedReq.cleanReason || leaveRequest.reason;
+                            return (
+                                <p className="text-[9px] text-slate-500 bg-slate-50 p-1 rounded border border-slate-100 line-clamp-2">
+                                    💬 เหตุผล: {previewReason}
+                                </p>
+                            );
+                        })()}
                     </div>
                 </div>
             );

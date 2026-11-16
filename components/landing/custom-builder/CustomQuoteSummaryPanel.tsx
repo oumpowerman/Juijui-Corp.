@@ -280,7 +280,7 @@ export const CustomQuoteSummaryPanel: React.FC<CustomQuoteSummaryPanelProps> = (
                         >
                           <div className="pb-3.5">
                             <div className="text-[10px] font-bold uppercase tracking-wider text-indigo-300 px-2 pb-1.5">
-                              {grp.label} ({enabledItems.length})
+                              {grp.title} ({enabledItems.length})
                             </div>
                             <div>
                               <AnimatePresence initial={false}>

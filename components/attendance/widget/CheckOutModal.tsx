@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createPortal } from 'react-dom';
-import { X, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
+import { X, AlertTriangle, CheckCircle2, Info, Sparkles } from 'lucide-react';
 import { LocationDef } from '../../../types/attendance';
 import { format } from 'date-fns';
 import TimePickerModal from '../../ui/TimePickerModal';
@@ -94,6 +94,7 @@ export const CheckOutModal: React.FC<CheckOutModalProps> = ({
         showAlert,
         hasPendingHalfDayLeave,
         pendingHalfDayLeave,
+        pendingDutiesToday,
     } = state;
 
     return createPortal(
@@ -207,6 +208,33 @@ export const CheckOutModal: React.FC<CheckOutModalProps> = ({
                                                 earlyLeaveInterval={earlyLeaveInterval}
                                                 earlyLeaveRate={earlyLeaveRate}
                                             />
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+
+                                <AnimatePresence initial={false}>
+                                    {pendingDutiesToday.length > 0 && (
+                                        <motion.div
+                                            key="pending-duty-today-warning"
+                                            initial={{ opacity: 0, height: 0, scale: 0.95 }}
+                                            animate={{ opacity: 1, height: 'auto', scale: 1 }}
+                                            exit={{ opacity: 0, height: 0, scale: 0.95 }}
+                                            transition={{ type: 'spring', damping: 30, stiffness: 300 }}
+                                            className="overflow-hidden"
+                                        >
+                                            <div className="flex gap-3 bg-orange-50 border border-orange-200 rounded-[2rem] p-4 text-orange-900 shadow-sm">
+                                                <div className="w-9 h-9 rounded-2xl bg-orange-100 border border-orange-200 flex items-center justify-center shrink-0">
+                                                    <Sparkles className="w-5 h-5 text-orange-600 stroke-[2.2]" />
+                                                </div>
+                                                <div className="text-left min-w-0 flex-1">
+                                                    <h4 className="font-bold text-orange-950 text-xs">
+                                                        วันนี้คุณยังมีเวรที่ยังไม่ส่ง ({pendingDutiesToday.length} รายการ)
+                                                    </h4>
+                                                    <p className="text-[11px] text-orange-800 leading-relaxed font-semibold mt-1">
+                                                        อย่าลืมส่งหลักฐานเวร "{pendingDutiesToday.map(d => d.title).join(', ')}" ก่อนกลับนะครับ จะได้ไม่โดนหักคะแนน HP
+                                                    </p>
+                                                </div>
+                                            </div>
                                         </motion.div>
                                     )}
                                 </AnimatePresence>

@@ -334,11 +334,47 @@ export const getTypesByCategory = (category: 'LEAVE' | 'CORRECTION' | 'SPECIAL')
 };
 
 /**
- * Checks if a string contains any of the pending tags from the registry
+ * Checks whether a specific registry item has already been resolved (approved or rejected) in the note.
+ */
+export const isRegistryItemResolvedInNote = (item: AttendanceRegistryItem, note: string): boolean => {
+    if (!note) return false;
+
+    if (item.tags.approved && note.includes(item.tags.approved)) return true;
+    if (item.tags.rejected && note.includes(item.tags.rejected)) return true;
+
+    // Handle historical / variant resolved tags
+    if (item.id === 'GPS_SPOOF_APPEAL') {
+        return note.includes('[REJECTED_GPS_SPOOF_APPEAL]');
+    }
+    if (item.id === 'GPS_SPOOF_OUT_APPEAL') {
+        return note.includes('[REJECTED_GPS_SPOOF_OUT]');
+    }
+    if (item.id === 'EARLY_LEAVE') {
+        return note.includes('[APPROVED EARLY_LEAVE]') || note.includes('[ACCEPT_PENALTY]');
+    }
+    if (item.id === 'FORGOT_CHECKOUT') {
+        return note.includes('[APPROVED FORGOT_BOTH]') || note.includes('[REJECTED FORGOT_BOTH]');
+    }
+    if (item.id === 'WFH') {
+        return note.includes('[REJECTED_WFH]');
+    }
+    if (item.id === 'ONSITE') {
+        return note.includes('[REJECTED_ONSITE]');
+    }
+
+    return false;
+};
+
+/**
+ * Checks if a string contains any unresolved pending/provisional tags from the registry
  */
 export const findPendingRegistryItemByNote = (note?: string): AttendanceRegistryItem | undefined => {
     if (!note) return undefined;
     return Object.values(ATTENDANCE_REGISTRY).find(item => {
+        if (isRegistryItemResolvedInNote(item, note)) {
+            return false;
+        }
+
         if (item.tags.provisional && note.includes(item.tags.provisional)) {
             if (item.tags.provisional === '[PROVISIONAL_CHECKOUT]') {
                 if (item.id === 'EARLY_LEAVE') {
@@ -353,7 +389,9 @@ export const findPendingRegistryItemByNote = (note?: string): AttendanceRegistry
             }
             return true;
         }
-        if (note.includes(item.tags.pending)) return true;
+        if (item.tags.pending && note.includes(item.tags.pending)) {
+            return true;
+        }
         return false;
     });
 };

@@ -5,13 +5,9 @@ import { User } from '../types';
 import { useGamification } from './useGamification';
 import { useGameConfig } from '../context/GameConfigContext';
 import { useNotificationContext } from '../context/NotificationContext';
-import { addDays, format, differenceInCalendarDays, isSameDay } from 'date-fns';
-import { isTaskCompleted } from '../constants';
-import { useAttendanceJudge } from './useAttendanceJudge';
-import { useDutyJudge } from './useDutyJudge';
+import { addDays, format } from 'date-fns';
 import { useTaskJudge } from './useTaskJudge';
-import { isUserOnLeave, isHolidayOrException, countWorkingDaysBetween } from '../utils/judgeUtils';
-import { toValidUuid } from '../utils/gamificationUtils';
+import { countWorkingDaysBetween } from '../utils/judgeUtils';
 import { useMasterData } from './useMasterData';
 import { useUserSession } from '../context/UserSessionContext';
 import { BRAND_CONFIG } from '../config/brand';
@@ -22,28 +18,9 @@ export const useAutoJudge = (currentUser: User | null) => {
     const { config } = useGameConfig();
     const { gameLogs, notifications, isLoading } = useNotificationContext();
     const { annualHolidays, calendarExceptions, isLoading: masterLoading } = useMasterData();
-    const { leaveRequests, attendanceLogs, isReady } = useUserSession();
+    const { leaveRequests, isReady } = useUserSession();
     
     const isProcessingRef = useRef<Set<string>>(new Set());
-
-    const { runAttendanceChecks } = useAttendanceJudge(
-        currentUser,
-        isProcessingRef,
-        processAction,
-        config,
-        gameLogs,
-        notifications,
-        isLoading
-    );
-
-    const { runDutyChecks } = useDutyJudge(
-        currentUser,
-        isProcessingRef,
-        processAction,
-        config,
-        gameLogs,
-        isLoading
-    );
 
     const { runTaskChecks } = useTaskJudge(
         currentUser,
@@ -53,25 +30,6 @@ export const useAutoJudge = (currentUser: User | null) => {
         gameLogs,
         isLoading
     );
-
-    // Helper to check if a penalty already exists in memory
-    const hasPenaltyInLogs = (actionType: string, relatedId?: string, descriptionMatch?: string) => {
-        if (isLoading) return true; // Assume exists while loading to be safe
-        const targetId = toValidUuid(relatedId || null);
-        return gameLogs.some(log => {
-            if (!currentUser) return false;
-            // Check if log belongs to current user (Crucial for Admins)
-            const matchUser = log.user_id === currentUser.id;
-            if (!matchUser) return false;
-
-            const matchType = log.action_type === actionType;
-            // If relatedId is provided, it must match exactly.
-            // This is our de-facto idempotency key.
-            const matchId = !targetId || log.related_id === targetId;
-            const matchDesc = !descriptionMatch || (log.description && log.description.includes(descriptionMatch));
-            return matchType && matchId && matchDesc;
-        });
-    };
 
     const hasNotification = async (type: string, messageMatch: string) => {
         if (isLoading || !currentUser) return true; // Assume exists while loading to be safe
@@ -117,7 +75,6 @@ export const useAutoJudge = (currentUser: User | null) => {
             console.log(`[AutoJudge] Service Tick: ${today.toLocaleTimeString()} - Checking logs for ${currentUser.name} (Status: ${currentUser.status})`);
 
             // --- CONFIG VALUES ---
-            const negligencePenalty = config?.AUTO_JUDGE_CONFIG?.negligence_penalty_hp || 20;
             const lookbackDays = config?.AUTO_JUDGE_CONFIG?.lookback_days_check || 60;
 
             // =========================================================
@@ -184,20 +141,9 @@ export const useAutoJudge = (currentUser: User | null) => {
                 format(req.endDate, 'yyyy-MM-dd') >= format(addDays(today, -lookbackDays), 'yyyy-MM-dd')
             );
 
-            // 1.3 ข้อมูลการลงเวลาของผู้ใช้ (จาก Context)
-            // IMPORTANT: Admin sees all attendance logs, so we must filter by currentUser.id
-            const userAttendanceLogs = attendanceLogs.filter(log => log.userId === currentUser.id);
-
             // =========================================================
-            // SECTION A: DUTIES (Moved to useDutyJudge)
+            // SECTION A: DUTIES (Handled server-side by pg_cron)
             // =========================================================
-            await runDutyChecks(
-                today,
-                todayStr,
-                holidays,
-                exceptions,
-                userLeaves
-            );
 
             // =========================================================
             // SECTION B: TASKS (งานที่ได้รับมอบหมาย) - Progressive Penalty
@@ -211,16 +157,8 @@ export const useAutoJudge = (currentUser: User | null) => {
             );
 
             // =========================================================
-            // SECTION C, D, E: ATTENDANCE CHECKS (Moved to useAttendanceJudge)
+            // SECTION C, D, E: ATTENDANCE CHECKS (Handled server-side by pg_cron)
             // =========================================================
-            await runAttendanceChecks(
-                today,
-                todayStr,
-                holidays,
-                exceptions,
-                userLeaves,
-                userAttendanceLogs
-            );
 
             // =========================================================
             // SECTION F: DEATH SYSTEM (ระบบมีเวลาฟื้นฟู HP 7 วันทำงาน)
@@ -290,7 +228,7 @@ export const useAutoJudge = (currentUser: User | null) => {
         } catch (err) {
             console.error("Auto Judge Error:", err);
         }
-    }, [currentUser, config, gameLogs, notifications, isLoading, masterLoading, isReady, processAction, annualHolidays, calendarExceptions, leaveRequests, attendanceLogs]);
+    }, [currentUser, config, gameLogs, notifications, isLoading, masterLoading, isReady, processAction, annualHolidays, calendarExceptions, leaveRequests]);
 
     const initialCheckDoneRef = useRef(false);
 

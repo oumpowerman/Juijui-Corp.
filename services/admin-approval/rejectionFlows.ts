@@ -1,6 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import { checkIsLate, getLateMinutes, mergeAttendanceNotes, calculateCheckOutStatus, getMatchedShiftSlot, getICTTime, resolveAttendanceLogStatus, getEffectiveStartTime } from '../../lib/attendanceUtils';
-import { parseWorkConfig } from '../../utils/adminApprovalHelpers';
+import { parseWorkConfig, cleanAttendanceNoteTags } from '../../utils/adminApprovalHelpers';
 
 /**
  * Handles rejection logic for WFH and Onsite requests.
@@ -354,11 +354,8 @@ export async function rejectForgotCheckOutRequest({
                 missingMinutes = Math.round(calcResult.missingMinutes || 0);
             }
 
-            // Clean up note text (remove provisional tags, etc.)
-            let cleanedNote = noteText
-                .replace(/\[PROVISIONAL_CHECKOUT\]/g, '')
-                .replace(/\s+/g, ' ')
-                .trim();
+            // Clean up note text (remove provisional tags, nested tags, and orphan brackets)
+            const cleanedNote = cleanAttendanceNoteTags(noteText, 'EARLY_LEAVE');
 
             const updatedNote = mergeAttendanceNotes(
                 cleanedNote, 
@@ -391,10 +388,7 @@ export async function rejectForgotCheckOutRequest({
             }
         } else {
             // Normal forgot checkout rejection -> set status to ACTION_REQUIRED
-            let cleanedNote = noteText
-                .replace(/\[PROVISIONAL_CHECKOUT\]/g, '')
-                .replace(/\s+/g, ' ')
-                .trim();
+            const cleanedNote = cleanAttendanceNoteTags(noteText, 'FORGOT_CHECKOUT');
             const tag = '[REJECTED FORGOT_CHECKOUT]';
             const label = 'ปฏิเสธการแก้เวลาออก';
             const updatedNote = mergeAttendanceNotes(
@@ -434,10 +428,7 @@ export async function rejectOutOfRangeCheckoutRequest({
 
     if (freshLog) {
         const noteText = freshLog.note || '';
-        let cleanedNote = noteText
-            .replace(/\[PROVISIONAL_CHECKOUT\]/g, '')
-            .replace(/\s+/g, ' ')
-            .trim();
+        const cleanedNote = cleanAttendanceNoteTags(noteText, 'OUT_OF_RANGE_CHECKOUT');
         const tag = '[REJECTED OUT_OF_RANGE_CHECKOUT]';
         const label = 'ปฏิเสธการแก้เวลาออกนอกพื้นที่';
         const updatedNote = mergeAttendanceNotes(
@@ -475,11 +466,10 @@ export async function rejectGpsSpoofAppealRequest({
 
     if (freshLog) {
         const noteText = freshLog.note || '';
-        let cleanedNote = noteText
-            .replace(/\[PROVISIONAL_GPS_SPOOF_APPEAL\]/g, '')
-            .replace(/\[GPS_SPOOF_APPEAL_PENDING\]/g, '')
-            .replace(/\s+/g, ' ')
-            .trim();
+        const cleanedNote = cleanAttendanceNoteTags(noteText, 'GPS_SPOOF_APPEAL', [
+            '[PROVISIONAL_GPS_SPOOF_APPEAL]',
+            '[GPS_SPOOF_APPEAL_PENDING]'
+        ]);
         const tag = '[REJECTED GPS_SPOOF_APPEAL]';
         const label = 'ปฏิเสธการยื่นอุทธรณ์พิกัด GPS';
         const updatedNote = mergeAttendanceNotes(
@@ -512,11 +502,10 @@ export async function rejectGpsSpoofOutAppealRequest({
 
     if (freshLog) {
         const noteText = freshLog.note || '';
-        let cleanedNote = noteText
-            .replace(/\[PROVISIONAL_GPS_SPOOF_OUT\]/g, '')
-            .replace(/\[GPS_SPOOF_OUT_PENDING\]/g, '')
-            .replace(/\s+/g, ' ')
-            .trim();
+        const cleanedNote = cleanAttendanceNoteTags(noteText, 'GPS_SPOOF_OUT_APPEAL', [
+            '[PROVISIONAL_GPS_SPOOF_OUT]',
+            '[GPS_SPOOF_OUT_PENDING]'
+        ]);
         const tag = '[REJECTED GPS_SPOOF_OUT]';
         const label = 'ปฏิเสธการยื่นอุทธรณ์พิกัด GPS (ออกงาน)';
         const updatedNote = mergeAttendanceNotes(

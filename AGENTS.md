@@ -225,3 +225,22 @@ CREATE POLICY "tenant_isolation_modify_my_new_table" ON public.my_new_table
   - **ห้ามใช้ `font-black` (`font-weight: 900`)** กับองค์ประกอบ UI ทั่วไป เช่น ปุ่มกด, ป้ายสถานะ (Badges/Pills), ตาราง, การ์ดตัวเลข, ป้ายกำกับ (Labels) หรือหัวข้อย่อย
   - **ค่ามาตรฐานคือ `font-bold` หรือ `font-semibold`**: ใช้ `font-bold` (`700`) หรือ `font-semibold` (`600`) สำหรับข้อความเน้นย้ำ ตัวเลขสรุป และหัวข้อการ์ดเสมอ
   - **ข้อยกเว้นเดียว**: อนุญาตให้ใช้ `font-black` ได้เฉพาะพาดหัวขนาดใหญ่พิเศษระดับ Hero Banner (`text-3xl` ขึ้นไป) เท่านั้น
+
+---
+
+## Build, TypeScript & Container Memory Guardrails (CRITICAL)
+
+เพื่อให้ `vite build` และ `tsc --noEmit` ทำงานได้เสถียรภายใน Container ที่มีข้อจำกัดด้าน RAM (4,096 MB และไม่มี Swap) **ห้ามย้อนกลับการตั้งค่าสำคัญใน 3 ไฟล์หลักต่อไปนี้**:
+
+### 1. `vite.config.ts` — ห้าม Alias `lucide-react` ไปที่ไฟล์ CJS
+- **ปัญหาเดิม**: การตั้ง alias บังคับให้ `'lucide-react'` วิ่งไปใช้ไฟล์ CommonJS ก้อนเดียว (`dist/cjs/lucide-react.js`) ทำให้ Vite/Rollup ต้องโหลดไอคอนทั้งหมด 1,400+ ตัวมาแปลงพร้อมกัน และทำ Tree-shaking ตัดไอคอนที่ไม่ใช้งานไม่ได้ ส่งผลให้ Memory พุ่งและ Build ค้าง
+- **มาตรฐานปัจจุบัน**: ใช้ ESM ปกติของ `lucide-react` (ไม่มี alias ชี้ไปไฟล์ CJS) เพื่อให้ Tree-shaking ทำงานได้เต็มประสิทธิภาพและ Build เบาลง
+
+### 2. `tsconfig.json` — ต้อง Exclude ฝั่ง Server และ Config ออกจาก Type Check หลัก
+- **ปัญหาเดิม**: หากไม่ exclude `server.ts`, `server/`, และ `api/` ตอนรัน `tsc --noEmit` ตัวคอมไพเลอร์จะไต่ไปอ่านไฟล์ `.d.ts` ของแพ็กเกจ `googleapis` (ซึ่งมีขนาดใหญ่รวมกว่า 150 MB) จน RAM เต็มและค้าง
+- **มาตรฐานปัจจุบัน**: ต้องคง `"server"`, `"server.ts"`, `"api"`, `"vite.config.ts"` ไว้ใน `"exclude"` ของ `tsconfig.json` เสมอ (ควบคู่กับ `"node_modules"`, `"dist"`, `"build"`, `"supabase"`, `".aistudio"`)
+
+### 3. `package.json` — จำกัด Heap Size ใน `NODE_OPTIONS` ไม่ให้ชนเพดานเครื่อง
+- **ปัญหาเดิม**: การตั้ง `NODE_OPTIONS="--max-old-space-size=4096"` มีขนาดเท่ากับเพดาน RAM ทั้งเครื่องของ Container (4,096 MB แบบไม่มี Swap) ทำให้ Node.js ใช้หน่วยความจำทะลุจนโดนระบบตัด (OOM Kill / SIGKILL)
+- **มาตรฐานปัจจุบัน**: ใช้ `NODE_OPTIONS="--max-old-space-size=2560"` ในสคริปต์ `build` และ `lint` เพื่อบังคับให้ Garbage Collector เคลียร์หน่วยความจำก่อนชนเพดาน Container
+

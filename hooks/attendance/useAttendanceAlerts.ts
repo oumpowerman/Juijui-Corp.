@@ -29,7 +29,10 @@ export const useAttendanceAlerts = (userId: string) => {
         // Ignore logs where both checkInTime and checkOutTime exist (handled in StatusCard)
         const userActionLogs = attendanceLogs.filter(log => {
             if (log.userId !== userId || log.status !== 'ACTION_REQUIRED') return false;
-            const isGpsRejectedLog = (log.note || '').includes('[REJECTED GPS_SPOOF_APPEAL]') || (log.note || '').includes('[REJECTED_GPS_SPOOF_APPEAL]');
+            const note = log.note || '';
+            const isGpsInRejectedLog = (note.includes('[REJECTED GPS_SPOOF_APPEAL]') || note.includes('[REJECTED_GPS_SPOOF_APPEAL]')) && !note.includes('[APPROVED GPS_SPOOF_APPEAL]');
+            const isGpsOutRejectedLog = (note.includes('[REJECTED GPS_SPOOF_OUT]') || note.includes('[REJECTED_GPS_SPOOF_OUT]')) && !note.includes('[APPROVED GPS_SPOOF_OUT]');
+            const isGpsRejectedLog = isGpsInRejectedLog || isGpsOutRejectedLog;
             // If both checkIn and checkOut exist, and it's not a GPS rejection, it's not a missing time issue
             if (log.checkInTime && log.checkOutTime && !isGpsRejectedLog) return false;
             return true;
@@ -55,9 +58,16 @@ export const useAttendanceAlerts = (userId: string) => {
 
                 let message = `คุณลืมลงเวลาออกของวันที่ ${formattedDate}`;
 
-                const isGpsRejectedLog = (log.note || '').includes('[REJECTED GPS_SPOOF_APPEAL]') || (log.note || '').includes('[REJECTED_GPS_SPOOF_APPEAL]');
+                const note = log.note || '';
+                const isGpsInRejectedLog = (note.includes('[REJECTED GPS_SPOOF_APPEAL]') || note.includes('[REJECTED_GPS_SPOOF_APPEAL]')) && !note.includes('[APPROVED GPS_SPOOF_APPEAL]');
+                const isGpsOutRejectedLog = (note.includes('[REJECTED GPS_SPOOF_OUT]') || note.includes('[REJECTED_GPS_SPOOF_OUT]')) && !note.includes('[APPROVED GPS_SPOOF_OUT]');
 
-                if (isGpsRejectedLog) {
+                if (isGpsOutRejectedLog) {
+                    issueType = 'MISSING_CHECKOUT';
+                    requestType = 'GPS_SPOOF_OUT_APPEAL';
+                    title = 'การลงเวลาออกงานถูกปฏิเสธ (พิกัดผิดปกติ)';
+                    message = `การลงเวลาออกงานของวันที่ ${formattedDate} ถูกปฏิเสธเนื่องจากพิกัดไม่ถูกต้อง`;
+                } else if (isGpsInRejectedLog) {
                     issueType = 'MISSING_BOTH';
                     requestType = 'GPS_SPOOF_APPEAL';
                     title = 'การลงเวลาถูกปฏิเสธ (พิกัดผิดปกติ)';

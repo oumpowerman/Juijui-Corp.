@@ -1,7 +1,7 @@
 import { eachDayOfInterval, isValid } from 'date-fns';
 import { isWorkingDay } from './judgeUtils';
 import { LeaveRequest } from '../types/attendance';
-import { mergeAttendanceNotes, resolveAttendanceLogStatus, getMaxShiftWithBuffer } from '../lib/attendanceUtils';
+import { mergeAttendanceNotes, resolveAttendanceLogStatus, getMaxShiftWithBuffer, sanitizeAttendanceNoteBrackets } from '../lib/attendanceUtils';
 import { supabase } from '../lib/supabase';
 import { getRegistryItem } from '../constants/attendanceRegistry';
 
@@ -308,11 +308,12 @@ export function cleanAttendanceNoteTags(
         cleaned = cleaned.replace(new RegExp(escaped, 'g'), '');
     });
 
-    return cleaned
+    // Clean Location Mismatch and repair any legacy nested brackets / empty [REASON: ] left behind
+    cleaned = cleaned
         .replace(/\(Location Mismatch\)/g, '')
-        .replace(/\[Location Mismatch\]/g, '')
-        .replace(/\s+/g, ' ')
-        .trim();
+        .replace(/\[Location Mismatch\]/g, '');
+
+    return sanitizeAttendanceNoteBrackets(cleaned);
 }
 
 /**

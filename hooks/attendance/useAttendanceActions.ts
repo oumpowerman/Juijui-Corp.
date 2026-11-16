@@ -5,7 +5,7 @@ import { WorkLocation, AttendanceLog, LeaveType } from '../../types/attendance';
 import { useToast } from '../../context/ToastContext';
 import { format } from 'date-fns';
 import { useGamification } from '../useGamification';
-import { calculateCheckOutStatus, checkIsLate, getLateMinutes, mergeAttendanceNotes, getMatchedShiftSlot, resolveAttendanceLogStatus, getEffectiveStartTime, getICTTime } from '../../lib/attendanceUtils';
+import { calculateCheckOutStatus, checkIsLate, getLateMinutes, mergeAttendanceNotes, getMatchedShiftSlot, resolveAttendanceLogStatus, getEffectiveStartTime, getICTTime, extractCheckOutTags } from '../../lib/attendanceUtils';
 import { useMasterData } from '../useMasterData';
 import { attendanceService } from '../../services/attendanceService';
 import { useUserSession } from '../../context/UserSessionContext';
@@ -563,23 +563,39 @@ export const useAttendanceActions = (userId: string) => {
             }
 
             const isProvisionalHalfDay = reason && reason.includes('[PROVISIONAL_HALF_DAY_LEAVE]');
-            let noteAppend = '';
-            const cleanFinalReason = finalReason ? finalReason.trim() : '';
+            const extractedTags = extractCheckOutTags(finalReason);
+            const noteTokens: string[] = [];
+
             if (isAdjustedCheckout) {
-                 noteAppend += `[FORGETFUL_ADJUST_CHECKOUT] [OK: ${calcResult.hoursWorked.toFixed(2)} hrs]`;
-                 if (cleanFinalReason) noteAppend += ` [REASON: ${cleanFinalReason}]`;
+                noteTokens.push(`[FORGETFUL_ADJUST_CHECKOUT] [OK: ${calcResult.hoursWorked.toFixed(2)} hrs]`);
             } else if (isProvisionalHalfDay) {
-                 noteAppend += `[PROVISIONAL_HALF_DAY_LEAVE] [EARLY: Missing ${calcResult.missingMinutes.toFixed(0)}m]`;
-                 if (cleanFinalReason) noteAppend += ` [REASON: ${cleanFinalReason}]`;
+                noteTokens.push(`[PROVISIONAL_HALF_DAY_LEAVE] [EARLY: Missing ${calcResult.missingMinutes.toFixed(0)}m]`);
             } else if (calcResult.status === 'EARLY_LEAVE') {
-                 noteAppend += `[EARLY: Missing ${calcResult.missingMinutes.toFixed(0)}m]`;
-                 if (cleanFinalReason) noteAppend += ` [REASON: ${cleanFinalReason}]`;
+                noteTokens.push(`[EARLY: Missing ${calcResult.missingMinutes.toFixed(0)}m]`);
             } else {
-                 noteAppend += `[OK: ${calcResult.hoursWorked.toFixed(2)} hrs]`;
-                 if (cleanFinalReason) noteAppend += ` [REASON: ${cleanFinalReason}]`;
+                noteTokens.push(`[OK: ${calcResult.hoursWorked.toFixed(2)} hrs]`);
             }
 
-            const isProvisionalCheckout = reason && (reason.includes('[PROVISIONAL_CHECKOUT]') || reason.includes('[PROVISIONAL_GPS_SPOOF_OUT]'));
+            // Place all system control tags at top level (never nested inside [REASON: ...])
+            extractedTags.systemTags.forEach(tag => {
+                if (tag === '[PROVISIONAL_HALF_DAY_LEAVE]' && isProvisionalHalfDay) return;
+                if (tag.startsWith('[ADJUSTED_CHECKOUT:') && isAdjustedCheckout) return;
+                noteTokens.push(tag);
+            });
+
+            if (extractedTags.cleanUserReason) {
+                noteTokens.push(`[REASON: ${extractedTags.cleanUserReason}]`);
+            }
+
+            const noteAppend = noteTokens.join(' ');
+            const isProvisionalCheckout = Boolean(
+                reason && (
+                    extractedTags.isProvisionalCheckout ||
+                    reason.includes('[PROVISIONAL_CHECKOUT]') ||
+                    reason.includes('[PROVISIONAL_GPS_SPOOF_OUT]') ||
+                    reason.includes('[GPS_SPOOF_OUT_PENDING]')
+                )
+            );
             const finalNote = mergeAttendanceNotes(currentNote, noteAppend);
             const resolvedStatus = resolveAttendanceLogStatus(
                 todayLog.checkInTime.toISOString(),

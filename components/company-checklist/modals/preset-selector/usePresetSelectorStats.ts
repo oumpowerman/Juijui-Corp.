@@ -5,8 +5,11 @@ import {
     ActiveChecklistItemState,
     SavedChecklistRecord
 } from '../../../../types';
-import { PresetEnrichedStats, PresetSortBy } from './types';
-import { evaluateChecklistCadence } from '../../utils/checklistCadenceUtils';
+import {
+    PresetEnrichedStats,
+    PresetSortBy
+} from '../../../company-checklist/modals/preset-selector/types';
+import { evaluateChecklistCadence } from '../../../company-checklist/utils/checklistCadenceUtils';
 
 /**
  * Smart Hybrid Active Pinning Helper:

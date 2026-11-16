@@ -626,6 +626,141 @@ export const getMatchedShiftSlot = (
 };
 
 /**
+ * Sanitizes broken double closing brackets (`]]`) and empty `[REASON: ]` wrappers
+ * left behind when legacy nested tags were embedded or stripped from `[REASON: ...]`.
+ */
+export const sanitizeAttendanceNoteBrackets = (note: string): string => {
+    let cleaned = (note || '')
+        // Strip empty [REASON: ] or [REASON:] blocks
+        .replace(/\[REASON:\s*\]/gi, '')
+        // Collapse consecutive closing brackets created by nested tags inside [REASON: ... [TAG]]
+        .replace(/\]\]+/g, ']')
+        .replace(/\[\s*\]/g, '')
+        .replace(/\(\s*\)/g, '')
+        // Clean stray standalone brackets around spaces/pipes
+        .replace(/(^|[\s|])\]+(?=\s|\||$)/g, '$1')
+        .replace(/(^|[\s|])\[+(?=\s|\||$)/g, '$1')
+        // Clean trailing empty pipe separators
+        .replace(/\|\s*\|/g, '|')
+        .replace(/^\s*\|\s*|\s*\|\s*$/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+    return cleaned;
+};
+
+/**
+ * Extracts known system control tags from a check-out reason string so that
+ * control tags live as top-level sibling tokens in `attendance_logs.note`
+ * rather than being nested inside `[REASON: ...]`.
+ */
+export const extractCheckOutTags = (rawReason?: string): {
+    cleanUserReason: string;
+    systemTags: string[];
+    isProvisionalCheckout: boolean;
+} => {
+    let working = (rawReason || '').trim();
+    const systemTags: string[] = [];
+
+    const pushUniqueTag = (tag: string) => {
+        const trimmed = tag.trim();
+        if (trimmed && !systemTags.includes(trimmed)) {
+            systemTags.push(trimmed);
+        }
+    };
+
+    const tagPatterns: RegExp[] = [
+        /\[PROVISIONAL_GPS_SPOOF_OUT\]/g,
+        /\[GPS_SPOOF_OUT_PENDING\]/g,
+        /\[PROVISIONAL_CHECKOUT\]/g,
+        /\[PROVISIONAL_HALF_DAY_LEAVE\]/g,
+        /\[ACCEPT_PENALTY\]/gi,
+        /\[ACCEPTED_PENALTY\]/gi,
+        /\[HALF_DAY:(?:AM|PM)\]/gi,
+        /\[EARLY:[^\]]+\]/gi,
+        /\[TIME:[^\]]+\]/gi,
+        /\[OT_PENDING:[^\]]+\]/gi,
+        /\[ADJUSTED_CHECKOUT:[^\]]+\]/gi,
+        /\(Location Mismatch\)/g,
+        /\[Location Mismatch\]/g,
+    ];
+
+    for (const pattern of tagPatterns) {
+        const matches = working.match(pattern);
+        if (matches) {
+            matches.forEach(pushUniqueTag);
+            working = working.replace(pattern, ' ');
+        }
+    }
+
+    // If user/caller already wrapped a string with [REASON: ...], unwrap it cleanly
+    working = working.replace(/\[REASON:\s*([^\]]*)\]/gi, '$1');
+    const cleanUserReason = sanitizeAttendanceNoteBrackets(working);
+
+    const isProvisionalCheckout = systemTags.some(t =>
+        t === '[PROVISIONAL_CHECKOUT]' ||
+        t === '[PROVISIONAL_GPS_SPOOF_OUT]' ||
+        t === '[GPS_SPOOF_OUT_PENDING]'
+    );
+
+    return { cleanUserReason, systemTags, isProvisionalCheckout };
+};
+
+/**
+ * Checks if an attendance note still has any unresolved provisional/pending tags.
+ */
+export const hasPendingProvisionalTags = (note?: string | null): boolean => {
+    const noteText = note || '';
+    if (!noteText) return false;
+
+    const isGpsInResolved =
+        noteText.includes('[APPROVED GPS_SPOOF_APPEAL]') ||
+        noteText.includes('[REJECTED GPS_SPOOF_APPEAL]') ||
+        noteText.includes('[REJECTED_GPS_SPOOF_APPEAL]');
+
+    const isGpsOutResolved =
+        noteText.includes('[APPROVED GPS_SPOOF_OUT]') ||
+        noteText.includes('[REJECTED GPS_SPOOF_OUT]') ||
+        noteText.includes('[REJECTED_GPS_SPOOF_OUT]');
+
+    const hasProvisionalCheckIn =
+        (noteText.includes('[PROVISIONAL_FORGOT_CHECKIN]') && !noteText.includes('[APPROVED FORGOT_CHECKIN]') && !noteText.includes('[REJECTED FORGOT_CHECKIN]')) ||
+        (noteText.includes('[FORGOT_CHECKIN_PENDING]') && !noteText.includes('[APPROVED FORGOT_CHECKIN]') && !noteText.includes('[REJECTED FORGOT_CHECKIN]')) ||
+        (noteText.includes('[FORGOT_BOTH_PENDING]') && !noteText.includes('[APPROVED FORGOT_BOTH]') && !noteText.includes('[REJECTED FORGOT_BOTH]')) ||
+        (noteText.includes('[PROVISIONAL_LATE_ENTRY]') && !noteText.includes('[APPROVED LATE_ENTRY]') && !noteText.includes('[REJECTED LATE_ENTRY]')) ||
+        (noteText.includes('[LATE_ENTRY_PENDING]') && !noteText.includes('[APPROVED LATE_ENTRY]') && !noteText.includes('[REJECTED LATE_ENTRY]')) ||
+        (noteText.includes('[PROVISIONAL_WFH]') && !noteText.includes('[APPROVED WFH]') && !noteText.includes('[REJECTED WFH]') && !noteText.includes('[REJECTED_WFH]')) ||
+        (noteText.includes('[PROVISIONAL_ONSITE]') && !noteText.includes('[APPROVED ONSITE]') && !noteText.includes('[REJECTED ONSITE]') && !noteText.includes('[REJECTED_ONSITE]')) ||
+        ((noteText.includes('[PROVISIONAL_GPS_SPOOF_APPEAL]') || noteText.includes('[GPS_SPOOF_APPEAL_PENDING]')) && !isGpsInResolved);
+
+    const isSharedCheckoutResolved =
+        noteText.includes('[APPROVED FORGOT_CHECKOUT]') ||
+        noteText.includes('[APPROVED OUT_OF_RANGE_CHECKOUT]') ||
+        noteText.includes('[APPROVED EARLY_LEAVE_APPEAL]') ||
+        noteText.includes('[APPROVED EARLY_LEAVE]') ||
+        noteText.includes('[APPROVED FORGOT_BOTH]') ||
+        noteText.includes('[REJECTED FORGOT_CHECKOUT]') ||
+        noteText.includes('[REJECTED OUT_OF_RANGE_CHECKOUT]') ||
+        noteText.includes('[REJECTED EARLY_LEAVE_APPEAL]') ||
+        noteText.includes('[REJECTED FORGOT_BOTH]') ||
+        noteText.includes('[ACCEPT_PENALTY]');
+
+    const hasProvisionalCheckOut =
+        ((noteText.includes('[PROVISIONAL_CHECKOUT]') ||
+            noteText.includes('[FORGOT_CHECKOUT_PENDING]') ||
+            noteText.includes('[EARLY_LEAVE_PENDING]') ||
+            noteText.includes('[OUT_OF_RANGE_CHECKOUT_PENDING]')) && !isSharedCheckoutResolved) ||
+        ((noteText.includes('[PROVISIONAL_GPS_SPOOF_OUT]') || noteText.includes('[GPS_SPOOF_OUT_PENDING]')) && !isGpsOutResolved);
+
+    const hasLegacyAppealPending =
+        noteText.includes('[APPEAL_PENDING]') &&
+        !noteText.includes('[APPROVED ') &&
+        !noteText.includes('[REJECTED ');
+
+    return hasProvisionalCheckIn || hasProvisionalCheckOut || hasLegacyAppealPending;
+};
+
+/**
  * Resolves the overall status of an attendance log based on the times and tags inside the note.
  */
 export const resolveAttendanceLogStatus = (
@@ -641,11 +776,28 @@ export const resolveAttendanceLogStatus = (
     if (currentStatus === 'ABSENT' && !checkInTime && !checkOutTime) return 'ABSENT';
 
     // 1. Check for Active Rejections (ACTION_REQUIRED has highest priority)
-    const hasRejectedCheckIn = noteText.includes('[REJECTED FORGOT_CHECKIN]') || noteText.includes('[REJECTED GPS_SPOOF_APPEAL]') || noteText.includes('[REJECTED_GPS_SPOOF_APPEAL]');
-    const hasRejectedCheckOut = noteText.includes('[REJECTED OUT_OF_RANGE_CHECKOUT]') || noteText.includes('[REJECTED FORGOT_CHECKOUT]');
-    
-    const isCheckInApproved = noteText.includes('[APPROVED FORGOT_CHECKIN]') || noteText.includes('[APPROVED LATE_ENTRY]') || noteText.includes('[APPROVED FORGOT_BOTH]') || noteText.includes('[APPROVED GPS_SPOOF_APPEAL]');
-    const isCheckOutApproved = noteText.includes('[APPROVED OUT_OF_RANGE_CHECKOUT]') || noteText.includes('[APPROVED FORGOT_CHECKOUT]') || noteText.includes('[APPROVED FORGOT_BOTH]');
+    const hasRejectedCheckIn =
+        noteText.includes('[REJECTED FORGOT_CHECKIN]') ||
+        noteText.includes('[REJECTED GPS_SPOOF_APPEAL]') ||
+        noteText.includes('[REJECTED_GPS_SPOOF_APPEAL]');
+    const hasRejectedCheckOut =
+        noteText.includes('[REJECTED OUT_OF_RANGE_CHECKOUT]') ||
+        noteText.includes('[REJECTED FORGOT_CHECKOUT]') ||
+        noteText.includes('[REJECTED GPS_SPOOF_OUT]') ||
+        noteText.includes('[REJECTED_GPS_SPOOF_OUT]');
+
+    const isCheckInApproved =
+        noteText.includes('[APPROVED FORGOT_CHECKIN]') ||
+        noteText.includes('[APPROVED LATE_ENTRY]') ||
+        noteText.includes('[APPROVED FORGOT_BOTH]') ||
+        noteText.includes('[APPROVED GPS_SPOOF_APPEAL]');
+    const isCheckOutApproved =
+        noteText.includes('[APPROVED OUT_OF_RANGE_CHECKOUT]') ||
+        noteText.includes('[APPROVED FORGOT_CHECKOUT]') ||
+        noteText.includes('[APPROVED FORGOT_BOTH]') ||
+        noteText.includes('[APPROVED GPS_SPOOF_OUT]') ||
+        noteText.includes('[APPROVED EARLY_LEAVE_APPEAL]') ||
+        noteText.includes('[APPROVED EARLY_LEAVE]');
 
     const isCheckInResolved = !!checkInTime && (!hasRejectedCheckIn || isCheckInApproved);
     const isCheckOutResolved = !!checkOutTime && (!hasRejectedCheckOut || isCheckOutApproved);
@@ -655,38 +807,7 @@ export const resolveAttendanceLogStatus = (
     }
 
     // 2. Check for Provisional / Pending Verification
-    const hasProvisionalCheckIn = 
-        (noteText.includes('[PROVISIONAL_FORGOT_CHECKIN]') && !noteText.includes('[APPROVED FORGOT_CHECKIN]') && !noteText.includes('[REJECTED FORGOT_CHECKIN]')) || 
-        (noteText.includes('[PROVISIONAL_LATE_ENTRY]') && !noteText.includes('[APPROVED LATE_ENTRY]') && !noteText.includes('[REJECTED LATE_ENTRY]')) ||
-        (noteText.includes('[PROVISIONAL_WFH]') && !noteText.includes('[APPROVED WFH]') && !noteText.includes('[REJECTED_WFH]')) ||
-        (noteText.includes('[PROVISIONAL_ONSITE]') && !noteText.includes('[APPROVED ONSITE]') && !noteText.includes('[REJECTED_ONSITE]')) ||
-        (noteText.includes('[PROVISIONAL_GPS_SPOOF_APPEAL]') && !noteText.includes('[APPROVED GPS_SPOOF_APPEAL]') && !noteText.includes('[REJECTED GPS_SPOOF_APPEAL]') && !noteText.includes('[REJECTED_GPS_SPOOF_APPEAL]')) ||
-        (noteText.includes('[GPS_SPOOF_APPEAL_PENDING]') && !noteText.includes('[APPROVED GPS_SPOOF_APPEAL]') && !noteText.includes('[REJECTED GPS_SPOOF_APPEAL]') && !noteText.includes('[REJECTED_GPS_SPOOF_APPEAL]'));
-    const hasProvisionalCheckOut = 
-        ((noteText.includes('[PROVISIONAL_CHECKOUT]') || noteText.includes('[PROVISIONAL_GPS_SPOOF_OUT]') || noteText.includes('[GPS_SPOOF_OUT_PENDING]')) && 
-        !noteText.includes('[APPROVED FORGOT_CHECKOUT]') && 
-        !noteText.includes('[APPROVED OUT_OF_RANGE_CHECKOUT]') && 
-        !noteText.includes('[APPROVED EARLY_LEAVE_APPEAL]') &&
-        !noteText.includes('[APPROVED GPS_SPOOF_OUT]') &&
-        !noteText.includes('[REJECTED FORGOT_CHECKOUT]') && 
-        !noteText.includes('[REJECTED OUT_OF_RANGE_CHECKOUT]') &&
-        !noteText.includes('[REJECTED EARLY_LEAVE_APPEAL]') &&
-        !noteText.includes('[REJECTED GPS_SPOOF_OUT]'));
-    const hasEarlyLeaveResolvedTag = noteText.includes('[REJECTED EARLY_LEAVE_APPEAL]') || noteText.includes('[APPROVED EARLY_LEAVE_APPEAL]');
-    const hasProvisionalTags = hasProvisionalCheckIn || hasProvisionalCheckOut;
-
-    let isPendingVerify = false;
-    if (hasProvisionalTags) {
-        isPendingVerify = true;
-    } else if (currentStatus === 'PENDING_VERIFY') {
-        if (!hasProvisionalTags || hasEarlyLeaveResolvedTag) {
-            isPendingVerify = false;
-        } else {
-            isPendingVerify = true;
-        }
-    }
-
-    if (isPendingVerify) {
+    if (hasPendingProvisionalTags(noteText)) {
         return 'PENDING_VERIFY';
     }
 

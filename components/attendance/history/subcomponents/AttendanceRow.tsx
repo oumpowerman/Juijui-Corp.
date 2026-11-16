@@ -166,12 +166,17 @@ export const AttendanceRow: React.FC<AttendanceRowProps> = React.memo(({
     // 2. กลุ่มคำขอ ลงเวลานอกพื้นที่ (OUT_OF_RANGE_CHECKOUT)
     const isOutOfRangeApproved = noteText.includes('[APPROVED OUT_OF_RANGE_CHECKOUT]');
     const isOutOfRangeRejected = !isOutOfRangeApproved && noteText.includes('[REJECTED OUT_OF_RANGE_CHECKOUT]');
-    const isOutOfRangePending = pendingItem?.id === 'OUT_OF_RANGE_CHECKOUT' || (noteText.includes('[PROVISIONAL_CHECKOUT]') && noteText.includes('(Location Mismatch)')) || noteText.includes('[OUT_OF_RANGE_CHECKOUT_PENDING]');
+    const isOutOfRangePending = !isOutOfRangeApproved && !isOutOfRangeRejected && (pendingItem?.id === 'OUT_OF_RANGE_CHECKOUT' || (noteText.includes('[PROVISIONAL_CHECKOUT]') && noteText.includes('(Location Mismatch)')) || noteText.includes('[OUT_OF_RANGE_CHECKOUT_PENDING]'));
+
+    // 2.5 กลุ่มคำขอ อุทธรณ์พิกัด GPS ขาออก (GPS_SPOOF_OUT_APPEAL)
+    const isGpsOutApproved = noteText.includes('[APPROVED GPS_SPOOF_OUT]');
+    const isGpsOutRejected = !isGpsOutApproved && (noteText.includes('[REJECTED GPS_SPOOF_OUT]') || noteText.includes('[REJECTED_GPS_SPOOF_OUT]'));
+    const isGpsOutPending = !isGpsOutApproved && !isGpsOutRejected && (pendingItem?.id === 'GPS_SPOOF_OUT_APPEAL' || noteText.includes('[PROVISIONAL_GPS_SPOOF_OUT]') || noteText.includes('[GPS_SPOOF_OUT_PENDING]'));
     
     // 3. กลุ่มคำขอ ลืมเช็คเอาท์ (FORGOT_CHECKOUT)
     const isForgotCheckOutApproved = noteText.includes('[APPROVED FORGOT_CHECKOUT]');
     const isForgotCheckOutRejected = !isForgotCheckOutApproved && noteText.includes('[REJECTED FORGOT_CHECKOUT]');
-    const isForgotCheckOutPending = pendingItem?.id === 'FORGOT_CHECKOUT' || (noteText.includes('[PROVISIONAL_CHECKOUT]') && !noteText.includes('[EARLY:') && !noteText.includes('(Location Mismatch)')) || noteText.includes('[FORGOT_CHECKOUT_PENDING]');
+    const isForgotCheckOutPending = !isForgotCheckOutApproved && !isForgotCheckOutRejected && (pendingItem?.id === 'FORGOT_CHECKOUT' || (noteText.includes('[PROVISIONAL_CHECKOUT]') && !noteText.includes('[EARLY:') && !noteText.includes('(Location Mismatch)')) || noteText.includes('[FORGOT_CHECKOUT_PENDING]'));
 
     return (
         <tr 
@@ -314,6 +319,13 @@ export const AttendanceRow: React.FC<AttendanceRowProps> = React.memo(({
                                 🟣 OUT OF RANGE
                             </span>
                         )}
+                        {/* 2.5 GPS Spoof Out อุทธรณ์ */}
+                        {isGpsOutPending && (
+                            <span className="text-[9px] font-bold bg-rose-100 text-rose-700 border border-rose-200 px-1.5 py-0.5 rounded uppercase tracking-wide">
+                                🚨 GPS จำลอง
+                            </span>
+                        )}
+
                         {/* 3. ลืมออกอุทธรณ์ */}
                         {isForgotCheckOutPending && (
                             <span className="text-[9px] font-bold bg-yellow-50 text-yellow-600 border border-yellow-200 px-1.5 py-0.5 rounded uppercase tracking-wide">
@@ -321,8 +333,8 @@ export const AttendanceRow: React.FC<AttendanceRowProps> = React.memo(({
                             </span>
                         )}
                         
-                        {/* 4. นอกพื้นที่อนุมัติผ่าน */}
-                        {isOutOfRangeApproved && (
+                        {/* 4. นอกพื้นที่ / GPS ขาออก อนุมัติผ่าน */}
+                        {(isOutOfRangeApproved || isGpsOutApproved) && (
                             <span className="text-[9px] font-bold bg-emerald-50 text-emerald-600 border border-emerald-200 px-1.5 py-0.5 rounded uppercase tracking-wide">
                                 🟢 GPS APPROVED
                             </span>
@@ -345,8 +357,8 @@ export const AttendanceRow: React.FC<AttendanceRowProps> = React.memo(({
                                 ⏱️ ลาครึ่งบ่าย
                             </span>
                         )}
-                        {/* 7. นอกพื้นที่โดนปฏิเสธ */}
-                        {isOutOfRangeRejected && (
+                        {/* 7. นอกพื้นที่ / GPS ขาออก โดนปฏิเสธ */}
+                        {(isOutOfRangeRejected || isGpsOutRejected) && (
                             <span className="text-[9px] font-bold bg-red-50 text-red-600 border border-red-200 px-1.5 py-0.5 rounded uppercase tracking-wide">
                                 🔴 REJECTED GPS
                             </span>

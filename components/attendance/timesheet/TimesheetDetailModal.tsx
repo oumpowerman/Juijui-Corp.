@@ -169,6 +169,7 @@ const Lightbox: React.FC<{ urls: string[]; initialIndex: number; onClose: () => 
 interface TimesheetDetailModalProps {
     log?: AttendanceLog | null;
     leaveRequest?: any | null;
+    leaveRequests?: any[];
     otRequest?: any | null;
     user?: any | null;
     onClose: () => void;
@@ -213,28 +214,35 @@ const modalVariants = {
     }),
 };
 
-const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveRequest, otRequest, user, onClose }) => {
+const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveRequest, leaveRequests, otRequest, user, onClose }) => {
     const [showLightbox, setShowLightbox] = useState(false);
     const [lightboxIndex, setLightboxIndex] = useState(0);
     const [activeIndex, setActiveIndex] = useState(0);
     const [recordDetailPayload, setRecordDetailPayload] = useState<DetailRecordPayload | null>(null);
     const isMobile = useIsMobile();
 
+    const allLeaveRequests = React.useMemo(() => {
+        if (leaveRequests && leaveRequests.length > 0) return leaveRequests;
+        return leaveRequest ? [leaveRequest] : [];
+    }, [leaveRequests, leaveRequest]);
+
+    const primaryLeaveRequest = leaveRequest || allLeaveRequests[0] || null;
+
     const handleOpenRecordDetail = () => {
         const payload: DetailRecordPayload = {
-            type: log ? 'ATTENDANCE' : (leaveRequest ? 'LEAVE' : (otRequest ? 'OT' : 'ABSENT')),
-            data: log || leaveRequest || otRequest
+            type: log ? 'ATTENDANCE' : (primaryLeaveRequest ? 'LEAVE' : (otRequest ? 'OT' : 'ABSENT')),
+            data: log || primaryLeaveRequest || otRequest
         };
         setRecordDetailPayload(payload);
     };
 
     const displayDate = log 
         ? new Date(log.date) 
-        : (leaveRequest ? new Date(leaveRequest.start_date) : (otRequest ? new Date(otRequest.date) : new Date()));
-    const note = log?.note || leaveRequest?.reason || otRequest?.reason || '';
+        : (primaryLeaveRequest ? new Date(primaryLeaveRequest.start_date) : (otRequest ? new Date(otRequest.date) : new Date()));
+    const note = log?.note || primaryLeaveRequest?.reason || otRequest?.reason || '';
     
     const logParsed = parseReason(log?.note || '', log?.checkInTime, log?.checkOutTime);
-    const requestParsed = parseReason(leaveRequest?.reason || '');
+    const requestParsed = parseReason(primaryLeaveRequest?.reason || '');
 
     const combinedParsed = {
         ...requestParsed,
@@ -254,12 +262,19 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
         okFormatted: logParsed.okFormatted || requestParsed.okFormatted,
     };
 
-    const isGpsApproved = note.includes('[APPROVED GPS_SPOOF_APPEAL]') || (leaveRequest?.type === 'GPS_SPOOF_APPEAL' && leaveRequest?.status === 'APPROVED');
-    const isOutOfRangeApproved = note.includes('[APPROVED OUT_OF_RANGE_CHECKOUT]') || (leaveRequest?.type === 'OUT_OF_RANGE_CHECKOUT' && leaveRequest?.status === 'APPROVED');
-    const isLeaveApproved = leaveRequest?.status === 'APPROVED';
+    const isGpsApproved =
+        note.includes('[APPROVED GPS_SPOOF_APPEAL]') ||
+        allLeaveRequests.some(r => r.type === 'GPS_SPOOF_APPEAL' && r.status === 'APPROVED');
+    const isGpsOutApproved =
+        note.includes('[APPROVED GPS_SPOOF_OUT]') ||
+        allLeaveRequests.some(r => r.type === 'GPS_SPOOF_OUT_APPEAL' && r.status === 'APPROVED');
+    const isOutOfRangeApproved =
+        note.includes('[APPROVED OUT_OF_RANGE_CHECKOUT]') ||
+        allLeaveRequests.some(r => r.type === 'OUT_OF_RANGE_CHECKOUT' && r.status === 'APPROVED');
+    const isLeaveApproved = primaryLeaveRequest?.status === 'APPROVED';
 
     const userReason = requestParsed.cleanReason;
-    const adminRejection = leaveRequest?.rejectionReason || '';
+    const adminRejection = primaryLeaveRequest?.rejectionReason || '';
     const systemLogNote = logParsed.cleanReason;
     
     // Gather all valid attachment/proof URLs
@@ -270,14 +285,16 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
         attachmentUrls.push(...log.attachmentUrls);
     }
 
-    // 1. Check leaveRequest attachmentUrls
-    if (leaveRequest?.attachmentUrls && leaveRequest.attachmentUrls.length > 0) {
-        leaveRequest.attachmentUrls.forEach((url: string) => {
-            if (!attachmentUrls.includes(url)) {
-                attachmentUrls.push(url);
-            }
-        });
-    }
+    // 1. Check all day leaveRequests attachmentUrls
+    allLeaveRequests.forEach(req => {
+        if (req?.attachmentUrls && req.attachmentUrls.length > 0) {
+            req.attachmentUrls.forEach((url: string) => {
+                if (!attachmentUrls.includes(url)) {
+                    attachmentUrls.push(url);
+                }
+            });
+        }
+    });
 
     const uniqueAttachmentUrls = Array.from(new Set(attachmentUrls.filter(Boolean)));
     const hasImage = uniqueAttachmentUrls.length > 0;
@@ -345,7 +362,8 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                         <AttendanceProvisionalBanner 
                             parsed={combinedParsed} 
                             isApproved={isLeaveApproved} 
-                            isGpsApproved={isGpsApproved} 
+                            isGpsApproved={isGpsApproved}
+                            isGpsOutApproved={isGpsOutApproved}
                             isOutOfRangeApproved={isOutOfRangeApproved} 
                         />
 
@@ -368,7 +386,7 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                         <DetailModalHeader 
                             user={user}
                             log={log}
-                            leaveRequest={leaveRequest}
+                            leaveRequest={primaryLeaveRequest}
                             otRequest={otRequest}
                             combinedParsed={combinedParsed}
                             displayDate={displayDate}
@@ -379,12 +397,14 @@ const TimesheetDetailModal: React.FC<TimesheetDetailModalProps> = ({ log, leaveR
                         {/* 3. Start & End Mission Cards component */}
                         {log && <AttendanceTimeCards log={log} />}
 
-                        {/* 4. Leave Request Details component */}
-                        {leaveRequest && <LeaveRequestCard leaveRequest={leaveRequest} />}
+                        {/* 4. Leave Request Details component (supports multiple requests on the same date) */}
+                        {allLeaveRequests.map((req, idx) => (
+                            <LeaveRequestCard key={req.id || `${req.type}-${idx}`} leaveRequest={req} />
+                        ))}
 
                         {/* 5. Summary Hours Accumulated Panel */}
-                        {log && leaveRequest && leaveRequest.status === 'APPROVED' && (
-                            <AccumulatedHoursPanel log={log} leaveRequest={leaveRequest} />
+                        {log && primaryLeaveRequest && primaryLeaveRequest.status === 'APPROVED' && (
+                            <AccumulatedHoursPanel log={log} leaveRequest={primaryLeaveRequest} />
                         )}
 
                         {/* 6. Overtime Details component */}

@@ -19,6 +19,7 @@ interface CalendarModalsContainerProps {
   channels: Channel[];
   masterOptions?: MasterOption[];
   onSelectTask: (task: Task, currentViewMode?: string) => void;
+  onSelectDayModalTask?: (task: Task) => void;
   viewMode: 'CONTENT' | 'TASK' | 'PLAN';
 
   // Cosmic Filter Modal
@@ -75,6 +76,7 @@ interface CalendarModalsContainerProps {
 
   // Right-Click Task Context Menu & Quick Duplicate Modal
   taskContextMenu?: TeamTaskContextMenuState | null;
+  onTaskContextMenu?: (e: React.MouseEvent, task: Task, date?: Date) => void;
   onCloseTaskContextMenu?: () => void;
   onContextEditTask?: (task: Task) => void;
   onContextDuplicateTask?: (task: Task, userId: string, date: Date) => void;
@@ -92,6 +94,7 @@ export const CalendarModalsContainer: React.FC<CalendarModalsContainerProps> = (
   channels,
   masterOptions = [],
   onSelectTask,
+  onSelectDayModalTask,
   viewMode,
 
   // Cosmic Filter Modal
@@ -143,6 +146,7 @@ export const CalendarModalsContainer: React.FC<CalendarModalsContainerProps> = (
 
   // Right-Click Task Context Menu & Quick Duplicate Modal
   taskContextMenu = null,
+  onTaskContextMenu,
   onCloseTaskContextMenu,
   onContextEditTask,
   onContextDuplicateTask,
@@ -163,8 +167,12 @@ export const CalendarModalsContainer: React.FC<CalendarModalsContainerProps> = (
         title={`รายการวันที่ ${format(selectedDayDate, 'd MMM yyyy')}`}
         tasks={selectedDayTasks}
         channels={channels}
+        users={users}
         masterOptions={masterOptions}
-        onEditTask={onSelectTask}
+        onEditTask={onSelectDayModalTask || onSelectTask}
+        onItemContextMenu={onTaskContextMenu ? (e, task) => onTaskContextMenu(e, task, selectedDayDate) : undefined}
+        onSaveTask={onSaveTask}
+        onDeleteTask={onDeleteTask}
         colorTheme={viewMode === 'CONTENT' ? 'blue' : 'green'}
       />
 

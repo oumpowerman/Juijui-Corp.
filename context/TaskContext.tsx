@@ -420,28 +420,88 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
     useEffect(() => {
         console.log('🔌 [TaskContext] Connecting to Realtime...');
 
+        const pendingTaskIds = new Set<string>();
+        const pendingContentIds = new Set<string>();
+        let batchFlushTimer: ReturnType<typeof setTimeout> | null = null;
+
+        const flushQueuedHydration = async () => {
+            const taskIds = Array.from(pendingTaskIds);
+            const contentIds = Array.from(pendingContentIds);
+            pendingTaskIds.clear();
+            pendingContentIds.clear();
+
+            const currentOrgId = getActiveOrgIdSync();
+            const BATCH_LIMIT = 50;
+
+            const fetchAndMergeType = async (ids: string[], type: 'TASK' | 'CONTENT') => {
+                if (ids.length === 0) return;
+                const table = type === 'TASK' ? 'tasks' : 'contents';
+                const selectFields = type === 'TASK' ? TASK_FULL_SELECT_FIELDS : CONTENT_FULL_SELECT_FIELDS;
+                const hydratedTasks: Task[] = [];
+
+                for (let i = 0; i < ids.length; i += BATCH_LIMIT) {
+                    const chunkIds = ids.slice(i, i + BATCH_LIMIT);
+                    let query = supabase.from(table).select(selectFields).in('id', chunkIds);
+                    if (currentOrgId) {
+                        query = query.eq('org_id', currentOrgId);
+                    }
+                    const { data } = await query;
+                    if (Array.isArray(data)) {
+                        data.forEach((row: any) => {
+                            hydratedTasks.push(mapSupabaseToTask(row, type));
+                        });
+                    }
+                }
+
+                if (hydratedTasks.length === 0) return;
+
+                setTasks(current => {
+                    const existingIds = new Set(current.map(t => t.id));
+                    const additions: Task[] = [];
+
+                    hydratedTasks.forEach(newTask => {
+                        if (existingIds.has(newTask.id)) return;
+                        const isScheduledInRange = newTask.startDate && newTask.endDate &&
+                            newTask.endDate >= dateRange.start && newTask.startDate <= dateRange.end;
+                        const isDoneOrApprove = newTask.status && (newTask.status.toLowerCase().includes('done') || newTask.status.toLowerCase().includes('approve'));
+                        const allowUnscheduled = isAllLoaded || (type === 'CONTENT' ? isDoneOrApprove : (newTask.showOnBoard));
+
+                        if ((newTask.isUnscheduled && allowUnscheduled) || (!newTask.isUnscheduled && isScheduledInRange)) {
+                            additions.push(newTask);
+                            existingIds.add(newTask.id);
+                        }
+                    });
+
+                    return additions.length > 0 ? [...current, ...additions] : current;
+                });
+            };
+
+            await Promise.all([
+                fetchAndMergeType(taskIds, 'TASK'),
+                fetchAndMergeType(contentIds, 'CONTENT')
+            ]);
+        };
+
+        const queueRecordHydration = (id: string, type: 'TASK' | 'CONTENT') => {
+            if (!id) return;
+            if (type === 'TASK') pendingTaskIds.add(id);
+            else pendingContentIds.add(id);
+
+            if (batchFlushTimer) clearTimeout(batchFlushTimer);
+            batchFlushTimer = setTimeout(() => {
+                batchFlushTimer = null;
+                flushQueuedHydration();
+            }, 450);
+        };
+
         const handleIncrementalUpdate = (payload: any, type: 'TASK' | 'CONTENT') => {
             const currentOrgId = getActiveOrgIdSync();
             if (payload.new?.org_id && payload.new.org_id !== currentOrgId) return;
 
             if (payload.eventType === 'INSERT') {
-                // For INSERT, we fetch the full record to get joins (like contents.title)
-                // But we only fetch the specific record to avoid full reload
-                const fetchSingle = async () => {
-                    const table = type === 'TASK' ? 'tasks' : 'contents';
-                    const selectFields = type === 'TASK' ? TASK_FULL_SELECT_FIELDS : CONTENT_FULL_SELECT_FIELDS;
-                    let query = supabase.from(table).select(selectFields).eq('id', payload.new.id).eq('org_id', currentOrgId).maybeSingle();
-                    
-                    const { data } = await query;
-                    if (data) {
-                        const newTask = mapSupabaseToTask(data, type);
-                        setTasks(prev => {
-                            if (prev.some(t => t.id === newTask.id)) return prev;
-                            return [...prev, newTask];
-                        });
-                    }
-                };
-                fetchSingle();
+                if (payload.new?.id) {
+                    queueRecordHydration(payload.new.id, type);
+                }
             } else if (payload.eventType === 'UPDATE') {
                 // 🚀 SMART STATE HYDRATION:
                 setTasks(prev => {
@@ -477,32 +537,9 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
                             return prev.filter(t => t.id !== payload.new.id);
                         }
                     } else {
-                        const fetchSingle = async () => {
-                            const table = type === 'TASK' ? 'tasks' : 'contents';
-                            const selectFields = type === 'TASK' ? TASK_FULL_SELECT_FIELDS : CONTENT_FULL_SELECT_FIELDS;
-                            let query = supabase.from(table).select(selectFields).eq('id', payload.new.id).maybeSingle();
-                            
-                            const { data } = await query;
-                            if (data) {
-                                const newTask = mapSupabaseToTask(data, type);
-                                setTasks(current => {
-                                    const exists = current.some(t => t.id === newTask.id);
-                                    if (exists) return current;
-                                    
-                                    const isScheduledInRange = newTask.startDate && newTask.endDate && 
-                                        newTask.endDate >= dateRange.start && newTask.startDate <= dateRange.end;
-                                    
-                                    const isDoneOrApprove = newTask.status && (newTask.status.toLowerCase().includes('done') || newTask.status.toLowerCase().includes('approve'));
-                                    const allowUnscheduled = isAllLoaded || (type === 'CONTENT' ? isDoneOrApprove : (newTask.showOnBoard));
-
-                                    if ((newTask.isUnscheduled && allowUnscheduled) || (!newTask.isUnscheduled && isScheduledInRange)) {
-                                        return [...current, newTask];
-                                    }
-                                    return current;
-                                });
-                            }
-                        };
-                        fetchSingle();
+                        if (payload.new?.id) {
+                            queueRecordHydration(payload.new.id, type);
+                        }
                         return prev;
                     }
                 });
@@ -621,6 +658,12 @@ export const TaskProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         return () => { 
             console.log('🔌 [TaskContext] Disconnecting...');
+            if (batchFlushTimer) {
+                clearTimeout(batchFlushTimer);
+                batchFlushTimer = null;
+            }
+            pendingTaskIds.clear();
+            pendingContentIds.clear();
             supabase.removeChannel(channel); 
         };
     }, [fetchTasks, mapSupabaseToTask, activeOrgId]);

@@ -1,6 +1,6 @@
 
-import React, { useState, useMemo, useRef, useEffect } from 'react';
-import { Task, MasterOption, User } from '../../../types';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import { Task, MasterOption, User, TaskType } from '../../../types';
 import { isTaskCompleted, isTaskTodo } from '../../../constants';
 import { 
     Layers, 
@@ -19,6 +19,8 @@ import TaskCategoryModal from '../../TaskCategoryModal';
 import DoneHistoryModal from './board/DoneHistoryModal'; // Import New Modal
 import WorkColumn from './board/WorkColumn';
 import QCSubmissionModal from '../../task/QCSubmissionModal';
+import TeamTaskContextMenu, { TeamTaskContextMenuState } from '../../team/modals/TeamTaskContextMenu';
+import TeamTaskDuplicateModal, { TeamTaskDuplicateRequest } from '../../team/modals/TeamTaskDuplicateModal';
 import { useGlobalDialog } from '../../../context/GlobalDialogContext';
 import { useTaskContext } from '../../../context/TaskContext';
 import { useTasks } from '../../../hooks/useTasks';
@@ -69,7 +71,7 @@ interface MyWorkBoardProps {
     currentUser: User;
     onOpenTask: (task: Task) => void;
     onUpdateTask?: (task: Task) => void;
-    onDeleteTask?: (taskId: string) => void;
+    onDeleteTask?: (taskId: string, taskType?: TaskType) => void;
     isUltimate?: boolean;
     isExpanded?: boolean;
     onToggleExpand?: () => void;
@@ -93,14 +95,16 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({
     urgentCount = 0,
     urgencyStats
 }) => {
-    const { showAlert } = useGlobalDialog();
+    const { showAlert, showConfirm } = useGlobalDialog();
     const { showToast } = useToast();
-    const { handleSendToQC } = useTasks();
+    const { handleSendToQC, handleSaveTask, handleDeleteTask } = useTasks();
     const [activeModalColumn, setActiveModalColumn] = useState<ColumnType | null>(null);
     const [isDoneHistoryOpen, setIsDoneHistoryOpen] = useState(false);
     const [activeTab, setActiveTab] = useState<ColumnType>('TODO');
     const [taskForQC, setTaskForQC] = useState<Task | null>(null);
     const [isQCModalOpen, setIsQCModalOpen] = useState(false);
+    const [taskContextMenu, setTaskContextMenu] = useState<TeamTaskContextMenuState | null>(null);
+    const [duplicateRequest, setDuplicateRequest] = useState<TeamTaskDuplicateRequest | null>(null);
     const isAdmin = currentUser.role === 'ADMIN';
 
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -157,6 +161,93 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({
         };
     }, [tasks]);
 
+    const openQCSubmissionFlow = useCallback(async (task: Task) => {
+        if (task.type !== 'TASK') {
+            showAlert('ฟังก์ชันส่งงานทางลัดนี้รองรับเฉพาะงานประเภท Task เท่านั้นครับ', 'ไม่สามารถส่งงานได้');
+            return;
+        }
+
+        const isAssigneeOrOwner = (task.assigneeIds || []).includes(currentUser.id) || isAdmin;
+        if (!isAssigneeOrOwner) {
+            showAlert('🔒 เฉพาะผู้รับผิดชอบงานหรือ Admin เท่านั้นที่สามารถส่งตรวจงานนี้ได้ครับ', 'ไม่มีสิทธิ์ส่งงาน');
+            return;
+        }
+
+        if (getPhase(task.status as string) === 'DONE') {
+            showAlert('งานชิ้นนี้อยู่ในสถานะเสร็จสมบูรณ์แล้ว ไม่จำเป็นต้องส่งตรวจซ้ำครับ', 'แจ้งเตือน');
+            return;
+        }
+
+        try {
+            const { data: reviews } = await supabase
+                .from('task_reviews')
+                .select('round, status')
+                .eq('task_id', task.id)
+                .order('round', { ascending: false });
+
+            if (reviews?.some(r => r.status === 'PENDING')) {
+                const pendingRound = reviews.find(r => r.status === 'PENDING')?.round;
+                await showAlert(
+                    `ตรวจพบรายการ "Draft ${pendingRound}" ที่รอการตรวจสอบอยู่แล้วในระบบ กรุณารอการตรวจสอบรอบนี้ให้เสร็จสิ้นก่อนครับ`,
+                    'ไม่สามารถส่งงานได้'
+                );
+                return;
+            }
+
+            setTaskForQC(task);
+            setIsQCModalOpen(true);
+        } catch (err: any) {
+            console.error("Submission check error:", err);
+            showToast(err.message || 'ตรวจสอบข้อมูลส่งตรวจไม่สำเร็จ', 'error');
+        }
+    }, [currentUser.id, isAdmin, showAlert, showToast]);
+
+    const handleCardContextMenu = useCallback((e: React.MouseEvent, task: Task) => {
+        const resolvedDate = task.startDate
+            ? new Date(task.startDate)
+            : (task.endDate ? new Date(task.endDate) : new Date());
+
+        setTaskContextMenu({
+            x: e.clientX,
+            y: e.clientY,
+            task,
+            userId: task.assigneeIds?.[0] || currentUser.id || '',
+            date: resolvedDate,
+        });
+    }, [currentUser.id]);
+
+    const handleContextEdit = useCallback((task: Task) => {
+        onOpenTask({ ...task, _openInEditMode: true } as Task);
+    }, [onOpenTask]);
+
+    const handleContextDuplicate = useCallback((task: Task, userId: string, date: Date) => {
+        const startDate = task.startDate ? new Date(task.startDate) : date;
+        const endDate = task.endDate ? new Date(task.endDate) : startDate;
+        const targetUser = users.find(u => u.id === userId);
+        setDuplicateRequest({
+            sourceTask: task,
+            targetUserId: userId,
+            targetUser,
+            startDate,
+            endDate,
+        });
+    }, [users]);
+
+    const handleContextDelete = useCallback(async (task: Task) => {
+        const confirmed = await showConfirm(
+            `ต้องการลบงาน "${task.title}" ใช่หรือไม่?`,
+            'ยืนยันการลบงาน'
+        );
+        if (!confirmed) return;
+
+        const resolvedType: 'CONTENT' | 'TASK' = task.type === 'CONTENT' ? 'CONTENT' : 'TASK';
+        if (onDeleteTask) {
+            onDeleteTask(task.id, resolvedType);
+        } else {
+            await handleDeleteTask(task.id, resolvedType);
+        }
+    }, [showConfirm, onDeleteTask, handleDeleteTask]);
+
     const handleDropTask = async (taskId: string, targetType: ColumnType) => {
         const task = tasks.find(t => t.id === taskId);
         if (!task || !onUpdateTask) return;
@@ -171,36 +262,7 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({
 
         // If dragging into WAITING column -> Trigger standard QC Submission flow
         if (targetType === 'WAITING') {
-            const isAssigneeOrOwner = (task.assigneeIds || []).includes(currentUser.id) || isAdmin;
-            if (!isAssigneeOrOwner) {
-                showAlert('🔒 เฉพาะผู้รับผิดชอบงานหรือ Admin เท่านั้นที่สามารถส่งตรวจงานนี้ได้ครับ', 'ไม่มีสิทธิ์ส่งงาน');
-                return;
-            }
-
-            if (currentType === 'DONE') {
-                showAlert('งานชิ้นนี้อยู่ในสถานะเสร็จสมบูรณ์แล้ว ไม่จำเป็นต้องส่งตรวจซ้ำครับ', 'แจ้งเตือน');
-                return;
-            }
-
-            try {
-                const { data: reviews } = await supabase
-                    .from('task_reviews')
-                    .select('round, status')
-                    .eq('task_id', task.id)
-                    .order('round', { ascending: false });
-
-                if (reviews?.some(r => r.status === 'PENDING')) {
-                    const pendingRound = reviews.find(r => r.status === 'PENDING')?.round;
-                    await showAlert(`ตรวจพบรายการ "Draft ${pendingRound}" ที่รอการตรวจสอบอยู่แล้วในระบบ กรุณารอการตรวจสอบรอบนี้ให้เสร็จสิ้นก่อนครับ`, 'ไม่สามารถส่งงานได้');
-                    return;
-                }
-
-                setTaskForQC(task);
-                setIsQCModalOpen(true);
-            } catch (err: any) {
-                console.error("Submission check error:", err);
-                showToast(err.message || 'ตรวจสอบข้อมูลส่งตรวจไม่สำเร็จ', 'error');
-            }
+            await openQCSubmissionFlow(task);
             return;
         }
 
@@ -600,6 +662,7 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({
                             isDroppable={true}
                             onDropTask={handleDropTask}
                             onOpenTask={onOpenTask}
+                            onTaskContextMenu={handleCardContextMenu}
                             onDeleteTask={onDeleteTask}
                             onViewAll={() => setActiveModalColumn('TODO')}
                             isUltimate={isUltimate}
@@ -615,6 +678,7 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({
                             isDroppable={true}
                             onDropTask={handleDropTask}
                             onOpenTask={onOpenTask}
+                            onTaskContextMenu={handleCardContextMenu}
                             onDeleteTask={onDeleteTask}
                             onViewAll={() => setActiveModalColumn('DOING')}
                             isUltimate={isUltimate}
@@ -630,6 +694,7 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({
                             isDroppable={true}
                             onDropTask={handleDropTask}
                             onOpenTask={onOpenTask}
+                            onTaskContextMenu={handleCardContextMenu}
                             onDeleteTask={onDeleteTask}
                             onViewAll={() => setActiveModalColumn('WAITING')}
                             isUltimate={isUltimate}
@@ -645,6 +710,7 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({
                             isDroppable={isAdmin}
                             onDropTask={handleDropTask}
                             onOpenTask={onOpenTask}
+                            onTaskContextMenu={handleCardContextMenu}
                             onDeleteTask={onDeleteTask}
                             onViewAll={() => setIsDoneHistoryOpen(true)}
                             isUltimate={isUltimate}
@@ -659,8 +725,13 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({
                 onClose={() => setActiveModalColumn(null)}
                 title={modalData.title}
                 tasks={modalData.tasks}
-                channels={[]} 
+                channels={[]}
+                users={users}
+                masterOptions={masterOptions}
                 onEditTask={onOpenTask}
+                onItemContextMenu={handleCardContextMenu}
+                onSaveTask={onUpdateTask}
+                onDeleteTask={onDeleteTask}
                 colorTheme={modalData.theme}
             />
 
@@ -671,7 +742,34 @@ const MyWorkBoard: React.FC<MyWorkBoardProps> = ({
                 onOpenTask={onOpenTask}
             />
 
-            {/* QC Submission Modal on Drag to Waiting */}
+            {/* Right-Click Task Context Menu (Send to QC for TASKs + Edit / Duplicate / Delete) */}
+            <TeamTaskContextMenu
+                menuState={taskContextMenu}
+                onClose={() => setTaskContextMenu(null)}
+                onSubmitQC={openQCSubmissionFlow}
+                onEdit={handleContextEdit}
+                onDuplicate={handleContextDuplicate}
+                onDelete={handleContextDelete}
+            />
+
+            {/* Quick Duplicate Task Modal */}
+            <TeamTaskDuplicateModal
+                isOpen={!!duplicateRequest}
+                request={duplicateRequest}
+                users={users}
+                channels={[]}
+                masterOptions={masterOptions}
+                onClose={() => setDuplicateRequest(null)}
+                onConfirm={async (duplicatedTask) => {
+                    if (onUpdateTask) {
+                        onUpdateTask(duplicatedTask);
+                    } else {
+                        await handleSaveTask(duplicatedTask, null);
+                    }
+                }}
+            />
+
+            {/* QC Submission Modal on Drag to Waiting or Right-Click Send to QC */}
             {taskForQC && currentUser && (
                 <QCSubmissionModal 
                     isOpen={isQCModalOpen}

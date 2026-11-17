@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, Variants } from 'framer-motion';
 import { Task, Channel, User, MasterOption } from '../../types';
 import TaskCategoryModal from '../TaskCategoryModal';
@@ -136,20 +136,29 @@ const AdminDashboard: React.FC<DashboardProps> = ({
   const [modalOpen, setModalOpen] = useState(false);
   const [isWorkloadOpen, setIsWorkloadOpen] = useState(false);
   const [modalTitle, setModalTitle] = useState('');
-  const [modalTasks, setModalTasks] = useState<Task[]>([]);
+  const [activeStatId, setActiveStatId] = useState<string | null>(null);
+  const [fallbackModalTasks, setFallbackModalTasks] = useState<Task[]>([]);
   const [modalTheme, setModalTheme] = useState('blue');
 
-  const handleCardClick = (title: string, tasks: Task[], theme: string) => {
+  const handleCardClick = (title: string, clickedTasks: Task[], theme: string, statId?: string) => {
     setModalTitle(title);
-    const sortedTasks = [...tasks].sort((a, b) => {
-        const timeA = new Date(a.endDate).getTime();
-        const timeB = new Date(b.endDate).getTime();
-        return timeA - timeB;
-    });
-    setModalTasks(sortedTasks);
+    setActiveStatId(statId || null);
+    setFallbackModalTasks(clickedTasks);
     setModalTheme(theme);
     setModalOpen(true);
   };
+
+  const liveModalTasks = useMemo(() => {
+    if (!modalOpen) return [];
+    const sourceTasks = activeStatId
+      ? (cardStats.find((s: any) => s.id === activeStatId)?.tasks || [])
+      : fallbackModalTasks;
+    return [...sourceTasks].sort((a, b) => {
+      const timeA = a.endDate ? new Date(a.endDate).getTime() : 0;
+      const timeB = b.endDate ? new Date(b.endDate).getTime() : 0;
+      return timeA - timeB;
+    });
+  }, [modalOpen, activeStatId, cardStats, fallbackModalTasks]);
 
   const containerVariants: Variants = {
     hidden: { opacity: 0 },
@@ -266,10 +275,15 @@ const AdminDashboard: React.FC<DashboardProps> = ({
 
         <TaskCategoryModal 
           isOpen={modalOpen}
-          onClose={() => setModalOpen(false)}
+          onClose={() => {
+            setModalOpen(false);
+            setActiveStatId(null);
+          }}
           title={modalTitle}
-          tasks={modalTasks}
+          tasks={liveModalTasks}
           channels={channels}
+          users={users}
+          masterOptions={masterOptions}
           onEditTask={onEditTask}
           colorTheme={modalTheme}
         />

@@ -12,6 +12,7 @@ interface UrgentTaskItemProps {
     users: User[];
     masterOptions: MasterOption[];
     onEditTask: (task: Task) => void;
+    onContextMenu?: (e: React.MouseEvent, task: Task) => void;
 }
 
 const taskItemVariants: Variants = {
@@ -46,6 +47,7 @@ export const UrgentTaskItem: React.FC<UrgentTaskItemProps> = ({
     users,
     masterOptions,
     onEditTask,
+    onContextMenu,
 }) => {
     const isContent = task.type === 'CONTENT';
     const today = new Date(); 
@@ -135,6 +137,13 @@ export const UrgentTaskItem: React.FC<UrgentTaskItemProps> = ({
             whileHover={{ scale: 1.012, x: 2 }}
             whileTap={{ scale: 0.99 }}
             onClick={() => onEditTask(task)}
+            onContextMenu={(e) => {
+                if (onContextMenu) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onContextMenu(e, task);
+                }
+            }}
             className={`
                 relative flex items-center gap-3 sm:gap-4 p-3.5 sm:p-4 rounded-2xl sm:rounded-3xl border backdrop-blur-sm transition-colors cursor-pointer group hover:shadow-xl select-none
                 ${containerClass}

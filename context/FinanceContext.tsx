@@ -435,20 +435,24 @@ export const FinanceProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
     // Real-time Subscription scoped per organization
     useEffect(() => {
+        let tripsRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+        const debouncedFetchTrips = () => {
+            if (tripsRefreshTimer) clearTimeout(tripsRefreshTimer);
+            tripsRefreshTimer = setTimeout(() => {
+                tripsRefreshTimer = null;
+                fetchTrips();
+            }, 600);
+        };
+
         const channel = supabase
             .channel(getOrgChannelName('finance-realtime-changes', activeOrgId))
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'finance_transactions' }, () => {
-                // We need the current dates to refresh correctly
-                // Since this useEffect doesn't track startDate/endDate directly to avoid loops,
-                // we'll rely on the fact that most changes happen in the current view
-                // or we can just refresh trips which is global
-                fetchTrips();
-            })
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'shoot_trips' }, () => fetchTrips())
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'contents' }, () => fetchTrips())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'finance_transactions' }, debouncedFetchTrips)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'shoot_trips' }, debouncedFetchTrips)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'contents' }, debouncedFetchTrips)
             .subscribe();
 
         return () => {
+            if (tripsRefreshTimer) clearTimeout(tripsRefreshTimer);
             supabase.removeChannel(channel);
         };
     }, [fetchTrips, activeOrgId]);

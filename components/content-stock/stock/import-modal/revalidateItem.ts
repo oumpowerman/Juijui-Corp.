@@ -1,5 +1,6 @@
 import { ParsedStockItemPreview } from '../../../../services/stockImportValidator';
 import { Channel, User, MasterOption } from '../../../../types';
+import { parseTimeString, timeStringToMinutes } from '../../../../services/csvService';
 
 export const revalidateStockItem = (
     item: ParsedStockItemPreview,
@@ -17,7 +18,7 @@ export const revalidateStockItem = (
     }
 
     // 2. Validate Status
-    let status = item.status || 'TODO';
+    const status = item.status || 'TODO';
     const statusOption = masterOptions.find(o => o.type === 'STATUS' && o.key === status);
     const statusLabel = statusOption?.label || status;
 
@@ -44,7 +45,57 @@ export const revalidateStockItem = (
         }
     }
 
-    // 4. Validate Users (Owner, Editor, Sub)
+    // 4. Validate Publish Time
+    let normalizedScheduledTime: string | null = null;
+    if (item.scheduledTime) {
+        const timeRes = parseTimeString(item.scheduledTime);
+        if (!timeRes.isValid) {
+            errors.push(timeRes.error || `รูปแบบเวลาเผยแพร่ไม่ถูกต้อง ("${item.scheduledTime}")`);
+        } else {
+            normalizedScheduledTime = timeRes.value;
+        }
+    }
+
+    if (item.isUnscheduled && normalizedScheduledTime) {
+        warnings.push(`ระบุเวลาเผยแพร่ไว้ (${normalizedScheduledTime} น.) แต่ยังไม่ได้ใส่วันเผยแพร่ (คงสถานะ Unscheduled)`);
+    }
+
+    // 5. Validate Shoot Times
+    let normalizedShootStart: string | null = null;
+    let normalizedShootEnd: string | null = null;
+    let shootTimeHasError = false;
+
+    if (item.shootTimeStart) {
+        const startRes = parseTimeString(item.shootTimeStart);
+        if (!startRes.isValid) {
+            errors.push(`เวลาเริ่มถ่ายทำไม่ถูกต้อง ("${item.shootTimeStart}") กรุณาใช้รูปแบบ HH:mm`);
+            shootTimeHasError = true;
+        } else {
+            normalizedShootStart = startRes.value;
+        }
+    }
+
+    if (item.shootTimeEnd) {
+        const endRes = parseTimeString(item.shootTimeEnd);
+        if (!endRes.isValid) {
+            errors.push(`เวลาเลิกถ่ายทำไม่ถูกต้อง ("${item.shootTimeEnd}") กรุณาใช้รูปแบบ HH:mm`);
+            shootTimeHasError = true;
+        } else {
+            normalizedShootEnd = endRes.value;
+        }
+    }
+
+    if (!shootTimeHasError && normalizedShootStart && normalizedShootEnd) {
+        if (timeStringToMinutes(normalizedShootEnd) < timeStringToMinutes(normalizedShootStart)) {
+            errors.push(`เวลาเลิกถ่ายทำ (${normalizedShootEnd}) ต้องไม่น้อยกว่าเวลาเริ่มถ่ายทำ (${normalizedShootStart})`);
+        }
+    }
+
+    if (!item.shootDate && (normalizedShootStart || normalizedShootEnd)) {
+        warnings.push('ระบุช่วงเวลาถ่ายทำไว้แล้ว แต่ยังไม่ได้ใส่วันถ่ายทำ');
+    }
+
+    // 6. Validate Users (Owner, Editor, Sub)
     const ownerNames: string[] = [];
     (item.ownerIds || []).forEach(uid => {
         const u = users.find(x => x.id === uid);
@@ -63,16 +114,17 @@ export const revalidateStockItem = (
         if (u) subNames.push(u.name);
     });
 
-    // 5. Formats & Pillars & Categories
+    // 7. Formats & Pillars & Categories
     const formatKey = item.format || null;
     const pillarKey = item.pillar || null;
     const categoryKey = item.category || null;
 
     const isValid = errors.length === 0;
 
-    const targetDate = item.publishDate || (item.isUnscheduled ? new Date() : new Date());
+    const targetDate = item.publishDate || new Date();
+    const shootDateObj = item.shootDate || null;
 
-    const payload = {
+    const payload: Record<string, any> = {
         title: cleanTitle,
         description: item.idea || '',
         status: status,
@@ -80,6 +132,10 @@ export const revalidateStockItem = (
         start_date: targetDate.toISOString(),
         end_date: targetDate.toISOString(),
         is_unscheduled: item.isUnscheduled,
+        scheduled_time: normalizedScheduledTime || null,
+        shoot_date: shootDateObj ? shootDateObj.toISOString() : null,
+        shoot_time_start: normalizedShootStart || null,
+        shoot_time_end: normalizedShootEnd || null,
         content_formats: formatKey ? [formatKey] : [],
         pillar: pillarKey,
         category: categoryKey,
@@ -90,6 +146,10 @@ export const revalidateStockItem = (
         assignee_ids: item.subIds || []
     };
 
+    if (item.storagePath) {
+        payload.local_path = item.storagePath;
+    }
+
     return {
         ...item,
         title: cleanTitle,
@@ -97,6 +157,10 @@ export const revalidateStockItem = (
         statusLabel,
         channelId,
         channelName,
+        scheduledTime: normalizedScheduledTime ?? item.scheduledTime ?? null,
+        shootDate: shootDateObj,
+        shootTimeStart: normalizedShootStart ?? item.shootTimeStart ?? null,
+        shootTimeEnd: normalizedShootEnd ?? item.shootTimeEnd ?? null,
         ownerNames,
         editorNames,
         subNames,

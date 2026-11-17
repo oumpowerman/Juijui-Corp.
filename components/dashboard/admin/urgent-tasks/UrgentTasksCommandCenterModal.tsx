@@ -23,6 +23,7 @@ interface UrgentTasksCommandCenterModalProps {
     viewScope: 'ALL' | 'ME';
     currentUser: User;
     onEditTask: (task: Task) => void;
+    onTaskContextMenu?: (e: React.MouseEvent, task: Task) => void;
 }
 
 export const UrgentTasksCommandCenterModal: React.FC<UrgentTasksCommandCenterModalProps> = ({
@@ -35,6 +36,7 @@ export const UrgentTasksCommandCenterModal: React.FC<UrgentTasksCommandCenterMod
     viewScope,
     currentUser,
     onEditTask,
+    onTaskContextMenu,
 }) => {
     const [mounted, setMounted] = useState(false);
     useEffect(() => {
@@ -424,6 +426,7 @@ export const UrgentTasksCommandCenterModal: React.FC<UrgentTasksCommandCenterMod
                                 users={users}
                                 masterOptions={masterOptions}
                                 onEditTask={onEditTask}
+                                onTaskContextMenu={onTaskContextMenu}
                                 timeFilter={timeFilter}
                                 onClearTimeFilter={() => setTimeFilter('ALL')}
                                 activeChannelId={activeChannelId}

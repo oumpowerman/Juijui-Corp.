@@ -1,12 +1,16 @@
 import * as XLSX from 'xlsx';
 import { User, MasterOption, Channel } from '../types';
-import { 
-    parseCSVLine, 
-    findUserByName, 
-    findChannelByName, 
-    findMasterKey, 
-    parseFlexibleDate, 
-    readFileAsTextWithAutoEncoding 
+import {
+    parseCSVMatrix,
+    findUserByName,
+    findChannelByName,
+    findMasterKey,
+    parseFlexibleDateTime,
+    parseTimeString,
+    parseTimeRange,
+    timeStringToMinutes,
+    localDateFromYYYYMMDD,
+    readFileAsTextWithAutoEncoding
 } from './csvService';
 
 export interface ParsedStockItemPreview {
@@ -26,9 +30,14 @@ export interface ParsedStockItemPreview {
     rawCategory: string;
     publishDate: Date | null;
     rawPublishDate: string;
+    scheduledTime: string | null;
+    rawScheduledTime: string;
     isUnscheduled: boolean;
     shootDate?: Date | null;
     rawShootDate?: string;
+    shootTimeStart?: string | null;
+    shootTimeEnd?: string | null;
+    rawShootTime?: string;
     storagePath?: string;
     idea: string;
     remark: string;
@@ -66,8 +75,12 @@ interface RawNormalizedRecord {
     rawPillar: string;
     rawCategory: string;
     rawStatus: string;
-    rawDate: string;
-    rawShootDate: string;
+    rawDate: any;
+    rawScheduledTime: any;
+    rawShootDate: any;
+    rawShootTime: any;
+    rawShootTimeStart: any;
+    rawShootTimeEnd: any;
     rawChannel: string;
     rawOwner: string;
     rawIdea: string;
@@ -77,6 +90,12 @@ interface RawNormalizedRecord {
     rawPlatform: string;
     rawStorage: string;
 }
+
+const formatRawCellDisplay = (val: any): string => {
+    if (val === undefined || val === null) return '';
+    if (val instanceof Date) return val.toLocaleString();
+    return String(val).trim();
+};
 
 /**
  * Normalizes and validates a single content stock row into ParsedStockItemPreview
@@ -95,7 +114,11 @@ const processSingleStockRecord = (
         rawCategory,
         rawStatus,
         rawDate,
+        rawScheduledTime,
         rawShootDate,
+        rawShootTime,
+        rawShootTimeStart,
+        rawShootTimeEnd,
         rawChannel,
         rawOwner,
         rawIdea,
@@ -151,16 +174,18 @@ const processSingleStockRecord = (
         if (p.includes('ig') || p.includes('instagram')) targetPlatforms.push('INSTAGRAM');
     }
 
-    // 5. Date Parsing (Publish Date)
+    // 5. Publish Date & Publish Time Parsing
     let targetDate: Date | null = null;
     let isUnscheduled = true;
-    if (rawDate) {
-        const parsedDate = parseFlexibleDate(rawDate);
-        if (parsedDate) {
-            targetDate = new Date(parsedDate);
+    const rawDateDisplay = formatRawCellDisplay(rawDate);
+    const parsedPublishDT = parseFlexibleDateTime(rawDate);
+
+    if (rawDateDisplay) {
+        if (parsedPublishDT.dateValid && parsedPublishDT.dateStr) {
+            targetDate = localDateFromYYYYMMDD(parsedPublishDT.dateStr) || new Date();
             isUnscheduled = false;
         } else {
-            warnings.push(`รูปแบบวันที่เผยแพร่ "${rawDate}" ไม่ถูกต้อง (จะถูกตั้งเป็น Unscheduled ในคลัง)`);
+            warnings.push(`รูปแบบวันที่เผยแพร่ "${rawDateDisplay}" ไม่ถูกต้อง (ตั้งเป็น Unscheduled ในคลัง)`);
             targetDate = new Date();
             isUnscheduled = true;
         }
@@ -169,13 +194,107 @@ const processSingleStockRecord = (
         isUnscheduled = true;
     }
 
-    // Shoot Date Parsing
-    let shootDateObj: Date | null = null;
-    if (rawShootDate) {
-        const parsedShootDate = parseFlexibleDate(rawShootDate);
-        if (parsedShootDate) {
-            shootDateObj = new Date(parsedShootDate);
+    const rawScheduledTimeDisplay = formatRawCellDisplay(rawScheduledTime);
+    let scheduledTime: string | null = null;
+
+    if (rawScheduledTimeDisplay !== '') {
+        const parsedExplicitTime = parseTimeString(rawScheduledTime);
+        if (!parsedExplicitTime.isValid) {
+            errors.push(parsedExplicitTime.error || `รูปแบบเวลาเผยแพร่ไม่ถูกต้อง ("${rawScheduledTimeDisplay}")`);
+        } else {
+            scheduledTime = parsedExplicitTime.value;
         }
+    } else if (parsedPublishDT.dateValid && !parsedPublishDT.timeValid) {
+        errors.push(parsedPublishDT.timeError || `รูปแบบเวลาในวันเผยแพร่ไม่ถูกต้อง ("${rawDateDisplay}")`);
+    } else if (parsedPublishDT.timeValid && parsedPublishDT.timeStr) {
+        scheduledTime = parsedPublishDT.timeStr;
+    }
+
+    if (isUnscheduled && scheduledTime) {
+        warnings.push(`ระบุเวลาเผยแพร่ไว้ (${scheduledTime} น.) แต่ยังไม่ได้ใส่วันเผยแพร่ (คงสถานะ Unscheduled)`);
+    }
+
+    // 5.5 Shoot Date & Shoot Time Range Parsing
+    let shootDateObj: Date | null = null;
+    const rawShootDateDisplay = formatRawCellDisplay(rawShootDate);
+    const parsedShootDT = parseFlexibleDateTime(rawShootDate);
+
+    if (rawShootDateDisplay) {
+        if (parsedShootDT.dateValid && parsedShootDT.dateStr) {
+            shootDateObj = localDateFromYYYYMMDD(parsedShootDT.dateStr);
+        } else {
+            warnings.push(`รูปแบบวันถ่ายทำ "${rawShootDateDisplay}" ไม่ถูกต้อง (ปล่อยว่าง)`);
+        }
+    }
+
+    const rawShootTimeRangeDisplay = formatRawCellDisplay(rawShootTime);
+    const rawShootStartDisplay = formatRawCellDisplay(rawShootTimeStart);
+    const rawShootEndDisplay = formatRawCellDisplay(rawShootTimeEnd);
+    const combinedRawShootTime = [
+        rawShootTimeRangeDisplay,
+        rawShootStartDisplay && rawShootEndDisplay
+            ? `${rawShootStartDisplay}-${rawShootEndDisplay}`
+            : (rawShootStartDisplay || rawShootEndDisplay)
+    ].filter(Boolean).join(' / ');
+
+    let shootTimeStart: string | null = null;
+    let shootTimeEnd: string | null = null;
+    let hasShootTimeError = false;
+
+    if (rawShootTimeRangeDisplay !== '') {
+        const rangeRes = parseTimeRange(rawShootTime);
+        if (!rangeRes.isValid) {
+            errors.push(rangeRes.error || `ช่วงเวลาถ่ายทำไม่ถูกต้อง ("${rawShootTimeRangeDisplay}")`);
+            hasShootTimeError = true;
+        } else {
+            shootTimeStart = rangeRes.start;
+            shootTimeEnd = rangeRes.end;
+        }
+    }
+
+    if (rawShootStartDisplay !== '') {
+        const startRes = parseTimeString(rawShootTimeStart);
+        if (!startRes.isValid) {
+            errors.push(`เวลาเริ่มถ่ายทำไม่ถูกต้อง ("${rawShootStartDisplay}") กรุณาใช้รูปแบบ HH:mm`);
+            hasShootTimeError = true;
+        } else {
+            shootTimeStart = startRes.value;
+        }
+    }
+
+    if (rawShootEndDisplay !== '') {
+        const endRes = parseTimeString(rawShootTimeEnd);
+        if (!endRes.isValid) {
+            errors.push(`เวลาเลิกถ่ายทำไม่ถูกต้อง ("${rawShootEndDisplay}") กรุณาใช้รูปแบบ HH:mm`);
+            hasShootTimeError = true;
+        } else {
+            shootTimeEnd = endRes.value;
+        }
+    }
+
+    // Fallback: time embedded in Shoot Date cell if explicit shoot time columns were omitted
+    if (
+        rawShootTimeRangeDisplay === '' &&
+        rawShootStartDisplay === '' &&
+        rawShootEndDisplay === '' &&
+        rawShootDateDisplay !== ''
+    ) {
+        if (parsedShootDT.dateValid && !parsedShootDT.timeValid) {
+            errors.push(parsedShootDT.timeError || `รูปแบบเวลาในวันถ่ายทำไม่ถูกต้อง ("${rawShootDateDisplay}")`);
+            hasShootTimeError = true;
+        } else if (parsedShootDT.timeValid && parsedShootDT.timeStr) {
+            shootTimeStart = parsedShootDT.timeStr;
+        }
+    }
+
+    if (!hasShootTimeError && shootTimeStart && shootTimeEnd) {
+        if (timeStringToMinutes(shootTimeEnd) < timeStringToMinutes(shootTimeStart)) {
+            errors.push(`เวลาเลิกถ่ายทำ (${shootTimeEnd}) ต้องไม่น้อยกว่าเวลาเริ่มถ่ายทำ (${shootTimeStart})`);
+        }
+    }
+
+    if (!shootDateObj && (shootTimeStart || shootTimeEnd)) {
+        warnings.push('ระบุช่วงเวลาถ่ายทำไว้แล้ว แต่ยังไม่ได้ใส่วันถ่ายทำ');
     }
 
     // 6. User Mapping (Owner, Edit, Sub) with Nickname / Thai support
@@ -241,6 +360,10 @@ const processSingleStockRecord = (
         start_date: (targetDate || new Date()).toISOString(),
         end_date: (targetDate || new Date()).toISOString(),
         is_unscheduled: isUnscheduled,
+        scheduled_time: scheduledTime || null,
+        shoot_date: shootDateObj ? shootDateObj.toISOString() : null,
+        shoot_time_start: shootTimeStart || null,
+        shoot_time_end: shootTimeEnd || null,
         content_formats: formatKey ? [formatKey] : [],
         pillar: pillarKey,
         category: categoryKey,
@@ -251,9 +374,6 @@ const processSingleStockRecord = (
         assignee_ids: assigneeIds
     };
 
-    if (shootDateObj) {
-        payload.shoot_date = shootDateObj.toISOString();
-    }
     if (rawStorage) {
         payload.local_path = rawStorage;
     }
@@ -274,10 +394,15 @@ const processSingleStockRecord = (
         category: categoryKey,
         rawCategory,
         publishDate: targetDate,
-        rawPublishDate: rawDate,
+        rawPublishDate: rawDateDisplay,
+        scheduledTime,
+        rawScheduledTime: rawScheduledTimeDisplay || (parsedPublishDT.timeStr || ''),
         isUnscheduled,
         shootDate: shootDateObj,
-        rawShootDate,
+        rawShootDate: rawShootDateDisplay,
+        shootTimeStart,
+        shootTimeEnd,
+        rawShootTime: combinedRawShootTime || (parsedShootDT.timeStr || ''),
         storagePath: rawStorage,
         idea: rawIdea,
         remark: rawRemark,
@@ -316,8 +441,8 @@ export const validateAndParseStockFile = async (
         try {
             const text = await readFileAsTextWithAutoEncoding(file);
             const parsed = JSON.parse(text);
-            const rawList: any[] = Array.isArray(parsed) 
-                ? parsed 
+            const rawList: any[] = Array.isArray(parsed)
+                ? parsed
                 : (parsed.contents || parsed.items || parsed.data || []);
 
             if (!Array.isArray(rawList) || rawList.length === 0) {
@@ -340,11 +465,15 @@ export const validateAndParseStockFile = async (
 
             for (let i = 0; i < rawList.length; i++) {
                 const obj = rawList[i] || {};
-                const findField = (keys: string[]): string => {
+                const findRawField = (keys: string[]): any => {
                     for (const k of keys) {
-                        if (obj[k] !== undefined && obj[k] !== null) return String(obj[k]).trim();
+                        if (obj[k] !== undefined && obj[k] !== null && obj[k] !== '') return obj[k];
                     }
                     return '';
+                };
+                const findField = (keys: string[]): string => {
+                    const val = findRawField(keys);
+                    return val !== '' ? String(val).trim() : '';
                 };
 
                 const rawTitle = findField(['title', 'Content Topic', 'content topic', 'topic', 'ชื่อคอนเทนต์', 'หัวข้อ', 'ชื่อคลิป']);
@@ -352,16 +481,20 @@ export const validateAndParseStockFile = async (
                 const rawPillar = findField(['pillar', 'Pillar', 'เสาหลักคอนเทนต์', 'เสาหลัก']);
                 const rawCategory = findField(['category', 'Category', 'หมวดหมู่', 'หมวด']);
                 const rawStatus = findField(['status', 'Status', 'สถานะ', 'ขั้นตอน']);
-                const rawDate = findField(['publishDate', 'publish_date', 'Publish Date', 'publish date', 'date', 'วันที่เผยแพร่', 'วันลงงาน']);
-                const rawShootDate = findField(['shootDate', 'shoot_date', 'Shoot Date', 'shoot date', 'วันถ่ายทำ', 'คิวถ่าย']);
+                const rawDate = findRawField(['publishDate', 'publish_date', 'Publish Date', 'publish date', 'due_date', 'dueDate', 'Due Date', 'date', 'วันที่เผยแพร่', 'วันลงงาน']);
+                const rawScheduledTime = findRawField(['publishTime', 'publish_time', 'Publish Time', 'scheduledTime', 'scheduled_time', 'Scheduled Time', 'time', 'เวลาโพสต์', 'เวลาเผยแพร่', 'เวลาลงงาน']);
+                const rawShootDate = findRawField(['shootDate', 'shoot_date', 'Shoot Date', 'shoot date', 'วันถ่ายทำ', 'คิวถ่าย']);
+                const rawShootTime = findRawField(['shootTime', 'shoot_time', 'Shoot Time', 'shoot time', 'เวลาถ่ายทำ', 'ช่วงเวลาถ่าย', 'เวลาถ่าย']);
+                const rawShootTimeStart = findRawField(['shootTimeStart', 'shoot_time_start', 'Shoot Time Start', 'เวลาเริ่มถ่าย', 'เริ่มถ่าย']);
+                const rawShootTimeEnd = findRawField(['shootTimeEnd', 'shoot_time_end', 'Shoot Time End', 'เวลาเลิกถ่าย', 'เวลาสิ้นสุดถ่าย', 'เลิกถ่าย']);
                 const rawChannel = findField(['channel', 'Channel', 'Chanel', 'chanel', 'ชื่อช่อง', 'ช่อง']);
                 const rawOwner = findField(['owner', 'Owner', 'ideaOwner', 'idea_owner', 'เจ้าของไอเดีย', 'ผู้รับผิดชอบ']);
                 const rawIdea = findField(['idea', 'IDEA', 'description', 'บรีฟ', 'รายละเอียด', 'เนื้อหา']);
                 const rawEdit = findField(['edit', 'Edit', 'editor', 'Editor', 'ผู้ตัดต่อ', 'คนตัด']);
                 const rawSub = findField(['sub', 'Sub', 'assignee', 'Assignee', 'ผู้ช่วย/ซับ', 'ผู้ช่วย', 'ซับ']);
                 const rawRemark = findField(['remark', 'Remark', 'Remark หมายเหตุ', 'หมายเหตุ']);
-                const rawPlatform = findField(['platform', 'Post', 'post', 'target_platform', 'targetPlatforms', 'แพลตฟอร์ม']);
-                const rawStorage = findField(['storage', 'storagePath', 'storage_path', 'drive_url', 'drive', 'ที่เก็บไฟล์']);
+                const rawPlatform = findField(['platform', 'Post', 'post', 'Post / Platform', 'target_platform', 'targetPlatforms', 'แพลตฟอร์ม']);
+                const rawStorage = findField(['storage', 'storagePath', 'storage_path', 'Storage Path', 'drive_url', 'drive', 'ที่เก็บไฟล์']);
 
                 const item = processSingleStockRecord({
                     rawTitle,
@@ -370,7 +503,11 @@ export const validateAndParseStockFile = async (
                     rawCategory,
                     rawStatus,
                     rawDate,
+                    rawScheduledTime,
                     rawShootDate,
+                    rawShootTime,
+                    rawShootTimeStart,
+                    rawShootTimeEnd,
                     rawChannel,
                     rawOwner,
                     rawIdea,
@@ -419,7 +556,9 @@ export const validateAndParseStockFile = async (
     if (ext === 'xlsx' || ext === 'xls') {
         try {
             const buffer = await file.arrayBuffer();
-            const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
+            // Use cellDates: false so numeric Excel date/time serials (including 0.75 = 18:00)
+            // preserve exact precision without JS Date local/UTC timezone drift.
+            const workbook = XLSX.read(buffer, { type: 'array', cellDates: false });
             const sheetName = workbook.SheetNames[0];
             const sheet = workbook.Sheets[sheetName];
             rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
@@ -436,11 +575,10 @@ export const validateAndParseStockFile = async (
             };
         }
     } else {
-        // Standard CSV / Text
+        // Standard CSV / Text (multiline quoted cells supported)
         try {
             const text = await readFileAsTextWithAutoEncoding(file);
-            const lineStrings = text.split(/\r\n|\n/).filter(line => line.trim().length > 0);
-            rows = lineStrings.map(line => parseCSVLine(line));
+            rows = parseCSVMatrix(text);
         } catch (err: any) {
             return {
                 fileName: file.name,
@@ -470,8 +608,21 @@ export const validateAndParseStockFile = async (
 
     const headers = (rows[0] || []).map((h: any) => String(h || '').trim().toLowerCase());
 
-    const findCol = (aliases: string[]): number => {
-        return headers.findIndex(h => aliases.some(alias => h === alias || h.includes(alias)));
+    const findCol = (aliases: string[], excludeKeywords: string[] = []): number => {
+        const isAllowed = (h: string) =>
+            excludeKeywords.length === 0 || !excludeKeywords.some(ex => h.includes(ex));
+
+        // Pass 1: exact header match (in alias priority order)
+        for (const alias of aliases) {
+            const exactIdx = headers.findIndex(h => h === alias && isAllowed(h));
+            if (exactIdx !== -1) return exactIdx;
+        }
+        // Pass 2: substring match (in alias priority order)
+        for (const alias of aliases) {
+            const partialIdx = headers.findIndex(h => h.includes(alias) && isAllowed(h));
+            if (partialIdx !== -1) return partialIdx;
+        }
+        return -1;
     };
 
     const colMap = {
@@ -480,16 +631,29 @@ export const validateAndParseStockFile = async (
         pillar: findCol(['pillar', 'เสาหลักคอนเทนต์', 'เสาหลัก']),
         category: findCol(['category', 'หมวดหมู่', 'หมวด']),
         status: findCol(['status', 'สถานะ', 'ขั้นตอน']),
-        date: findCol(['publish date', 'publish_date', 'date', 'วันที่เผยแพร่', 'วันลงงาน', 'วันโพสต์', 'กำหนดเผยแพร่']),
+        date: findCol(
+            ['publish date', 'publish_date', 'due date', 'due_date', 'วันที่เผยแพร่', 'วันลงงาน', 'วันโพสต์', 'กำหนดเผยแพร่', 'กำหนดส่ง', 'date'],
+            ['shoot', 'ถ่าย']
+        ),
+        publishTime: findCol(
+            ['publish time', 'publish_time', 'scheduled time', 'scheduled_time', 'เวลาโพสต์', 'เวลาเผยแพร่', 'เวลาลงงาน', 'time'],
+            ['shoot', 'ถ่าย', 'start', 'end', 'เริ่ม', 'เลิก']
+        ),
         shootDate: findCol(['shoot date', 'shoot_date', 'วันถ่ายทำ', 'คิวถ่าย', 'วันถ่าย']),
-        channel: findCol(['chanel', 'channel', 'ชื่อช่อง', 'ช่อง']),
+        shootTime: findCol(
+            ['shoot time', 'shoot_time', 'เวลาถ่ายทำ', 'ช่วงเวลาถ่าย', 'เวลาถ่าย'],
+            ['start', 'end', 'เริ่ม', 'เลิก', 'สิ้นสุด']
+        ),
+        shootTimeStart: findCol(['shoot time start', 'shoot_time_start', 'เวลาเริ่มถ่าย', 'เริ่มถ่าย']),
+        shootTimeEnd: findCol(['shoot time end', 'shoot_time_end', 'เวลาเลิกถ่าย', 'เวลาสิ้นสุดถ่าย', 'เลิกถ่าย']),
+        channel: findCol(['channel', 'chanel', 'ชื่อช่อง', 'ช่อง']),
         owner: findCol(['owner', 'idea owner', 'เจ้าของไอเดีย', 'ผู้รับผิดชอบ', 'คนคิด']),
         idea: findCol(['idea', 'description', 'บรีฟ', 'รายละเอียด', 'เนื้อหา']),
         edit: findCol(['edit', 'editor', 'ผู้ตัดต่อ', 'คนตัด']),
         sub: findCol(['sub', 'assignee', 'ผู้ช่วย/ซับ', 'ผู้ช่วย', 'ซับ']),
-        remark: headers.findIndex(h => h.includes('remark') || h.includes('หมายเหตุ')),
-        platform: findCol(['post', 'platform', 'target_platform', 'แพลตฟอร์ม']),
-        storage: findCol(['storage', 'storage path', 'drive', 'drive_url', 'ที่เก็บไฟล์', 'โฟลเดอร์'])
+        remark: findCol(['remark', 'หมายเหตุ']),
+        platform: findCol(['post / platform', 'target_platform', 'platform', 'post', 'แพลตฟอร์ม']),
+        storage: findCol(['storage path', 'storage_path', 'storage', 'drive_url', 'drive', 'ที่เก็บไฟล์', 'โฟลเดอร์'])
     };
 
     // Header validation check
@@ -515,25 +679,35 @@ export const validateAndParseStockFile = async (
         const cols = rows[i];
         if (!cols || cols.length === 0) continue;
 
-        const getColVal = (idx: number): string => {
+        const getRawColVal = (idx: number): any => {
             if (idx === -1 || idx >= cols.length) return '';
             const v = cols[idx];
             if (v === null || v === undefined) return '';
-            if (v instanceof Date) return v.toISOString().split('T')[0];
+            return v;
+        };
+
+        const getColVal = (idx: number): string => {
+            const v = getRawColVal(idx);
+            if (v === '') return '';
+            if (v instanceof Date) return v.toISOString();
             return String(v).trim();
         };
 
-        const rawTitle = getColVal(colMap.title);
-        // Skip completely blank rows where title and all keys are empty
-        const allText = cols.map((c: any) => String(c || '').trim()).join('');
+        // Skip completely blank rows
+        const allText = cols.map((c: any) => String(c ?? '').trim()).join('');
         if (!allText) continue;
 
+        const rawTitle = getColVal(colMap.title);
         const rawFormat = getColVal(colMap.format);
         const rawPillar = getColVal(colMap.pillar);
         const rawCategory = getColVal(colMap.category);
         const rawStatus = getColVal(colMap.status);
-        const rawDate = getColVal(colMap.date);
-        const rawShootDate = getColVal(colMap.shootDate);
+        const rawDate = getRawColVal(colMap.date);
+        const rawScheduledTime = getRawColVal(colMap.publishTime);
+        const rawShootDate = getRawColVal(colMap.shootDate);
+        const rawShootTime = getRawColVal(colMap.shootTime);
+        const rawShootTimeStart = getRawColVal(colMap.shootTimeStart);
+        const rawShootTimeEnd = getRawColVal(colMap.shootTimeEnd);
         const rawChannel = getColVal(colMap.channel);
         const rawOwner = getColVal(colMap.owner);
         const rawIdea = getColVal(colMap.idea);
@@ -550,7 +724,11 @@ export const validateAndParseStockFile = async (
             rawCategory,
             rawStatus,
             rawDate,
+            rawScheduledTime,
             rawShootDate,
+            rawShootTime,
+            rawShootTimeStart,
+            rawShootTimeEnd,
             rawChannel,
             rawOwner,
             rawIdea,

@@ -9,11 +9,13 @@ import {
     User,
     Tv,
     Calendar,
+    Clock,
+    Camera,
     Layers,
-    Sparkles,
     FileText
 } from 'lucide-react';
 import { ParsedStockItemPreview } from '../../../../services/stockImportValidator';
+import { formatToYYYYMMDD, localDateFromYYYYMMDD } from '../../../../services/csvService';
 import { Channel, User as UserType, MasterOption } from '../../../../types';
 import { revalidateStockItem } from './revalidateItem';
 
@@ -47,7 +49,11 @@ export const ImportItemEditModal: React.FC<ImportItemEditModalProps> = ({
     const [editorIds, setEditorIds] = useState<string[]>([]);
     const [subIds, setSubIds] = useState<string[]>([]);
     const [publishDateStr, setPublishDateStr] = useState<string>('');
+    const [scheduledTime, setScheduledTime] = useState<string>('');
     const [isUnscheduled, setIsUnscheduled] = useState<boolean>(true);
+    const [shootDateStr, setShootDateStr] = useState<string>('');
+    const [shootTimeStart, setShootTimeStart] = useState<string>('');
+    const [shootTimeEnd, setShootTimeEnd] = useState<string>('');
 
     // Initialize state when item changes
     useEffect(() => {
@@ -63,20 +69,30 @@ export const ImportItemEditModal: React.FC<ImportItemEditModalProps> = ({
         setEditorIds(item.editorIds || []);
         setSubIds(item.subIds || []);
         setIsUnscheduled(item.isUnscheduled);
+        setScheduledTime(item.scheduledTime || '');
+        setShootTimeStart(item.shootTimeStart || '');
+        setShootTimeEnd(item.shootTimeEnd || '');
 
         if (item.publishDate) {
             try {
                 const d = new Date(item.publishDate);
-                if (!isNaN(d.getTime())) {
-                    setPublishDateStr(d.toISOString().split('T')[0]);
-                } else {
-                    setPublishDateStr('');
-                }
+                setPublishDateStr(!isNaN(d.getTime()) ? formatToYYYYMMDD(d) : '');
             } catch {
                 setPublishDateStr('');
             }
         } else {
             setPublishDateStr('');
+        }
+
+        if (item.shootDate) {
+            try {
+                const sd = new Date(item.shootDate);
+                setShootDateStr(!isNaN(sd.getTime()) ? formatToYYYYMMDD(sd) : '');
+            } catch {
+                setShootDateStr('');
+            }
+        } else {
+            setShootDateStr('');
         }
     }, [item]);
 
@@ -86,8 +102,10 @@ export const ImportItemEditModal: React.FC<ImportItemEditModalProps> = ({
 
         let parsedDate: Date | null = null;
         if (!isUnscheduled && publishDateStr) {
-            parsedDate = new Date(publishDateStr);
+            parsedDate = localDateFromYYYYMMDD(publishDateStr);
         }
+
+        const parsedShootDate = shootDateStr ? localDateFromYYYYMMDD(shootDateStr) : null;
 
         const draftItem: ParsedStockItemPreview = {
             ...item,
@@ -102,11 +120,36 @@ export const ImportItemEditModal: React.FC<ImportItemEditModalProps> = ({
             editorIds,
             subIds,
             publishDate: parsedDate,
-            isUnscheduled
+            scheduledTime: scheduledTime.trim() || null,
+            isUnscheduled,
+            shootDate: parsedShootDate,
+            shootTimeStart: shootTimeStart.trim() || null,
+            shootTimeEnd: shootTimeEnd.trim() || null
         };
 
         return revalidateStockItem(draftItem, users, channels, masterOptions);
-    }, [item, title, idea, channelId, status, format, pillar, category, ownerIds, editorIds, subIds, publishDateStr, isUnscheduled, users, channels, masterOptions]);
+    }, [
+        item,
+        title,
+        idea,
+        channelId,
+        status,
+        format,
+        pillar,
+        category,
+        ownerIds,
+        editorIds,
+        subIds,
+        publishDateStr,
+        scheduledTime,
+        isUnscheduled,
+        shootDateStr,
+        shootTimeStart,
+        shootTimeEnd,
+        users,
+        channels,
+        masterOptions
+    ]);
 
     const handleSave = () => {
         if (!draftValidation) return;
@@ -155,15 +198,15 @@ export const ImportItemEditModal: React.FC<ImportItemEditModalProps> = ({
                     {/* Header */}
                     <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-gradient-to-r from-slate-50 via-white to-indigo-50/30 shrink-0">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-600/20 font-black text-sm">
+                            <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md shadow-indigo-600/20 font-bold tabular-nums text-sm">
                                 #{item.index}
                             </div>
                             <div>
-                                <h4 className="text-sm font-black text-slate-900 flex items-center gap-2">
+                                <h4 className="text-sm font-bold text-slate-900 flex items-center gap-2">
                                     แก้ไขข้อมูลสำหรับนำเข้า (Quick Fix)
                                 </h4>
-                                <p className="text-xs text-slate-500 font-medium">
-                                    แถวที่ #{item.index} ในไฟล์ CSV
+                                <p className="text-xs text-slate-500 font-medium tabular-nums">
+                                    แถวที่ #{item.index} ในไฟล์นำเข้า
                                 </p>
                             </div>
                         </div>
@@ -197,7 +240,7 @@ export const ImportItemEditModal: React.FC<ImportItemEditModalProps> = ({
                         {/* Errors & Warnings Notification inside Editor */}
                         {draftValidation && draftValidation.errors.length > 0 && (
                             <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl space-y-1">
-                                <p className="text-[11px] font-black text-rose-700 flex items-center gap-1.5">
+                                <p className="text-[11px] font-bold text-rose-700 flex items-center gap-1.5">
                                     <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
                                     <span>สิ่งที่ต้องแก้ไขให้ถูกต้องก่อนนำเข้า:</span>
                                 </p>
@@ -211,7 +254,7 @@ export const ImportItemEditModal: React.FC<ImportItemEditModalProps> = ({
 
                         {draftValidation && draftValidation.warnings.length > 0 && (
                             <div className="p-3 bg-amber-50/80 border border-amber-200 rounded-2xl space-y-1">
-                                <p className="text-[11px] font-black text-amber-800 flex items-center gap-1.5">
+                                <p className="text-[11px] font-bold text-amber-800 flex items-center gap-1.5">
                                     <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
                                     <span>คำเตือน/ข้อสังเกต:</span>
                                 </p>
@@ -227,7 +270,7 @@ export const ImportItemEditModal: React.FC<ImportItemEditModalProps> = ({
                         <div className="space-y-1.5">
                             <label className="font-bold text-slate-800 flex items-center gap-1">
                                 <span>Content Topic (ชื่อหัวข้อ)</span>
-                                <span className="text-rose-500 font-black">*</span>
+                                <span className="text-rose-500 font-bold">*</span>
                             </label>
                             <input
                                 type="text"
@@ -407,12 +450,12 @@ export const ImportItemEditModal: React.FC<ImportItemEditModalProps> = ({
                             </div>
                         </div>
 
-                        {/* 6. Publish Date & Unscheduled Toggle */}
+                        {/* 6. Publish Date & Publish Time */}
                         <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200/70 space-y-2.5">
-                            <div className="flex items-center justify-between">
-                                <label className="font-bold text-slate-700 flex items-center gap-1.5 cursor-pointer">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                <label className="font-bold text-slate-700 flex items-center gap-1.5">
                                     <Calendar className="w-3.5 h-3.5 text-indigo-500" />
-                                    <span>วันเผยแพร่ (Publish Date)</span>
+                                    <span>วันและเวลาเผยแพร่ (Publish Date & Time)</span>
                                 </label>
                                 <label className="flex items-center gap-2 text-xs font-bold text-slate-600 cursor-pointer">
                                     <input
@@ -425,14 +468,85 @@ export const ImportItemEditModal: React.FC<ImportItemEditModalProps> = ({
                                 </label>
                             </div>
 
-                            {!isUnscheduled && (
-                                <input
-                                    type="date"
-                                    value={publishDateStr}
-                                    onChange={(e) => setPublishDateStr(e.target.value)}
-                                    className="w-full px-3 py-2 bg-white rounded-xl border border-slate-200 text-xs font-bold text-slate-800 outline-none focus:border-indigo-500"
-                                />
-                            )}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div className="space-y-1">
+                                    <span className="text-[11px] font-semibold text-slate-500">วันเผยแพร่</span>
+                                    <input
+                                        type="date"
+                                        disabled={isUnscheduled}
+                                        value={isUnscheduled ? '' : publishDateStr}
+                                        onChange={(e) => setPublishDateStr(e.target.value)}
+                                        className="w-full px-3 py-2 bg-white rounded-xl border border-slate-200 text-xs font-bold tabular-nums text-slate-800 outline-none focus:border-indigo-500 disabled:bg-slate-100 disabled:text-slate-400"
+                                    />
+                                </div>
+
+                                <div className="space-y-1">
+                                    <span className="text-[11px] font-semibold text-slate-500 flex items-center gap-1">
+                                        <Clock className="w-3 h-3 text-indigo-500" />
+                                        <span>เวลาเผยแพร่ (Publish Time)</span>
+                                    </span>
+                                    <div className="flex items-center gap-1.5">
+                                        <input
+                                            type="time"
+                                            value={scheduledTime}
+                                            onChange={(e) => setScheduledTime(e.target.value)}
+                                            className="w-full px-3 py-2 bg-white rounded-xl border border-slate-200 text-xs font-bold tabular-nums text-slate-800 outline-none focus:border-indigo-500"
+                                        />
+                                        {scheduledTime && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setScheduledTime('')}
+                                                className="px-2 py-2 text-[11px] font-semibold text-slate-500 hover:text-rose-600 bg-white border border-slate-200 rounded-xl cursor-pointer"
+                                                title="ล้างเวลาโพสต์"
+                                            >
+                                                ล้าง
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* 7. Shoot Date & Shoot Time Range */}
+                        <div className="p-3 bg-amber-50/40 rounded-2xl border border-amber-200/70 space-y-2.5">
+                            <div className="flex items-center justify-between">
+                                <label className="font-bold text-slate-700 flex items-center gap-1.5">
+                                    <Camera className="w-3.5 h-3.5 text-amber-600" />
+                                    <span>วันและช่วงเวลาถ่ายทำ (Shoot Schedule)</span>
+                                </label>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div className="space-y-1">
+                                    <span className="text-[11px] font-semibold text-slate-500">วันถ่ายทำ (Shoot Date)</span>
+                                    <input
+                                        type="date"
+                                        value={shootDateStr}
+                                        onChange={(e) => setShootDateStr(e.target.value)}
+                                        className="w-full px-3 py-2 bg-white rounded-xl border border-slate-200 text-xs font-bold tabular-nums text-slate-800 outline-none focus:border-amber-500"
+                                    />
+                                </div>
+
+                                <div className="space-y-1">
+                                    <span className="text-[11px] font-semibold text-slate-500">เวลาเริ่มถ่ายทำ</span>
+                                    <input
+                                        type="time"
+                                        value={shootTimeStart}
+                                        onChange={(e) => setShootTimeStart(e.target.value)}
+                                        className="w-full px-3 py-2 bg-white rounded-xl border border-slate-200 text-xs font-bold tabular-nums text-slate-800 outline-none focus:border-amber-500"
+                                    />
+                                </div>
+
+                                <div className="space-y-1">
+                                    <span className="text-[11px] font-semibold text-slate-500">เวลาเลิกถ่ายทำ</span>
+                                    <input
+                                        type="time"
+                                        value={shootTimeEnd}
+                                        onChange={(e) => setShootTimeEnd(e.target.value)}
+                                        className="w-full px-3 py-2 bg-white rounded-xl border border-slate-200 text-xs font-bold tabular-nums text-slate-800 outline-none focus:border-amber-500"
+                                    />
+                                </div>
+                            </div>
                         </div>
                     </div>
 

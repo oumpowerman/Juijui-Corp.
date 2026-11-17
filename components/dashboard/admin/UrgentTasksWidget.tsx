@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
 import { Task, Channel, User, MasterOption } from '../../../types';
 import { PartyPopper, CalendarClock, X, HelpCircle } from 'lucide-react';
@@ -10,6 +10,10 @@ import { UrgentTasksHelpModal } from './urgent-tasks/UrgentTasksHelpModal';
 import { UrgentTasksWorkloadBreakdown } from './urgent-tasks/UrgentTasksWorkloadBreakdown';
 import { useUrgentTasks } from './urgent-tasks/useUrgentTasks';
 import { UrgentTasksCommandCenterModal } from './urgent-tasks/UrgentTasksCommandCenterModal';
+import TeamTaskContextMenu, { TeamTaskContextMenuState } from '../../team/modals/TeamTaskContextMenu';
+import TeamTaskDuplicateModal, { TeamTaskDuplicateRequest } from '../../team/modals/TeamTaskDuplicateModal';
+import { useGlobalDialog } from '../../../context/GlobalDialogContext';
+import { useTasks } from '../../../hooks/useTasks';
 
 interface UrgentTasksWidgetProps {
     tasks: Task[]; // Raw tasks (filtered by scope in parent or here)
@@ -84,6 +88,52 @@ const UrgentTasksWidget: React.FC<UrgentTasksWidgetProps> = ({
 }) => {
     const [isCommandCenterOpen, setIsCommandCenterOpen] = useState(false);
     const [isSirenOpen, setIsSirenOpen] = useState(false);
+    const [taskContextMenu, setTaskContextMenu] = useState<TeamTaskContextMenuState | null>(null);
+    const [duplicateRequest, setDuplicateRequest] = useState<TeamTaskDuplicateRequest | null>(null);
+
+    const { showConfirm } = useGlobalDialog();
+    const { handleSaveTask, handleDeleteTask } = useTasks();
+
+    const handleTaskContextMenu = useCallback((e: React.MouseEvent, task: Task) => {
+        const resolvedDate = task.startDate
+            ? new Date(task.startDate)
+            : (task.endDate ? new Date(task.endDate) : new Date());
+
+        setTaskContextMenu({
+            x: e.clientX,
+            y: e.clientY,
+            task,
+            userId: task.assigneeIds?.[0] || '',
+            date: resolvedDate,
+        });
+    }, []);
+
+    const handleContextEdit = useCallback((task: Task) => {
+        onEditTask({ ...task, _openInEditMode: true } as Task);
+    }, [onEditTask]);
+
+    const handleContextDuplicate = useCallback((task: Task, userId: string, date: Date) => {
+        const startDate = task.startDate ? new Date(task.startDate) : date;
+        const endDate = task.endDate ? new Date(task.endDate) : startDate;
+        const targetUser = users.find(u => u.id === userId);
+        setDuplicateRequest({
+            sourceTask: task,
+            targetUserId: userId,
+            targetUser,
+            startDate,
+            endDate,
+        });
+    }, [users]);
+
+    const handleContextDelete = useCallback(async (task: Task) => {
+        const confirmed = await showConfirm(
+            `ต้องการลบงาน "${task.title}" ใช่หรือไม่?`,
+            'ยืนยันการลบงาน'
+        );
+        if (!confirmed) return;
+
+        await handleDeleteTask(task.id, task.type === 'CONTENT' ? 'CONTENT' : 'TASK');
+    }, [showConfirm, handleDeleteTask]);
     const {
         selectedType,
         activeFilter,
@@ -244,6 +294,7 @@ const UrgentTasksWidget: React.FC<UrgentTasksWidgetProps> = ({
                                     users={users}
                                     masterOptions={masterOptions}
                                     onEditTask={onEditTask}
+                                    onContextMenu={handleTaskContextMenu}
                                 />
                             ))}
                         </motion.div>
@@ -295,6 +346,29 @@ const UrgentTasksWidget: React.FC<UrgentTasksWidgetProps> = ({
                 viewScope={viewScope}
                 currentUser={currentUser}
                 onEditTask={onEditTask}
+                onTaskContextMenu={handleTaskContextMenu}
+            />
+
+            {/* Right-Click Task Context Menu (Edit / Duplicate / Delete) */}
+            <TeamTaskContextMenu
+                menuState={taskContextMenu}
+                onClose={() => setTaskContextMenu(null)}
+                onEdit={handleContextEdit}
+                onDuplicate={handleContextDuplicate}
+                onDelete={handleContextDelete}
+            />
+
+            {/* Quick Duplicate Task Modal */}
+            <TeamTaskDuplicateModal
+                isOpen={!!duplicateRequest}
+                request={duplicateRequest}
+                users={users}
+                channels={channels}
+                masterOptions={masterOptions}
+                onClose={() => setDuplicateRequest(null)}
+                onConfirm={async (duplicatedTask) => {
+                    await handleSaveTask(duplicatedTask, null);
+                }}
             />
         </div>
     );

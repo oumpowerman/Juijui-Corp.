@@ -513,6 +513,7 @@ const FocusZone: React.FC<FocusZoneProps> = ({ tasks, channels, users, masterOpt
                 title={viewAllType === 'REVISE' ? 'รายการงานแก้ / รอปรับ (Revise)' : 'รายการงานด่วน / ใกล้ส่ง (Urgent)'}
                 tasks={viewAllType === 'REVISE' ? reviseTasks : urgentTasks}
                 channels={channels}
+                users={users}
                 masterOptions={masterOptions}
                 onEditTask={onOpenTask}
                 colorTheme={viewAllType === 'REVISE' ? 'red' : 'orange'}

@@ -10,6 +10,7 @@ interface CommandCenterListProps {
     users: User[];
     masterOptions: MasterOption[];
     onEditTask: (task: Task) => void;
+    onTaskContextMenu?: (e: React.MouseEvent, task: Task) => void;
     timeFilter: 'ALL' | 'OVERDUE' | 'TODAY' | 'SOON' | 'NORMAL';
     onClearTimeFilter: () => void;
     activeChannelId: string | null;
@@ -26,6 +27,7 @@ export const CommandCenterList: React.FC<CommandCenterListProps> = ({
     users,
     masterOptions,
     onEditTask,
+    onTaskContextMenu,
     timeFilter,
     onClearTimeFilter,
     activeChannelId,
@@ -103,6 +105,7 @@ export const CommandCenterList: React.FC<CommandCenterListProps> = ({
                             users={users}
                             masterOptions={masterOptions}
                             onEditTask={onEditTask}
+                            onContextMenu={onTaskContextMenu}
                         />
                     ))
                 )}

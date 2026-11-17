@@ -211,8 +211,8 @@ export const StockImportGuideModal: React.FC<StockImportGuideModalProps> = ({
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-4 gap-y-0.5 text-amber-700/90 dark:text-amber-300/80">
                                 <div>• <strong>Content Topic (หัวข้อ)</strong> เป็นฟิลด์เดียวที่จำเป็นต้องระบุ</div>
                                 <div>• <strong>สถานะ (Status)</strong> หากเว้นว่างไว้ จะถูกตั้งเป็น <span className="font-semibold">TODO</span> ให้อัตโนมัติ</div>
-                                <div>• <strong>วันเผยแพร่ (Publish Date)</strong> รองรับทั้ง พ.ศ. และ ค.ศ. (เว้นว่าง = คลัง Unscheduled)</div>
-                                <div>• <strong>ผู้รับผิดชอบ / ผู้ตัดต่อ</strong> ตรวจจับอัตโนมัติทั้งจากชื่อเต็ม ชื่อเล่น และอีเมล</div>
+                                <div>• <strong>วัน & เวลาเผยแพร่</strong> รองรับ พ.ศ./ค.ศ. และใส่เวลาต่อท้ายได้ (เช่น <code>15/10/2026 18:30</code>)</div>
+                                <div>• <strong>ช่วงเวลาถ่ายทำ</strong> รองรับช่วงเวลาเช่น <code>09:00-12:00</code> (หากรูปแบบเวลาผิดจะขึ้น Error)</div>
                             </div>
                         </div>
                     </div>
@@ -343,8 +343,47 @@ export const StockImportGuideModal: React.FC<StockImportGuideModalProps> = ({
                                                             ตัวเลือก
                                                         </span>
                                                     </td>
-                                                    <td className="py-2 px-3 text-slate-500 dark:text-slate-400 italic">"15/10/2026"</td>
-                                                    <td className="py-2 px-3 text-slate-500 dark:text-slate-400">รองรับ พ.ศ./ค.ศ. (เว้นว่าง = สต๊อก)</td>
+                                                    <td className="py-2 px-3 text-slate-500 dark:text-slate-400 italic tabular-nums">"15/10/2026"</td>
+                                                    <td className="py-2 px-3 text-slate-500 dark:text-slate-400">รองรับ พ.ศ./ค.ศ. หรือใส่เวลาต่อท้าย (เว้นว่าง = สต๊อก)</td>
+                                                </tr>
+                                                <tr className="hover:bg-slate-50/60 dark:hover:bg-slate-800/30">
+                                                    <td className="py-2 px-3.5 font-medium text-slate-800 dark:text-slate-200">
+                                                        Publish Time <br />
+                                                        <span className="text-[11px] text-slate-400 font-normal">เวลาโพสต์, เวลาเผยแพร่</span>
+                                                    </td>
+                                                    <td className="py-2 px-2.5">
+                                                        <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300">
+                                                            เวลา
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-2 px-3 text-slate-500 dark:text-slate-400 italic tabular-nums">"18:30"</td>
+                                                    <td className="py-2 px-3 text-slate-500 dark:text-slate-400">รองรับ 18:30, 18.30 น. และเซลล์เวลา Excel</td>
+                                                </tr>
+                                                <tr className="hover:bg-slate-50/60 dark:hover:bg-slate-800/30">
+                                                    <td className="py-2 px-3.5 font-medium text-slate-800 dark:text-slate-200">
+                                                        Shoot Date <br />
+                                                        <span className="text-[11px] text-slate-400 font-normal">วันถ่ายทำ, คิวถ่าย</span>
+                                                    </td>
+                                                    <td className="py-2 px-2.5">
+                                                        <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
+                                                            ตัวเลือก
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-2 px-3 text-slate-500 dark:text-slate-400 italic tabular-nums">"10/10/2026"</td>
+                                                    <td className="py-2 px-3 text-slate-500 dark:text-slate-400">วันถ่ายทำหรือคิวออกกอง</td>
+                                                </tr>
+                                                <tr className="hover:bg-slate-50/60 dark:hover:bg-slate-800/30">
+                                                    <td className="py-2 px-3.5 font-medium text-slate-800 dark:text-slate-200">
+                                                        Shoot Time <br />
+                                                        <span className="text-[11px] text-slate-400 font-normal">เวลาถ่ายทำ, ช่วงเวลาถ่าย</span>
+                                                    </td>
+                                                    <td className="py-2 px-2.5">
+                                                        <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300">
+                                                            เวลา
+                                                        </span>
+                                                    </td>
+                                                    <td className="py-2 px-3 text-slate-500 dark:text-slate-400 italic tabular-nums">"09:00-12:00"</td>
+                                                    <td className="py-2 px-3 text-slate-500 dark:text-slate-400">ใส่เป็นช่วงหรือแยก Shoot Time Start / End ก็ได้</td>
                                                 </tr>
                                                 <tr className="hover:bg-slate-50/60 dark:hover:bg-slate-800/30">
                                                     <td className="py-2 px-3.5 font-medium text-slate-800 dark:text-slate-200">
@@ -361,7 +400,7 @@ export const StockImportGuideModal: React.FC<StockImportGuideModalProps> = ({
                                                 <tr className="hover:bg-slate-50/60 dark:hover:bg-slate-800/30">
                                                     <td className="py-2 px-3.5 font-medium text-slate-800 dark:text-slate-200">
                                                         Owner / Edit / Sub <br />
-                                                        <span className="text-[11px] text-slate-400 font-normal">ผู้รับผิดชอบ, คนตัด</span>
+                                                        <span className="text-[11px] text-slate-400 font-normal">ผู้รับผิดชอบ, คนตัด, ผู้ช่วย</span>
                                                     </td>
                                                     <td className="py-2 px-2.5">
                                                         <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
@@ -386,8 +425,8 @@ export const StockImportGuideModal: React.FC<StockImportGuideModalProps> = ({
                                                 </tr>
                                                 <tr className="hover:bg-slate-50/60 dark:hover:bg-slate-800/30">
                                                     <td className="py-2 px-3.5 font-medium text-slate-800 dark:text-slate-200">
-                                                        IDEA & Remark <br />
-                                                        <span className="text-[11px] text-slate-400 font-normal">บรีฟ, รายละเอียด</span>
+                                                        IDEA / Remark / Storage Path <br />
+                                                        <span className="text-[11px] text-slate-400 font-normal">บรีฟ, หมายเหตุ, ที่เก็บไฟล์</span>
                                                     </td>
                                                     <td className="py-2 px-2.5">
                                                         <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400">
@@ -395,7 +434,7 @@ export const StockImportGuideModal: React.FC<StockImportGuideModalProps> = ({
                                                         </span>
                                                     </td>
                                                     <td className="py-2 px-3 text-slate-500 dark:text-slate-400 italic">"บรีฟเนื้อหา..."</td>
-                                                    <td className="py-2 px-3 text-slate-500 dark:text-slate-400">รายละเอียดและหมายเหตุ</td>
+                                                    <td className="py-2 px-3 text-slate-500 dark:text-slate-400">รายละเอียด หมายเหตุ และลิงก์โฟลเดอร์</td>
                                                 </tr>
                                             </tbody>
                                         </table>

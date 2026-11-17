@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Task } from '../../types';
 import { clearStockCache, checkIsMissingStorage, checkIsOverdue } from './types';
@@ -53,7 +53,6 @@ export const useContentStockRealtime = ({
 
                     if (wasUnassigned) {
                         setUnassignedChannelCount(prev => Math.max(0, prev - 1));
-                        fetchUnassignedChannelCount?.();
                     }
 
                     if (existingItem) {
@@ -79,7 +78,6 @@ export const useContentStockRealtime = ({
                 const newIsUnassigned = !newRec.channel_id || (typeof newRec.channel_id === 'string' && newRec.channel_id.trim() === '');
                 if (newIsUnassigned) {
                     setUnassignedChannelCount(prev => prev + 1);
-                    fetchUnassignedChannelCount?.();
                 }
             }
 
@@ -97,10 +95,8 @@ export const useContentStockRealtime = ({
 
                         if (prevWasUnassigned && !newIsUnassigned) {
                             setUnassignedChannelCount(prev => Math.max(0, prev - 1));
-                            fetchUnassignedChannelCount?.();
                         } else if (!prevWasUnassigned && newIsUnassigned) {
                             setUnassignedChannelCount(prev => prev + 1);
-                            fetchUnassignedChannelCount?.();
                         }
                     }
 
@@ -150,10 +146,8 @@ export const useContentStockRealtime = ({
                     const newIsUnassigned = !newRec.channel_id || (typeof newRec.channel_id === 'string' && newRec.channel_id.trim() === '');
                     if (prevWasUnassigned && !newIsUnassigned) {
                         setUnassignedChannelCount(prev => Math.max(0, prev - 1));
-                        fetchUnassignedChannelCount?.();
                     } else if (!prevWasUnassigned && newIsUnassigned) {
                         setUnassignedChannelCount(prev => prev + 1);
-                        fetchUnassignedChannelCount?.();
                     }
                 }
 
@@ -165,7 +159,7 @@ export const useContentStockRealtime = ({
 
             const { data, error } = await supabase
                 .from('contents')
-                .select(`id, title, status, start_date, end_date, created_at, channel_id, tags, target_platform, pillar, content_formats, category, is_unscheduled, description, remark, shoot_date, shoot_location, is_in_shoot_queue, assignee_ids, idea_owner_ids, editor_ids, local_path, drive_label, storage_hub_id, sub_checklist_progress, content_analytics(id, platform)`)
+                .select(`id, title, status, start_date, end_date, scheduled_time, created_at, channel_id, tags, target_platform, pillar, content_formats, category, is_unscheduled, description, remark, shoot_date, shoot_time_start, shoot_time_end, shoot_location, is_in_shoot_queue, assignee_ids, idea_owner_ids, editor_ids, local_path, drive_label, storage_hub_id, sub_checklist_progress, content_analytics(id, platform)`)
                 .eq('id', targetId)
                 .maybeSingle();
 
@@ -244,6 +238,97 @@ export const useContentStockRealtime = ({
         }
     }, [checkDoesItMatchFilters, fetchUnassignedChannelCount, mapSupabaseToTask, pageRef, setContents, setMissingStorageCount, setOverdueCount, setTotalCount, setUnassignedChannelCount, trackedAddedIds]);
 
+    const pendingInsertIdsRef = useRef<Set<string>>(new Set());
+    const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const flushPendingInserts = useCallback(async () => {
+        const ids = Array.from(pendingInsertIdsRef.current);
+        pendingInsertIdsRef.current.clear();
+        if (ids.length === 0) return;
+
+        clearStockCache();
+
+        try {
+            const fetchedRows: any[] = [];
+            const IN_BATCH_SIZE = 50;
+            for (let i = 0; i < ids.length; i += IN_BATCH_SIZE) {
+                const batchIds = ids.slice(i, i + IN_BATCH_SIZE);
+                const { data, error } = await supabase
+                    .from('contents')
+                    .select(`id, title, status, start_date, end_date, scheduled_time, created_at, channel_id, tags, target_platform, pillar, content_formats, category, is_unscheduled, description, remark, shoot_date, shoot_time_start, shoot_time_end, shoot_location, is_in_shoot_queue, assignee_ids, idea_owner_ids, editor_ids, local_path, drive_label, storage_hub_id, sub_checklist_progress, content_analytics(id, platform)`)
+                    .in('id', batchIds);
+                if (!error && Array.isArray(data)) {
+                    fetchedRows.push(...data);
+                }
+            }
+
+            if (fetchedRows.length === 0) return;
+
+            const matchedTasks: Task[] = [];
+            let newMissingStorage = 0;
+            let newOverdue = 0;
+
+            fetchedRows.forEach(row => {
+                const fullTask = mapSupabaseToTask(row);
+                if (checkDoesItMatchFilters(fullTask)) {
+                    matchedTasks.push(fullTask);
+                }
+            });
+
+            if (matchedTasks.length === 0) return;
+
+            setContents(prevList => {
+                const existingMap = new Map(prevList.map(item => [item.id, item]));
+                const toPrepend: Task[] = [];
+                let newlyAddedCount = 0;
+
+                matchedTasks.forEach(fullTask => {
+                    const existingItem = existingMap.get(fullTask.id);
+                    if (existingItem) {
+                        existingMap.set(fullTask.id, fullTask);
+                    } else {
+                        if (!trackedAddedIds.current.has(fullTask.id)) {
+                            newlyAddedCount++;
+                            trackedAddedIds.current.add(fullTask.id);
+                            if (checkIsMissingStorage(fullTask)) newMissingStorage++;
+                            if (checkIsOverdue(fullTask)) newOverdue++;
+                        }
+                        if (pageRef.current === 1) {
+                            toPrepend.push(fullTask);
+                        }
+                    }
+                });
+
+                if (newlyAddedCount > 0) {
+                    setTotalCount(prev => prev + newlyAddedCount);
+                }
+                if (newMissingStorage > 0) {
+                    setMissingStorageCount?.(prev => prev + newMissingStorage);
+                }
+                if (newOverdue > 0) {
+                    setOverdueCount?.(prev => prev + newOverdue);
+                }
+
+                const updatedExisting = prevList.map(item => existingMap.get(item.id) || item);
+                return toPrepend.length > 0 ? [...toPrepend.reverse(), ...updatedExisting] : updatedExisting;
+            });
+        } catch (err) {
+            console.error('Batched Realtime Hydration Error:', err);
+        }
+    }, [checkDoesItMatchFilters, mapSupabaseToTask, pageRef, setContents, setMissingStorageCount, setOverdueCount, setTotalCount, trackedAddedIds]);
+
+    const queueInsertHydration = useCallback((id: string) => {
+        if (!id) return;
+        pendingInsertIdsRef.current.add(id);
+        if (flushTimerRef.current) {
+            clearTimeout(flushTimerRef.current);
+        }
+        flushTimerRef.current = setTimeout(() => {
+            flushTimerRef.current = null;
+            flushPendingInserts();
+        }, 450);
+    }, [flushPendingInserts]);
+
     // Realtime Subscription Lifecycle
     useEffect(() => {
         let refreshTimeout: ReturnType<typeof setTimeout>;
@@ -264,28 +349,37 @@ export const useContentStockRealtime = ({
                     const eventType = payload.eventType;
                     const newRec = payload.new as any;
                     const oldRec = payload.old as any;
-                    
-                    console.log(`[Realtime] Event: ${eventType} on table 'contents'`);
 
-                    if (eventType === 'UPDATE' || eventType === 'INSERT') {
-                        await handleRealtimeUpdate(eventType, newRec, oldRec);
-                        if (eventType === 'INSERT') {
-                            debouncedCountRefresh();
-                        } else if (eventType === 'UPDATE') {
-                            const isOldRecMinimal = !oldRec || oldRec.drive_label === undefined;
-                            const hasRelevantChanges = isOldRecMinimal ||
-                                oldRec.storage_hub_id !== newRec?.storage_hub_id ||
-                                oldRec.drive_label !== newRec?.drive_label ||
-                                oldRec.local_path !== newRec?.local_path ||
-                                oldRec.status !== newRec?.status ||
-                                oldRec.analytics_status !== newRec?.analytics_status ||
-                                oldRec.channel_id !== newRec?.channel_id ||
-                                oldRec.end_date !== newRec?.end_date ||
-                                oldRec.is_unscheduled !== newRec?.is_unscheduled;
-
-                            if (hasRelevantChanges) {
-                                debouncedCountRefresh();
+                    if (eventType === 'INSERT') {
+                        clearStockCache();
+                        if (newRec) {
+                            const newIsUnassigned = !newRec.channel_id || (typeof newRec.channel_id === 'string' && newRec.channel_id.trim() === '');
+                            if (newIsUnassigned) {
+                                setUnassignedChannelCount(prev => prev + 1);
                             }
+                            if (newRec.id) {
+                                queueInsertHydration(newRec.id);
+                            }
+                        }
+                        debouncedCountRefresh();
+                        return;
+                    }
+
+                    if (eventType === 'UPDATE') {
+                        await handleRealtimeUpdate('UPDATE', newRec, oldRec);
+                        const isOldRecMinimal = !oldRec || oldRec.drive_label === undefined;
+                        const hasRelevantChanges = isOldRecMinimal ||
+                            oldRec.storage_hub_id !== newRec?.storage_hub_id ||
+                            oldRec.drive_label !== newRec?.drive_label ||
+                            oldRec.local_path !== newRec?.local_path ||
+                            oldRec.status !== newRec?.status ||
+                            oldRec.analytics_status !== newRec?.analytics_status ||
+                            oldRec.channel_id !== newRec?.channel_id ||
+                            oldRec.end_date !== newRec?.end_date ||
+                            oldRec.is_unscheduled !== newRec?.is_unscheduled;
+
+                        if (hasRelevantChanges) {
+                            debouncedCountRefresh();
                         }
                     } else if (eventType === 'DELETE') {
                         await handleRealtimeUpdate('DELETE', null, oldRec);
@@ -298,6 +392,11 @@ export const useContentStockRealtime = ({
         return () => {
             supabase.removeChannel(channel);
             clearTimeout(refreshTimeout);
+            if (flushTimerRef.current) {
+                clearTimeout(flushTimerRef.current);
+                flushTimerRef.current = null;
+            }
+            pendingInsertIdsRef.current.clear();
         };
-    }, [handleRealtimeUpdate, triggerCountRefresh, fetchUnassignedChannelCount]);
+    }, [handleRealtimeUpdate, queueInsertHydration, triggerCountRefresh, fetchUnassignedChannelCount, setUnassignedChannelCount]);
 };

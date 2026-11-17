@@ -63,10 +63,21 @@ export const useLocationAnalytics = (rangeType: DateRangeType, customStart?: Dat
 
     useEffect(() => {
         fetchData();
+        let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+        const debouncedFetch = () => {
+            if (refreshTimer) clearTimeout(refreshTimer);
+            refreshTimer = setTimeout(() => {
+                refreshTimer = null;
+                fetchData();
+            }, 600);
+        };
         const channel = supabase.channel('realtime-location-v7-unified')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'contents' }, () => fetchData())
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'contents' }, debouncedFetch)
             .subscribe();
-        return () => { supabase.removeChannel(channel); };
+        return () => {
+            if (refreshTimer) clearTimeout(refreshTimer);
+            supabase.removeChannel(channel);
+        };
     }, []);
 
     const locationStats = useMemo(() => {

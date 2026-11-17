@@ -55,6 +55,7 @@ interface WorkCardProps {
     isDraggable: boolean;
     onDragStart: (e: React.DragEvent, taskId: string) => void;
     onClick: (task: Task) => void;
+    onContextMenu?: (e: React.MouseEvent, task: Task) => void;
     onDelete?: (taskId: string) => void;
     columnType: 'TODO' | 'DOING' | 'WAITING' | 'DONE';
     isUltimate?: boolean;
@@ -63,7 +64,7 @@ interface WorkCardProps {
 const WorkCard = React.memo(
     React.forwardRef<HTMLDivElement, WorkCardProps>(
         ({ 
-            task, users, masterOptions, isDraggable, onDragStart, onClick, onDelete, columnType, isUltimate = false 
+            task, users, masterOptions, isDraggable, onDragStart, onClick, onContextMenu, onDelete, columnType, isUltimate = false 
         }, ref) => {
             const { showConfirm } = useGlobalDialog();
             const assigneeId = task.assigneeIds?.[0] || task.ideaOwnerIds?.[0];
@@ -222,6 +223,13 @@ const WorkCard = React.memo(
             draggable={isDraggable}
             onDragStart={(e: any) => onDragStart(e, task.id)}
             onClick={() => onClick(task)}
+            onContextMenu={(e) => {
+                if (onContextMenu) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onContextMenu(e, task);
+                }
+            }}
             className={`
                 relative p-4 rounded-r-2xl rounded-l-md transition-all duration-200 flex flex-col gap-2 mb-3 group overflow-hidden
                 ${cardStyle}

@@ -192,6 +192,12 @@ const CalendarView: React.FC<CalendarViewProps> = ({
     setIsStockOpen(prev => !prev);
   }, [viewMode, showAlert]);
 
+  // Live-derived tasks for the currently inspected Day Modal (updates on edit/move/duplicate/delete even down to 0 items)
+  const liveSelectedDayTasks = useMemo(() => {
+    if (!modals.isListModalOpen) return [];
+    return filters.cosmicFilterTasks(getTasksForDay(modals.selectedDayDate));
+  }, [modals.isListModalOpen, modals.selectedDayDate, filters.cosmicFilterTasks, getTasksForDay]);
+
   const bgTheme = useMemo<BackgroundTheme>(() => {
     if (viewMode === 'CONTENT') return 'pastel-pink';
     if (viewMode === 'PLAN') return 'pastel-purple';
@@ -418,10 +424,11 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           isListModalOpen={modals.isListModalOpen}
           onCloseListModal={() => modals.setIsListModalOpen(false)}
           selectedDayDate={modals.selectedDayDate}
-          selectedDayTasks={modals.selectedDayTasks}
+          selectedDayTasks={liveSelectedDayTasks}
           channels={channels}
           masterOptions={masterOptions}
           onSelectTask={onSelectTask}
+          onSelectDayModalTask={modals.handleTaskClick}
           viewMode={viewMode}
           isCosmicFilterOpen={filters.isCosmicFilterOpen}
           onCloseCosmicFilter={() => filters.setIsCosmicFilterOpen(false)}
@@ -471,6 +478,7 @@ const CalendarView: React.FC<CalendarViewProps> = ({
           onRangeChange={onRangeChange}
           onNavigateDate={setCurrentDate}
           taskContextMenu={modals.taskContextMenu}
+          onTaskContextMenu={modals.handleTaskContextMenu}
           onCloseTaskContextMenu={() => modals.setTaskContextMenu(null)}
           onContextEditTask={modals.handleContextEdit}
           onContextDuplicateTask={modals.handleContextDuplicate}

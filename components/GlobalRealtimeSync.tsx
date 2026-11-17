@@ -36,6 +36,20 @@ export const GlobalRealtimeSync = () => {
         };
 
         const channelName = getOrgChannelName('global-app-sync', activeOrgId);
+        const pendingInvalidations = new Map<string, ReturnType<typeof setTimeout>>();
+
+        const invalidateDebounced = (queryKey: string[]) => {
+            const keyStr = queryKey.join(':');
+            const existing = pendingInvalidations.get(keyStr);
+            if (existing) clearTimeout(existing);
+            pendingInvalidations.set(
+                keyStr,
+                setTimeout(() => {
+                    pendingInvalidations.delete(keyStr);
+                    queryClient.invalidateQueries({ queryKey });
+                }, 350)
+            );
+        };
 
         // Consolidate all global syncs into an organization-scoped channel to prevent cross-org leakage
         const globalChannel = supabase
@@ -43,66 +57,68 @@ export const GlobalRealtimeSync = () => {
             // Master Options
             .on('postgres_changes', { event: '*', schema: 'public', table: 'master_options' }, (payload) => {
                 if (isCurrentOrgEvent(payload)) {
-                    queryClient.invalidateQueries({ queryKey: ['master_options'] });
-                    queryClient.invalidateQueries({ queryKey: ['shoot_checklist_session'] });
-                    queryClient.invalidateQueries({ queryKey: ['shoot_trip_archive'] });
+                    invalidateDebounced(['master_options']);
+                    invalidateDebounced(['shoot_checklist_session']);
+                    invalidateDebounced(['shoot_trip_archive']);
                 }
             })
             // Channels
             .on('postgres_changes', { event: '*', schema: 'public', table: 'channels' }, (payload) => {
-                if (isCurrentOrgEvent(payload)) queryClient.invalidateQueries({ queryKey: ['channels'] });
+                if (isCurrentOrgEvent(payload)) invalidateDebounced(['channels']);
             })
             // Inventory
             .on('postgres_changes', { event: '*', schema: 'public', table: 'inventory_items' }, (payload) => {
                 if (isCurrentOrgEvent(payload)) {
-                    queryClient.invalidateQueries({ queryKey: ['inventory_items'] });
-                    queryClient.invalidateQueries({ queryKey: ['inventory_stats'] });
+                    invalidateDebounced(['inventory_items']);
+                    invalidateDebounced(['inventory_stats']);
                 }
             })
             // Checklist
             .on('postgres_changes', { event: '*', schema: 'public', table: 'active_checklist_items' }, (payload) => {
-                if (isCurrentOrgEvent(payload)) queryClient.invalidateQueries({ queryKey: ['active_checklist_items'] });
+                if (isCurrentOrgEvent(payload)) invalidateDebounced(['active_checklist_items']);
             })
             // Presets
             .on('postgres_changes', { event: '*', schema: 'public', table: 'checklist_presets_db' }, (payload) => {
-                if (isCurrentOrgEvent(payload)) queryClient.invalidateQueries({ queryKey: ['checklist_presets_db'] });
+                if (isCurrentOrgEvent(payload)) invalidateDebounced(['checklist_presets_db']);
             })
             // Profiles
             .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles' }, () => {
-                queryClient.invalidateQueries({ queryKey: ['profiles'] });
+                invalidateDebounced(['profiles']);
             })
             // Tasks & Contents
             .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, (payload) => {
-                if (isCurrentOrgEvent(payload)) queryClient.invalidateQueries({ queryKey: ['tasks'] });
+                if (isCurrentOrgEvent(payload)) invalidateDebounced(['tasks']);
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'contents' }, (payload) => {
-                if (isCurrentOrgEvent(payload)) queryClient.invalidateQueries({ queryKey: ['contents'] });
+                if (isCurrentOrgEvent(payload)) invalidateDebounced(['contents']);
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'task_reviews' }, (payload) => {
                 if (isCurrentOrgEvent(payload)) {
-                    queryClient.invalidateQueries({ queryKey: ['tasks'] });
-                    queryClient.invalidateQueries({ queryKey: ['contents'] });
+                    invalidateDebounced(['tasks']);
+                    invalidateDebounced(['contents']);
                 }
             })
             // KPI
             .on('postgres_changes', { event: '*', schema: 'public', table: 'kpi_configs' }, (payload) => {
-                if (isCurrentOrgEvent(payload)) queryClient.invalidateQueries({ queryKey: ['kpi_configs'] });
+                if (isCurrentOrgEvent(payload)) invalidateDebounced(['kpi_configs']);
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'kpi_records' }, (payload) => {
-                if (isCurrentOrgEvent(payload)) queryClient.invalidateQueries({ queryKey: ['kpi_records'] });
+                if (isCurrentOrgEvent(payload)) invalidateDebounced(['kpi_records']);
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'individual_goals' }, (payload) => {
-                if (isCurrentOrgEvent(payload)) queryClient.invalidateQueries({ queryKey: ['individual_goals'] });
+                if (isCurrentOrgEvent(payload)) invalidateDebounced(['individual_goals']);
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'idp_items' }, (payload) => {
-                if (isCurrentOrgEvent(payload)) queryClient.invalidateQueries({ queryKey: ['idp_items'] });
+                if (isCurrentOrgEvent(payload)) invalidateDebounced(['idp_items']);
             })
             .on('postgres_changes', { event: '*', schema: 'public', table: 'kpi_peer_reviews' }, (payload) => {
-                if (isCurrentOrgEvent(payload)) queryClient.invalidateQueries({ queryKey: ['kpi_peer_reviews'] });
+                if (isCurrentOrgEvent(payload)) invalidateDebounced(['kpi_peer_reviews']);
             })
             .subscribe();
 
         return () => {
+            pendingInvalidations.forEach((timer) => clearTimeout(timer));
+            pendingInvalidations.clear();
             supabase.removeChannel(globalChannel);
         };
     }, [queryClient, activeOrgId]);

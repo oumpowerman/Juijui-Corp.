@@ -278,6 +278,8 @@ const ContentStock: React.FC<ContentStockProps> = ({
           onClose={() => modals.setIsImportPreviewOpen(false)}
           validationResult={modals.importValidationResult}
           isSubmitting={modals.isSubmittingImport}
+          importProgress={modals.importProgress}
+          partialAlert={modals.importPartialAlert}
           onConfirmImport={importActions.handleExecuteImport}
           onDownloadTemplate={importActions.handleDownloadTemplate}
           channels={channels}

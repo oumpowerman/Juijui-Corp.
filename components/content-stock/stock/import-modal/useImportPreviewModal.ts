@@ -5,6 +5,8 @@ import { revalidateStockItem } from './revalidateItem';
 
 export type ImportViewFilter = 'ALL' | 'VALID' | 'WARNING' | 'ERROR';
 
+export const IMPORT_PREVIEW_PAGE_SIZE = 50;
+
 interface UseImportPreviewModalProps {
     validationResult: StockCSVValidationResult | null;
     isSubmitting: boolean;
@@ -25,6 +27,7 @@ export const useImportPreviewModal = ({
     const [skipErrorRows, setSkipErrorRows] = useState<boolean>(true);
     const [items, setItems] = useState<ParsedStockItemPreview[]>([]);
     const [editingItem, setEditingItem] = useState<ParsedStockItemPreview | null>(null);
+    const [currentPage, setCurrentPage] = useState<number>(1);
 
     // Synchronize local items when validationResult changes
     useEffect(() => {
@@ -33,7 +36,13 @@ export const useImportPreviewModal = ({
         } else {
             setItems([]);
         }
+        setCurrentPage(1);
     }, [validationResult]);
+
+    // Reset back to page 1 when filter or search changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [viewFilter, searchQuery]);
 
     // Handle updating a single item (after quick edit in modal)
     const handleUpdateItem = (updatedItem: ParsedStockItemPreview) => {
@@ -67,17 +76,28 @@ export const useImportPreviewModal = ({
                 const channelMatch = (item.channelName || item.rawChannelName || '').toLowerCase().includes(q);
                 const formatMatch = (item.format || item.rawFormat || '').toLowerCase().includes(q);
                 const pillarMatch = (item.pillar || item.rawPillar || '').toLowerCase().includes(q);
+                const timeMatch = (item.scheduledTime || '').toLowerCase().includes(q) ||
+                    (item.shootTimeStart || '').toLowerCase().includes(q) ||
+                    (item.shootTimeEnd || '').toLowerCase().includes(q);
                 const ownerMatch = (item.ownerNames || []).some(n => n.toLowerCase().includes(q)) || (item.rawOwner || '').toLowerCase().includes(q);
                 const editMatch = (item.editorNames || []).some(n => n.toLowerCase().includes(q)) || (item.rawEdit || '').toLowerCase().includes(q);
                 const errMatch = (item.errors || []).some(e => e.toLowerCase().includes(q));
                 const warnMatch = (item.warnings || []).some(w => w.toLowerCase().includes(q));
 
-                return titleMatch || ideaMatch || channelMatch || formatMatch || pillarMatch || ownerMatch || editMatch || errMatch || warnMatch;
+                return titleMatch || ideaMatch || channelMatch || formatMatch || pillarMatch || timeMatch || ownerMatch || editMatch || errMatch || warnMatch;
             });
         }
 
         return result;
     }, [items, viewFilter, searchQuery]);
+
+    const totalPages = Math.max(1, Math.ceil(filteredItems.length / IMPORT_PREVIEW_PAGE_SIZE));
+    const safeCurrentPage = Math.min(currentPage, totalPages);
+
+    const paginatedItems = useMemo(() => {
+        const start = (safeCurrentPage - 1) * IMPORT_PREVIEW_PAGE_SIZE;
+        return filteredItems.slice(start, start + IMPORT_PREVIEW_PAGE_SIZE);
+    }, [filteredItems, safeCurrentPage]);
 
     // Real-time counts
     const counts = useMemo(() => {
@@ -120,6 +140,11 @@ export const useImportPreviewModal = ({
         setSkipErrorRows,
         items,
         filteredItems,
+        paginatedItems,
+        currentPage: safeCurrentPage,
+        setCurrentPage,
+        totalPages,
+        pageSize: IMPORT_PREVIEW_PAGE_SIZE,
         importableItems,
         canSubmit,
         counts,

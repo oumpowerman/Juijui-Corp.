@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, type Variants } from 'framer-motion';
-import { Edit3, Copy, Trash2 } from 'lucide-react';
+import { Edit3, Copy, Trash2, Send } from 'lucide-react';
 import { Task } from '../../../types';
+import { isTaskCompleted } from '../../../constants';
 
 export interface TeamTaskContextMenuState {
     x: number;
@@ -18,6 +19,7 @@ interface TeamTaskContextMenuProps {
     onEdit: (task: Task) => void;
     onDuplicate: (task: Task, userId: string, date: Date) => void;
     onDelete: (task: Task) => void;
+    onSubmitQC?: (task: Task) => void;
 }
 
 const menuVariants: Variants = {
@@ -52,14 +54,21 @@ export const TeamTaskContextMenu: React.FC<TeamTaskContextMenuProps> = ({
     onEdit,
     onDuplicate,
     onDelete,
+    onSubmitQC,
 }) => {
     const [coords, setCoords] = useState<{ left: number; top: number }>({ left: 0, top: 0 });
+
+    const showSubmitQC = Boolean(
+        onSubmitQC &&
+        menuState?.task?.type === 'TASK' &&
+        !isTaskCompleted(menuState.task.status as string)
+    );
 
     useEffect(() => {
         if (!menuState) return;
 
         const menuWidth = 220;
-        const menuHeight = 175;
+        const menuHeight = showSubmitQC ? 225 : 175;
         const padding = 12;
 
         const viewportW = typeof window !== 'undefined' ? window.innerWidth : 1024;
@@ -75,7 +84,7 @@ export const TeamTaskContextMenu: React.FC<TeamTaskContextMenuProps> = ({
         );
 
         setCoords({ left: clampedLeft, top: clampedTop });
-    }, [menuState]);
+    }, [menuState, showSubmitQC]);
 
     useEffect(() => {
         if (!menuState) return;
@@ -136,6 +145,26 @@ export const TeamTaskContextMenu: React.FC<TeamTaskContextMenuProps> = ({
 
                         {/* Menu Actions */}
                         <div className="space-y-0.5">
+                            {showSubmitQC && onSubmitQC && (
+                                <>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const targetTask = menuState.task;
+                                            onClose();
+                                            onSubmitQC(targetTask);
+                                        }}
+                                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-sky-700 hover:text-sky-800 hover:bg-sky-50/90 rounded-xl transition-colors text-left"
+                                    >
+                                        <span className="w-6 h-6 rounded-lg bg-sky-50 text-sky-600 border border-sky-100 flex items-center justify-center shrink-0">
+                                            <Send className="w-3.5 h-3.5" />
+                                        </span>
+                                        <span>ส่งงาน (Send to QC)</span>
+                                    </button>
+                                    <div className="my-1 border-t border-slate-100" />
+                                </>
+                            )}
+
                             <button
                                 type="button"
                                 onClick={() => {

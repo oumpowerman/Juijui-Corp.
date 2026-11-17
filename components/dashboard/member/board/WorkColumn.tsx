@@ -15,13 +15,14 @@ interface WorkColumnProps {
     isDroppable: boolean;
     onDropTask: (taskId: string, targetType: ColumnType) => void;
     onOpenTask: (task: Task) => void;
+    onTaskContextMenu?: (e: React.MouseEvent, task: Task) => void;
     onDeleteTask?: (taskId: string) => void;
     onViewAll?: () => void;
     isUltimate?: boolean;
 }
 
 const WorkColumn: React.FC<WorkColumnProps> = ({ 
-    type, tasks, users, masterOptions, isDroppable, onDropTask, onOpenTask, onDeleteTask, onViewAll, isUltimate = false
+    type, tasks, users, masterOptions, isDroppable, onDropTask, onOpenTask, onTaskContextMenu, onDeleteTask, onViewAll, isUltimate = false
 }) => {
     
     // Header Config
@@ -201,6 +202,7 @@ const WorkColumn: React.FC<WorkColumnProps> = ({
                                     e.dataTransfer.effectAllowed = "move";
                                 }}
                                 onClick={onOpenTask}
+                                onContextMenu={onTaskContextMenu}
                                 onDelete={onDeleteTask}
                                 isUltimate={isUltimate}
                             />

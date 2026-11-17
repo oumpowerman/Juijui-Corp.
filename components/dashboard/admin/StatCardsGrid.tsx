@@ -9,7 +9,7 @@ interface StatCardsGridProps {
     stats: any[];
     loading: boolean;
     currentTheme: any;
-    onCardClick: (title: string, tasks: Task[], theme: string) => void;
+    onCardClick: (title: string, tasks: Task[], theme: string, statId?: string) => void;
     timeRangeLabel: string;
 }
 
@@ -77,7 +77,7 @@ const StatCardsGrid: React.FC<StatCardsGridProps> = ({ stats, loading, currentTh
                             boxShadow: "0 20px 40px rgba(0,0,0,0.05)"
                         }}
                         whileTap={{ scale: 0.95 }}
-                        onClick={() => onCardClick(`${stat.label} (${timeRangeLabel})`, stat.tasks, colorKey)}
+                        onClick={() => onCardClick(`${stat.label} (${timeRangeLabel})`, stat.tasks, colorKey, stat.id)}
                         className={`
                             relative overflow-hidden group cursor-pointer transition-colors duration-200
                             p-6 rounded-[2.5rem] flex flex-col justify-between h-44

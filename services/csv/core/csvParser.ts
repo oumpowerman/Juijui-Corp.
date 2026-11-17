@@ -30,6 +30,55 @@ export const parseCSVLine = (line: string): string[] => {
 };
 
 /**
+ * Parses full CSV text into a 2D matrix while properly handling newlines inside double-quoted cells.
+ */
+export const parseCSVMatrix = (text: string): string[][] => {
+    if (!text) return [];
+    const normalized = text.replace(/^\uFEFF/, '');
+    const rows: string[][] = [];
+    let currentRow: string[] = [];
+    let currentCell = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < normalized.length; i++) {
+        const ch = normalized[i];
+
+        if (ch === '"') {
+            if (inQuotes && normalized[i + 1] === '"') {
+                currentCell += '"';
+                i++;
+            } else {
+                inQuotes = !inQuotes;
+            }
+        } else if (ch === ',' && !inQuotes) {
+            currentRow.push(currentCell.trim());
+            currentCell = '';
+        } else if ((ch === '\r' || ch === '\n') && !inQuotes) {
+            if (ch === '\r' && normalized[i + 1] === '\n') {
+                i++;
+            }
+            currentRow.push(currentCell.trim());
+            if (currentRow.some(cell => cell.length > 0)) {
+                rows.push(currentRow);
+            }
+            currentRow = [];
+            currentCell = '';
+        } else {
+            currentCell += ch;
+        }
+    }
+
+    if (currentCell.length > 0 || currentRow.length > 0) {
+        currentRow.push(currentCell.trim());
+        if (currentRow.some(cell => cell.length > 0)) {
+            rows.push(currentRow);
+        }
+    }
+
+    return rows;
+};
+
+/**
  * Helper: Reads a File/Blob as text with automatic Thai encoding detection.
  * Supports UTF-8 (with or without BOM), Windows-874, and TIS-620.
  */

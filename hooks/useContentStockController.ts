@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase';
 import { isStockTerminalStatus } from '../config/status';
 import { parseChannelTokens, copyTextToClipboard } from './content-stock/deepLinkUtils';
 import { dispatchBulkContentImportNotifications, BulkImportedContentItem } from '../utils/assignmentNotifications';
+import { executeResilientStockImport, ImportSubmitProgress, formatSupabaseError } from '../utils/bulkStockImporter';
 import {
     SortKey,
     SortDirection,
@@ -16,7 +17,8 @@ import {
     StockViewState,
     StockDataResult,
     StockModalState,
-    StockImportActions
+    StockImportActions,
+    ImportPartialAlert
 } from './content-stock/types';
 
 export * from './content-stock/types';
@@ -68,9 +70,20 @@ export const useContentStockController = ({ globalTasks, channels, users, master
     const [selectedContentForAnalytics, setSelectedContentForAnalytics] = useState<Task | null>(null);
 
     // --- CSV Import Validation States ---
-    const [isImportPreviewOpen, setIsImportPreviewOpen] = useState(false);
+    const [isImportPreviewOpen, setIsImportPreviewOpenRaw] = useState(false);
     const [importValidationResult, setImportValidationResult] = useState<StockCSVValidationResult | null>(null);
     const [isSubmittingImport, setIsSubmittingImport] = useState(false);
+    const [importProgress, setImportProgress] = useState<ImportSubmitProgress | null>(null);
+    const [importPartialAlert, setImportPartialAlert] = useState<ImportPartialAlert | null>(null);
+    const isSubmittingImportRef = useRef(false);
+
+    const setIsImportPreviewOpen = useCallback((open: boolean) => {
+        setIsImportPreviewOpenRaw(open);
+        if (!open) {
+            setImportProgress(null);
+            setImportPartialAlert(null);
+        }
+    }, []);
     
     const viewTab = (searchParams.get('stockMode') as 'LIST' | 'QUEUE') || 'LIST';
     const contentSubTab = (searchParams.get('stockTab') as 'ACTIVE' | 'ARCHIVE') || 'ACTIVE';
@@ -419,6 +432,8 @@ export const useContentStockController = ({ globalTasks, channels, users, master
         setIsImporting(true);
         try {
             const validation = await validateAndParseStockFile(file, users, channels, masterOptions);
+            setImportPartialAlert(null);
+            setImportProgress(null);
             setImportValidationResult(validation);
             setIsImportPreviewOpen(true);
         } catch (err: any) {
@@ -428,7 +443,7 @@ export const useContentStockController = ({ globalTasks, channels, users, master
             setIsImporting(false);
             if (fileInputRef.current) fileInputRef.current.value = '';
         }
-    }, [channels, users, masterOptions, showToast]);
+    }, [channels, users, masterOptions, showToast, setIsImportPreviewOpen]);
 
     const handleFileUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
         const file = event.target.files?.[0];
@@ -441,60 +456,139 @@ export const useContentStockController = ({ globalTasks, channels, users, master
             showToast('ไม่มีรายการที่พร้อมนำเข้า', 'warning');
             return;
         }
+        if (isSubmittingImportRef.current) {
+            return;
+        }
 
+        isSubmittingImportRef.current = true;
         setIsSubmittingImport(true);
+        setImportPartialAlert(null);
+        setImportProgress({
+            processedCount: 0,
+            totalCount: itemsToInsert.length,
+            succeededCount: 0,
+            failedCount: 0,
+            currentBatch: 1,
+            totalBatches: Math.max(1, Math.ceil(itemsToInsert.length / 25)),
+            statusText: `กำลังเตรียมนำเข้า ${itemsToInsert.length} รายการ...`,
+            isRetrying: false,
+        });
+
         try {
-            const payloads = itemsToInsert.map(item => item.payload);
-            const BATCH_SIZE = 100;
-            const insertedItems: BulkImportedContentItem[] = [];
+            const result = await executeResilientStockImport(
+                itemsToInsert,
+                async (payloadBatch) => {
+                    const { data, error } = await supabase
+                        .from('contents')
+                        .insert(payloadBatch)
+                        .select('id, title, end_date, idea_owner_ids, editor_ids, assignee_ids');
 
-            for (let i = 0; i < payloads.length; i += BATCH_SIZE) {
-                const chunk = payloads.slice(i, i + BATCH_SIZE);
-                const { data, error } = await supabase
-                    .from('contents')
-                    .insert(chunk)
-                    .select('id, title, end_date, idea_owner_ids, editor_ids, assignee_ids');
-                if (error) throw error;
+                    if (error) throw error;
 
-                if (Array.isArray(data)) {
-                    data.forEach((row: any) => {
-                        insertedItems.push({
+                    return Array.isArray(data)
+                        ? data.map((row: any): BulkImportedContentItem => ({
                             id: row.id,
                             title: row.title,
                             endDate: row.end_date,
                             ideaOwnerIds: row.idea_owner_ids || [],
                             editorIds: row.editor_ids || [],
                             assigneeIds: row.assignee_ids || [],
-                        });
-                    });
+                        }))
+                        : [];
+                },
+                {
+                    batchSize: 25,
+                    interChunkDelayMs: 200,
+                    maxRetries: 3,
+                    onProgress: (progress) => setImportProgress(progress),
                 }
-            }
+            );
 
-            if (insertedItems.length > 0) {
+            // Dispatch notifications for whatever succeeded (even in partial success)
+            if (result.insertedItems.length > 0) {
                 try {
-                    await dispatchBulkContentImportNotifications(insertedItems);
+                    await dispatchBulkContentImportNotifications(result.insertedItems);
                 } catch (notifErr) {
                     console.warn('[useContentStockController] Bulk import notification warning:', notifErr);
                 }
             }
 
-            showToast(`นำเข้าสำเร็จ ${itemsToInsert.length} รายการ`, 'success');
-            setIsImportPreviewOpen(false);
-            setImportValidationResult(null);
-            await refreshStock();
-            await fetchUnassignedChannelCount();
+            const hasRemaining = result.remainingItems.length > 0 || result.rowFailures.length > 0 || result.abortedByTransientError;
+
+            if (!hasRemaining) {
+                showToast(`นำเข้าสำเร็จทั้งหมด ${result.insertedItems.length} รายการ`, 'success');
+                setIsImportPreviewOpen(false);
+                setImportValidationResult(null);
+                setImportPartialAlert(null);
+                await Promise.all([refreshStock(), fetchUnassignedChannelCount()]);
+                return;
+            }
+
+            // Partial or full failure recovery: strip already-saved items so retries NEVER duplicate them
+            const updatedByIndex = new Map<number, ParsedStockItemPreview>(
+                result.remainingItems.map(it => [it.index, it])
+            );
+
+            setImportValidationResult(prev => {
+                if (!prev) return prev;
+                const nextItems = prev.items
+                    .filter(it => !result.succeededIndices.has(it.index))
+                    .map(it => updatedByIndex.get(it.index) || it);
+
+                let validCount = 0;
+                let warningCount = 0;
+                let errorCount = 0;
+                nextItems.forEach(it => {
+                    if (!it.isValid) errorCount++;
+                    else if (it.warnings.length > 0) warningCount++;
+                    else validCount++;
+                });
+
+                return {
+                    ...prev,
+                    totalRows: nextItems.length,
+                    validRowsCount: validCount,
+                    warningRowsCount: warningCount,
+                    errorRowsCount: errorCount,
+                    items: nextItems,
+                };
+            });
+
+            const succeededCount = result.succeededIndices.size;
+            const remainingValidCount = result.remainingItems.filter(it => it.isValid).length;
+            const errorRowCount = result.rowFailures.length;
+
+            const alertMsg = succeededCount > 0
+                ? `บันทึกเข้าฐานข้อมูลแล้ว ${succeededCount} รายการ — เหลืออีก ${result.remainingItems.length} รายการที่ยังไม่ถูกนำเข้า${result.errorMessage ? ` (${result.errorMessage})` : ''}`
+                : (result.errorMessage || 'ไม่สามารถบันทึกข้อมูลเข้า Supabase ได้ชั่วคราว กรุณาลองใหม่อีกครั้ง');
+
+            setImportPartialAlert({
+                succeededCount,
+                remainingCount: remainingValidCount,
+                errorRowCount,
+                message: alertMsg,
+            });
+
+            if (succeededCount > 0) {
+                showToast(`บันทึกสำเร็จบางส่วน ${succeededCount} รายการ (เหลือ ${result.remainingItems.length} รายการให้ส่งต่อ)`, 'warning');
+                await Promise.all([refreshStock(), fetchUnassignedChannelCount()]);
+            } else {
+                showToast(alertMsg, 'error');
+            }
         } catch (err: any) {
             console.error('Execute import error:', err);
-            showToast('เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + (err.message || err), 'error');
+            showToast('เกิดข้อผิดพลาดในการบันทึกข้อมูล: ' + formatSupabaseError(err), 'error');
         } finally {
+            isSubmittingImportRef.current = false;
             setIsSubmittingImport(false);
+            setImportProgress(null);
         }
-    }, [showToast, refreshStock, fetchUnassignedChannelCount]);
+    }, [showToast, refreshStock, fetchUnassignedChannelCount, setIsImportPreviewOpen]);
 
     const handleDownloadTemplate = useCallback(() => {
         try {
-            const csvContent = generateContentStockCSVTemplate();
-            const blob = new Blob([new Uint8Array([0xEF, 0xBB, 0xBF]), csvContent], { type: 'text/csv;charset=utf-8;' });
+            const csvContent = generateContentStockCSVTemplate(masterOptions, channels);
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
             const url = URL.createObjectURL(blob);
             link.setAttribute('href', url);
@@ -509,7 +603,7 @@ export const useContentStockController = ({ globalTasks, channels, users, master
             console.error('Template download error:', err);
             showToast('เกิดข้อผิดพลาดในการดาวน์โหลด Template', 'error');
         }
-    }, [showToast]);
+    }, [masterOptions, channels, showToast]);
 
     // The unassigned count is fetched directly from database (contents table where channel_id is null)
     // We should use unassignedChannelCount directly rather than Math.max with local tasks (which includes tasks table).
@@ -690,9 +784,11 @@ export const useContentStockController = ({ globalTasks, channels, users, master
         importValidationResult,
         setImportValidationResult,
         isSubmittingImport,
+        importProgress,
+        importPartialAlert,
         selectedContentForAnalytics,
         setSelectedContentForAnalytics
-    }), [isInventoryModalOpen, isImportPreviewOpen, importValidationResult, isSubmittingImport, selectedContentForAnalytics]);
+    }), [isInventoryModalOpen, isImportPreviewOpen, setIsImportPreviewOpen, importValidationResult, isSubmittingImport, importProgress, importPartialAlert, selectedContentForAnalytics]);
 
     const importActions: StockImportActions = useMemo(() => ({
         fileInputRef,
@@ -740,6 +836,8 @@ export const useContentStockController = ({ globalTasks, channels, users, master
         importValidationResult,
         setImportValidationResult,
         isSubmittingImport,
+        importProgress,
+        importPartialAlert,
         handleFileUpload,
         handleProcessFile,
         handleExecuteImport,

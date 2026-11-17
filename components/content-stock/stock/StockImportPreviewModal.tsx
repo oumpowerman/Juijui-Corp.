@@ -1,8 +1,11 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { AlertCircle } from 'lucide-react';
 import { StockCSVValidationResult, ParsedStockItemPreview } from '../../../services/stockImportValidator';
 import { Channel, User, MasterOption } from '../../../types';
+import { ImportSubmitProgress } from '../../../utils/bulkStockImporter';
+import { ImportPartialAlert } from '../../../hooks/content-stock/types';
 import {
     useImportPreviewModal,
     ImportHeader,
@@ -20,6 +23,8 @@ export interface StockImportPreviewModalProps {
     onClose: () => void;
     validationResult: StockCSVValidationResult | null;
     isSubmitting: boolean;
+    importProgress?: ImportSubmitProgress | null;
+    partialAlert?: ImportPartialAlert | null;
     onConfirmImport: (validItems: ParsedStockItemPreview[], skipErrors: boolean) => void;
     onDownloadTemplate: () => void;
     channels?: Channel[];
@@ -32,6 +37,8 @@ export const StockImportPreviewModal: React.FC<StockImportPreviewModalProps> = (
     onClose,
     validationResult,
     isSubmitting,
+    importProgress = null,
+    partialAlert = null,
     onConfirmImport,
     onDownloadTemplate,
     channels = [],
@@ -46,6 +53,11 @@ export const StockImportPreviewModal: React.FC<StockImportPreviewModalProps> = (
         skipErrorRows,
         setSkipErrorRows,
         filteredItems,
+        paginatedItems,
+        currentPage,
+        setCurrentPage,
+        totalPages,
+        pageSize,
         importableItems,
         canSubmit,
         counts,
@@ -126,6 +138,34 @@ export const StockImportPreviewModal: React.FC<StockImportPreviewModalProps> = (
                                     onSelectFilter={setViewFilter}
                                 />
 
+                                {/* Partial Success / Retry Recovery Banner */}
+                                {partialAlert && (
+                                    <div className="mx-4 sm:mx-6 mt-3 px-4 py-3 rounded-2xl bg-amber-50/90 border border-amber-200 text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2 shrink-0">
+                                        <div className="flex items-start gap-2.5 text-xs">
+                                            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                                            <div className="space-y-0.5">
+                                                <p className="font-bold text-amber-900">
+                                                    {partialAlert.succeededCount > 0
+                                                        ? `บันทึกสำเร็จแล้ว ${partialAlert.succeededCount} รายการ (นำรายการที่ส่งแล้วออกเพื่อป้องกันซ้ำ)`
+                                                        : 'การส่งข้อมูลเข้า Supabase ขัดข้องชั่วคราว'}
+                                                </p>
+                                                <p className="text-[11px] text-amber-800/90 leading-relaxed">
+                                                    {partialAlert.message}
+                                                </p>
+                                            </div>
+                                        </div>
+                                        {partialAlert.errorRowCount > 0 && viewFilter !== 'ERROR' && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setViewFilter('ERROR')}
+                                                className="px-3 py-1.5 rounded-xl bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 text-[11px] font-bold shrink-0 cursor-pointer transition-colors"
+                                            >
+                                                ดูแถวที่ติด Error ({partialAlert.errorRowCount})
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+
                                 {/* Advisory Notice (Errors > 5 vs Quick-fix <= 5) */}
                                 <ImportErrorAdvisory
                                     errorRowsCount={counts.error}
@@ -149,7 +189,12 @@ export const StockImportPreviewModal: React.FC<StockImportPreviewModalProps> = (
 
                                 {/* Table Preview */}
                                 <ImportTable
-                                    items={filteredItems}
+                                    items={paginatedItems}
+                                    currentPage={currentPage}
+                                    totalPages={totalPages}
+                                    totalFilteredCount={filteredItems.length}
+                                    pageSize={pageSize}
+                                    onPageChange={setCurrentPage}
                                     onEdit={(item) => setEditingItem(item)}
                                 />
 
@@ -160,6 +205,8 @@ export const StockImportPreviewModal: React.FC<StockImportPreviewModalProps> = (
                                     errorRowsCount={counts.error}
                                     skipErrorRows={skipErrorRows}
                                     isSubmitting={isSubmitting}
+                                    importProgress={importProgress}
+                                    isPartialRecovery={Boolean(partialAlert && partialAlert.succeededCount > 0)}
                                     canSubmit={canSubmit}
                                     onClose={onClose}
                                     onSubmit={handleConfirm}

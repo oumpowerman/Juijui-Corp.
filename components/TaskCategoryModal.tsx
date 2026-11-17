@@ -1,11 +1,15 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { X, AlertCircle, Minimize2, Maximize2, Columns, LayoutList } from 'lucide-react';
-import { Task, Channel, MasterOption } from '../types';
+import { Task, Channel, MasterOption, User, TaskType } from '../types';
 import { PLATFORM_ICONS } from '../constants';
 import { motion, AnimatePresence } from 'framer-motion';
 import TaskCategoryItem from './TaskCategoryItem';
+import TeamTaskContextMenu, { TeamTaskContextMenuState } from './team/modals/TeamTaskContextMenu';
+import TeamTaskDuplicateModal, { TeamTaskDuplicateRequest } from './team/modals/TeamTaskDuplicateModal';
+import { useGlobalDialog } from '../context/GlobalDialogContext';
+import { useTasks } from '../hooks/useTasks';
 
 interface TaskCategoryModalProps {
   isOpen: boolean;
@@ -13,16 +17,102 @@ interface TaskCategoryModalProps {
   title: string;
   tasks: Task[];
   channels: Channel[];
+  users?: User[];
   masterOptions?: MasterOption[]; // Add masterOptions
   onEditTask: (task: Task) => void;
+  onItemContextMenu?: (e: React.MouseEvent, task: Task) => void;
+  onSaveTask?: (task: Task) => Promise<void> | void;
+  onDeleteTask?: (taskId: string, taskType?: TaskType) => Promise<void> | void;
   colorTheme: string; // e.g., 'blue', 'green', 'red', 'orange'
 }
 
 const TaskCategoryModal: React.FC<TaskCategoryModalProps> = ({ 
-  isOpen, onClose, title, tasks, channels, masterOptions = [], onEditTask, colorTheme 
+  isOpen,
+  onClose,
+  title,
+  tasks,
+  channels,
+  users = [],
+  masterOptions = [],
+  onEditTask,
+  onItemContextMenu,
+  onSaveTask,
+  onDeleteTask,
+  colorTheme,
 }) => {
   const [isCompact, setIsCompact] = useState(false);
   const [viewMode, setViewMode] = useState<'list' | 'board'>('list');
+  const [internalContextMenu, setInternalContextMenu] = useState<TeamTaskContextMenuState | null>(null);
+  const [internalDuplicateRequest, setInternalDuplicateRequest] = useState<TeamTaskDuplicateRequest | null>(null);
+
+  const { showConfirm } = useGlobalDialog();
+  const { handleSaveTask: contextSaveTask, handleDeleteTask: contextDeleteTask } = useTasks();
+
+  useEffect(() => {
+    if (!isOpen) {
+      setInternalContextMenu(null);
+      setInternalDuplicateRequest(null);
+    }
+  }, [isOpen]);
+
+  const handleCardContextMenu = useCallback((e: React.MouseEvent, task: Task) => {
+    if (onItemContextMenu) {
+      onItemContextMenu(e, task);
+      return;
+    }
+
+    const resolvedDate = task.startDate
+      ? new Date(task.startDate)
+      : (task.endDate ? new Date(task.endDate) : new Date());
+
+    setInternalContextMenu({
+      x: e.clientX,
+      y: e.clientY,
+      task,
+      userId: task.assigneeIds?.[0] || '',
+      date: resolvedDate,
+    });
+  }, [onItemContextMenu]);
+
+  const handleInternalContextEdit = useCallback((task: Task) => {
+    onEditTask({ ...task, _openInEditMode: true } as Task);
+  }, [onEditTask]);
+
+  const handleInternalContextDuplicate = useCallback((task: Task, userId: string, date: Date) => {
+    const startDate = task.startDate ? new Date(task.startDate) : date;
+    const endDate = task.endDate ? new Date(task.endDate) : startDate;
+    const targetUser = users.find(u => u.id === userId);
+    setInternalDuplicateRequest({
+      sourceTask: task,
+      targetUserId: userId,
+      targetUser,
+      startDate,
+      endDate,
+    });
+  }, [users]);
+
+  const handleInternalContextDelete = useCallback(async (task: Task) => {
+    const confirmed = await showConfirm(
+      `ต้องการลบงาน "${task.title}" ใช่หรือไม่?`,
+      'ยืนยันการลบงาน'
+    );
+    if (!confirmed) return;
+
+    const resolvedType: 'CONTENT' | 'TASK' = task.type === 'CONTENT' ? 'CONTENT' : 'TASK';
+    if (onDeleteTask) {
+      await onDeleteTask(task.id, resolvedType);
+    } else {
+      await contextDeleteTask(task.id, resolvedType);
+    }
+  }, [showConfirm, onDeleteTask, contextDeleteTask]);
+
+  const handleInternalDuplicateConfirm = useCallback(async (duplicatedTask: Task) => {
+    if (onSaveTask) {
+      await onSaveTask(duplicatedTask);
+    } else {
+      await contextSaveTask(duplicatedTask, null);
+    }
+  }, [onSaveTask, contextSaveTask]);
 
   // Group tasks by channel
   const { channelGroups, unassignedTasks } = React.useMemo(() => {
@@ -163,13 +253,14 @@ const TaskCategoryModal: React.FC<TaskCategoryModalProps> = ({
                         </motion.div>
                     ) : (
                         <div className="space-y-3">
-                            {[...tasks].sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime()).map((task, index) => (
+                            {[...tasks].sort((a, b) => (a.endDate ? new Date(a.endDate).getTime() : 0) - (b.endDate ? new Date(b.endDate).getTime() : 0)).map((task, index) => (
                                 <TaskCategoryItem 
                                     key={task.id}
                                     task={task}
                                     channelInfo={getChannelInfo(task.channelId || '')}
                                     masterOptions={masterOptions}
                                     onClick={onEditTask}
+                                    onContextMenu={handleCardContextMenu}
                                     isCompact={isCompact}
                                     index={index}
                                 />
@@ -216,13 +307,14 @@ const TaskCategoryModal: React.FC<TaskCategoryModalProps> = ({
                                             <span className="ml-auto bg-orange-100 text-orange-700 text-xs font-bold px-2 py-0.5 rounded-full shrink-0">{groupTasks.length}</span>
                                         </div>
                                         <div className="space-y-3 overflow-y-auto flex-1 custom-scrollbar pr-1 pb-2">
-                                            {[...groupTasks].sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime()).map((task, index) => (
+                                            {[...groupTasks].sort((a, b) => (a.endDate ? new Date(a.endDate).getTime() : 0) - (b.endDate ? new Date(b.endDate).getTime() : 0)).map((task, index) => (
                                                 <TaskCategoryItem 
                                                     key={task.id}
                                                     task={task}
                                                     channelInfo={getChannelInfo(task.channelId || '')}
                                                     masterOptions={masterOptions}
                                                     onClick={onEditTask}
+                                                    onContextMenu={handleCardContextMenu}
                                                     isCompact={isCompact}
                                                     index={index}
                                                 />
@@ -243,13 +335,14 @@ const TaskCategoryModal: React.FC<TaskCategoryModalProps> = ({
                                         <span className="ml-auto bg-gray-200 text-gray-700 text-xs font-bold px-2 py-0.5 rounded-full shrink-0">{unassignedTasks.length}</span>
                                     </div>
                                     <div className="space-y-3 overflow-y-auto flex-1 custom-scrollbar pr-1 pb-2">
-                                        {[...unassignedTasks].sort((a, b) => new Date(a.endDate).getTime() - new Date(b.endDate).getTime()).map((task, index) => (
+                                        {[...unassignedTasks].sort((a, b) => (a.endDate ? new Date(a.endDate).getTime() : 0) - (b.endDate ? new Date(b.endDate).getTime() : 0)).map((task, index) => (
                                             <TaskCategoryItem 
                                                 key={task.id}
                                                 task={task}
                                                 channelInfo={getChannelInfo(task.channelId || '')}
                                                 masterOptions={masterOptions}
                                                 onClick={onEditTask}
+                                                onContextMenu={handleCardContextMenu}
                                                 isCompact={isCompact}
                                                 index={index}
                                             />
@@ -267,7 +360,31 @@ const TaskCategoryModal: React.FC<TaskCategoryModalProps> = ({
     </AnimatePresence>
   );
 
-  return createPortal(modalContent, document.body);
+  return (
+    <>
+      {createPortal(modalContent, document.body)}
+      {!onItemContextMenu && (
+        <>
+          <TeamTaskContextMenu
+            menuState={internalContextMenu}
+            onClose={() => setInternalContextMenu(null)}
+            onEdit={handleInternalContextEdit}
+            onDuplicate={handleInternalContextDuplicate}
+            onDelete={handleInternalContextDelete}
+          />
+          <TeamTaskDuplicateModal
+            isOpen={!!internalDuplicateRequest}
+            request={internalDuplicateRequest}
+            users={users}
+            channels={channels}
+            masterOptions={masterOptions}
+            onClose={() => setInternalDuplicateRequest(null)}
+            onConfirm={handleInternalDuplicateConfirm}
+          />
+        </>
+      )}
+    </>
+  );
 };
 
 export default TaskCategoryModal;

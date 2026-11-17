@@ -10,6 +10,7 @@ interface TaskCategoryItemProps {
   channelInfo: { name: string; Icon: React.ElementType; colorClass: string; fullColor: string; logoUrl?: string } | null;
   masterOptions: MasterOption[];
   onClick: (task: Task) => void;
+  onContextMenu?: (e: React.MouseEvent, task: Task) => void;
   isCompact?: boolean;
   index?: number;
 }
@@ -19,6 +20,7 @@ const TaskCategoryItem: React.FC<TaskCategoryItemProps> = ({
   channelInfo,
   masterOptions,
   onClick,
+  onContextMenu,
   isCompact = false,
   index = 0
 }) => {
@@ -87,6 +89,13 @@ const TaskCategoryItem: React.FC<TaskCategoryItemProps> = ({
               whileTap={{ scale: 0.98 }}
               transition={{ type: 'spring', damping: 25, stiffness: 400 }}
               onClick={() => onClick(task)}
+              onContextMenu={(e) => {
+                if (onContextMenu) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onContextMenu(e, task);
+                }
+              }}
               className="bg-white p-3 rounded-2xl border border-orange-100 shadow-sm hover:shadow-md hover:border-orange-400 cursor-pointer transition-[border-color,box-shadow] duration-200 group relative overflow-hidden flex items-center gap-3"
           >
               {/* Hover Bar - Orange Theme */}
@@ -137,6 +146,13 @@ const TaskCategoryItem: React.FC<TaskCategoryItemProps> = ({
         whileTap={{ scale: 0.98 }}
         transition={{ type: 'spring', damping: 25, stiffness: 400 }}
         onClick={() => onClick(task)}
+        onContextMenu={(e) => {
+          if (onContextMenu) {
+            e.preventDefault();
+            e.stopPropagation();
+            onContextMenu(e, task);
+          }
+        }}
         className="bg-white p-5 rounded-3xl border border-orange-100 shadow-sm hover:shadow-xl hover:border-orange-400 cursor-pointer transition-[border-color,box-shadow] duration-200 group relative overflow-hidden flex flex-col gap-3"
     >
         {/* Hover Bar - Orange Theme */}

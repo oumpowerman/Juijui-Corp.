@@ -2,6 +2,14 @@ import { Dispatch, SetStateAction, RefObject } from 'react';
 import { Task, Channel, User, MasterOption } from '../../types';
 import { isStockTerminalStatus } from '../../config/status';
 import { StockCSVValidationResult, ParsedStockItemPreview } from '../../services/stockImportValidator';
+import { ImportSubmitProgress } from '../../utils/bulkStockImporter';
+
+export interface ImportPartialAlert {
+    succeededCount: number;
+    remainingCount: number;
+    errorRowCount: number;
+    message: string;
+}
 
 export type SortKey = 'title' | 'status' | 'date' | 'remark' | 'publishDate' | 'shootDate' | 'shortNote' | 'ideaOwner' | 'editor' | 'helper' | 'createdAt';
 export type SortDirection = 'asc' | 'desc';
@@ -165,6 +173,8 @@ export interface StockModalState {
     importValidationResult: StockCSVValidationResult | null;
     setImportValidationResult: (res: StockCSVValidationResult | null) => void;
     isSubmittingImport: boolean;
+    importProgress: ImportSubmitProgress | null;
+    importPartialAlert: ImportPartialAlert | null;
 
     selectedContentForAnalytics: Task | null;
     setSelectedContentForAnalytics: (task: Task | null) => void;

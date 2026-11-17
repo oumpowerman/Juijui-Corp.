@@ -69,12 +69,10 @@ export const useCalendarModals = ({
 
   // --- Day Task List Modal ---
   const [isListModalOpen, setIsListModalOpen] = useState(false);
-  const [selectedDayTasks, setSelectedDayTasks] = useState<Task[]>([]);
   const [selectedDayDate, setSelectedDayDate] = useState<Date>(new Date());
 
-  const handleDayClick = useCallback((day: Date, dayTasks: Task[]) => {
+  const handleDayClick = useCallback((day: Date, _dayTasks?: Task[]) => {
     setSelectedDayDate(day);
-    setSelectedDayTasks(dayTasks);
     setIsListModalOpen(true);
   }, []);
 
@@ -158,8 +156,6 @@ export const useCalendarModals = ({
     // Day List Modal
     isListModalOpen,
     setIsListModalOpen,
-    selectedDayTasks,
-    setSelectedDayTasks,
     selectedDayDate,
     setSelectedDayDate,
     handleDayClick,

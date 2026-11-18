@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { format, startOfDay, isBefore } from 'date-fns';
 import { LeaveType } from '../../../../types/attendance';
 import { useGlobalDialog } from '../../../../context/GlobalDialogContext';
@@ -64,6 +64,25 @@ export const useLeaveFormLogic = ({
     const [isHalfDay, setIsHalfDay] = useState(false);
     const [halfDaySession, setHalfDaySession] = useState<'AM' | 'PM'>('AM');
 
+    const hasUserEditedTargetTimeRef = useRef(false);
+    const hasUserEditedEndTimeRef = useRef(false);
+
+    const handleUserTargetTimeChange = useCallback((val: string) => {
+        hasUserEditedTargetTimeRef.current = true;
+        setTargetTime(val);
+    }, []);
+
+    const handleUserEndTimeChange = useCallback((val: string) => {
+        hasUserEditedEndTimeRef.current = true;
+        setEndTime(val);
+    }, []);
+
+    const handleUserStartDateChange = useCallback((val: string) => {
+        hasUserEditedTargetTimeRef.current = false;
+        hasUserEditedEndTimeRef.current = false;
+        setStartDate(val);
+    }, []);
+
     const hasAMHalfDayLeave = useMemo(() => {
         if (!leaveRequests || !startDate) return false;
         return leaveRequests.some((r: any) => {
@@ -117,6 +136,8 @@ export const useLeaveFormLogic = ({
                 }
             }
         }
+        hasUserEditedTargetTimeRef.current = false;
+        hasUserEditedEndTimeRef.current = false;
         setStartDate(d);
         setEndDate(d);
         setReason(initialReason || '');
@@ -146,9 +167,10 @@ export const useLeaveFormLogic = ({
         }
     }, [startDate, selectedType]);
 
-    // Sync earliest required checkout time when selectedType is FORGOT_CHECKOUT
+    // Sync earliest required checkout time when selectedType is FORGOT_CHECKOUT (only if user hasn't manually edited)
     useEffect(() => {
         if (isShiftsEnabled && selectedType === 'FORGOT_CHECKOUT' && startDate) {
+            if (hasUserEditedTargetTimeRef.current || initialTargetTime) return;
             const log = attendanceLogs?.find(l => l.date === startDate);
             if (log?.checkInTime) {
                 const checkInDate = new Date(log.checkInTime);
@@ -158,11 +180,12 @@ export const useLeaveFormLogic = ({
                 setTargetTime(requiredCheckOut);
             }
         }
-    }, [startDate, selectedType, isShiftsEnabled, attendanceLogs, masterOptions]);
+    }, [startDate, selectedType, isShiftsEnabled, attendanceLogs, masterOptions, initialTargetTime]);
 
-    // Sync earliest required checkout time when selectedType is FORGOT_BOTH
+    // Sync earliest required checkout time when selectedType is FORGOT_BOTH (only if user hasn't manually edited endTime)
     useEffect(() => {
         if (isShiftsEnabled && selectedType === 'FORGOT_BOTH' && targetTime) {
+            if (hasUserEditedEndTimeRef.current) return;
             const minHours = parseFloat(masterOptions?.find(o => o.key === 'MIN_HOURS')?.label || '9');
             const requiredCheckOut = calculateRequiredCheckOutTime(targetTime, minHours);
             setEndTime(requiredCheckOut);
@@ -374,12 +397,12 @@ export const useLeaveFormLogic = ({
     };
 
     return {
-        startDate, setStartDate,
+        startDate, setStartDate: handleUserStartDateChange,
         endDate, setEndDate,
         reason, setReason,
         files, setFiles,
-        targetTime, setTargetTime,
-        endTime, setEndTime,
+        targetTime, setTargetTime: handleUserTargetTimeChange,
+        endTime, setEndTime: handleUserEndTimeChange,
         otHours, setOtHours,
         otType, setOtType,
         isSubmitting,

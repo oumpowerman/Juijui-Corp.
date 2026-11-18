@@ -7,7 +7,7 @@ import { useUserSession } from '../../../../context/UserSessionContext';
 import { format } from 'date-fns';
 import ShiftCardSelector from './ShiftCardSelector';
 import CustomTimeInput from './CustomTimeInput';
-import { calculateShiftAndActualTime, calculateRequiredCheckOutTime, isValidCheckOutTime } from '../../../../utils/shiftCalculator';
+import { calculateShiftAndActualTime, calculateRequiredCheckOutTime } from '../../../../utils/shiftCalculator';
 
 interface Props {
     date: string;
@@ -101,18 +101,6 @@ const TimeCorrectionInputs: React.FC<Props> = ({
             setIsCustomMode(true);
         }
     }, [time, shiftsList, selectedType, setTime]);
-
-    // Auto-calculate check-out time when check-in time changes for FORGOT_BOTH
-    useEffect(() => {
-        if (selectedType === 'FORGOT_BOTH' && setEndTime && time) {
-            const calculatedMinOut = calculateRequiredCheckOutTime(time, minHours);
-            if (calculatedMinOut && endTime !== calculatedMinOut) {
-                if (!endTime || !isValidCheckOutTime(time, endTime, minHours)) {
-                    setEndTime(calculatedMinOut);
-                }
-            }
-        }
-    }, [time, selectedType, minHours, endTime]);
 
     const handleSelectShift = (shiftTime: string) => {
         setIsCustomMode(false);
@@ -229,13 +217,7 @@ const TimeCorrectionInputs: React.FC<Props> = ({
                             isOpen={isTimePickerOpen}
                             onClose={() => setIsTimePickerOpen(false)}
                             initialTime={time}
-                            onSelect={(val) => {
-                                if (checkInStr && !isValidCheckOutTime(checkInStr, val, minHours)) {
-                                    if (requiredCheckOut) setTime(requiredCheckOut);
-                                } else {
-                                    setTime(val);
-                                }
-                            }}
+                            onSelect={(val) => setTime(val)}
                         />
                     </div>
                 </div>
@@ -342,13 +324,7 @@ const TimeCorrectionInputs: React.FC<Props> = ({
                         isOpen={isEndTimePickerOpen}
                         onClose={() => setIsEndTimePickerOpen(false)}
                         initialTime={endTime}
-                        onSelect={(val) => {
-                            if (selectedType === 'FORGOT_BOTH' && time && !isValidCheckOutTime(time, val, minHours)) {
-                                if (requiredCheckOut) setEndTime(requiredCheckOut);
-                            } else {
-                                setEndTime(val);
-                            }
-                        }}
+                        onSelect={(val) => setEndTime(val)}
                     />
 
                     {time && requiredCheckOut && (
